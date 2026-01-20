@@ -1,0 +1,10 @@
+{
+  "title": "phenotype_improvements",
+  "type": "object",
+  "properties": {
+    "protocolRef": { "type": "string" },
+    "cohortRefs": { "type": "array", "items": { "type": "string" } },
+    "characterizationRefs": { "type": "array", "items": { "type": "string" } }
+  },
+  "required": ["protocolRef", "cohortRefs"]
+}

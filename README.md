@@ -1,23 +1,103 @@
-# Study Design Assistant
+# OHDSI Assistant Prototype
 
-### Note
+This repo contains:
+- A tiny **ACP-like bridge** (`acp/server.py`) exposing:
+  - `/tools/propose_concept_set_diff` (concept-sets-review)
+  - `/tools/cohort_lint` (cohort-critique-general-design)
+- An **R package** `OHDSIAssistant` with `lintStudyDesign()` that calls the bridge (or uses a local fallback).
+- A **demo** study in `demo/`.
 
-This project is in a design phase. Check out branches for initial coded proof of concepts such as shown [in this video]https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=70502f91-3594-4cb6-b776-b3bd012cf637). You may post question issues to this repo as well.   
+Currently, this is a minimalistic demo
+- basic concept set and cohort definition checks
 
-### Overview 
+Ideas for further implementation
+- suggestions for use of specific OHDSI phenotypes within a study
+- flagged issues with the source data wrt to the concept sets and/or cohort definitions based on data from DQD and Achilles
+- adapatations of cohort definitions using OHDSI phenotypes for the specific study use case
+- a review of study artifacts (cohort definitions and concept set) from a causal inference and identification theory perspective
+- add AI generated doc comments to cohort definition,
+- generate R code or Atlas/WebAPI custom features from Atlas cohorts,
+- generate R code SQL-based custom features,
+- explain and address Circe-Be checks within R or Atlas/WebAPI
+- manage configuration within Atlas/WebAPI such as security reviews, and clean up of concept sets and cohort definitions
 
-This project seeks to develop an AI Study Agent to support OHDSI researchers to more rapidly, accurately, and reproducibly determine research feasibility, design research studies, and execute them. The set of services provided by the Study Agent will help a researcher go from a study idea to a well-specified research question, and then from a research question to a computable study specification, complete with computable outcome and exposure phenotypes and parameters for executing the study.
 
-### Design 
+## Quick start
 
-The Study Agent will be service-architected, providing AI-informed services to other tools used by researchers through standardized API calls. This will enable integration of the Study Agent into a variety of tools used by OHDSI researchers. The study agent will build on open-source tools and data models from the Observational Health Data Sciences and Informatics (OHDSI) collaborative. 
+1) Start bridge:
 
-### Envisioned behavior/role
+```bash
+./scripts/start_acp.sh
+```
 
-The Study Agent will behave analogously to modern coding agents which are AI-powered tools designed to assist software developers throughout the development lifecycle. The tools leverage natural language processing and machine learning to assist with generating code development plans, code snippets, and automate repetitive tasks. These agents can suggest optimized solutions, detect bugs, and provide real-time debugging assistance, reducing development time and improving code quality. They integrate seamlessly with IDEs and version control systems, enabling developers to write, test, and deploy code more efficiently. Additionally, coding agents support learning by explaining complex concepts and offering best practices, making them valuable for both novice and experienced programmers.
+Optional) Use another ACP-style CLI backend:
 
-In a similar way, the Study Agent, through the services it provides, will assist OHDSI researchers throughout the study feasibility, design, and execution lifecycles. It will leverage modern multi-modal transformer-based neural network models and protocols, including as Model Context Protocol (MCP) and Agent Client Protocol (ACP), to understand the user’s study intent and generate concept sets, cohort definitions, diagnostics, extract features, and write a study specification. The Study Agent will also suggest improvements to study artifacts based on summary data about the data source, documentation on ETL processes, and known issues. Additionally, the Study Agent will support learning by offering recommended approaches to generating evidence from observational retrospective data. This will help lower the high technical barrier that exists between clinical domain experts and data scientists.  
+```bash
+export ACP_MODEL_CMD="my-cli --reads-stdin"  # prompt sent via stdin; must return JSON
+./scripts/start_acp.sh
+```
 
-### Guardrails
+Optional) Use OpenWebUI HTTP backend (recommended):
 
-It's important to note that the study agent services will never receive row level patient data. Rather the architecture will be such that the tools that call the services (e.g., R or Atlas) will have authorized access to the data while the information that's passed through the Study Agent services will restricted to be descriptive and aggregated. This will lower the risk of data breaches while enabling a variety of different models, or model configurations (e.g., LoRA tunings) to be used or swapped out depending on the service use case.
+```bash
+export OPENWEBUI_API_KEY="..."  # required
+export OPENWEBUI_API_URL="http://localhost:3000/api/chat/completions"  # default
+export OPENWEBUI_MODEL="agentstudyassistant"  # default
+export FLASK_DEBUG=1 # Optional but helpful
+./scripts/start_acp.sh
+```
+
+In R:
+
+```r
+devtools::load_all("R/OHDSIAssistant")
+OHDSIAssistant::acp_connect("http://127.0.0.1:7777")
+OHDSIAssistant::lintStudyDesign(
+  studyProtocol = "demo/protocol.md",
+  studyPackage  = "demo",
+  lintTasks     = c("concept-sets-review","cohort-critique-general-design"),
+  apply         = FALSE,
+  interactive   = TRUE
+)
+```
+
+You'll see plans, findings, and suggested patches. Advice logs are saved under demo/inst/assistant/.
+
+Executable action (concept-set includeDescendants helper):
+
+```r
+patch <- OHDSIAssistant::proposeIncludeDescendantsPatch("demo/concept_set.json")
+OHDSIAssistant::previewConceptSetPatch("demo/concept_set.json", patch)
+OHDSIAssistant::applyConceptSetPatch("demo/concept_set.json", patch, backup = TRUE)
+```
+
+Phenotype suggestions (stubbed if no LLM):
+
+```r
+devtools::load_all("R/OHDSIAssistant")
+OHDSIAssistant::acp_connect("http://127.0.0.1:7777")  # optional; falls back to stub
+rec <- OHDSIAssistant::suggestPhenotypes("demo/protocol.md", "demo/Cohorts.csv", maxResults = 3)
+ids <- OHDSIAssistant::selectPhenotypeRecommendations(rec$phenotype_recommendations, interactive = TRUE)
+paths <- OHDSIAssistant::pullPhenotypeDefinitions(ids, outputDir = "demo")
+OHDSIAssistant::reviewPhenotypes("demo/protocol.md", paths)
+# Optionally persist improvement notes next to the cohort JSONs
+OHDSIAssistant::reviewPhenotypes("demo/protocol.md", paths, apply = TRUE, select = "all")
+```
+
+LLM actions (preview/apply model-proposed edits):
+
+```r
+resp <- OHDSIAssistant:::`.acp_post`("/tools/propose_concept_set_diff", list(
+  conceptSetRef = "demo/concept_set.json",
+  studyIntent   = paste(readLines("demo/protocol.md", warn = FALSE), collapse = " ")
+))
+OHDSIAssistant::applyLLMActionsConceptSet("demo/concept_set.json", resp$actions, preview = TRUE)
+```
+
+Next steps
+
+Replace "note" patches with executable JSON Patch aligned to ATLAS schema.
+
+Add WebAPI resolvers for webapi://cohort/<id> and webapi://conceptSet/<id>.
+
+Pull in Achilles/DQD summaries to drive severity and evidence links.

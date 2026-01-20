@@ -1,0 +1,10 @@
+{
+  "title": "propose_concept_set_diff",
+  "type": "object",
+  "properties": {
+    "conceptSetRef": { "type": "string" },
+    "studyIntent": { "type": "string" },
+    "sourceStatsRef": { "type": "string" }
+  },
+  "required": ["conceptSetRef"]
+}

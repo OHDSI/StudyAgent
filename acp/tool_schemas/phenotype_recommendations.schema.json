@@ -1,0 +1,10 @@
+{
+  "title": "phenotype_recommendations",
+  "type": "object",
+  "properties": {
+    "protocolRef": { "type": "string" },
+    "cohortsCatalogRef": { "type": "string" },
+    "maxResults": { "type": "integer" }
+  },
+  "required": ["protocolRef", "cohortsCatalogRef"]
+}

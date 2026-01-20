@@ -1,0 +1,15 @@
+*.agent-shell/
+*sandbox/
+scripts/output-cohort-diagn/
+*db-details.json
+*pyc
+*~
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.Rbuildignore
+.Rproj
+.DS_Store
+**/inst/assistant/*.json
+__pycache__/

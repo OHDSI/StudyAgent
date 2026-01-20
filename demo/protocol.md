@@ -1,0 +1,1 @@
+Study intent: Identify clinical risk factors for older adult patients who experience an adverse event of acute gastro-intenstinal (GI) bleeding. The GI bleed has to be detected in the hospital setting. Risk factors can include concomitant medications or chronic and acute conditions.

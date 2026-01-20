@@ -1,0 +1,270 @@
+{
+  "items": [
+    {
+      "concept": {
+        "CONCEPT_CLASS_ID": "Ingredient",
+        "CONCEPT_CODE": "89013",
+        "CONCEPT_ID": 757688,
+        "CONCEPT_NAME": "aripiprazole",
+        "DOMAIN_ID": "Drug",
+        "INVALID_REASON": "V",
+        "INVALID_REASON_CAPTION": "Valid",
+        "STANDARD_CONCEPT": "S",
+        "STANDARD_CONCEPT_CAPTION": "Standard",
+        "VOCABULARY_ID": "RxNorm",
+        "VALID_START_DATE": "1969-12-31",
+        "VALID_END_DATE": "2099-12-30"
+      },
+      "isExcluded": false,
+      "includeDescendants": false,
+      "includeMapped": false
+    },
+    {
+      "concept": {
+        "CONCEPT_CLASS_ID": "Ingredient",
+        "CONCEPT_CODE": "784649",
+        "CONCEPT_ID": 40164052,
+        "CONCEPT_NAME": "asenapine",
+        "DOMAIN_ID": "Drug",
+        "INVALID_REASON": "V",
+        "INVALID_REASON_CAPTION": "Valid",
+        "STANDARD_CONCEPT": "S",
+        "STANDARD_CONCEPT_CAPTION": "Standard",
+        "VOCABULARY_ID": "RxNorm",
+        "VALID_START_DATE": "2009-09-05",
+        "VALID_END_DATE": "2099-12-30"
+      },
+      "isExcluded": false,
+      "includeDescendants": false,
+      "includeMapped": false
+    },
+    {
+      "concept": {
+        "CONCEPT_CLASS_ID": "Ingredient",
+        "CONCEPT_CODE": "1658314",
+        "CONCEPT_ID": 46275300,
+        "CONCEPT_NAME": "brexpiprazole",
+        "DOMAIN_ID": "Drug",
+        "INVALID_REASON": "V",
+        "INVALID_REASON_CAPTION": "Valid",
+        "STANDARD_CONCEPT": "S",
+        "STANDARD_CONCEPT_CAPTION": "Standard",
+        "VOCABULARY_ID": "RxNorm",
+        "VALID_START_DATE": "2015-09-07",
+        "VALID_END_DATE": "2099-12-30"
+      },
+      "isExcluded": false,
+      "includeDescendants": false,
+      "includeMapped": false
+    },
+    {
+      "concept": {
+        "CONCEPT_CLASS_ID": "Ingredient",
+        "CONCEPT_CODE": "1667655",
+        "CONCEPT_ID": 35603277,
+        "CONCEPT_NAME": "cariprazine",
+        "DOMAIN_ID": "Drug",
+        "INVALID_REASON": "V",
+        "INVALID_REASON_CAPTION": "Valid",
+        "STANDARD_CONCEPT": "S",
+        "STANDARD_CONCEPT_CAPTION": "Standard",
+        "VOCABULARY_ID": "RxNorm",
+        "VALID_START_DATE": "2016-05-01",
+        "VALID_END_DATE": "2099-12-30"
+      },
+      "isExcluded": false,
+      "includeDescendants": false,
+      "includeMapped": false
+    },
+    {
+      "concept": {
+        "CONCEPT_CLASS_ID": "Ingredient",
+        "CONCEPT_CODE": "2403",
+        "CONCEPT_ID": 794852,
+        "CONCEPT_NAME": "chlorpromazine",
+        "DOMAIN_ID": "Drug",
+        "INVALID_REASON": "V",
+        "INVALID_REASON_CAPTION": "Valid",
+        "STANDARD_CONCEPT": "S",
+        "STANDARD_CONCEPT_CAPTION": "Standard",
+        "VOCABULARY_ID": "RxNorm",
+        "VALID_START_DATE": "1969-12-31",
+        "VALID_END_DATE": "2099-12-30"
+      },
+      "isExcluded": false,
+      "includeDescendants": false,
+      "includeMapped": false
+    },
+    {
+      "concept": {
+        "CONCEPT_CLASS_ID": "Ingredient",
+        "CONCEPT_CODE": "2626",
+        "CONCEPT_ID": 800878,
+        "CONCEPT_NAME": "clozapine",
+        "DOMAIN_ID": "Drug",
+        "INVALID_REASON": "V",
+        "INVALID_REASON_CAPTION": "Valid",
+        "STANDARD_CONCEPT": "S",
+        "STANDARD_CONCEPT_CAPTION": "Standard",
+        "VOCABULARY_ID": "RxNorm",
+        "VALID_START_DATE": "1969-12-31",
+        "VALID_END_DATE": "2099-12-30"
+      },
+      "isExcluded": false,
+      "includeDescendants": false,
+      "includeMapped": false
+    },
+    {
+      "concept": {
+        "CONCEPT_CLASS_ID": "Ingredient",
+        "CONCEPT_CODE": "5093",
+        "CONCEPT_ID": 766529,
+        "CONCEPT_NAME": "haloperidol",
+        "DOMAIN_ID": "Drug",
+        "INVALID_REASON": "V",
+        "INVALID_REASON_CAPTION": "Valid",
+        "STANDARD_CONCEPT": "S",
+        "STANDARD_CONCEPT_CAPTION": "Standard",
+        "VOCABULARY_ID": "RxNorm",
+        "VALID_START_DATE": "1969-12-31",
+        "VALID_END_DATE": "2099-12-30"
+      },
+      "isExcluded": false,
+      "includeDescendants": false,
+      "includeMapped": false
+    },
+    {
+      "concept": {
+        "CONCEPT_CLASS_ID": "Ingredient",
+        "CONCEPT_CODE": "1040028",
+        "CONCEPT_ID": 40230761,
+        "CONCEPT_NAME": "lurasidone",
+        "DOMAIN_ID": "Drug",
+        "INVALID_REASON": "V",
+        "INVALID_REASON_CAPTION": "Valid",
+        "STANDARD_CONCEPT": "S",
+        "STANDARD_CONCEPT_CAPTION": "Standard",
+        "VOCABULARY_ID": "RxNorm",
+        "VALID_START_DATE": "2010-12-04",
+        "VALID_END_DATE": "2099-12-30"
+      },
+      "isExcluded": false,
+      "includeDescendants": false,
+      "includeMapped": false
+    },
+    {
+      "concept": {
+        "CONCEPT_CLASS_ID": "Ingredient",
+        "CONCEPT_CODE": "61381",
+        "CONCEPT_ID": 785788,
+        "CONCEPT_NAME": "olanzapine",
+        "DOMAIN_ID": "Drug",
+        "INVALID_REASON": "V",
+        "INVALID_REASON_CAPTION": "Valid",
+        "STANDARD_CONCEPT": "S",
+        "STANDARD_CONCEPT_CAPTION": "Standard",
+        "VOCABULARY_ID": "RxNorm",
+        "VALID_START_DATE": "1969-12-31",
+        "VALID_END_DATE": "2099-12-30"
+      },
+      "isExcluded": false,
+      "includeDescendants": false,
+      "includeMapped": false
+    },
+    {
+      "concept": {
+        "CONCEPT_CLASS_ID": "Ingredient",
+        "CONCEPT_CODE": "679314",
+        "CONCEPT_ID": 703244,
+        "CONCEPT_NAME": "paliperidone",
+        "DOMAIN_ID": "Drug",
+        "INVALID_REASON": "V",
+        "INVALID_REASON_CAPTION": "Valid",
+        "STANDARD_CONCEPT": "S",
+        "STANDARD_CONCEPT_CAPTION": "Standard",
+        "VOCABULARY_ID": "RxNorm",
+        "VALID_START_DATE": "2007-01-27",
+        "VALID_END_DATE": "2099-12-30"
+      },
+      "isExcluded": false,
+      "includeDescendants": false,
+      "includeMapped": false
+    },
+    {
+      "concept": {
+        "CONCEPT_CLASS_ID": "Ingredient",
+        "CONCEPT_CODE": "8331",
+        "CONCEPT_ID": 745790,
+        "CONCEPT_NAME": "pimozide",
+        "DOMAIN_ID": "Drug",
+        "INVALID_REASON": "V",
+        "INVALID_REASON_CAPTION": "Valid",
+        "STANDARD_CONCEPT": "S",
+        "STANDARD_CONCEPT_CAPTION": "Standard",
+        "VOCABULARY_ID": "RxNorm",
+        "VALID_START_DATE": "1969-12-31",
+        "VALID_END_DATE": "2099-12-30"
+      },
+      "isExcluded": false,
+      "includeDescendants": false,
+      "includeMapped": false
+    },
+    {
+      "concept": {
+        "CONCEPT_CLASS_ID": "Ingredient",
+        "CONCEPT_CODE": "51272",
+        "CONCEPT_ID": 766814,
+        "CONCEPT_NAME": "quetiapine",
+        "DOMAIN_ID": "Drug",
+        "INVALID_REASON": "V",
+        "INVALID_REASON_CAPTION": "Valid",
+        "STANDARD_CONCEPT": "S",
+        "STANDARD_CONCEPT_CAPTION": "Standard",
+        "VOCABULARY_ID": "RxNorm",
+        "VALID_START_DATE": "1969-12-31",
+        "VALID_END_DATE": "2099-12-30"
+      },
+      "isExcluded": false,
+      "includeDescendants": false,
+      "includeMapped": false
+    },
+    {
+      "concept": {
+        "CONCEPT_CLASS_ID": "Ingredient",
+        "CONCEPT_CODE": "35636",
+        "CONCEPT_ID": 735979,
+        "CONCEPT_NAME": "risperidone",
+        "DOMAIN_ID": "Drug",
+        "INVALID_REASON": "V",
+        "INVALID_REASON_CAPTION": "Valid",
+        "STANDARD_CONCEPT": "S",
+        "STANDARD_CONCEPT_CAPTION": "Standard",
+        "VOCABULARY_ID": "RxNorm",
+        "VALID_START_DATE": "1969-12-31",
+        "VALID_END_DATE": "2099-12-30"
+      },
+      "isExcluded": false,
+      "includeDescendants": false,
+      "includeMapped": false
+    },
+    {
+      "concept": {
+        "CONCEPT_CLASS_ID": "Ingredient",
+        "CONCEPT_CODE": "115698",
+        "CONCEPT_ID": 712615,
+        "CONCEPT_NAME": "ziprasidone",
+        "DOMAIN_ID": "Drug",
+        "INVALID_REASON": "V",
+        "INVALID_REASON_CAPTION": "Valid",
+        "STANDARD_CONCEPT": "S",
+        "STANDARD_CONCEPT_CAPTION": "Standard",
+        "VOCABULARY_ID": "RxNorm",
+        "VALID_START_DATE": "1969-12-31",
+        "VALID_END_DATE": "2099-12-30"
+      },
+      "isExcluded": false,
+      "includeDescendants": false,
+      "includeMapped": false
+    }
+  ]
+}

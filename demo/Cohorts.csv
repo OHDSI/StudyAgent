@@ -1,0 +1,1101 @@
+cohortId,cohortNameLong,logicDescription,recommendedReferentConceptIds,ohdsiForumPost,createdDate,modifiedDate
+2,COVID-19 diagnosis or SARS-CoV-2 test (1pos),Withdrawn by contributor before peer review,"439676, 37311061",,2021-09-22,2023-09-19
+3,Cough or Sputum,All events of cough or sputum finding,254761,https://forums.ohdsi.org/t/17895,2021-09-22,2023-09-28
+4,Diarrhea,All events of diarrhea including Functional Diarrhea,196523,https://forums.ohdsi.org/t/17895,2021-09-23,2023-09-25
+5,Dyspnea,All events of dyspnea including difficulty breathing or abnormal breathing,"312437, 4041664",https://forums.ohdsi.org/t/17895,2021-09-23,2023-09-28
+6,Fever,All events of fever or elevated temperature measurement,"437663, 4178904",https://forums.ohdsi.org/t/17895,2021-09-23,2023-09-25
+7,Headache or Headache disorder,All events of Headache or headache disorder,378253,https://forums.ohdsi.org/t/17895,2021-09-23,2023-09-25
+8,"Altered smell or taste including Anosmia, Hyposmia or Dysgeusia","Altered smell or taste including Anosmia, Hyposmia or Dysgeusia",43530714,https://forums.ohdsi.org/t/17895,2021-09-23,2023-09-25
+9,Sore throat,All events of Sore throat,"25297, 4226263",https://forums.ohdsi.org/t/17895,2021-09-23,2023-09-25
+10,Nausea or Vomiting,All events of Nausea or vomiting,"27674, 4101344",https://forums.ohdsi.org/t/17895,2021-09-23,2023-09-25
+11,Malaise and or fatigue,All events of Malaise and or fatigue,"439926, 4272240",https://forums.ohdsi.org/t/17895,2021-09-23,2023-09-25
+12,Rhinitis or common cold or Sinusitis,All events of Rhinitis or common cold,"257007, 4320791",https://forums.ohdsi.org/t/17895,2021-09-23,2023-09-25
+13,"Myalgia (not explained by injury, ischemia or systemic inflammation)","All events of Myalgia. Exclude persons with secondary causes of myalgia explained by injury, ischemia or chronic systemic inflammation","442752, 4150129",https://forums.ohdsi.org/t/17895,2021-09-23,2023-09-25
+14,Myalgia,All events of Myalgia,"442752, 4150129",https://forums.ohdsi.org/t/17895,2021-09-23,2023-09-25
+15,Exposure to viral disease,all events of Exposure to viral disease. Persons exit on cohort end date,37016200,,2021-09-23,2023-09-19
+16,Exposure to SARS-Cov 2 and coronavirus,,,,2021-09-23,2023-09-19
+17,Exposure to SARS-CoV-2,all events of Exposure to SARS-CoV-2. Persons exit on cohort end date,37311059,,2021-09-23,2023-09-19
+18,Multisystem inflammatory syndrome (MIS),all events of Multisystem inflammatory syndrome (MIS). Persons exit on cohort end date,703578,,2021-09-23,2023-09-19
+20,Bronchitis or Bronchiolitis,All events of Bronchitis,"256451, 260139",https://forums.ohdsi.org/t/17895,2021-09-23,2023-09-25
+21,Acute respiratory distress syndrome (ARDS) or Acute Respiratory Failure,All events of Acute respiratory distress syndrome (ARDS) or Acute Respiratory Failure,319049,,2021-09-23,2023-09-19
+22,SARS-CoV-2 testing,Withdrawn by contributor before peer review,,,2021-09-23,2023-09-19
+23,"Inpatient Hospitalization (1Pe, 0Era)",All events of Inpatient visit. This cohort is deemed validated as it represents data convention and did not need to go thru peer review process,,,2021-09-23,2023-09-19
+24,"Emergency room visits (0Pe, 0Era)",All events of Emergency Room visits. This cohort is deemed validated as it represents data convention and did not need to go thru peer review process,,,2021-09-23,2023-09-19
+25,All cause mortality,Earliest observation of any death,,,2021-09-23,2023-09-19
+27,Asthma without COPD,Earliest of either asthma diagnosis or therapy for asthma with a history of another asthma therapy more than 180 days before. The person should not have a diagnosis or treatment for COPD in past,317009,,2021-09-23,2023-09-19
+29,Autoimmune condition (FP),"Withdrawn by contributor before peer review. No clinical description, evaluation or discussions found. May need to be revisited in future","76685, 80809, 81893, 81931, 134442, 134618, 135215, 140168, 194992, 199856, 201254, 201606, 254443, 257628, 374919, 432295, 438688, 443394, 4137275, 4232076",,2021-09-23,2023-09-19
+30,Tuberculosis,All events of tuberculosis with at least 3 different drugs for tuberculosis at anytime on or after diagnosis,"253954, 434557",,2021-09-23,2023-09-25
+31,Malignant neoplasm excluding non-melanoma skin cancer,All events with a malignant neoplastic disease or history of malignant neoplastic disease,"137809, 443392",,2021-09-23,2023-09-19
+32,Obesity,Persons with obesity diagnosis or a body weight measurement > 120 kg or 265 lbs,433736,https://forums.ohdsi.org/t/17895,2021-09-23,2023-09-25
+33,Dementia,"Persons with the diagnosis of dementia, includes history of Dementia",4182210,,2021-09-23,2023-09-25
+34,Hypertensive disorder or hypertensive complications,Hypertensive disorder diagnosis or complication of hypertension,"312648, 4028741",,2021-09-23,2023-09-19
+35,Chronic kidney disease (FP),"Withdrawn by contributor before peer review. No clinical description, evaluation or discussions found. May need to be revisited in future","192359, 193782",,2021-09-23,2023-09-19
+36,Human immunodeficiency virus (not HIV2) infection,Earliest diagnosis of HIV (not HIV2) with another diagnosis in future or a treatment for HIV,439727,,2021-09-23,2023-09-19
+37,"Hepatitis C infection, carrier status or antibody positivity",Earliest diagnosis of Hepatitis C,"197494, 198964",,2021-09-23,2023-09-19
+38,Heart disease,Earliest of any Heart disease or arteriosclerosis of coronary artery bypass graft,"313217, 44784217",,2021-09-23,2023-09-19
+39,End stage renal disease (FP),"Withdrawn by contributor before peer review. No clinical description, evaluation or discussions found. May need to be revisited in future",193782,,2021-09-23,2023-09-19
+40,Diabetes Mellitus Type 2 or history of diabetes,Earliest of any Type 2 Diabetes Mellitus or History of Diabetes,"201820, 201826",,2021-09-23,2023-09-19
+41,Chronic kidney disease broad (FP),"Withdrawn by contributor before peer review. No clinical description, evaluation or discussions found. May need to be revisited in future","192359, 193782",,2021-09-23,2023-09-19
+42,End stage renal disease broad (FP),"Withdrawn by contributor before peer review. No clinical description, evaluation or discussions found. May need to be revisited in future",193782,,2021-09-23,2023-09-19
+43,Respiratory or pulmonary tuberculosis,Earliest occurrence of respiratory or pulmonary tuberculosis,"253954, 434557",,2021-09-23,2023-09-25
+44,COVID-19,all events of COVID-19. Persons exit on cohort end date,37311061,,2021-09-24,2023-09-19
+45,COVID-19 diagnosis with SARS-Cov-2 test (-3d to 3d),Withdrawn by contributor before peer review,"439676, 37311061",,2021-09-24,2023-09-19
+46,COVID-19 diagnosis and SARS-CoV-2 test (1pos) within 3d,Withdrawn by contributor before peer review,"439676, 37311061",,2021-09-24,2023-09-19
+47,COVID-19 diagnosis and SARS-CoV-2 test (1pos) (0neg) within 3d,Withdrawn by contributor before peer review,"439676, 37311061",,2021-09-24,2023-09-19
+48,"COVID-19 diagnosis and SARS-CoV-2 test (0pos upto 3d, 1neg within 3d)",Withdrawn by contributor before peer review,"439676, 37311061",,2021-09-24,2023-09-19
+51,SARS-CoV-2 test positive result,Withdrawn by contributor before peer review,,,2021-09-24,2023-09-19
+52,SARS-CoV-2 test negative result,Withdrawn by contributor before peer review,,,2021-09-24,2023-09-19
+53,SARS-CoV-2 test positive or negative result - keep persons with positive,Withdrawn by contributor before peer review,,,2021-09-24,2023-09-19
+54,Febrile seizure,All events of Febrile seizures,"377091, 4196708",https://forums.ohdsi.org/t/17895,2021-09-24,2023-09-25
+56,SARS-CoV-2 test (1pos) or COVID-19 diagnosis with (0 neg -3d to 3d),All events of Covid Diagnosis without a negative test result or a SARS-Cov-2 test positive test,"439676, 37311061",,2021-09-30,2023-09-19
+57,Bleeding,all events of Bleeding. Persons exit on cohort end date,"192671, 437312",https://forums.ohdsi.org/t/17895,2021-09-30,2023-09-19
+59,COVID-19 diagnosis with no SARS-CoV-2 test,,"439676, 37311061",,2021-10-05,2023-09-19
+60,SARS-CoV-2 test positive and negative result,Withdrawn by contributor before peer review,,,2021-10-05,2023-09-19
+61,Bradycardia or heart block with inpatient admission,All events of Bradycardia or heart block or first occurrence of pace maker limited to inpatient visit,"317302, 320425",,2021-10-05,2023-09-25
+62,Seizure related finding,all events of Seizure related finding. Persons exit on cohort end date,"377091, 4196708",https://forums.ohdsi.org/t/17895,2021-10-05,2023-09-19
+63,"Transverse myelitis or symptoms indexed on symptoms or diagnosis (1Ps, 0Era, 365W)","events with a diagnosis of transverse myelitis indexed on diagnosis of transverse myelitis, related spinal disease or symptoms of transverse myelitis, followed by a diagnosis of transverse myelitis within 30 days. Events have a 365 days washout period. The events persist for 1 day. Symptoms of Transverse Myelitis included asthenia, muscle weakness, myelitis, paresthesia","79908, 139803, 443904",https://forums.ohdsi.org/t/17769,2021-10-05,2023-09-19
+64,"Composite Flu-like symptoms fever, cough, malaise, fatigue, dyspnea, myalgia",All events of flue like symptoms or signs,"254761, 312437, 437663, 439926, 442752, 4041664, 4178904, 4272240, 43530714",https://forums.ohdsi.org/t/17895,2021-10-05,2023-09-25
+65,Acute pancreatitis with inpatient admission,Withdrawn and replaced by 205,199074,,2021-10-05,2023-09-19
+66,Acute renal failure with inpatient admission,Withdrawn by contributor before peer review,197320,,2021-10-05,2023-09-19
+67,Hepatic failure with inpatient admission,Withdrawn by contributor before peer review,4245975,,2021-10-05,2023-09-19
+68,Heart failure with inpatient admission,Withdrawn by contributor before peer review,"316139, 319835",,2021-10-05,2023-09-19
+69,Angioedema with inpatient admission,Withdrawn by contributor before peer review,432791,,2021-10-05,2023-09-19
+70,Stroke (ischemic or hemorrhagic) with inpatient admission,all events of ischemic or hemorrhagic stroke in an inpatient or ER visit,443454,,2021-10-05,2023-09-19
+71,Acute myocardial infarction with inpatient admission,all events of acute myocardial infarction in an inpatient or ER visit,"314666, 4329847",https://forums.ohdsi.org/t/15900,2021-10-05,2023-09-25
+72,Influenza diagnosis or positive test result,"all events of influenza diagnosis, or positive influenza test result","4183609, 4266367",,2021-10-05,2023-09-19
+74,Hemorrhagic stroke (intracerebral bleeding) with inpatient admission,all events of hemorrhagic stroke while inpatient or ER setting.,"376713, 439847",,2021-10-05,2023-09-19
+75,Ischemic stroke with inpatient admission,all events of ischemic stroke while inpatient or ER setting.,443454,,2021-10-05,2023-09-19
+76,Transient ischemic attack with inpatient admission,all events of transient ischemic attack while in inpatient or ER setting,373503,,2021-10-05,2023-09-19
+77,Gastrointestinal bleeding with inpatient admission,all events of gastrointestinal hemorrhage in inpatient or ER setting,192671,,2021-10-05,2023-09-19
+78,Cardiac arrhythmia with inpatient admission,all events of cardiac arrhythmia or treatments for cardiac arrhythmia in inpatient or ER setting,"313217, 44784217",,2021-10-05,2023-09-19
+79,Dialysis with inpatient admission,all events of dialysis in inpatient setting,"438624, 4027133",,2021-10-05,2023-09-19
+80,Extracorporeal Membrane Oxygenation with inpatient admission,all events of Extracorporeal Membrane Oxygenation in inpatient setting,,,2021-10-05,2023-09-19
+81,Cesarean section,all events of Cesarean section,,,2021-10-05,2023-09-19
+82,Intensive services during hospitalization,all events of intensive care service in an inpatient setting,40481547,,2021-10-05,2023-09-19
+84,SARS-CoV-2 test (1pos) or COVID-19 diagnosis with (1pos or 0 neg 0d to 3d),all events of positive SAR-CoV-2 test result or Covid-19 diagnosis without a negative test result on or within 3 days of diagnosis,"439676, 37311061",,2021-10-09,2023-09-19
+86,SARS-CoV-2 test positive or negative result,Withdrawn by contributor before peer review,,,2021-10-11,2023-09-19
+87,SARS-CoV-2 test,Withdrawn by contributor before peer review,,,2021-10-21,2023-09-19
+95,Delirium,first occurrence of Delirium,373995,https://forums.ohdsi.org/t/17895,2022-02-04,2023-09-25
+100,Alzheimer's disease,all events of Alzheimer's disease. Persons exit on cohort end date,378419,,2022-02-06,2023-09-25
+119,"Systemic lupus erythematosus indexed on signs, symptoms, treatment, or diagnosis (FP)",first signs and symptoms suggestive of Systemic lupus erythematosus (SLE) or first treatment suggestive of SLE with SLE diagnosis with 90 days,"138525, 194133",https://forums.ohdsi.org/t/18223,2022-02-10,2023-09-19
+123,Suicide attempt or self inflicted injury,Suicide or self inflicted events,444362,,2022-02-11,2023-09-25
+134,Attention Deficit Hyperactivity Disorder indexed on diagnosis or treatment,"First occurrence of Attention-deficit hyperactivity disorder (ADHD) condition or related procedures, indexed on the earliest occurrence of ADHD condition, procedure or treatment (limited to drug exposure followed by a related condition or procedure), with 365d prior observation, exit at end of observation","438409, 4047120",https://forums.ohdsi.org/t/15901,2022-02-13,2023-09-19
+142,Earliest of ST elevated Myocardial infarction or Acute MI with ST elevation,Earliest of ST elevated Myocardial infarction or Acute Myocardial Infarction with ST elevation,"314666, 4296653, 4329847",https://forums.ohdsi.org/t/15900,2022-02-15,2023-09-25
+189,Right upper quadrant pain,all events of Right upper quadrant pain. Persons exit on cohort end date,198263,https://forums.ohdsi.org/t/17895,2022-06-29,2023-09-19
+190,Swollen abdomen,all events of Swollen abdomen. Persons exit on cohort end date,"442597, 4152351",https://forums.ohdsi.org/t/17895,2022-06-29,2023-09-19
+191,"Fatigue, Asthenia, Malaise, Lethargy, Anorexia","events with a diagnosis of Fatigue, Asthenia, Malaise, Lethargy, Anorexia but not senile, cancer or stroke related asthenia","439926, 4272240",https://forums.ohdsi.org/t/17895,2022-06-29,2023-09-25
+192,"Skin, Nasal or oral mucosal bleeding events often seen during thrombocytopenia","all events of Skin, Nasal or oral mucosal bleeding events such as epistaxis. Does not include gastrointestinal bleeding. Limited to bleeding common during thrombocytopenia",4096682,,2022-06-29,2023-09-25
+193,Jaundice or Itching,events of jaundice or itching,"137977, 435656",https://forums.ohdsi.org/t/17895,2022-06-29,2023-09-25
+194,Encephalopathy or its presentations,events Encephalopathy or its presentations,436222,https://forums.ohdsi.org/t/17895,2022-06-29,2023-09-25
+195,Primary or malignant urothelial bladder cancer,all events of Primary or malignant urothelial bladder cancer,"196360, 197508",,2022-06-30,2023-09-19
+196,Rheumatoid arthritis or complications,All events of rheumatoid arthritis or complications,80809,,2022-06-30,2023-09-19
+197,Coronary Artery Disease from vessel disease to ischemic injury,all occurrence of coronary artery disease,"318443, 764123",,2022-06-30,2023-09-19
+198,Crohns disease or its complication,All events of crohns disease or complications,201606,,2022-06-30,2023-09-25
+199,Major Depressive Disorder,All events of major depressive disorder,440383,,2022-06-30,2023-09-25
+200,Psoriasis of skin,All events of psoriasis of skin,140168,,2022-06-30,2023-09-25
+201,Ulcerative colitis or complications,All events of Ulcerative colitis or complications,81893,,2022-06-30,2023-09-25
+207,Acquired Pure Red Cell Aplasia,"earliest of acquired pure red cell aplasia indexed on anemia, with no congenital or genetic anemia or constitutional aplasia, and no erroneous measurements such as normal hemoglobin or hematocrit. Persons should not have constitutional aplasia as it represents congenital form of aplasia and should not have bone marrow transplantation","26942, 138723, 4144746",https://forums.ohdsi.org/t/17854,2022-11-10,2024-09-11
+208,Febrile Neutropenia or Neutropenic Fever,"All events of febrile neutropenia, indexed on the diagnosis of febrile neutropenia or a fever (diagnosis or measurement) cooccurring with neutropenia (diagnosis or measurement) within 1 day , or a diagnosis of clinically significant infection cooccurring with neutropenia (diagnosis or measurement) within 1 day. Restricted to events overlapping with in an inpatient or emergency room visit and excluding events with a normal neutrophil count (ANC) on index.","257011, 437663, 4170143, 4250734",https://forums.ohdsi.org/t/17876,2022-11-10,2023-09-19
+209,"Hemolytic Anemia Extra corpuscular ex hgpathy, memb defect, g6pd","all events of hemolytic anemia, indexed on anemia or hemolysis, without congenital or hereditary causes of hemolytic anemia of membrane, enzyme or RBC structure","435503, 439777, 441269, 4250490",https://forums.ohdsi.org/t/17856,2022-11-11,2023-09-19
+210,"Hemolytic Anemia Extra corpuscular ex hgpathy, memb defect","all events of hemolytic anemia, indexed on anemia or hemolysis, without congenital or hereditary causes of hemolytic anemia of membrane, or RBC structure. Persons with enzyme disorder (e.g. G-6-PD deficiency) are not excluded","435503, 439777, 441269, 4250490",https://forums.ohdsi.org/t/17856,2022-11-11,2024-10-02
+211,"Pancytopenia, Acquired","All events of Pancytopenia, indexed on diagnosis or lab results. Excluded are patients with severe congenital blood disorders that may cause pancytopenia any time prior to 7 days post index. Exist cohort at 60 days post end date. Repeated events will be combined into events eras if they are within 365 days of each other.",432881,,2022-11-11,2024-09-11
+213,Neutropenia or unspecified leukopenia,"All events of neutropenia indexed on diagnosis or lab results, with no congenital or genetic neutropenia all days pre to 7 days post index. Also excluded, events with normal neutrophil count or a diagnosis of Neutrophilia on index. patients exit 21 days post end date or with the occurrence of a normal neutrophil count. Reoccurring events for the same patients will be combined into event eras if they are within 365 days of each other.",435224,https://forums.ohdsi.org/t/17409,2022-11-11,2024-09-11
+214,Acquired Isolated Neutropenia or unspecified leukopenia,"all events of neutropenia indexed on diagnosis or lab results with no congenital or genetic neutropenia, and no other cell lines reduced at the same time",435224,https://forums.ohdsi.org/t/17409,2022-11-11,2023-09-19
+215,Isolated Immune Thrombocytopenia,"events of Immune Thrombocytopenia (ITP) with no evidence of congenital or genetic thrombocytopenia, and no simultaneous neutropenia, pancytopenia, bone marrow involvement, anemia.","433749, 4103532",,2022-11-11,2023-09-19
+216,Isolated Immune Thrombocytopenia in absence of common thrombocytopenia causes,"events of Immune Thrombocytopenia (ITP) with no evidence of congenital or genetic thrombocytopenia, and no simultaneous neutropenia, pancytopenia, bone marrow involvement, anemia. Persons exit after 180 days or when they have normal platelet count. Also no evidence of common causes of thrombocytopenia including hypersplenism, antiphospholipid syndrome, paroxysmal noctural hemoglobinuria, hemolytic uremic syndrome, thrombotic microangiopathy, major autoimmune disorders, chronic liver disease, pregnancy HELLP, tumors of hematopoietic cells or nutritional deficiency","433749, 4103532",,2022-11-11,2024-09-11
+217,Thrombotic microangiopathy (TMA) or Microangiopathic hemolytic anemia (MAHA),Earliest events of Immune Thrombotic microangiopathy or microangiopathic hemolytic anemia indexed on the diagnosis or its treatment or investigation. Events with congenital or genetic thrombocytopenia all time prior to 7 days post index are excluded. Also excluded are patients with Platelet count > 150. cohort exit is 7 days post end date or an occurrence of a normal platelet measure .,"313800, 4119134",,2022-11-11,2023-10-16
+218,Rhabdomyolysis,"All events of rhabdomyolysis, indexed on a diagnosis or an observation of of Rhabdomyolysis or Myoglobinuria or a diagnosis of Muscle, ligament and fascia disorders co-occurring with a measurement of creatine kinase that is 5 times above the normal range- within 7 days. With no such events in the last 180 days washout period. Restricted to events that overlap with an inpatient visit. Events are excluded if they had recent trauma such as burn, drowning, hypothermia, hyperthermia, hyperpyrexia, crush syndrome, sepsis, march myoglobinuria, exertional rhabdomyolysis or alcohol intoxication, in the last 14 days including index. cohort exit 0 days post end date.","137967, 4345578",,2022-11-11,2024-09-11
+219,Sudden Cardiac arrest or cardiac death,"Earliest event of Sudden Cardiac arrest or Cardiac death, indexed on diagnosis or observation of cardiac arrest or cardiac death or a procedures of resuscitation. Restricting to events overlapping an inpatient or ER visit. Cohort exist is 1 day post cohort end date.",321042,,2022-11-11,2024-09-11
+220,Angioedema,"all events of angioedema, with no recent cardiac edema, cellulitis, erysipelas, dermatitis or eczema, lymphedema or insect bites",139900,,2022-11-11,2023-09-25
+221,Anaphylaxis Non Environmental exposure related,"all events of anaphylaxis that is not due to environmental etiology and no food, substance, insect bite or sting, poisoning as an explanation for anaphylaxis",441202,https://forums.ohdsi.org/t/17835,2022-11-11,2023-09-25
+222,"Stevens-Johnson syndrome, toxic epidermal necrolysis spectrum","Earliest event of Stevens-Johnson syndrome, Toxic epidermal necrolysis spectrum, indexed on diagnosis of Stevens-Johnson syndrome, Toxic epidermal necrolysis spectrum. Restricting to events overlapping an inpatient or ER visit. Cohort exist is 1 day post cohort end date.",141651,,2022-11-11,2024-09-11
+223,Posterior reversible encephalopathy syndrome PRES,all events of posterior reversible encephalopathy syndrome with no hypertensive encephalopathy or eclampsia,42872891,,2022-11-12,2023-09-19
+224,Long QT Syndrome or QT prolonged (Acquired),all events of Long QT or QT prolonged. Exclude persons with congenital QT syndrome,314664,,2022-11-12,2023-09-19
+225,Drug-induced Lupus,all events of drug induced lupus with no Systemic Lupus Erythematosus,"4063581, 4198217",,2022-11-12,2023-09-19
+226,Drug reaction with eosinophilia and systemic symptoms,all events of Drug reaction with eosinophilia and systemic symptoms. Persons exit on cohort end date,45765791,,2022-11-12,2023-09-19
+227,Severe Cutaneous Adverse Reaction SCAR (SJS+TEN+DRESS+EM),"all events of Drug Rash With Eosinophilia and Systemic Symptoms (DRESS), Erythema Multiforme, Stevens-Johnson Syndrome or Toxic-Epidermal necrolysis","132702, 141651, 45765791",,2022-11-12,2023-09-19
+228,Severe Cutaneous Adverse Reaction SCAR (SJS+TEN+DRESS),"all events of Drug Rash With Eosinophilia and Systemic Symptoms (DRESS), Stevens-Johnson Syndrome or Toxic-Epidermal necrolysis","141651, 45765791",,2022-11-12,2023-09-19
+229,Progressive multifocal leukoencephalopathy,"Earliest occurrence of progressive multifocal leukoencephalopathy, indexed on diagnosis of multifocal leukoencephalopathy. Cohort exist at the end of observation period",433957,,2022-11-12,2024-09-11
+230,Autoimmune hepatitis,"all events of autoimmune hepatitis with no chronic liver diseases that may have similar presentation up to 365days prior such as viral hepatitis, drug induced liver injury, alcoholic liver disease, and no systemic lupus erythematosus in past 365 days",200762,,2022-11-12,2023-09-19
+231,Erythema multiforme,all events of Erythema multiforme. Persons exit on cohort end date,132702,,2022-11-12,2023-09-19
+232,Paresthesia,all events of paresthesia,4090425,https://forums.ohdsi.org/t/17895,2022-11-12,2023-09-25
+233,Hemorrhagic stroke,all events of hemorrhagic stroke during an inpatient or ER visit,"376713, 439847",,2022-11-12,2023-09-19
+234,"Appendicitis (1Pe, 180Era)",events of appendicitis with an inpatient or ER visit with no events in 365 days clean window,"440448, 441604",https://forums.ohdsi.org/t/18188,2022-11-12,2023-09-19
+235,Guillain Barre syndrome inpatient,earliest event of Guillain Barre Syndrome during inpatient or ER stay,374925,,2022-11-12,2023-09-25
+236,Idiopathic Peripheral Neuropathy,all events of idiopathic peripheral neuropathy,"375806, 4175154",,2022-11-12,2023-09-25
+237,Kawasaki disease,events of Kawasaki's disease,314381,,2022-11-12,2023-09-25
+238,Optic neuritis,all events of Optic neuritis. Persons exit on cohort end date,374954,,2022-11-12,2023-09-19
+239,Narcolepsy events,All events of Narcolepsy (includes cataplexy with narcolepsy) with no such events in prior clean window period (365 days). Persons should not be diagnosed with hypersomnia. Persons exit the cohort on end_date + 90 days as persons are assumed to have the condition for at least 90 days,436100,https://forums.ohdsi.org/t/17784,2022-11-12,2023-09-21
+240,Muscle weakness or monoplegia,events of muscle weakness or monoplegia with no events in prior 365 days clean window,79908,,2022-11-12,2023-09-25
+241,Urticaria,all events of Urticaria. Persons exit on cohort end date,139900,https://forums.ohdsi.org/t/17895,2022-11-12,2023-09-19
+243,Tinnitus,events of tinnitus,377575,https://forums.ohdsi.org/t/17895,2022-11-12,2023-09-25
+244,Dizziness or giddiness including motion sickness and vertigo,events of dizziness,"433316, 4223938",https://forums.ohdsi.org/t/17895,2022-11-12,2023-09-25
+245,Hepatic Thrombosis,first event of hepatic thrombosis,196715,,2022-11-12,2023-09-19
+246,Portal vein thrombosis,first event of portal vein thrombosis,199837,,2022-11-12,2023-09-19
+247,Deep Vein Thrombosis DVT,first event of non obstetric Deep Vein Thrombosis,"4133004, 43531681",https://forums.ohdsi.org/t/17769,2022-11-12,2023-09-19
+248,Disseminated intravascular coagulation DIC in inpatient visit,events of Disseminated Intravascular Coagulation in an inpatient or ER setting with no events in prior 365 day window,436093,,2022-11-12,2023-09-25
+249,Ischemic (Non-hemorrhagic) Stroke In Inpatient,events of cerebral infarction while in an inpatient or ER setting,443454,,2022-11-12,2023-09-25
+251,Acute pancreatitis,events of acute pancreatitis in an inpatient or emergency setting and no history of chronic pancreatitis or hereditary or congenital pancreatitis,"4192640, 199074",https://forums.ohdsi.org/t/17848,2022-11-15,2023-09-25
+253,Drug Induced Acute pancreatitis,"events of acute pancreatitis in an inpatient or emergency setting with no events in prior washout window of 365 days, and no history of chronic pancreatitis or hereditary or congenital pancreatitis. Events with other explanations for acute pancreatitis such as alcoholic pancreatitis, severe alcoholism, recent alcohol intoxication, cholangitis or cholecystitits, biliary tract disease, endoscopic retrograde cholangiopancreatography, intestinal ischemia or obstruction or not eligible","4192640, 199074, 4340961",https://forums.ohdsi.org/t/17848,2022-11-15,2023-09-25
+254,Drug Resistant Epilepsy,"first occurrence of epilepsy in inpatient, of subsequent epilepsy in an outpatient setting after another outpatient epilepsy visit more than 30 days before, or anti-epileptic drug on or after a diagnosis of epilepsy. Limit to persons with at least two different anti epilepsy drug or diagnosis of intractable epilepsy on or after index date","377091, 380378, 4029498",https://forums.ohdsi.org/t/17569,2022-11-17,2023-09-19
+255,"Alzheimer's disease (based on Imfeld, 2013)",this is an approximation of algorithm published by Imfeld et.al 2013,"378419, 4182210",,2022-11-18,2023-09-19
+256,Facial Palsy lower motor neuron including Bells Palsy,events of facial palsy with 183 days washout period. Remove persons with congenital facial palsy. Remove events with upper motor neuron disease suggestive of stroke,"374923, 4091559",https://forums.ohdsi.org/t/17788,2022-11-22,2023-09-21
+257,Emergency room visits or code,All events of Emergency Room visits or code,,,2022-11-22,2023-09-19
+258,Anaphylaxis or Anaphylactic shock events,all events of anaphylaxis or anaphylaxis shock due to serum with no events in prior clean window,441202,https://forums.ohdsi.org/t/16033,2022-11-28,2023-09-19
+259,Anaphylaxis all cause,all events of anaphylaxis,441202,https://forums.ohdsi.org/t/18193,2022-11-28,2023-09-25
+260,ST elevated myocardial infarction with inpatient admission,all events of ST segment acute myocardial infarction in an inpatient or ER visit,"314666, 4296653, 4329847",https://forums.ohdsi.org/t/15900,2022-11-29,2023-09-25
+261,Non ST elevated myocardial infarction with inpatient admission,all events of Non ST segment acute myocardial infarction in an inpatient or ER visit,"314666, 4329847",https://forums.ohdsi.org/t/15900,2022-11-29,2023-09-25
+262,Unstable Angina with inpatient admission,all events of Unstable Angina in an inpatient or ER visit,315296,https://forums.ohdsi.org/t/15900,2022-11-29,2023-09-19
+263,Unstable Angina OR NSTEMI with inpatient admission,all events of Unstable Angina or NSTEMI in an inpatient or ER visit,"314666, 4329847",https://forums.ohdsi.org/t/15900,2022-11-29,2023-09-19
+264,Acute Hepatic Failure in persons with liver disease,Events of Hepatic Failure. Persons should have prior liver disease,4245975,,2022-11-29,2023-09-19
+265,Drug Induced Acute Hepatic Failure,first occurrence of Hepatic Failure and no other liver problems in past,4245975,,2022-11-29,2023-09-19
+267,"Acute Kidney Injury AKI, in persons with chronic kidney disease","all events of Acute Kidney Injury with washout period of 30 days. Persons should have chronic kidney disease that is is not ESKD, and should be not on chronic dialysis or had kidney transplant. Acute Kidney Injury (AKI) indexed on a diagnosis of Acute kidney injury or a Dialysis procedure at a medicare certified esrd facility for acute kidney injury without esrd, excluding events/patients with 1. a diagnosis of End-Stage Kidney Disease in the 365 days before AKI occurrence 2. patients receiving chronic dialysis defined as more than 3 recorded events of dialysis in 365 days before AKI occurrence 3. kidney Transplant any time prior applying a washout period of 30 days between observed events. patients exit the cohort 7 days post index",197320,,2022-11-29,2023-09-19
+268,"Acute Kidney Injury AKI, in persons with NO chronic kidney disease","all events of Acute Kidney Injury with washout period of 30 days. Persons should have chronic kidney disease that is is not ESKD, and should be not on chronic dialysis or had kidney transplant. Acute Kidney Injury (AKI) indexed on a diagnosis of Acute kidney injury or a Dialysis procedure at a medicare certified esrd facility for acute kidney injury without esrd, excluding events/patients with 1. a diagnosis of End-Stage Kidney Disease in the 365 days before AKI occurrence 2. patients receiving chronic dialysis defined as more than 3 recorded events of dialysis in 365 days before AKI occurrence 3. kidney Transplant any time prior applying a washout period of 30 days between observed events. patients exit the cohort 7 days post index",197320,,2022-11-29,2023-09-19
+269,Acute Kidney Injury AKI,"This accepted cohort was Deprecated because the rule to exclude no chronic dialysis was incorrect. This definition was replaced by 362. Acute Kidney Injury (AKI) indexed on a diagnosis of Acute kidney injury or a Dialysis procedure at a medicare certified esrd facility for acute kidney injury without esrd, excluding events/patients with 1. a diagnosis of End-Stage Kidney Disease in the 365 days before AKI occurrence 2. patients receiving chronic dialysis defined as more than 3 recorded events of dialysis in 365 days before AKI occurrence 3. kidney Transplant any time prior applying a washout period of 30 days between observed events. patients exit the cohort 7 days post index",197320,https://forums.ohdsi.org/t/16067,2022-11-29,2023-09-19
+270,Hemolytic Anemia,"all events of hemolytic anemia, indexed on anemia or hemolysis","435503, 439777, 441269",https://forums.ohdsi.org/t/17856,2022-11-30,2023-09-19
+271,Hemolytic Anemia Intra corpuscular,"all events of hemolytic anemia, indexed on anemia or hemolysis, without congenital or hereditary causes of hemolytic anemia of membrane, enzyme or RBC structure","435503, 439777, 441269",https://forums.ohdsi.org/t/17856,2022-11-30,2023-09-19
+273,Pathological Ventricular Tachycardia,all events of ventricular tachycardia with hospitalization. note - the use of ventricular tachycardia is thought to imply pathological tachycardia vs. simple tachycardia,"437579, 4103295",,2022-12-06,2023-09-19
+274,Cardiac arrest or Pathological Ventricular tachycardia,Cardiac arrest or Pathological Ventricular tachycardia with inpatient stay,"321042, 437579, 4103295",,2022-12-06,2023-09-19
+275,Polymorphic Ventricular Tachycardia or Torsades de Pointes,Polymorphic Ventricular Tachycardia or Torsades de Pointes,"4088349, 4135823",,2022-12-06,2024-09-11
+276,Sudden Vision Loss,"all events of Vision Loss, indexed on diagnosis of Vision Loss. With 1. no such events in prior washout window of 365 days 2. and no history of other pathological eye disease such as glaucoma, infections and others in 365 days to 1 day prior index. cohort exits is 90 days after cohort end date.",377556,,2022-12-08,2024-09-11
+277,Sudden Hearing Loss,"all events of Sudden Hearing Loss or hearing loss that is managed by corticosteroids, imaging of head or multiple hearing exams after among persons without congenital, middle or inner ear disease and no past hearing tests","374053, 377889",,2022-12-08,2023-09-19
+278,Pain or ache that is Non Chronic,all events of non chronic non generalized or diffuse pain,"138525, 194133",https://forums.ohdsi.org/t/17895,2023-01-04,2023-09-25
+279,Low Back Pain or injury,all events of low back pain,"134736, 194133",https://forums.ohdsi.org/t/17895,2023-01-04,2023-09-25
+280,Abdominal Pain or acute abdomen,all events of abdominal pain,200219,https://forums.ohdsi.org/t/17895,2023-01-04,2023-09-25
+281,Epigastric Pain,all events of epigastric pain,"197381, 4306292",https://forums.ohdsi.org/t/17895,2023-01-04,2023-09-25
+282,Joint Pain,all events of joint pain,"78232, 80180",https://forums.ohdsi.org/t/17895,2023-01-04,2023-09-25
+283,Prostatitis,"All events of prostatits that is either a first occurrence of chronic prostatitis, or did not have an event of prostatitis in past 1 year, with no testicular lesions, bladder neoplasm or abdominal or inguinal hernia in prior 1 year. cohort end 180 days post cohort end date",194997,,2023-01-13,2023-09-19
+284,Myocarditis or Pericarditis,All events of Myocarditis or Pericarditis,"320116, 4138837",,2023-01-14,2023-09-19
+285,Myocarditis or Pericarditis Not due to infections,All events of Myocarditis or Pericarditis without events that are due to Infectious Etiology,"320116, 4138837",,2023-01-14,2023-09-19
+287,Transverse myelitis includes Myelitis Unspecified and neuromyelitis optica,"events with a diagnosis of transverse myelitis indexed on diagnosis of transverse myelitis, OR related spinal disease or symptoms of transverse myelitis, followed by a diagnosis of transverse myelitis within 30 days OR events of myelitis unspecified with weakness or asthenia, neuromyelitis optica with weakness or asthenia. Symptoms of Transverse Myelitis included asthenia, muscle weakness, myelitis, paresthesia","79908, 138965, 139803, 380995, 443904",https://forums.ohdsi.org/t/17769,2023-01-17,2023-09-19
+288,"Type 2 Diabetes Mellitus indexed on diagnosis, treatment or lab results","Earliest event of Type 2 Diabetes Mellitus (DM), indexed on diagnosis or Blood glucose lowering drugs excluding insulin or high Hemoglobin A1c (limited to treatments or measurement that are followed with Type 2 DM diagnosis within 365 days) excluding persons with Type 1 DM or secondary diabetes mellitus in the all time prior including index date","201820, 201826",https://forums.ohdsi.org/t/15764,2023-01-25,2023-09-20
+289,Presence Of Cardiac Arrhythmia,All events of Cardiac arrythmia or treatments for cardiac arrythmia,"313217, 44784217",,2023-01-26,2023-09-25
+290,"Thyroiditis wo other causes of hypothy, indexed on diagnosis or treatment","All events of thyroiditis, indexed on an occurrence of Thyroiditis (including hypo and hyperthyroidism) condition or exposure to levothyroxine (limited to drug exposure that occurred within 365 days prior to an occurrence of Thyroiditis condition). Limited to events that had zero condition occurrence of Hypothyroidism other than Hashimoto's Disease (ie excluding alternative causes of hypothyroidism) all time prior and including index","138384, 140673",,2023-01-26,2023-09-25
+291,"Gynecomastia, indexed on diagnosis, procedure or symptoms","All events of Gynecomastia diagnosis, indexed on a diagnosis of Gynecomastia or a procedure of Mastectomy for gynecomastia or a presentation/symptoms of Gynecomastia (breast lump or pain). Events indexed on a procedures or symptoms are required to be followed by a diagnosis within a year","78474, 80767, 137809",,2023-01-26,2023-09-25
+292,Hepatic Failure,all events of acute hepatic failure. no chronic hepatic failure,4245975,,2023-01-26,2023-09-25
+293,Acute Hepatic Injury with no chronic hepatic failure,"All events of Acute Liver Injury, indexed on the diagnosis of Acute Liver Injury, with no chronic hepatic failure. Sequela of chronic liver disease maps to codes that historically were used for acute liver injury",194990,,2023-01-26,2023-09-25
+294,Acute Hepatic Injury with no pre-existing liver disease,"Earliest event of Acute Liver Injury, indexed on the diagnosis of Acute Liver Injury. Patients are excluded if they have a diagnosis of chronic hepatic failure any time in the past or on the same day. Also excluded patients who have other prior liver disease such as viral hepatitis, Liver Cirrhosis, liver fibrosis, alcoholic and others anytime prior including index",194990,,2023-01-26,2023-09-25
+295,Acute Hepatic Failure in persons with no pre-existing liver disease,"Event of hepatic Failure, indexed on the diagnosis of Hepatic Failure. Patients are excluded if they have a diagnosis of chronic hepatic failure any time in the past or on the same day. Also excluded patients who have other prior liver disease such as viral hepatitis, Liver Cirrhosis, liver fibrosis, alcoholic and others anytime prior including index",4245975,,2023-01-26,2023-09-19
+296,"Transverse myelitis or symptoms indexed on symptoms or diagnosis (180Pe, 180Era)","events with a diagnosis of transverse myelitis indexed on diagnosis of transverse myelitis, related spinal disease or symptoms of transverse myelitis, followed by a diagnosis of transverse myelitis within 30 days. Symptoms of Transverse Myelitis included asthenia, muscle weakness, myelitis, paresthesia","79908, 139803, 443904",https://forums.ohdsi.org/t/17769,2023-01-26,2023-09-19
+298,Urinary bleed events in persons without renal glomerular disease,"all events of urinary bleeds in persons with no recent kidney biopsy, no chronic kidney disease or recent renal glomerular disease","79864, 437038",,2023-02-02,2023-09-25
+299,Acute gastrointestinal bleeding or perforation events,all events of gastrointestinal bleed or perforation,192671,,2023-02-02,2023-09-25
+300,Heavy menstrual bleeding (menorrhagia) events,,"197607, 4302555",,2023-02-02,2023-09-25
+304,Neurofibromatosis type 1 (FP),,377252,https://forums.ohdsi.org/t/18236,2023-02-07,2023-09-19
+305,Neurofibromatosis type 1 without Type 2 (FP),"Persons with Neurofibromatosis without a diagnosis of NF2, vestibular schwannoma or hearing problems. Not all data sources capture NF subtype (e.g. when using ICD10), so to select NF1 we exclude diagnoses that give a suspicion of NF2 (affecting auditory system)",376938,https://forums.ohdsi.org/t/18236,2023-02-07,2023-09-19
+306,Optical pathway glioma and neurofibromatosis (FP),Persons with an optic nerve glioma and diagnosis of neurofibromatosis anytime in persons history. This would be the preferred code for an OPG,4112970,https://forums.ohdsi.org/t/18236,2023-02-07,2023-09-19
+307,Optical pathway glioma or non malignant neoplasm of optic nerve w neurofibromatosis,"Persons with an optic nerve glioma OR neoplasm of optic nerve, and a diagnosis of neurofibromatosis anytime in persons history","4216000, 4246137",https://forums.ohdsi.org/t/18236,2023-02-07,2023-09-19
+308,Optical pathway glioma with MRI imaging and ophthalmology visits Neurofibromatosis,"Persons with neurofibromatosis, that also had one MRI of the brain AND at least 3 ophthalmology visits within one year (anytime in persons history). In some centers, an OPG might be coded as general NF and needs to be inferred from follow-up care after diagnosis",376938,https://forums.ohdsi.org/t/18236,2023-02-07,2023-09-19
+311,Parasomnia,All events of Parasomnia that may be expected to persist for atleast 30 days with events collapse 1 day after,440087,,2023-02-10,2023-09-23
+318,Acute Hepatic Failure in persons without chronic hepatic failure on same day,"all events of acute hepatic failure. If the persons also has chronic hepatic failure coded on the same day, they are excluded",4245975,,2023-02-11,2023-09-19
+324,Pain,all events of pain,"138525, 194133",https://forums.ohdsi.org/t/17895,2023-02-12,2023-09-25
+325,Inpatient Hospitalization By Site of care or type of service,All events of Inpatient visit defined by site of care (visit domain) or type of service (procedure or observation codes) within any of the main visit categories,,,2023-02-12,2023-09-19
+327,Pharyngitis,all events of Pharyngitis. Persons exit on cohort end date,"25297, 4226263",https://forums.ohdsi.org/t/17895,2023-02-12,2023-09-19
+328,Wheezing,All events of wheezing,314754,https://forums.ohdsi.org/t/17895,2023-02-12,2023-09-25
+330,Abdominal bloating,all events of Abdominal bloating. Persons exit on cohort end date,4023572,https://forums.ohdsi.org/t/17895,2023-02-12,2023-09-19
+331,Encephalopathy,events Encephalopathy,"372892, 43021132",https://forums.ohdsi.org/t/17895,2023-02-12,2023-09-25
+332,Pain or ache that is Chronic,all events of non chronic non generalized or diffuse pain,"138525, 194133",https://forums.ohdsi.org/t/17895,2023-02-12,2023-09-25
+333,Alcohol Use Disorder,all events of abdominal pain,"435243, 36714559",https://forums.ohdsi.org/t/17895,2023-02-12,2023-09-25
+334,Asthma,"All events of asthma diagnosis or therapy for asthma with a history of another asthma therapy more than 180 days before, or asthma diagnosis",317009,,2023-02-12,2023-09-25
+335,Anxiety or Fear,Events of Anxiety or Fear,"441542, 442077",,2023-02-12,2023-09-19
+339,Low blood pressure,all events of Low blood pressure. Persons exit on cohort end date,317002,https://forums.ohdsi.org/t/17895,2023-03-14,2023-09-19
+340,"Hives, Erythema, Eruption, Urticaria","All events of Hives, Erythema, Eruption, Urticaria","134438, 45766714",https://forums.ohdsi.org/t/17895,2023-03-14,2023-09-25
+341,"Loss of mentation including comma, syncope, altered consciousness","All events of Disturbance of consciousness, loss of mentation including comma, syncope, altered consciousness","376961, 4206148",https://forums.ohdsi.org/t/17895,2023-03-14,2023-09-25
+342,Urinary incontinence,all events of Urinary incontinence. Persons exit on cohort end date,197672,https://forums.ohdsi.org/t/17895,2023-03-14,2023-09-25
+343,Fecal Incontinence,All events of Fecal Incontinence,"197675, 4101350",https://forums.ohdsi.org/t/17895,2023-03-14,2023-09-25
+344,Doctors office or clinic visit without other overlapping visits,"All events of Doctors office or clinic visit that does not overlap with inpatient, urgent care or emergency visit",,,2023-03-14,2023-09-25
+346,Non urgent outpatient visit without overlapping inpatient or emergency visit,"All events of Doctors office or clinic visit that does not overlap with inpatient, urgent care or emergency visit. If a person has visits on consecutive days, they are collapsed into a spans of days",,,2023-03-14,2023-10-22
+347,Ambulance utilization,All events of Ambulance use,,,2023-03-14,2023-09-25
+348,Blood in urine,all events of Blood in urine. Persons exit on cohort end date,"79864, 437038",https://forums.ohdsi.org/t/17895,2023-03-15,2023-09-19
+349,Lower gastrointestinal bleeding events,all events of lower gastrointestinal bleed,"197925, 4245614",,2023-03-15,2023-09-25
+350,Hemoptysis,all events of Hemoptysis. Persons exit on cohort end date,261687,https://forums.ohdsi.org/t/17895,2023-03-15,2023-09-28
+351,Nasal Polyp present,all events of nasal polyp,"4209223, 4285898, 42537251",https://forums.ohdsi.org/t/17895,2023-03-15,2023-09-25
+352,Inflamed tonsils,all events of Inflamed tonsils. Persons exit on cohort end date,"24660, 4083666",https://forums.ohdsi.org/t/17895,2023-03-15,2023-09-19
+353,Conjunctivitis,all events of Conjunctivitis. Persons exit on cohort end date,379019,https://forums.ohdsi.org/t/17895,2023-03-15,2023-09-19
+354,Nasal Congestion or Rhinitis or Common Cold,all events of Nasal Congestion or Rhinitis or Common Cold,"257007, 4320791",https://forums.ohdsi.org/t/17895,2023-03-15,2023-09-25
+355,Laryngitis,all events of Laryngitis,"24969, 260134",https://forums.ohdsi.org/t/17895,2023-03-15,2023-09-25
+356,Epistaxis,all events of Epistaxis,4096682,https://forums.ohdsi.org/t/17895,2023-03-15,2023-09-25
+357,Pulmonary edema,all events of Pulmonary edema. Persons exit on cohort end date,"261600, 4078925",https://forums.ohdsi.org/t/17895,2023-03-15,2023-09-19
+358,Acute Respiratory Failure among persons with no chronic respiratory failure,All events of Acute Respiratory Failure among persons with no evidence of chronic respiratory failure in past 365 days,"319049, 4256228",https://forums.ohdsi.org/t/17895,2023-03-15,2023-09-25
+359,Acute Respiratory Failure,All events of Acute Respiratory Failure,"319049, 4256228",https://forums.ohdsi.org/t/17895,2023-03-15,2023-09-25
+360,Pleural Effusion,All events of Pleural Effusion,254061,https://forums.ohdsi.org/t/17895,2023-03-15,2023-09-25
+361,Restless legs,all events of Restless legs. Persons exit on cohort end date,73754,https://forums.ohdsi.org/t/18236,2023-04-25,2023-09-19
+362,Acute Kidney Injury AKI,"Acute Kidney Injury (AKI) indexed on a diagnosis of Acute kidney injury or a Dialysis procedure at a medicare certified esrd facility for acute kidney injury without esrd, excluding events/patients with 1. a diagnosis of End-Stage Kidney Disease in the 365 days before AKI occurrence 2. patients receiving chronic dialysis defined as more than 3 recorded events of dialysis in 365 days before AKI occurrence 3. kidney Transplant any time prior applying a washout period of 30 days between observed events. patients exit the cohort 7 days post index",197320,https://forums.ohdsi.org/t/16067,2023-04-25,2023-09-19
+363,Joint stiffness,all events of Joint stiffness. Persons exit on cohort end date,"72404, 72711",https://forums.ohdsi.org/t/17895,2023-05-30,2023-09-19
+364,Sleep disorder,all events of Sleep disorder. Persons exit on cohort end date,"435524, 442588",https://forums.ohdsi.org/t/17895,2023-05-30,2023-09-19
+365,Dysuria,all events of Dysuria,"197684, 4021780",https://forums.ohdsi.org/t/17895,2023-05-30,2023-09-25
+366,Streptococcal throat infection,All events of Streptococcal throat infection,"25297, 28060, 4226263",,2023-05-31,2023-09-25
+367,Allergic Rhinitis,All events of Allergic rhinitis,"257007, 4320791",,2023-05-31,2023-09-25
+368,Sinusitis,all events of Sinusitis. Persons exit on cohort end date,"260123, 4283893",https://forums.ohdsi.org/t/17895,2023-05-31,2023-09-19
+369,Allergic condition,all events of Allergic condition. Persons exit on cohort end date,"257007, 43021227",https://forums.ohdsi.org/t/17895,2023-05-31,2023-09-19
+370,Allergic disorder,All events of Allergic Disorder,"257007, 43021227",https://forums.ohdsi.org/t/17895,2023-05-31,2023-09-25
+371,Claudication Pain,all events of claudication pain,"195834, 317309, 442774",https://forums.ohdsi.org/t/17895,2023-05-31,2023-09-25
+372,Otitis media,All events of Otitis media,372328,,2023-05-31,2023-09-25
+373,Iron deficiency Anemia,all events of iron deficiency anemia,439777,https://forums.ohdsi.org/t/17856,2023-05-31,2023-09-25
+374,Drug dependence,all events of Drug dependence. Persons exit on cohort end date,"437264, 440069",,2023-05-31,2023-09-19
+375,Gall stone disorder,all events of Gall stone,"444367, 4145627",,2023-05-31,2023-09-25
+376,Bleeding skin,all events of Bleeding skin. Persons exit on cohort end date,"441259, 4177600",,2023-05-31,2023-09-19
+377,Petechiae,all events of Petechiae. Persons exit on cohort end date,4155911,,2023-05-31,2023-09-19
+378,Purpuric disorder,all events of Purpuric disorder. Persons exit on cohort end date,"441259, 4307580",,2023-05-31,2023-09-19
+379,Ecchymosis,all events of Ecchymosis anywhere,"438252, 4118793",,2023-05-31,2023-09-25
+380,Jaundice,all events of Jaundice. Persons exit on cohort end date,"137977, 435656",https://forums.ohdsi.org/t/17895,2023-05-31,2023-09-19
+381,Skin Itching,events of skin itching,"133834, 133835, 135618, 4169287",https://forums.ohdsi.org/t/17895,2023-05-31,2023-09-25
+382,Prurititc Rash,events of pruritic rash,"135618, 4169287",https://forums.ohdsi.org/t/17895,2023-05-31,2023-09-25
+383,Eczematous Atopic Dermatitis and non hyperkeratotic dermatosis,,"133834, 133835, 45766714",,2023-05-31,2023-09-25
+384,Contact dermatitis,all events of Contact dermatitis. Persons exit on cohort end date,134438,,2023-05-31,2023-09-19
+385,Intertrigo,all events of Intertrigo. Persons exit on cohort end date,4242574,,2023-05-31,2023-09-19
+386,Seborrheic dermatitis,all events of Seborrheic dermatitis. Persons exit on cohort end date,137053,,2023-05-31,2023-09-19
+387,Photodermatitis,all events of Photodermatitis. Persons exit on cohort end date,"4203600, 4239682, 4331304",,2023-05-31,2023-09-19
+388,Peripheral neuritis,all events of Peripheral neuritis. Persons exit on cohort end date,4027396,,2023-05-31,2023-09-19
+389,Peripheral Neuropathy or Neuritits,first occurrence of peripheral neuritis or neuropathy,"4027396, 4117779",,2023-05-31,2023-09-25
+391,Hearing Loss,all events of Hearing Loss,377889,,2023-05-31,2023-09-25
+392,Otalgia or Otitis,All events of Otitis or Otalgia,"372328, 4183452",https://forums.ohdsi.org/t/17895,2023-05-31,2023-09-25
+393,Low Back Pain or Injury,all events of low back pain or injury,"312998, 4020345",https://forums.ohdsi.org/t/17895,2023-05-31,2023-09-25
+394,Gastroesophageal reflux disease,all events of Gastroesophageal reflux disease,"23325, 318800, 4091509",https://forums.ohdsi.org/t/17895,2023-05-31,2023-09-25
+395,Dysmenorrhea,all events of Dysmenorrhea,443431,https://forums.ohdsi.org/t/17895,2023-05-31,2023-09-25
+396,Osteoarthritis,all events of Osteoarthritis. Persons exit on cohort end date,"80180, 4079750",,2023-05-31,2023-09-19
+397,Hyperplasia of prostate,all events of Hyperplasia of prostate. Persons exit on cohort end date,"197032, 443211",,2023-05-31,2023-09-19
+398,Bladder Outflow Obstruction,All events of Bladder Outflow Obstruction,"194406, 443211",,2023-05-31,2023-09-25
+399,Urolithiasis,all events of Urolithiasis. Persons exit on cohort end date,"201620, 4319447",,2023-05-31,2023-09-19
+400,Malignant tumor of prostate,all events of Malignant tumor of prostate. Persons exit on cohort end date,"200962, 4163261",,2023-05-31,2023-09-19
+401,Uterine Fibroids or benign uterine tumors,Uterine Fibroids,"197236, 201817",,2023-05-31,2023-09-25
+402,Ventilatory assist for respiratory findings with Acute Respiratory Failure,all events of acute respiratory symptoms commonly seen in acute respiratory failure with procedures for ventilatory assist among persons with respiratory failure,"255573, 4027553",https://forums.ohdsi.org/t/17895,2023-05-31,2023-09-25
+403,Acute Respiratory Failure in inpatient or Emergency room,all events of Acute Respiratory Failure in inpatient or Emergency room,319049,https://forums.ohdsi.org/t/17895,2023-05-31,2023-09-25
+404,"Ventricular Tachycardia, in an Inpatient or Emergency room setting",Ventricular tachycardia with inpatient stay,"437579, 4103295",,2023-05-31,2023-09-25
+405,Atrial Fibrillation or Flutter,All events of Atrial Fibrillation or Flutter,313217,,2023-05-31,2023-09-25
+406,Intellectual disability,all events of Intellectual disability. Persons exit on cohort end date,40277917,,2023-05-31,2023-09-19
+407,Hemorrhoids,all events of Hemorrhoids. Persons exit on cohort end date,195562,,2023-05-31,2023-09-19
+410,Acute Urinary tract infections UTI,,81902,,2023-06-01,2023-09-19
+411,Sepsis or Septic Shock,All events of Sepsis or Septic Shock,132797,,2023-06-01,2023-09-25
+412,"Transverse myelitis indexed on diagnosis (1Ps, 0Era, 365W)","events with a diagnosis of transverse myelitis indexed on diagnosis of transverse myelitis. Events have a 365 days washout period. The events persist for 1 day. Symptoms of Transverse Myelitis included asthenia, muscle weakness, myelitis, paresthesia","139803, 443904",https://forums.ohdsi.org/t/17769,2023-06-02,2023-09-19
+414,Acute Skin Eruption symptoms,All events of certain skin eruption symptoms,"134438, 45766714",https://forums.ohdsi.org/t/17895,2023-06-02,2023-09-25
+415,Erythema of skin,all events of Erythema of skin. Persons exit on cohort end date,"4300442, 40481101",https://forums.ohdsi.org/t/17895,2023-06-02,2023-09-19
+416,Skin Rash,All events of Skin Erythema,135618,https://forums.ohdsi.org/t/17895,2023-06-02,2023-09-25
+417,Acute gastrointestinal bleeding events,all events of gastrointestinal bleed,192671,,2023-06-02,2023-09-25
+444,Neck pain,all events of Neck pain. Persons exit on cohort end date,24134,,2023-06-25,2023-09-19
+445,Hypoglycemia,all events of Hypoglycemia. Persons exit on cohort end date,24609,,2023-06-25,2023-09-19
+446,Eosinophilic esophagitis,all events of Eosinophilic esophagitis. Persons exit on cohort end date,27918,,2023-06-25,2023-09-19
+447,Esophagitis,all events of Esophagitis. Persons exit on cohort end date,"30437, 30753",,2023-06-25,2023-09-19
+448,Dysphagia,all events of Dysphagia. Persons exit on cohort end date,31317,,2023-06-25,2023-09-19
+449,Nausea,all events of Nausea. Persons exit on cohort end date,"27674, 31967",,2023-06-25,2023-09-19
+450,Constipation,all events of Constipation. Persons exit on cohort end date,75860,,2023-06-25,2023-09-19
+451,Myasthenia gravis,all events of Myasthenia gravis. Persons exit on cohort end date,76685,,2023-06-25,2023-09-19
+452,Joint pain,all events of Joint pain. Persons exit on cohort end date,"77074, 78232",,2023-06-25,2023-09-19
+453,Osteoarthritis,all events of Osteoarthritis. Persons exit on cohort end date,"80180, 4079750",,2023-06-25,2023-09-19
+454,Dermatomyositis,all events of Dermatomyositis. Persons exit on cohort end date,80182,,2023-06-25,2023-09-19
+455,Fetal growth restriction,all events of Fetal growth restriction. Persons exit on cohort end date,"74469, 80204, 4145947",,2023-06-25,2023-09-19
+456,Osteoporosis,all events of Osteoporosis. Persons exit on cohort end date,80502,,2023-06-25,2023-09-19
+457,Rheumatoid arthritis,all events of Rheumatoid arthritis. Persons exit on cohort end date,80809,,2023-06-25,2023-09-19
+458,Ulcerative colitis,all events of Ulcerative colitis. Persons exit on cohort end date,81893,,2023-06-25,2023-09-19
+459,Urinary tract infectious disease,all events of Urinary tract infectious disease. Persons exit on cohort end date,81902,,2023-06-25,2023-09-19
+460,Psoriasis with arthropathy,all events of Psoriasis with arthropathy. Persons exit on cohort end date,81931,,2023-06-25,2023-09-19
+461,Erythema multiforme,all events of Erythema multiforme. Persons exit on cohort end date,132702,,2023-06-25,2023-09-19
+462,Lichen planus,all events of Lichen planus. Persons exit on cohort end date,132703,,2023-06-25,2023-09-19
+463,Sepsis,all events of Sepsis. Persons exit on cohort end date,132797,,2023-06-25,2023-09-19
+464,Myelofibrosis,all events of Myelofibrosis. Persons exit on cohort end date,133169,,2023-06-25,2023-09-19
+465,Thyroiditis,all events of Thyroiditis. Persons exit on cohort end date,"133444, 4281109",,2023-06-25,2023-09-19
+466,Atopic dermatitis,all events of Atopic dermatitis. Persons exit on cohort end date,133834,,2023-06-25,2023-09-19
+467,Systemic sclerosis,all events of Systemic sclerosis. Persons exit on cohort end date,134442,,2023-06-25,2023-09-19
+468,Pityriasis rubra pilaris,all events of Pityriasis rubra pilaris. Persons exit on cohort end date,136774,,2023-06-25,2023-09-19
+469,Jaundice,all events of Jaundice. Persons exit on cohort end date,"137977, 435656",,2023-06-25,2023-09-19
+470,"Chronic lymphoid leukemia, disease","all events of Chronic lymphoid leukemia, disease. Persons exit on cohort end date",138379,,2023-06-25,2023-09-19
+471,Vitiligo,all events of Vitiligo. Persons exit on cohort end date,138502,,2023-06-25,2023-09-19
+472,Myelodysplastic syndrome (clinical),all events of Myelodysplastic syndrome (clinical). Persons exit on cohort end date,138994,,2023-06-25,2023-09-19
+473,Acute transverse myelitis,all events of Acute transverse myelitis. Persons exit on cohort end date,139803,,2023-06-25,2023-09-19
+474,Pemphigoid,all events of Pemphigoid. Persons exit on cohort end date,139899,,2023-06-25,2023-09-19
+475,Psoriasis,all events of Psoriasis. Persons exit on cohort end date,140168,,2023-06-25,2023-09-19
+476,"Acute myeloid leukemia, disease","all events of Acute myeloid leukemia, disease. Persons exit on cohort end date",140352,,2023-06-25,2023-09-19
+477,Hypothyroidism,all events of Hypothyroidism. Persons exit on cohort end date,"138384, 140673",,2023-06-25,2023-09-19
+478,Malignant melanoma of skin,all events of Malignant melanoma of skin. Persons exit on cohort end date,141232,,2023-06-25,2023-09-19
+479,Chilblains,all events of Chilblains. Persons exit on cohort end date,141456,,2023-06-25,2023-09-19
+480,Alopecia areata,all events of Alopecia areata. Persons exit on cohort end date,141933,,2023-06-25,2023-09-19
+481,Renal failure syndrome,all events of Renal failure syndrome. Persons exit on cohort end date,"192359, 193782",,2023-06-25,2023-09-19
+482,Gastrointestinal hemorrhage,all events of Gastrointestinal hemorrhage. Persons exit on cohort end date,192671,,2023-06-25,2023-09-19
+483,Biliary cirrhosis,all events of Biliary cirrhosis. Persons exit on cohort end date,192675,,2023-06-25,2023-09-19
+484,End-stage renal disease,all events of End-stage renal disease. Persons exit on cohort end date,193782,,2023-06-25,2023-09-19
+485,Low back pain,all events of Low back pain. Persons exit on cohort end date,194133,,2023-06-25,2023-09-19
+486,Premature rupture of membranes,all events of Premature rupture of membranes. Persons exit on cohort end date,"194702, 200160",,2023-06-25,2023-09-19
+487,Celiac disease,all events of Celiac disease. Persons exit on cohort end date,194992,,2023-06-25,2023-09-19
+488,Diarrhea,all events of Diarrhea. Persons exit on cohort end date,196523,,2023-06-25,2023-09-19
+489,Acute renal failure syndrome,all events of Acute renal failure syndrome. Persons exit on cohort end date,197320,,2023-06-25,2023-09-19
+490,Viral hepatitis C,all events of Viral hepatitis C. Persons exit on cohort end date,197494,,2023-06-25,2025-03-28
+491,Malignant tumor of urinary bladder,all events of Malignant tumor of urinary bladder. Persons exit on cohort end date,"196360, 197508",,2023-06-25,2023-09-19
+492,Cardiogenic shock,all events of Cardiogenic shock. Persons exit on cohort end date,198571,,2023-06-25,2023-09-19
+493,Malignant tumor of cervix,all events of Malignant tumor of cervix. Persons exit on cohort end date,"196359, 198984",,2023-06-25,2023-09-19
+494,Primary malignant neoplasm of kidney,all events of Primary malignant neoplasm of kidney. Persons exit on cohort end date,198985,,2023-06-25,2023-09-19
+495,Acute pancreatitis,all events of Acute pancreatitis. Persons exit on cohort end date,199074,,2023-06-25,2023-09-19
+496,Abdominal pain,all events of Abdominal pain. Persons exit on cohort end date,200219,,2023-06-25,2023-09-19
+497,Autoimmune hepatitis,all events of Autoimmune hepatitis. Persons exit on cohort end date,200762,,2023-06-25,2023-09-19
+498,Toxic shock syndrome,all events of Toxic shock syndrome. Persons exit on cohort end date,201214,,2023-06-25,2023-09-19
+499,Type 1 diabetes mellitus,all events of Type 1 diabetes mellitus. Persons exit on cohort end date,201254,,2023-06-25,2023-09-19
+500,Gastritis,all events of Gastritis. Persons exit on cohort end date,201340,,2023-06-25,2023-09-19
+501,Crohn's disease,all events of Crohn's disease. Persons exit on cohort end date,201606,,2023-06-25,2023-09-19
+502,Kidney stone,all events of Kidney stone. Persons exit on cohort end date,201620,,2023-06-25,2023-09-19
+503,Type 2 diabetes mellitus,all events of Type 2 diabetes mellitus. Persons exit on cohort end date,201826,,2023-06-25,2023-09-19
+504,Sjögren's syndrome,all events of Sjögren's syndrome. Persons exit on cohort end date,254443,,2023-06-25,2023-09-19
+505,Cough,all events of Cough. Persons exit on cohort end date,254761,,2023-06-25,2023-09-19
+506,Chronic obstructive lung disease,all events of Chronic obstructive lung disease. Persons exit on cohort end date,255573,,2023-06-25,2023-09-19
+507,Pneumonia,all events of Pneumonia. Persons exit on cohort end date,255848,,2023-06-25,2023-09-19
+508,Allergic rhinitis,all events of Allergic rhinitis. Persons exit on cohort end date,257007,,2023-06-25,2023-09-19
+509,Systemic lupus erythematosus,all events of Systemic lupus erythematosus. Persons exit on cohort end date,257628,,2023-06-25,2023-09-19
+510,Acute myocardial infarction,all events of Acute myocardial infarction. Persons exit on cohort end date,"312327, 444406",,2023-06-25,2023-09-19
+511,Dyspnea,all events of Dyspnea. Persons exit on cohort end date,312437,,2023-06-25,2023-09-19
+512,Thromboangiitis obliterans,all events of Thromboangiitis obliterans. Persons exit on cohort end date,312939,,2023-06-25,2023-09-19
+513,Atrial fibrillation,all events of Atrial fibrillation. Persons exit on cohort end date,313217,,2023-06-25,2023-09-19
+514,Granulomatosis with polyangiitis,all events of Granulomatosis with polyangiitis. Persons exit on cohort end date,313223,,2023-06-25,2023-09-19
+515,Sleep apnea,all events of Sleep apnea. Persons exit on cohort end date,"313459, 442588",,2023-06-25,2023-09-19
+516,Thrombotic microangiopathy,all events of Thrombotic microangiopathy. Persons exit on cohort end date,313800,,2023-06-25,2023-09-19
+517,Acute febrile mucocutaneous lymph node syndrome,all events of Acute febrile mucocutaneous lymph node syndrome. Persons exit on cohort end date,314381,,2023-06-25,2023-09-19
+518,Myocarditis,all events of Myocarditis. Persons exit on cohort end date,314383,,2023-06-25,2023-09-19
+519,Heart failure,all events of Heart failure. Persons exit on cohort end date,"316139, 319835",,2023-06-25,2023-09-19
+520,Hypertensive disorder,all events of Hypertensive disorder. Persons exit on cohort end date,"312648, 316866, 4028741",,2023-06-25,2023-09-19
+521,Asthma,all events of Asthma. Persons exit on cohort end date,317009,,2023-06-25,2023-09-19
+522,Coronary arteriosclerosis,all events of Coronary arteriosclerosis. Persons exit on cohort end date,"317576, 764123",,2023-06-25,2023-09-19
+523,Arteriosclerotic vascular disease,all events of Arteriosclerotic vascular disease. Persons exit on cohort end date,"318443, 764123",,2023-06-25,2023-09-19
+524,Migraine,all events of Migraine. Persons exit on cohort end date,318736,,2023-06-25,2023-09-19
+525,Gastroesophageal reflux disease,all events of Gastroesophageal reflux disease. Persons exit on cohort end date,318800,,2023-06-25,2023-09-19
+526,Orthostatic hypotension,all events of Orthostatic hypotension. Persons exit on cohort end date,319041,,2023-06-25,2023-09-19
+527,Acute respiratory failure,all events of Acute respiratory failure. Persons exit on cohort end date,319049,,2023-06-25,2023-09-19
+528,Polyarteritis nodosa,all events of Polyarteritis nodosa. Persons exit on cohort end date,320749,,2023-06-25,2023-09-19
+529,Cardiac arrest,all events of Cardiac arrest. Persons exit on cohort end date,321042,,2023-06-25,2023-09-19
+530,Peripheral vascular disease,all events of Peripheral vascular disease. Persons exit on cohort end date,321052,,2023-06-25,2023-09-19
+531,Angina pectoris,all events of Angina pectoris. Persons exit on cohort end date,321318,,2023-06-25,2023-09-19
+532,Heart disease,all events of Heart disease. Persons exit on cohort end date,"313217, 321588, 44784217",,2023-06-25,2023-09-19
+533,Otitis media,all events of Otitis media. Persons exit on cohort end date,372328,,2023-06-25,2023-09-19
+534,Transient cerebral ischemia,all events of Transient cerebral ischemia. Persons exit on cohort end date,373503,,2023-06-25,2023-09-19
+535,Acute disseminated encephalomyelitis,all events of Acute disseminated encephalomyelitis. Persons exit on cohort end date,374021,,2023-06-25,2023-09-19
+536,Age related macular degeneration,all events of Age related macular degeneration. Persons exit on cohort end date,"374028, 376966",,2023-06-25,2023-09-19
+537,Sensorineural hearing loss,all events of Sensorineural hearing loss. Persons exit on cohort end date,"374366, 4110815",,2023-06-25,2023-09-19
+538,Paralytic syndrome,all events of Paralytic syndrome. Persons exit on cohort end date,"374377, 4134120",,2023-06-25,2023-09-19
+539,Multiple sclerosis,all events of Multiple sclerosis. Persons exit on cohort end date,374919,,2023-06-25,2023-09-19
+540,Optic neuritis,all events of Optic neuritis. Persons exit on cohort end date,374954,,2023-06-25,2023-09-19
+541,Idiopathic peripheral neuropathy,all events of Idiopathic peripheral neuropathy. Persons exit on cohort end date,375806,,2023-06-25,2023-09-19
+542,Cerebral hemorrhage,all events of Cerebral hemorrhage. Persons exit on cohort end date,376713,,2023-06-25,2023-09-19
+543,Seizure,all events of Seizure. Persons exit on cohort end date,377091,,2023-06-25,2023-09-19
+544,Encephalitis,all events of Encephalitis. Persons exit on cohort end date,"378143, 380941",,2023-06-25,2023-09-19
+545,Headache,all events of Headache. Persons exit on cohort end date,378253,,2023-06-25,2023-09-19
+546,Retinal detachment,all events of Retinal detachment. Persons exit on cohort end date,378414,,2023-06-25,2023-09-19
+547,Retinal disorder,all events of Retinal disorder. Persons exit on cohort end date,"376966, 378416, 4116208",,2023-06-25,2023-09-19
+549,Epilepsy,all events of Epilepsy. Persons exit on cohort end date,380378,,2023-06-25,2023-09-19
+550,Chronic inflammatory demyelinating polyradiculoneuropathy,all events of Chronic inflammatory demyelinating polyradiculoneuropathy. Persons exit on cohort end date,381009,,2023-06-25,2023-09-19
+551,Microcephaly,all events of Microcephaly. Persons exit on cohort end date,"381114,606878",,2023-06-25,2023-09-22
+552,Parkinson's disease,all events of Parkinson's disease. Persons exit on cohort end date,381270,,2023-06-25,2023-09-19
+553,Cerebrovascular accident,all events of Cerebrovascular accident. Persons exit on cohort end date,381316,,2023-06-25,2023-09-19
+554,Cerebrovascular disease,all events of Cerebrovascular disease. Persons exit on cohort end date,"381591, 4288310",,2023-06-25,2023-09-19
+555,Blood coagulation disorder,all events of Blood coagulation disorder. Persons exit on cohort end date,432585,,2023-06-25,2023-09-19
+556,Amyloidosis,all events of Amyloidosis. Persons exit on cohort end date,432595,,2023-06-25,2023-09-19
+557,Angioedema,all events of Angioedema. Persons exit on cohort end date,432791,,2023-06-25,2023-09-19
+558,Hyperlipidemia,all events of Hyperlipidemia. Persons exit on cohort end date,432867,,2023-06-25,2023-09-19
+559,Thrombocytopenic disorder,all events of Thrombocytopenic disorder. Persons exit on cohort end date,432870,,2023-06-25,2023-09-19
+560,Pancytopenia,all events of Pancytopenia. Persons exit on cohort end date,432881,,2023-06-25,2023-09-19
+561,Myasthenic syndrome due to another disorder,all events of Myasthenic syndrome due to another disorder. Persons exit on cohort end date,432893,,2023-06-25,2023-09-19
+562,Edema,all events of Edema. Persons exit on cohort end date,433595,,2023-06-25,2023-09-19
+563,Obesity,all events of Obesity. Persons exit on cohort end date,433736,,2023-06-25,2023-09-19
+564,Hidradenitis,all events of Hidradenitis. Persons exit on cohort end date,434119,,2023-06-25,2023-09-19
+565,Tuberculosis,all events of Tuberculosis. Persons exit on cohort end date,"253954, 434557",,2023-06-25,2023-09-19
+566,Kaposi's sarcoma (clinical),all events of Kaposi's sarcoma (clinical). Persons exit on cohort end date,434584,,2023-06-25,2023-09-19
+567,B-cell lymphoma (clinical),all events of B-cell lymphoma (clinical). Persons exit on cohort end date,"434592, 4300704",,2023-06-25,2023-09-19
+568,Hyperkalemia,all events of Hyperkalemia. Persons exit on cohort end date,434610,,2023-06-25,2023-09-19
+569,Systemic inflammatory response syndrome,all events of Systemic inflammatory response syndrome. Persons exit on cohort end date,434821,,2023-06-25,2023-09-19
+570,Leukopenia,all events of Leukopenia. Persons exit on cohort end date,"432881, 435224",,2023-06-25,2023-09-19
+571,Schizophrenia,all events of Schizophrenia. Persons exit on cohort end date,435783,,2023-06-25,2025-03-29
+572,Psychotic disorder,all events of Psychotic disorder. Persons exit on cohort end date,"435783, 436073",,2023-06-25,2023-09-19
+573,Chronic pain,all events of Chronic pain. Persons exit on cohort end date,436096,,2023-06-25,2025-03-28
+574,Narcolepsy,all events of Narcolepsy. Persons exit on cohort end date,436100,,2023-06-25,2023-09-19
+575,Behcet's syndrome,all events of Behcet's syndrome. Persons exit on cohort end date,436642,,2023-06-25,2023-09-19
+576,Bipolar disorder,all events of Bipolar disorder. Persons exit on cohort end date,436665,,2023-06-25,2025-03-29
+577,Posttraumatic stress disorder,all events of Posttraumatic stress disorder. Persons exit on cohort end date,436676,,2023-06-25,2023-09-19
+578,Insomnia,all events of Insomnia. Persons exit on cohort end date,436962,,2023-06-25,2023-09-19
+579,Ankylosing spondylitis,all events of Ankylosing spondylitis. Persons exit on cohort end date,437082,,2023-06-25,2023-09-19
+580,Respiratory syncytial virus infection,all events of Respiratory syncytial virus infection. Persons exit on cohort end date,"254058, 437222",,2023-06-25,2023-09-19
+581,Multiple myeloma,all events of Multiple myeloma. Persons exit on cohort end date,437233,,2023-06-25,2023-09-19
+582,Bleeding,all events of Bleeding. Persons exit on cohort end date,"192671, 437312",,2023-06-25,2023-09-19
+583,Glaucoma,all events of Glaucoma. Persons exit on cohort end date,"435262, 437541",,2023-06-25,2023-09-19
+584,Fever,all events of Fever. Persons exit on cohort end date,437663,,2023-06-25,2023-09-19
+585,Hypokalemia,all events of Hypokalemia. Persons exit on cohort end date,437833,,2023-06-25,2023-09-19
+586,Opioid dependence,all events of Opioid dependence. Persons exit on cohort end date,438120,,2023-06-25,2023-09-19
+587,Opioid abuse,all events of Opioid abuse. Persons exit on cohort end date,438130,,2023-06-25,2023-09-19
+588,Attention deficit hyperactivity disorder,all events of Attention deficit hyperactivity disorder. Persons exit on cohort end date,438409,,2023-06-25,2023-09-19
+589,Pre-eclampsia,all events of Pre-eclampsia. Persons exit on cohort end date,439393,,2023-06-25,2023-09-19
+590,Human immunodeficiency virus infection,all events of Human immunodeficiency virus infection. Persons exit on cohort end date,439727,,2023-06-25,2023-09-19
+591,Autism spectrum disorder,all events of Autism spectrum disorder. Persons exit on cohort end date,"439776, 439780",,2023-06-25,2023-09-19
+592,Anemia,all events of Anemia. Persons exit on cohort end date,439777,,2023-06-25,2023-09-19
+593,Paralysis,all events of Paralysis. Persons exit on cohort end date,"374923, 440377",,2023-06-25,2023-09-19
+594,Depressive disorder,all events of Depressive disorder. Persons exit on cohort end date,440383,,2023-06-25,2023-09-19
+595,Pulmonary embolism,all events of Pulmonary embolism. Persons exit on cohort end date,"440417, 43530605",,2023-06-25,2023-09-19
+596,Gout,all events of Gout. Persons exit on cohort end date,440674,,2023-06-25,2023-09-19
+597,Takayasu's disease,all events of Takayasu's disease. Persons exit on cohort end date,440740,,2023-06-25,2023-09-19
+598,Methicillin resistant Staphylococcus aureus infection,all events of Methicillin resistant Staphylococcus aureus infection. Persons exit on cohort end date,440940,,2023-06-25,2023-09-19
+599,Anaphylaxis,all events of Anaphylaxis. Persons exit on cohort end date,441202,,2023-06-25,2023-09-19
+600,Open-angle glaucoma,all events of Open-angle glaucoma. Persons exit on cohort end date,"435262, 441284",,2023-06-25,2023-09-19
+601,Vomiting,all events of Vomiting. Persons exit on cohort end date,"27674, 441408",,2023-06-25,2023-09-19
+602,Anxiety,all events of Anxiety. Persons exit on cohort end date,"441542, 442077",,2023-06-25,2023-09-19
+603,Human papilloma virus infection,all events of Human papilloma virus infection. Persons exit on cohort end date,"140641, 441788",,2023-06-25,2023-09-19
+604,Cranial nerve disorder,all events of Cranial nerve disorder. Persons exit on cohort end date,"374923, 441848",,2023-06-25,2023-09-19
+605,Muscle pain,all events of Muscle pain. Persons exit on cohort end date,442752,,2023-06-25,2023-09-19
+606,Stillbirth,all events of Stillbirth. Persons exit on cohort end date,"443213, 4014454",,2023-06-25,2023-09-19
+607,Malignant tumor of stomach,all events of Malignant tumor of stomach. Persons exit on cohort end date,"196044, 443387",,2023-06-25,2023-09-19
+608,Malignant neoplastic disease,all events of Malignant neoplastic disease. Persons exit on cohort end date,"137809, 443392",,2023-06-25,2023-09-19
+609,Cerebral infarction,all events of Cerebral infarction. Persons exit on cohort end date,443454,,2023-06-25,2023-09-19
+610,Eclampsia,all events of Eclampsia. Persons exit on cohort end date,"443700, 4116344",,2023-06-25,2023-09-19
+611,Diabetic ketoacidosis,all events of Diabetic ketoacidosis. Persons exit on cohort end date,"443727, 4009303",,2023-06-25,2023-09-19
+612,Acute tubular necrosis,all events of Acute tubular necrosis. Persons exit on cohort end date,444044,,2023-06-25,2023-09-19
+613,Tachycardia,all events of Tachycardia. Persons exit on cohort end date,"313217, 444070",,2023-06-25,2023-09-19
+614,Venous thrombosis,all events of Venous thrombosis. Persons exit on cohort end date,"444247, 43531681",,2023-06-25,2023-09-19
+615,Herpes simplex,all events of Herpes simplex. Persons exit on cohort end date,"440021, 444429",,2023-06-25,2023-09-19
+616,Acute arthritis,all events of Acute arthritis. Persons exit on cohort end date,"433000, 4000634",,2023-06-25,2023-09-19
+617,Monoclonal gammopathy (clinical),all events of Monoclonal gammopathy (clinical). Persons exit on cohort end date,4002359,,2023-06-25,2023-09-19
+618,Pulmonary arterial hypertension,all events of Pulmonary arterial hypertension. Persons exit on cohort end date,"4013643, 44783618",,2023-06-25,2023-09-19
+619,Gestational diabetes mellitus,all events of Gestational diabetes mellitus. Persons exit on cohort end date,4024659,,2023-06-25,2023-09-19
+620,Uveitis,all events of Uveitis. Persons exit on cohort end date,"434926, 4028363",,2023-06-25,2023-09-19
+621,Renal impairment,all events of Renal impairment. Persons exit on cohort end date,"193782, 4030518",,2023-06-25,2023-09-19
+622,Non-Hodgkin's lymphoma (clinical),all events of Non-Hodgkin's lymphoma (clinical). Persons exit on cohort end date,"4038838, 4300704",,2023-06-25,2023-09-19
+623,Motor neuropathy with multiple conduction block,all events of Motor neuropathy with multiple conduction block. Persons exit on cohort end date,4046338,,2023-06-25,2023-09-19
+624,Primary sclerosing cholangitis,all events of Primary sclerosing cholangitis. Persons exit on cohort end date,4058821,,2023-06-25,2023-09-19
+625,Pustular psoriasis,all events of Pustular psoriasis. Persons exit on cohort end date,"4063434, 4100184",,2023-06-25,2023-09-19
+626,Cirrhosis of liver,all events of Cirrhosis of liver. Persons exit on cohort end date,"194692, 4064161",,2023-06-25,2023-09-19
+627,Miscarriage,all events of Miscarriage. Persons exit on cohort end date,"76482, 4067106",,2023-06-25,2023-09-19
+628,Fisher's syndrome,all events of Fisher's syndrome. Persons exit on cohort end date,4070552,,2023-06-25,2023-09-19
+629,Inflammatory bowel disease,all events of Inflammatory bowel disease. Persons exit on cohort end date,"195585, 4074815",,2023-06-25,2023-09-19
+630,Facial palsy,all events of Facial palsy. Persons exit on cohort end date,"374923, 4091559",,2023-06-25,2023-09-19
+631,Livebirth,all events of Livebirth. Persons exit on cohort end date,"4014295, 4092289",,2023-06-25,2023-09-19
+632,Antiphospholipid syndrome,all events of Antiphospholipid syndrome. Persons exit on cohort end date,4098292,,2023-06-25,2023-09-19
+633,Waldenström macroglobulinemia,all events of Waldenström macroglobulinemia. Persons exit on cohort end date,4098597,,2023-06-25,2023-09-19
+634,Immunoglobulin A vasculitis,all events of Immunoglobulin A vasculitis. Persons exit on cohort end date,4101602,,2023-06-25,2023-09-19
+635,Ventricular tachycardia,all events of Ventricular tachycardia. Persons exit on cohort end date,"437579, 4103295",,2023-06-25,2023-09-19
+636,Malignant tumor of breast,all events of Malignant tumor of breast. Persons exit on cohort end date,"137809, 4112853",,2023-06-25,2023-09-19
+637,Peripheral ischemia,all events of Peripheral ischemia. Persons exit on cohort end date,"4124836, 4291464",,2023-06-25,2023-09-19
+638,Neoplasm of thyroid gland,all events of Neoplasm of thyroid gland. Persons exit on cohort end date,"133424, 4131909",,2023-06-25,2023-09-19
+639,Deep venous thrombosis,all events of Deep venous thrombosis. Persons exit on cohort end date,"4133004, 43531681",,2023-06-25,2023-09-19
+640,Vasculitis,all events of Vasculitis. Persons exit on cohort end date,"199856, 4137275",,2023-06-25,2023-09-19
+641,Pericarditis,all events of Pericarditis. Persons exit on cohort end date,"320116, 4138837",,2023-06-25,2023-09-19
+642,Immune reconstitution syndrome,all events of Immune reconstitution syndrome. Persons exit on cohort end date,4139034,,2023-06-25,2023-09-19
+643,Follicular non-Hodgkin's lymphoma,all events of Follicular non-Hodgkin's lymphoma. Persons exit on cohort end date,4147411,,2023-06-25,2023-09-19
+644,Malignant tumor of prostate,all events of Malignant tumor of prostate. Persons exit on cohort end date,"200962, 4163261",,2023-06-25,2023-09-19
+645,Guillain-Barré syndrome,all events of Guillain-Barré syndrome. Persons exit on cohort end date,4164770,,2023-06-25,2023-09-19
+646,Bradycardia,all events of Bradycardia. Persons exit on cohort end date,4169095,,2023-06-25,2023-09-19
+647,Retinopathy due to diabetes mellitus,all events of Retinopathy due to diabetes mellitus. Persons exit on cohort end date,"376683, 4174977",,2023-06-25,2023-09-19
+648,Malignant tumor of colon,all events of Malignant tumor of colon. Persons exit on cohort end date,"197500, 4180790",,2023-06-25,2023-09-19
+649,Malignant tumor of esophagus,all events of Malignant tumor of esophagus. Persons exit on cohort end date,"26638, 4181343",,2023-06-25,2023-09-19
+650,Malignant tumor of ovary,all events of Malignant tumor of ovary. Persons exit on cohort end date,"200051, 4181351",,2023-06-25,2023-09-19
+651,Dementia,all events of Dementia. Persons exit on cohort end date,4182210,,2023-06-25,2023-09-19
+652,Vasculitis of the skin,all events of Vasculitis of the skin. Persons exit on cohort end date,4182711,,2023-06-25,2023-09-19
+653,Loss of sense of smell,all events of Loss of sense of smell. Persons exit on cohort end date,4185711,,2023-06-25,2023-09-19
+654,Ischemic heart disease,all events of Ischemic heart disease. Persons exit on cohort end date,"321318, 4185932",,2023-06-25,2023-09-19
+655,Aseptic meningitis,all events of Aseptic meningitis. Persons exit on cohort end date,"434869, 4201096",,2023-06-25,2023-09-19
+656,Fatigue,all events of Fatigue. Persons exit on cohort end date,"437113, 4223659",,2023-06-25,2023-09-19
+657,Paresthesia,all events of Paresthesia. Persons exit on cohort end date,4236484,,2023-06-25,2023-09-19
+658,Hepatic failure,all events of Hepatic failure. Persons exit on cohort end date,4245975,,2023-06-25,2023-09-19
+659,Malignant neoplasm of liver,all events of Malignant neoplasm of liver. Persons exit on cohort end date,"198700, 4246127",,2023-06-25,2023-09-19
+660,Juvenile rheumatoid arthritis,all events of Juvenile rheumatoid arthritis. Persons exit on cohort end date,"72714, 4253901",,2023-06-25,2023-09-19
+661,Respiratory failure,all events of Respiratory failure. Persons exit on cohort end date,"319049, 4256228",,2023-06-25,2023-09-19
+662,Diverticulitis of large intestine,all events of Diverticulitis of large intestine. Persons exit on cohort end date,"77025, 4260535",,2023-06-25,2023-09-19
+663,Influenza,all events of Influenza. Persons exit on cohort end date,"4183609, 4266367",,2023-06-25,2023-09-19
+664,Malaise,all events of Malaise. Persons exit on cohort end date,"439926, 4272240",,2023-06-25,2023-09-19
+665,Suicidal thoughts,all events of Suicidal thoughts. Persons exit on cohort end date,4273391,,2023-06-25,2023-09-19
+666,Type B viral hepatitis,all events of Type B viral hepatitis. Persons exit on cohort end date,"439674, 4281232",,2023-06-25,2023-09-19
+667,Guttate psoriasis,all events of Guttate psoriasis. Persons exit on cohort end date,4284492,,2023-06-25,2023-09-19
+668,SLE glomerulonephritis syndrome,all events of SLE glomerulonephritis syndrome. Persons exit on cohort end date,4285717,,2023-06-25,2023-09-19
+669,Schizoaffective disorder,all events of Schizoaffective disorder. Persons exit on cohort end date,4286201,,2023-06-25,2023-09-19
+670,Temporal arteritis,all events of Temporal arteritis. Persons exit on cohort end date,"4290976, 4343935",,2023-06-25,2023-09-19
+671,Pregnant,all events of Pregnant. Persons exit on cohort end date,4299535,,2023-06-25,2023-09-19
+672,Sense of smell impaired,all events of Sense of smell impaired. Persons exit on cohort end date,4307095,,2023-06-25,2023-09-19
+673,Primary malignant neoplasm of respiratory tract,all events of Primary malignant neoplasm of respiratory tract. Persons exit on cohort end date,4311499,,2023-06-25,2023-09-19
+674,Degeneration of retina,all events of Degeneration of retina. Persons exit on cohort end date,"376966, 4318985",,2023-06-25,2023-09-19
+675,Pulmonary hypertension,all events of Pulmonary hypertension. Persons exit on cohort end date,"4322024, 4339214",,2023-06-25,2023-09-19
+676,Necrosis of artery,all events of Necrosis of artery. Persons exit on cohort end date,"4344489,320749,319047",,2023-06-25,2023-09-22
+677,Preterm labor with preterm delivery,all events of Preterm labor with preterm delivery. Persons exit on cohort end date,"36712702, 45757176",,2023-06-25,2023-09-19
+678,COVID-19,all events of COVID-19. Persons exit on cohort end date,37311061,,2023-06-25,2023-09-19
+679,Takotsubo cardiomyopathy,all events of Takotsubo cardiomyopathy. Persons exit on cohort end date,40479589,,2023-06-25,2023-09-19
+680,Mantle cell lymphoma,all events of Mantle cell lymphoma. Persons exit on cohort end date,40481901,,2023-06-25,2023-09-19
+681,Malignant neoplasm of anorectum,all events of Malignant neoplasm of anorectum. Persons exit on cohort end date,"74582, 40481902",,2023-06-25,2023-09-19
+682,Marginal zone lymphoma,all events of Marginal zone lymphoma. Persons exit on cohort end date,40490918,,2023-06-25,2023-09-19
+683,Antineutrophil cytoplasmic antibody positive vasculitis,all events of Antineutrophil cytoplasmic antibody positive vasculitis. Persons exit on cohort end date,"313223, 42535714",,2023-06-25,2023-09-19
+684,Sensory disorder of smell and/or taste,all events of Sensory disorder of smell and/or taste. Persons exit on cohort end date,43530714,,2023-06-25,2023-09-19
+685,Cardiac arrhythmia,all events of Cardiac arrhythmia. Persons exit on cohort end date,"313217, 44784217",,2023-06-25,2023-09-19
+686,Fracture of bone of hip region,all events of Fracture of bone of hip region. Persons exit on cohort end date,"434500, 45763653",,2023-06-25,2023-09-19
+687,Chronic kidney disease,all events of Chronic kidney disease. Persons exit on cohort end date,"193782, 46271022",,2023-06-25,2023-09-19
+688,Death,all events of Suicide. Persons exit on cohort end date,440925,,2023-06-25,2023-09-20
+689,Newborn death,all events of Newborn death. Persons exit on cohort end date,4079843,,2023-06-25,2023-09-19
+690,Suicide,all events of Death. Persons exit on cohort end date,4306655,,2023-06-25,2023-09-19
+691,Transverse myelitis or symptoms indexed on symptoms or diagnosis,"events with a diagnosis of transverse myelitis indexed on diagnosis of transverse myelitis, related spinal disease or symptoms of transverse myelitis, followed by a diagnosis of transverse myelitis within 30 days. Symptoms of Transverse Myelitis included asthenia, muscle weakness, myelitis, paresthesia","79908, 139803, 443904",,2023-06-26,2023-09-19
+692,Transverse myelitis indexed on diagnosis,"events with a diagnosis of transverse myelitis indexed on diagnosis of transverse myelitis. Events have a 365 days washout period. The events persist for 1 day. Symptoms of Transverse Myelitis included asthenia, muscle weakness, myelitis, paresthesia","139803, 443904",,2023-06-26,2023-09-19
+693,Acquired Neutropenia or unspecified leukopenia,all events of neutropenia indexed on diagnosis or lab results with no congenital or genetic neutropenia,435224,,2023-06-26,2023-09-19
+694,Appendicitis during Inpatient visit,events of appendicitis with an inpatient or ER visit with no events in 365 days clean window,"440448, 441604",,2023-06-26,2023-09-19
+695,Optic nerve glioma,all events of Optic nerve glioma. Persons exit on cohort end date,4112970,,2023-06-26,2023-09-19
+696,Neurofibromatosis type 2,all events of Neurofibromatosis type 2. Persons exit on cohort end date,380975,,2023-06-26,2023-09-19
+697,Neurofibromatosis type 1,all events of Neurofibromatosis type 1. Persons exit on cohort end date,377252,,2023-06-26,2023-09-19
+698,Neurofibromatosis syndrome,all events of Neurofibromatosis syndrome. Persons exit on cohort end date,376938,,2023-06-26,2023-09-19
+699,Major Depressive Disorder,all events of Major Depressive Disorder. Persons exit on cohort end date,"4152280, 4282096",,2023-06-26,2023-09-19
+701,Ascites,all events of Ascites. Persons exit on cohort end date,200528,https://forums.ohdsi.org/t/17895,2023-07-09,2023-09-19
+702,Alanine aminotransferase (ALT) elevated,All events of Alanine aminotransferase (ALT) elevated,4146380,,2023-07-11,2023-09-25
+703,Aspartate aminotransferase (AST) elevated,All events of Aspartate aminotransferase (ALT) elevated,4263457,,2023-07-11,2023-09-25
+705,Total Bilirubin elevated,Total Bilirubin elevated,4230543,,2023-07-11,2023-09-25
+706,Prothrombin time (PT) elevated,Prothrombin time (PT) elevated,4055672,,2023-07-11,2023-09-25
+707,"Inpatient Hospitalization (0Pe, 1Era)",All events of Inpatient visit. This cohort is deemed validated as it represents data convention and did not need to go thru peer review process,,,2023-07-12,2023-09-19
+708,International normalized ratio (INR),International normalized ratio (INR),4306239,,2023-07-14,2023-09-25
+709,Chronic liver disease,all events of Chronic liver disease. Persons exit on cohort end date,4212540,,2023-07-14,2023-09-19
+710,Cirrhosis of liver or its sequela,earliest event of Cirrhosis of liver or its sequela. Persons exit on end of observation period,4064161,,2023-07-19,2025-03-28
+711,Transplanted liver present,all events of Transplanted liver present. Persons exit on cohort end date,42537742,,2023-07-19,2023-09-19
+712,Viral hepatitis including history of,All events of Viral hepatitis including history of,4291005,,2023-07-19,2023-09-25
+713,Alcoholic hepatitis or alcohol liver disorder,all events of Alcoholic hepatitis or alcohol liver disorder,4340383,,2023-07-19,2023-09-25
+714,Endometriosis (clinical),all events of Endometriosis (clinical). Persons exit on cohort end date,433527,,2023-07-19,2023-09-19
+715,Hepatic fibrosis,all events of Hepatic Fibrosis. Persons exit on cohort end date,"4064161,4267417",,2023-07-19,2023-09-25
+716,Acute Hepatic Injury,Acute Hepatic Injury,194990,,2023-07-20,2023-09-25
+717,Portal vein thrombosis,all event of portal hypertension or esophageal varices,192680,,2023-07-20,2023-09-25
+719,,,,,2023-07-24,2023-09-19
+720,Aplastic Anemia,all events of aplastic anemia,137829,,2023-07-26,2024-09-11
+721,Sudden New Onset Blindness,all events of Sudden New Onset Blindness,377556,,2023-07-27,2023-09-19
+722,Endometriosis,An occurrence of procedure expected to be performed for persons with endometriosis with a diagnosis of endometriosis within 30 days of the procedure. Should have two more diagnosis in the future. Should be female. Should be between 15 to 49 years. A person is expected to be in the phenotype for the rest of their life (i.e. the disease never ends),433527,,2023-08-22,2023-09-19
+723,Earliest event of Acute Hepatic Failure,"This definition, is modeling acute hepatic failure, assuming that acute hepatic failure by definition is severe liver injury with hepatic coma in the absence of known liver disease. This definition include hepatic coma that is potentially due to viral hepatis or alcohol use.",4245975,,2023-08-22,2024-09-11
+724,"Earliest event of Acute Hepatic Failure, NO viral hepatitis or alcoholic hepatic failure","This definition, is modeling acute hepatic failure, assuming that acute hepatic failure by definition is severe liver injury with hepatic coma in the absence of known liver disease. This definition excludes persons with viral hepatis or alcohol use.",4245975,,2023-08-22,2024-09-11
+725,All events of Acute Kidney Injury (AKI),"All events of Acute Kidney Injury (AKI) indexed on a diagnosis of Acute kidney injury or a Dialysis procedure at a medicare certified esrd facility for acute kidney injury without esrd,. Applying a washout period of 30 days between observed events excluding events/patients with 1. a diagnosis of End-Stage Kidney Disease in the 365 days before AKI occurrence 2. patients receiving chronic dialysis defined as more than 3 recorded events of dialysis in 365 days before AKI occurrence 3. kidney Transplant any time prior . patients exit the cohort 7 days post index..",197320,,2023-08-22,2024-09-11
+726,"All events of Anaphylaxis, Mini-Sentinel","All events of anaphylaxis in inpatient setting, or anaphylaxis in outpatient along with symptoms or treatment for anaphylaxis",441202,,2023-08-22,2024-09-26
+727,Angioedema,"All events of angioedema, indexed on a diagnosis of angioedema or urticaria followed by a diagnosis of angioedema within 3 days. With no diagnosis of angioedema in the last 180 days of washout period. Events are excluded if they have recent cardiac edema, cellulitis, erysipelas, dermatitis or eczema, lymphedema or insect bites 7 days before to and including index date. Cohort exist is 1 day post cohort end date",139900,,2023-08-22,2024-09-11
+728,Autoimmune hemolytic anemia,All events of Autoimmune hemolytic anemia events not including evans syndrome,441269,,2023-08-23,2024-10-02
+729,"All events of Autoimmune hepatitis, with a washout period of 365 days","all events of autoimmune hepatitis, indexed on diagnosis of autoimmune hepatitis, excluding event occurring in prior 365days washout period. Also excluded are events that have chronic liver diseases that may have similar presentation such as viral hepatitis, drug induced liver injury, alcoholic liver disease, and no systemic lupus erythematosus in past 365 and including index. Cohort exist is 1 day post end date.",200762,,2023-08-23,2024-09-11
+730,"All events Acute pancreatitis, indexed on visit with NO chronic or hereditary pancreatitis","all events of acute pancreatitis, indexed on an inpatient or emergency or an out patient visit (restricted to overlapping with an Emergency room procedures) with a diagnosis of Acute pancreatitis. With 1. no such events in prior washout window of 365 days 2. and no history of chronic pancreatitis any time prior or hereditary pancreatitis any time pre or post index. Cohort exit is 7 days post index.","4192640, 199074",https://forums.ohdsi.org/t/17848,2023-08-23,2024-10-02
+731,"All events of Sudden Hearing Loss, No congenital anomaly or middle or inner ear conditions","all events of sudden Hearing Loss, indexed on diagnosis of sudden hearing loss or a diagnosis or observation of any hearing loss that co-occurred with treatments or investigations within 1 day before to 21 days after index. Events much had 1. No hearing loss diagnosis or observation events in prior washout window of 365 days 2. No congenital anomaly of hearing any time 2. No history of middle or inner ear related diseases any time prior to 7 days before index. 3. Has not had audiometry 365 days before to 30 days prior index. exist cohort 30 days post end date.","374053, 377889",,2023-08-23,2024-09-11
+732,All events of Severe Cutaneous Adverse Reaction (SCAR = SJS+TEN+DRESS),"All events of Severe Cutaneous Adverse Reaction SCAR, indexed on the diagnosis for Drug Rash With Eosinophilia, or Systemic Symptoms (DRESS) or Erythema Multiforme or Stevens-Johnson Syndrome or Toxic-Epidermal necrolysis. Excluding events in prior 365 days washout period. cohort exist 3 days post end date.","141651, 45765791",,2023-08-23,2024-09-11
+733,All events Drug Rash with Eosinophilia and Systemic Symptoms (DRESS),"all events of Drug Rash With Eosinophilia and Systemic Symptoms (DRESS), index on diagnosis of (DRESS), excluding DRESS events in the last 365 day washout period. Cohort exist is 1 day after end date.",45765791,,2023-08-23,2024-09-11
+734,All events Drug Rash with Eosinophilia and Systemic Symptoms (DRESS),"all events of Drug Rash With Eosinophilia and Systemic Symptoms (DRESS), index on diagnosis of (DRESS)",45765791,,2023-08-23,2023-10-03
+735,All events of Acute Liver Injury,"All events of Acute Liver Injury, indexed on the diagnosis of Acute Liver Injury, excluding events of Acute Liver Injury in prior 365 washout period. Excluding events with chronic hepatic failure on the same index date. patients exist cohort 90 days post end date.",194990,,2023-08-23,2024-09-11
+736,"All events of Acute Liver Injury, NO viral hepatitis or alcoholic hepatic failure","All events of Acute Liver Injury, indexed on the diagnosis of Acute Liver Injury, excluding events of Acute Liver Injury in prior 365 washout period. Excluding events with chronic hepatic failure on the same index date. patients exist cohort 90 days post end date.",194990,,2023-08-23,2024-09-11
+737,"Neutropenic Fever, Inpatient or ER, indexed on fever or Infection, 90 days era","All events of febrile neutropenia, indexed on the diagnosis of febrile neutropenia or a fever (diagnosis or measurement) cooccurring with neutropenia (diagnosis or measurement) within 1 day , or a diagnosis of clinically significant infection cooccurring with neutropenia (diagnosis or measurement) within 1 day. Restricted to events overlapping with in an inpatient or emergency room visit and excluding events with a normal neutrophil count (ANC) on index. Cohort exit is 3 days after end date. Recurrent events will be combined into event eras if they are within 90 days of each other.","257011, 437663, 4170143, 4250734",https://forums.ohdsi.org/t/17876,2023-08-23,2024-09-11
+738,Autoimmune hemolytic anemia,All events of Autoimmune hemolytic anemia events not including evans syndrome,441269,,2023-08-23,2024-10-02
+739,"Isolated Immune Thrombocytopenia (ITP), with a washout period of 365 days","all events of Immune Thrombocytopenia (ITP), excluding such events in prior 365 days as washout period, also excluded are 1. events with a diagnosis of congenital or genetic thrombocytopenia all time prior to 7 days post index, 2. Events with a platelet count of >100 or a diagnosis of thrombocytosis on day of index 3. Events with co-occurring neutropenia, pancytopenia, bone marrow involvement, anemia 7 days within index. Persons exit after 180 days or when a normal platelet count measure is observed.","433749, 4103532",,2023-08-23,2024-09-11
+740,Pulmonary arterial hypertension (PAH),Earliest occurrence of Pulmonary Arterial Hypertension (PAH) indexed on occurrence of PAH condition requiring right heart catheterization or echocardiogram 30 days before or 30 days after diagnosis/index. Cohort exit is the end of continuous observation.,4013643,,2023-08-23,2024-09-11
+741,Earliest event of Thrombotic microangiopathy (TMA) or Microangiopathic hemolytic anemia (MAHA),Earliest events of Immune Thrombotic microangiopathy or microangiopathic hemolytic anemia indexed on the diagnosis or its treatment or investigation. Events with congenital or genetic thrombocytopenia all time prior to 7 days post index are excluded. Also excluded are patients with Platelet count > 150. cohort exit is 7 days post end date or an occurrence of a normal platelet measure .,"313800, 4119134",,2023-08-23,2024-09-11
+742,Parasomnia or Sleep dysfunction with arousal disturbance,All events of Parasomnia or Sleep dysfunction with arousal disturbance with events collapse 1 day after,254761,https://forums.ohdsi.org/t/17895,2023-09-08,2023-09-21
+743,Diabetic ketoacidosis identified during the inpatient or emergency room SNOMED concept,"All condition occurrences of DKA during an ER or IP visit, with 30-day event persistence (SNOMED code only)",196523,https://forums.ohdsi.org/t/17895,2023-09-08,2023-09-20
+744,Pulmonary Hypertension,First occurrence of Pulmonary Hypertension,"312437, 4041664",https://forums.ohdsi.org/t/17895,2023-09-14,2023-09-20
+745,Inflammatory Bowel Disease,First occurrence of Inflammatory Bowel Disease,"4074815, 81893, 201606",,2023-09-14,2023-10-13
+746,Chronic Thromboembolic Pulmonary Hypertension,First occurrence of Chronic Thromboembolic Pulmonary Hypertension,378253,https://forums.ohdsi.org/t/17895,2023-09-14,2023-09-20
+747,Pulmonary Arterial Hypertension,First occurrence of Pulmonary Arterial Hypertension,43530714,https://forums.ohdsi.org/t/17895,2023-09-14,2024-10-02
+748,Psoriatic arthritis,First occurrence of Psoriatic arthritis,"25297, 4226263",https://forums.ohdsi.org/t/17895,2023-09-14,2023-09-20
+749,Plaque Psoriasis,First occurrence of Plaque Psoriasis,"27674, 4101344",https://forums.ohdsi.org/t/17895,2023-09-15,2023-09-20
+750,Pulmonary hypertension associated with left heart disease (WHO Group 2),First occurrence of Pulmonary hypertension associated with left heart disease (WHO Group 2),4322024,,2023-09-15,2023-10-05
+752,Firearm Accidents (FA),Firearm accident with an emergency room or inpatient visit on index,,,2023-09-15,2023-10-05
+753,Motor Vehicle Accidents (MVA),All events of motor vehicle accidents with an emergency room or inpatient visit on index,"442752, 4150129",https://forums.ohdsi.org/t/17895,2023-09-15,2023-09-20
+754,Down Syndrome,"Condition occurrence of Down Syndrome, starting between 0 days before and 0 days after cohort entry start date and ending between 0 days before and 0 days after cohort entry start date. Having at least 1 additional condition occurrence of ‘Down syndrome’, starting between 1 days after and 365 days after cohort entry start date having no condition eras of ‘Condition_Era Pregnancy Codes’, starting between 0 days before and 0 days after ‘Down syndrome’ start date and ending between 0 days after and 0 days after ‘Down syndrome’ start date",37016200,,2023-09-15,2023-10-05
+755,Non-infectious uveitis and iridocyclitis,"Earliest diagnosis of non-infectious uveitis or iridocyclitis, indexed on the first ever event. This event must either be followed by a second event in the 31 to 365 days in the future or the event must occur at the time of an ophthalmology visit.",,,2023-09-15,2023-10-06
+756,Cystic Fibrosis,1 code of cystic fibrosis and a second code within 1 to 365 days post index,441267,,2023-09-15,2023-10-05
+757,Concomitant TNF - alpha Inhibitors and IL12_23 Inhibitors - GE 30D overlap,Concomitant TNF - alpha Inhibitors and IL12_23 Inhibitors - GE 30D overlap,703578,,2023-09-15,2023-09-20
+759,Concomitant TNF - alpha Inhibitors and IL23 Inhibitors - GE 30D overlap,Concomitant TNF - alpha Inhibitors and IL23 Inhibitors - GE 30D overlap,"255848, 4318404",,2023-09-16,2023-09-20
+760,Concomitant IL 23 Inhibitors and IL12_23 Inhibitors - GE 30D overlap,Concomitant IL 23 Inhibitors and IL12_23 Inhibitors - GE 30D overlap,"256451, 260139",https://forums.ohdsi.org/t/17895,2023-09-16,2023-09-20
+761,Pulmonary arterial hypertension with Prior Left Heart or Vice Versa,Index date of either PAH or left heart disease whichever comes last,319049,,2023-09-16,2023-09-20
+762,Endothelin receptor antagonists,First exposure of Endothelin receptor antagonists,,,2023-09-16,2023-10-09
+763,Phosphodiesterase 5 inhibitors and guanylate cyclase stimulators,First exposure of Phosphodiesterase 5 inhibitors and guanylate cyclase stimulators,,,2023-09-16,2023-09-20
+764,Prostacyclin analogues and prostacyclin receptor agonists,First exposure of Prostacyclin analogues and prostacyclin receptor agonists,,,2023-09-16,2023-09-20
+765,Left Heart Failure,First occurrence of Left Heart Failure,,,2023-09-16,2023-09-20
+766,Right Heart Failure,First occurrence of Right Heart Failure,"255573, 317009",,2023-09-16,2023-09-20
+767,Sarcoidosis,First occurrence of Sarcoidosis,317009,,2023-09-16,2023-09-20
+768,Sickle Cell Anemia,First occurrence of Sickle Cell Anemia,4213628,,2023-09-16,2023-10-19
+769,Scleroderma,First occurrence of Scleroderma,"76685, 80809, 81893, 81931, 134442, 134618, 135215, 140168, 194992, 199856, 201254, 201606, 254443, 257628, 374919, 432295, 438688, 443394, 4137275, 4232076",,2023-09-16,2023-09-20
+770,Essential Hypertension,First occurrence of Essential Hypertension,"253954, 434557",,2023-09-16,2023-09-20
+771,Pulmonary hypertension associated with left heart disease (WHO Group 2),First occurrence of Pulmonary hypertension associated with left heart disease (WHO Group 2),"137809, 443392",,2023-09-16,2023-10-09
+772,Pulmonary hypertension associated with lung diseases and/or hypoxia (WHO Group 3),First occurrence of Pulmonary hypertension associated with lung diseases and/or hypoxia (WHO Group 3),433736,https://forums.ohdsi.org/t/17895,2023-09-16,2023-10-09
+773,Congenital Heart Disease,First occurrence of Congenital Heart Disease,4182210,,2023-09-16,2023-09-20
+774,Portal Hypertension,First occurrence of Portal Hypertension,"312648, 4028741",,2023-09-16,2023-09-20
+775,Inflammatory Bowel Disease,First occurrence of Inflammatory Bowel Disease,"4074815, 81893, 201606",,2023-09-16,2023-10-03
+776,Antisynthetase syndrome,First occurrence of Antisynthetase syndrome,439727,,2023-09-16,2023-09-20
+777,Mixed connective tissue disease,Mixed connective tissue disease,"197494, 198964",,2023-09-16,2023-09-20
+778,Undifferentiated connective tissue disease,First occurrence of Undifferentiated connective tissue disease,"313217, 44784217",,2023-09-16,2023-09-20
+779,Overlap syndrome,First occurrence of Overlap syndrome,193782,,2023-09-16,2023-09-20
+780,Raynaud’s disease or Raynaud’s phenomenon,First occurrence of Raynaud’s disease or Raynaud’s phenomenon,"201820, 201826",,2023-09-16,2023-09-20
+781,Antiphospholipid syndrome,First occurrence of Antiphospholipid syndrome,"192359, 193782",,2023-09-16,2023-09-20
+782,Chronic Thromboembolic Pulmonary Hypertension,First occurrence of Chronic Thromboembolic Pulmonary Hypertension,193782,,2023-09-16,2023-09-20
+783,Pulmonary endarterectomy,All occurrences of Pulmonary endarterectomy,"253954, 434557",,2023-09-16,2023-09-20
+784,Balloon Pulmonary Angioplasty,All occurrences of Balloon Pulmonary Angioplasty,4138754,,2023-09-16,2023-10-04
+785,Skin Burns,1 code of Skin Burns and a drug or procedure treatment within 1 to 180 days post index,"439676, 37311061",,2023-09-16,2023-09-20
+788,Breast cancer,,"439676, 37311061",,2023-09-16,2023-10-05
+789,Glioblastoma multiforme (GBM),,,,2023-09-16,2023-09-20
+790,Colorectal Cancer,,,,2023-09-16,2023-09-20
+791,Multiple Myeloma,,,,2023-09-16,2023-09-20
+792,Metastatic Hormone-Sensitive Prostate Cancer Synchronous,,"377091, 4196708",https://forums.ohdsi.org/t/17895,2023-09-16,2023-10-05
+793,Metastatic Hormone-Sensitive Prostate Cancer Metachronus,,"439676, 37311061",,2023-09-16,2023-10-05
+794,Hemorrhage of digestive system,all events of Hemorrhage of digestive system. Persons exit on cohort end date plus 14 days,,,2023-09-17,2023-10-16
+795,Antineoplastic drugs against colorectal cancer,First exposure of drugs Antineoplastic drugs against colorectal cancer.,"439676, 37311061",,2023-09-18,2023-09-20
+796,Potential curative surgery for colorectal cancer,First event potential curative surgery for colorectal cancer.,,,2023-09-18,2023-09-20
+797,Radiotherapy against colorectal cancer,"First exposure of radiotherapy, excluding procedures with that are probably not related to colorectal cancer.","317302, 320425",,2023-09-18,2023-09-20
+798,Primary adenocarcinoma of the colon or rectum,First event of primary adenocarcinoma of the colon or rectum,"377091, 4196708",https://forums.ohdsi.org/t/17895,2023-09-18,2024-01-05
+802,Acute Respiratory Failure,First event of acute respiratory failure,"79908, 139803, 443904",https://forums.ohdsi.org/t/17769,2023-09-18,2024-01-05
+803,Fascial dehiscence and evisceration,First fascial dehiscence or evisceration,"254761, 312437, 437663, 439926, 442752, 4041664, 4178904, 4272240, 43530714",https://forums.ohdsi.org/t/17895,2023-09-18,2024-01-05
+804,Anastomotic leak or dehiscence,First event of anastomotic leak or dehiscence of large or small intestine,199074,,2023-09-18,2024-01-05
+805,Intestinal obstruction,First event Intestinal obstruction,197320,,2023-09-18,2024-01-05
+806,Intraabdominal abscess,First event Intraabdominal abscess,4245975,,2023-09-18,2024-01-05
+807,Perioperative aspiration,First event of Perioperative aspiration,"316139, 319835",,2023-09-18,2024-01-05
+808,Postoperative hemorrhage,First event postoperative hemorrhage,4002836,,2023-09-18,2024-01-05
+809,Surgical wound infection (narrow),First event surgical wound infection,443454,,2023-09-18,2024-01-05
+810,Distant metastasis following colorectal cancer (wide),First event distant metastasis following colorectal cancer,"314666, 4329847",https://forums.ohdsi.org/t/15900,2023-09-18,2024-01-05
+811,Local recurrence after colorectal cancer,First event local recurrence after colorectal cancer,"4183609, 4266367",,2023-09-18,2024-01-05
+812,"Primary adenocarcinoma of the colon or rectum, MSI-H or dMMR, no surgery or oncological treatment","First event of primary adenocarcinoma of the colon or rectum with MSI-H or dMMR, no curative surgery or oncological treatment any time after","376713, 439847",,2023-09-18,2024-01-05
+813,Primary adenocarcinoma of the colon or rectum treated with potentially curative surgery,First event of Primary adenocarcinoma of the colon or rectum treated with curative surgery within 90 days of the operation,443454,,2023-09-18,2024-01-05
+814,"Primary adenocarcinoma of the colon or rectum, no curative intended surgery and oncological treatment",First event of Primary adenocarcinoma of the colon or rectum treated with no curative surgery but oncological treatment within 90 days of the operation,373503,,2023-09-18,2024-01-05
+817,"Primary adenocarcinoma of the colon or rectum, no curative intended surgery and oncological treatment","Primary adenocarcinoma of the colon or rectum, no curative intended surgery, and oncological treatment at any time after",192671,,2023-09-18,2024-01-05
+818,"Primary adenocarcinoma of the colon or rectum, MSI-L, MSI-indeterminate, MSS or pMMR","First event of primary adenocarcinoma of the colon or rectum, with a molecular subtype of MSI-L, MSI-indeterminate, MSS or pMMR","313217, 44784217",,2023-09-18,2024-01-05
+819,"Primary adenocarcinoma of the colon or rectum, MSI-L, MSI-indeterminate, MSS or pMMR, treated with curative intended surgery","First event of Primary adenocarcinoma of the colon or rectum, MSI-L, MSI-indeterminate, MSS or pMMR, treated with curative intended surgery within 90 days of diagnosis","438624, 4027133",,2023-09-18,2024-01-05
+820,"Primary adenocarcinoma of the colon or rectum, MSI-L, MSI-indeterminate, MSS or pMMR, oncological treatment, no curative surgery","First event of Primary adenocarcinoma of the colon or rectum, MSI-L, MSI-indeterminate, MSS or pMMR, treated with oncological therapy, but no curative intended surgery",,,2023-09-18,2024-01-05
+821,"Primary adenocarcinoma of the colon or rectum, MSI-L, MSI-indeterminate, MSS or pMMR, no surgery or oncological treatment","First event of Primary adenocarcinoma of the colon or rectum with a MSI-L, MSI-indeterminate, MSS or pMMR subtype, and no surgery or oncological treatment anytime in the future.",,,2023-09-18,2024-01-05
+822,"Primary adenocarcinoma of colon or rectum, MSI-H or dMMR, surgical treatment","First event of Primary adenocarcinoma of the colon or rectum with the MSI-H or dMMR molecular subtype, receiving potential curative surgery",40481547,,2023-09-18,2024-01-05
+823,"Primary adenocarcinoma of colon or rectum, MSI-H or dMMR, oncological treatment no surgery","First event primary adenocarcinoma of the colon or rectum, with MSI-H or dMMR molecular subtype, treated with oncological treatment no curative surgery","439676, 37311061",,2023-09-18,2024-01-05
+824,"Primary adenocarcinoma of colon or rectum, MSI-H or dMMR","First event Primary adenocarcinoma of the colon or rectum, with MSI-H or dMMR molecular subtype",,,2023-09-18,2024-01-05
+825,Primary adenocarcinoma of colon,First event of primary adenocarcinoma of colon,,,2023-09-18,2024-01-05
+826,"Primary adenocarcinoma of colon, no surgery or oncological treatment","First event of primary adenocarcinoma of the colon, no curative surgery and no oncological treatment anytime after",373995,https://forums.ohdsi.org/t/17895,2023-09-18,2024-01-05
+827,Primary adenocarcinoma of colon surgical treatment,First event of curative surgery for primary adenocarcinoma,378419,,2023-09-18,2024-01-05
+828,"Primary adenocarcinoma of colon oncological treatment, no surgery","First event of oncological treatment after primary adenocarcinoma, with no curative surgery","138525, 194133",https://forums.ohdsi.org/t/18223,2023-09-18,2024-01-05
+829,"Primary adenocarcinoma of colon, MSI-L, MSI-indeterminate, MSS or pMMR","First event of primary adenocarcinoma of colon, with MSI-L or pMMR molecular subtype",444362,,2023-09-18,2024-01-05
+830,"Primary adenocarcinoma of colon, MSI-L, MSI-indeterminate, MSS or pMMR, surgically treated","First event of potential curative surgery after a primary adenocarcinoma with MSI-L, MSS, pMMR molecular subtype","438409, 4047120",https://forums.ohdsi.org/t/15901,2023-09-18,2023-09-20
+831,"Primary adenocarcinoma of colon MSI-L, MSI-indeterminate, MSS or pMMR, oncological treatment, no surgery","First event of oncological treatment of primary adenocarcinoma of colon with MSS, MSI-L or pMMR subtype","314666, 4296653, 4329847",https://forums.ohdsi.org/t/15900,2023-09-18,2024-01-05
+832,"Primary adenocarcinoma of colon MSI-L, MSI-indeterminate, MSS or pMMR, no surgery or oncological treatment",First event of adenocarcinoma of colon with molecular subtype pMMR/MSI-L/MSS for patients not receiving surgery or oncological treatment,198263,https://forums.ohdsi.org/t/17895,2023-09-18,2024-01-05
+833,Primary adenocarcinoma of colon MSI-H or dMMR,First event of a primary adenocarcinoma of colon with MSI-H / pMMR molecular profile,"442597, 4152351",https://forums.ohdsi.org/t/17895,2023-09-18,2024-01-05
+834,"Primary adenocarcinoma of colon MSI-H or dMMR, surgical treatment",First event of potentially curative surgery for adenocarcinoma of colon following diagnosis of MSI-H dMMR subtype,"439926, 4272240",https://forums.ohdsi.org/t/17895,2023-09-18,2024-01-05
+835,"Primary adenocarcinoma of colon MSI-H or dMMR, oncological treatment, no surgery","First event of oncological treatment for colorectal cancer following diagnosis of primary adenocarcinoma of colon with MSI-H or dMMR profile, no curative surgery",4096682,,2023-09-18,2024-01-05
+836,"Primary adenocarcinoma of colon MSI-H or dMMR, no surgery or oncological treatment","First event of primary adenocarcinoma of colon with MSI-H or dMMR profile, no curative surgery or oncological treatment at anytime past diagnosis","137977, 435656",https://forums.ohdsi.org/t/17895,2023-09-18,2024-01-05
+837,Primary adenocarcinoma of rectum,First event of a primary adenocarcinoma of rectum,436222,https://forums.ohdsi.org/t/17895,2023-09-18,2024-01-05
+838,Primary adenocarcinoma of rectum MSI-H or dMMR,First event of a primary adenocarcinoma of rectum with MSI-H or dMMR molecular subtype,"196360, 197508",,2023-09-18,2024-01-05
+839,"Primary adenocarcinoma of rectum, MSI-H or dMMR, no surgery or oncological treatment","First event of a primary adenocarcinoma of rectum with MSI-H or dMMR molecular subtype, without any curative surgery or oncological treatment in the future",80809,,2023-09-18,2024-01-05
+840,"Primary adenocarcinoma of rectum MSI-H or dMMR, oncological treatment, no surgery","First event of oncological treatment for patient with primary adenocarcinoma of rectum with MSI-H or dMMR molecular subtype, without any curative surgery","318443, 764123",,2023-09-18,2024-01-05
+841,"Primary adenocarcinoma of rectum, MSI-H or dMMR, surgical treatment",First event of potentially curative surgery for patients diagnosed with primary adenocarcinoma of rectum with MSI-H / dMMR subtype,201606,,2023-09-18,2024-01-05
+842,"Primary adenocarcinoma of rectum, MSI-L, MSI-indeterminate, MSS or pMMR","First event of primary adenocarcinoma of rectum, with MSI-L, MSI-indeterminate, MSS or pMMR subtype",440383,,2023-09-18,2024-01-05
+843,"Primary adenocarcinoma of rectum MSI-L, MSI-indeterminate, MSS or pMMR, oncological treatment, no surgery","First event of oncology in patients diagnosed with primary adenocarcinoma of rectum with MSI-L, MSI-indeterminate, MSS or pMMR profile, with no subsequent potentially curative surgery",140168,,2023-09-18,2024-01-05
+844,"Primary adenocarcinoma of rectum MSI-L, MSI-indeterminate, MSS or pMMR, no surgery and no oncological treatment","First event of primary adenocarcinoma of tectum with MSI-L / MSS / pMMR profile, no surgery or oncological treatment",81893,,2023-09-18,2024-01-05
+845,"Primary adenocarcinoma of rectum MSI-L, MSI-indeterminate, MSS or pMMR, treated with potentially curative surgery",First event of potentially curative surgery for primary adenocarcinoma of rectum with MSI-L / pMMR subtype,"26942, 138723, 4144746",https://forums.ohdsi.org/t/17854,2023-09-18,2024-01-05
+846,"Primary adenocarcinoma of rectum oncological treatment, no surgery","First event of oncological for patients with primary adenocarcinoma in rectum, with no subsequent potentially curative surgery","257011, 437663, 4170143, 4250734",https://forums.ohdsi.org/t/17876,2023-09-18,2024-01-05
+847,Primary adenocarcinoma of rectum surgical treatment,First event of potentially curative surgery following diagnosis of primary adenocarcinoma of rectum,"435503, 439777, 441269, 4250490",https://forums.ohdsi.org/t/17856,2023-09-18,2024-01-05
+848,"Primary adenocarcinoma of rectum, no surgery or oncological treatment","First event of primary adenocarcinoma of rectum, no future potentially curative surgery or oncological treatment","435503, 439777, 441269, 4250490",https://forums.ohdsi.org/t/17856,2023-09-18,2024-01-05
+850,Intestinal obstruction,First event Intestinal obstruction,432881,,2023-09-18,2023-10-16
+851,Intraabdominal obstruction,First event Intraabdominal obstruction,435224,https://forums.ohdsi.org/t/17409,2023-09-18,2023-09-20
+852,Surgical wound infection (broad),First event surgical wound infection,435224,https://forums.ohdsi.org/t/17409,2023-09-18,2024-01-05
+854,Distant metastasis following colorectal cancer (medium),First event distant metastasis following colorectal cancer,"433749, 4103532",,2023-09-18,2024-01-05
+855,Distant metastasis following colorectal cancer (narrow),First event distant metastasis following colorectal cancer,"433749, 4103532",,2023-09-18,2024-01-05
+856,"Earliest event of Migraine, including history of migraine","Earliest occurrence of Migraine indexed on occurrence of Migraine condition (or observation of history of migraine-in the one of the cohorts versions) or symptoms (Headache , Aura) or a use of antimigraine drug (or the 1st time). Patients entering the cohort with an antimigraine drugs or migraine symptoms are required to have a diagnosis or observation of Migraine or history of migraine within 60 days. Cohort exit is the end of continuous observation.","313800, 4119134",,2023-09-18,2023-09-20
+857,Earliest event of Migraine,"Earliest occurrence of Migraine indexed on occurrence of Migraine condition (or observation of history of migraine-in the one of the cohorts versions) or symptoms (Headache , Aura) or a use of antimigraine drug (or the 1st time). Patients entering the cohort with an antimigraine drugs or migraine symptoms are required to have a diagnosis or observation of Migraine or history of migraine within 60 days. Cohort exit is the end of continuous observation.","137967, 4345578",,2023-09-18,2023-10-04
+858,Earliest event of Rheumatoid Arthritis,"Earliest occurrence of Rheumatoid Arthritis indexed on diagnosis (condition or observation) date, for the first time in history cohort exit is the end of continuous observation",321042,,2023-09-18,2023-10-04
+859,Earliest event of Crohns disease,"Earliest occurrence of Crohns disease indexed on diagnosis date, for the first time in history cohort exit is the end of continuous observation",201606,,2023-09-18,2023-10-04
+860,Earliest event of Ulcerative colitis,"Earliest occurrence of Ulcerative Colitis indexed on diagnosis date, for the first time in history cohort exit is the end of continuous observation",441202,https://forums.ohdsi.org/t/17835,2023-09-18,2023-09-22
+861,Earliest event of Urinary tract infections (UTI),"Earliest event of diagnosis of urinary tract infections, cohort exist is end of observation period.",141651,,2023-09-18,2023-11-29
+862,"Earliest event of Alzheimer's disease derived from Imfeld, 2",,42872891,,2023-09-18,2023-09-20
+863,"Cognitive impairment, incident","Earliest occurrence of Crohns disease indexed on diagnosis date, for the first time in history , with 365 days prior observation time. cohort exit is the end of continuous observation","4297400, 439795",,2023-09-18,2023-10-04
+864,Earliest event of Dementia,Occurrences of dementia indexed on diagnosis or observation date with no required prior continuous enrollment subset to earliest observation where the patient was 18 years or older cohort exit is the end of continuous observation.,4182210,,2023-09-18,2023-10-03
+865,"Major Non Cardiac Surgery, adults, inpt stay, no ED",,4301351,,2023-09-19,2024-01-05
+866,"Abdominal Aortic Aneurysm repair, adults, inpt stay, no ED",,4301351,,2023-09-19,2024-01-05
+867,"Lower Extremity Bypass, adults, inpt stay, no ED",,4301351,,2023-09-19,2024-01-05
+868,"Carotid Endarterectomy, adults, inpt stay, no ED",,4301351,,2023-09-19,2024-01-05
+869,"Lung Resection, adults, inpt stay, no ED",,4301351,,2023-09-19,2024-01-05
+870,"Esophagectomy, adults, inpt stay, no ED",,132702,,2023-09-19,2024-01-05
+871,"Pancreatectomy, adults, inpt stay, no ED",,4301351,,2023-09-19,2024-01-05
+872,"Colectomy, adults, inpt stay, no ED",,4301351,,2023-09-19,2024-01-05
+873,"Cystectomy, adults, inpt stay, no ED",,4301351,,2023-09-19,2024-01-05
+874,"Nephrectomy, adults, inpt stay, no ED",,4301351,,2023-09-19,2024-01-05
+875,"Coronary Artery Bypass Graft, adults, inpt stay, no ED",,4301351,,2023-09-19,2024-01-05
+876,"Cardiac Valve Surgery, adults, inpt stay, no ED",,4301351,,2023-09-19,2024-01-05
+877,"Non-Emergent MNCS (age 18 or greater), post op Afib (parox)",,374954,,2023-09-19,2023-10-05
+878,"Major Non Cardiac Surgery, adults, inpt stay, no ED, post op new Afib",,436100,https://forums.ohdsi.org/t/17784,2023-09-19,2024-01-05
+881,Acute myocardial infarction events,Acute myocardial infarction condition record during an inpatient or ER visit successive records with > 180 day gap are considered independent episodes,139900,https://forums.ohdsi.org/t/17895,2023-09-20,2023-09-24
+882,Persons with decreased libido,The first condition record of decreased libido,377575,https://forums.ohdsi.org/t/17895,2023-09-20,2023-09-21
+884,Diarrhea events,Diarrhea condition record of any type successive records with > 30 day gap are considered independent episodes,196523,,2023-09-20,2023-10-09
+888,Gastrointestinal bleeding events,Gastrointestinal hemorrhage condition record during an inpatient or ER visit successive records with > 30 day gap are considered independent episodes,196715,,2023-09-20,2023-09-20
+889,Hyponatremia events,Hyponatremia condition record of any type successive records with > 90 day gap are considered independent episodes,199837,,2023-09-20,2023-09-20
+890,Hypotension events,Hypotension condition record of any type successive records with > 90 day gap are considered independent episodes,"4133004, 43531681",https://forums.ohdsi.org/t/17769,2023-09-20,2023-09-20
+891,Nausea events,Nausea condition record of any type successive records with > 30 day gap are considered independent episodes,436093,,2023-09-20,2023-09-20
+892,Stroke (ischemic or hemorrhagic) events,Stroke (ischemic or hemorrhagic) condition record during an inpatient or ER visit successive records with > 180 day gap are considered independent episodes,443454,,2023-09-20,2023-09-20
+893,Persons with vertigo,The first condition record of vertigo,"4192640, 199074",https://forums.ohdsi.org/t/17848,2023-09-20,2023-09-20
+894,Abdominal pain events,Abdominal pain condition record of any type successive records with > 90 day gap are considered independent episodes,"4192640, 199074, 4340961",https://forums.ohdsi.org/t/17848,2023-09-20,2023-09-24
+895,Abnormal weight gain events,Abnormal weight gain record of any type successive records with > 90 day gap are considered independent episodes,"377091, 380378, 4029498",https://forums.ohdsi.org/t/17569,2023-09-20,2023-09-24
+896,Abnormal weight loss events,Abnormal weight loss observation record of any type successive records with > 90 day gap are considered independent episodes,435928,,2023-09-20,2023-09-28
+898,Acute renal failure events,Acute renal failure condition record during an inpatient or ER visit successive records with >30 day gap are considered independent episodes,"374923, 4091559",https://forums.ohdsi.org/t/17788,2023-09-20,2023-09-24
+900,Anaphylactoid reaction events,Anaphylactoid reaction condition record during an inpatient or ER visit successive records with >7 day gap are considered independent episodes,441202,https://forums.ohdsi.org/t/16033,2023-09-20,2023-09-20
+901,Persons with anemia,The first condition record of anemia,441202,https://forums.ohdsi.org/t/18193,2023-09-20,2023-09-20
+917,Persons with anxiety,"The first condition record of anxiety, which is followed by another anxiety condition record or a drug used to treat anxiety",4245975,,2023-09-20,2023-09-20
+918,Persons with bradycardia,"The first condition record of bradycardia, which is followed by another bradycardia condition record",4245975,,2023-09-20,2023-09-20
+919,Person with cardiac arrhythmia,"The first condition record of cardiac arrhythmia, which is followed by another cardiac arrhythmia condition record, at least two drug records for a drug used to treat arrhythmias, or a procedure to treat arrhythmias",197320,,2023-09-20,2023-09-20
+920,"Total cardiovascular disease events (ischemic stroke, hemorrhagic stroke, heart failure, acute myocardial infarction or sudden cardiac death)","A condition record of ischemic stroke, hemorrhagic stroke, heart failure, acute myocardial infarction or sudden cardiac death during an inpatient or ER visit successive records with > 180 day gap are considered independent episodes",197320,,2023-09-20,2023-09-20
+921,Cardiovascular-related mortality,"Death record with at least 1 cardiovascular-related condition record (myocardial infarction, ischemic stroke, intracranial hemorrhage, sudden cardiac death, hospitalization for heart failure) in 30 days prior to death",197320,https://forums.ohdsi.org/t/16067,2023-09-20,2023-09-20
+922,Persons with chest pain or angina,The first condition record of chest pain or angina,"435503, 439777, 441269",https://forums.ohdsi.org/t/17856,2023-09-20,2023-09-20
+923,Persons with chronic kidney disease,"The first condition record of chronic kidney disease, which is followed by either another chronic kidney disease condition record or a dialysis procedure or observation","435503, 439777, 441269",https://forums.ohdsi.org/t/17856,2023-09-20,2023-09-20
+924,Coronary heart disease events (acute myocardial infarction or sudden cardiac death),A condition record of acute myocardial infarction or sudden cardiac death during an inpatient or ER visit successive records with > 180 day gap are considered independent episodes,"437579, 4103295",,2023-09-20,2023-09-20
+925,Cough events,Cough condition record of any type successive records with > 90 day gap are considered independent episodes,"321042, 437579, 4103295",,2023-09-20,2023-09-28
+927,Persons with dementia,The first condition record of dementia,4182210,,2023-09-20,2023-10-03
+928,Persons with depression,"The first condition record of depression, which is followed by another depression condition record, at least two drugs used to treat depression without another indication, or two psychotherapy procedures",377556,,2023-09-20,2023-09-20
+929,Edema events,Edema condition record of any type successive records with > 180 day gap are considered independent episodes,"374053, 377889",,2023-09-20,2023-10-03
+930,Persons with end stage renal disease,"The first condition record of end stage renal disease, which is followed by either another end stage renal disease condition record or a dialysis procedure or observation within 90 days","138525, 194133",https://forums.ohdsi.org/t/17895,2023-09-20,2023-09-20
+931,Fall events,Fall condition record of any type successive records with > 180 day gap are considered independent episodes,"134736, 194133",https://forums.ohdsi.org/t/17895,2023-09-20,2023-09-20
+932,Persons with gout,The first condition record of gout,200219,https://forums.ohdsi.org/t/17895,2023-09-20,2023-09-20
+933,Headache events,Headache condition record of any type successive records with > 30 day gap are considered independent episodes,"197381, 4306292",https://forums.ohdsi.org/t/17895,2023-09-20,2023-09-24
+934,Persons with heart failure,"The first condition record of heart failure, which is followed by at least 1 heart failure condition record in the following year","78232, 80180",https://forums.ohdsi.org/t/17895,2023-09-20,2023-09-20
+935,Hemorrhagic stroke (intracerebral bleeding) events,"Intracranial, cerebral or subarachnoid hemorrhage condition record during an inpatient or ER visit successive records with > 180 day gap are considered independent episodes",194997,,2023-09-20,2023-09-20
+936,Persons with hepatic failure,"The first condition record of hepatic failure, necrosis, or coma","320116, 4138837",,2023-09-20,2023-09-20
+938,Hospitalization with heart failure events,Inpatient or ER visits with heart failure condition record all qualifying inpatient visits occurring > 7 days apart are considered independent episodes,"79908, 138965, 139803, 380995, 443904",https://forums.ohdsi.org/t/17769,2023-09-20,2023-09-20
+939,Hospitalization with preinfarction syndrome events,Inpatient or ER visits with preinfarction syndrome condition record all qualifying inpatient visits occurring > 7 days apart are considered independent episodes,"201820, 201826",https://forums.ohdsi.org/t/15764,2023-09-20,2023-09-20
+940,Hyperkalemia events,Condition record for hyperkalemia or potassium measurements > 5.6 mmol/L successive records with >90 day gap are considered independent episodes,"313217, 44784217",,2023-09-20,2023-09-24
+941,Hypokalemia events,Hypokalemia condition record of any type successive records with > 90 day gap are considered independent episodes,"138384, 140673",,2023-09-20,2023-09-20
+942,Hypomagnesemia events,Hypomagnesemia condition record of any type successive records with > 90 day gap are considered independent episodes,"78474, 80767, 137809",,2023-09-20,2023-09-20
+943,Persons with impotence,The first condition record of impotence,4245975,,2023-09-20,2023-09-20
+944,Ischemic stroke events,Ischemic stroke condition record during an inpatient or ER visit successive records with > 180 day gap are considered independent episodes,194990,,2023-09-20,2023-09-20
+945,Persons with a malignant neoplasm other than non-melanoma skin cancer,"The first condition record of a malignant neoplasm, with at least 2 conditions records for one of 17 leading cancer (breast, prostate, lung, colorectal, bladder, ovary, uterus, thyroid, kidney, brain, pancreas, liver, multiple myeloma, leukemia, melanoma, myelodysplastic syndrome)",194990,,2023-09-20,2023-09-20
+946,Persons with measured renal dysfunction,The first creatinine measurement with value > 3 mg/dL,4245975,,2023-09-20,2023-09-20
+947,Persons with neutropenia or agranulocytosis,The first condition record of neutropenia or agranulocytosis,"79908, 139803, 443904",https://forums.ohdsi.org/t/17769,2023-09-20,2023-09-20
+948,Rash events,Rash condition record of any type successive records with > 90 day gap are considered independent episodes,"79864, 437038",,2023-09-20,2023-09-24
+950,Rhabdomyolysis events,Rhabdomyolysis condition record or muscle disorder condition record with creatine measurement 5*ULN during an inpatient or ER visit successive records with >90 day gap are considered independent episodes,192671,,2023-09-20,2023-09-20
+953,Sudden cardiac death events in inpatient,Sudden cardiac death condition record during an inpatient or ER visit successive records with > 180 day gap are considered independent episodes,"197607, 4302555",,2023-09-20,2023-09-24
+954,Syncope events,Syncope condition record of any type successive records with > 180 day gap are considered independent episodes,377252,https://forums.ohdsi.org/t/18236,2023-09-20,2023-09-20
+955,Persons with thrombocytopenia,The first condition record of thrombocytopenia,376938,https://forums.ohdsi.org/t/18236,2023-09-20,2023-09-20
+956,Transient ischemic attack events,Transient ischemic attack condition record during an inpatient or ER visit successive records with > 30 day gap are considered independent episodes,4112970,https://forums.ohdsi.org/t/18236,2023-09-20,2023-09-20
+957,Persons with type 2 diabetes mellitus,"The first condition record of Type 2 Diabetes Mellitus, which is followed by another Type 2 Diabetes Mellitus condition record, at least 2 drugs used to treat Type 2 diabetes, or at least 2 HbA1c measurements with value > 6.5%","4216000, 4246137",https://forums.ohdsi.org/t/18236,2023-09-20,2023-09-20
+963,Vomiting events,Vomiting condition record of any type successive records with > 30 day gap are considered independent episodes,"25297, 4226263",https://forums.ohdsi.org/t/17895,2023-09-20,2023-09-20
+964,Persons with chronic kidney disease with 2+ diagnoses across 30d or 2+ dialysis,Persons with chronic kidney disease with 2+ diagnoses across 30d or 2+ dialysis,314754,https://forums.ohdsi.org/t/17895,2023-09-20,2023-09-20
+965,,"Condition record of acute myocardial infarction, hemorrhagic or ischemic stroke or sudden cardiac death during an inpatient or ER visit","253506, 255848",https://forums.ohdsi.org/t/17895,2023-09-20,2023-09-20
+967,,3-Point MACE $+$ inpatient or ER visit (hospitalization) with heart failure condition record,4023572,https://forums.ohdsi.org/t/17895,2023-09-20,2023-09-20
+976,,First hemoglobin A1c measurement with value $\le$ 7\%,317009,,2023-09-20,2023-09-24
+979,,Inpatient or ER visit with heart failure condition record,"441542, 442077",,2023-09-20,2023-09-24
+980,Coronary Vessel Revascularization,Procedure record of percutaneous coronary intervention or coronary artery bypass grafting during an inpatient or ER visit,"4283892,4336464",,2023-09-20,2023-10-04
+982,Stroke (ischemic or hemorrhagic) in inpatient,Condition record of hemorrhagic or ischemic stroke during an inpatient or ER visit,"134438, 45766714",https://forums.ohdsi.org/t/17895,2023-09-20,2023-09-24
+986,,Condition record of acute pancreatitis during an inpatient or ER visit,,,2023-09-20,2023-09-20
+989,Bladder Cancer,Malignant tumor of urinary bladder condition record of any type limited to earliest event per person,,,2023-09-20,2023-10-05
+990,Bone Fracture,Bone fracture condition record of any type successive records with > 90 day gap are considered independent episodes,75053,,2023-09-20,2023-10-04
+991,Breast cancer Malignant tumor of breast,Malignant tumor of breast condition record of any type limited to earliest event per person,"197925, 4245614",,2023-09-20,2023-09-24
+992,,Diabetic ketoacidosis condition record during an inpatient or ER visit,261687,https://forums.ohdsi.org/t/17895,2023-09-20,2023-09-24
+993,,Diarrhea condition record of any type successive records with > 30 day gap are considered independent episodes,"4209223, 4285898, 42537251",https://forums.ohdsi.org/t/17895,2023-09-20,2023-10-09
+994,Genitourinary infection,Condition record of any type of genital or urinary tract infection during an outpatient or ER vists,"24660, 4083666",https://forums.ohdsi.org/t/17895,2023-09-20,2023-09-25
+996,Hypoglycemia,Hypoglycemia condition record of any type successive records with > 90 day gap are considered independent episodes,"257007, 4320791",https://forums.ohdsi.org/t/17895,2023-09-20,2023-09-24
+997,Hypotension,Hypotension condition record of any type successive records with > 90 day gap are considered independent episodes,"24969, 260134",https://forums.ohdsi.org/t/17895,2023-09-20,2023-10-09
+998,,Joint pain condition record of any type successive records with > 90 days gap are considered independent episodes,4096682,https://forums.ohdsi.org/t/17895,2023-09-20,2023-09-20
+999,Lower extremity amputation,Procedure record of below knee lower extremity amputation during inpatient or outpatient visit,"261600, 4078925",https://forums.ohdsi.org/t/17895,2023-09-20,2023-09-24
+1000,,Nausea condition record of any type successive records with > 30 day gap are considered independent episodes,"319049, 4256228",https://forums.ohdsi.org/t/17895,2023-09-20,2023-09-20
+1001,Peripheral edema,Edema condition record of any type successive records with > 180 day gap are considered independent episodes,"319049, 4256228",https://forums.ohdsi.org/t/17895,2023-09-20,2023-10-16
+1002,Photosensitivity,Condition record of drug-induced photosensitivity during any type of visit,254061,https://forums.ohdsi.org/t/17895,2023-09-20,2023-09-24
+1003,Renal Cancer,Primary malignant neoplasm of kidney condition record of any type limited to earliest event per person,73754,https://forums.ohdsi.org/t/18236,2023-09-20,2023-09-24
+1004,Thyroid tumor,Neoplasm of thyroid gland condition record of any type limited to earliest event per person,4131909,,2023-09-20,2023-10-05
+1005,Venous thromboembolism,Venous thromboembolism condition record of any type successive records with > 180 day gap are considered independent episodes,"72404, 72711",https://forums.ohdsi.org/t/17895,2023-09-20,2023-09-24
+1006,Vomiting,Vomiting condition record of any type successive records with > 30 day gap are considered independent episodes,"435524, 442588",https://forums.ohdsi.org/t/17895,2023-09-20,2023-09-24
+1007,Earliest event of Epilepsy,Earliest occurrence of Epilepsy indexed on diagnosis date cohort exit is the end of continuous observation.,"197684, 4021780",https://forums.ohdsi.org/t/17895,2023-09-20,2023-09-20
+1009,Earliest event of Treatment resistant depression (TRD),"Depression disorder patients indexed on prescription date of a first-line anti-depressant preceded by at least two prior first-line anti-depressants) or indexed on an antipsychotic preceded by a first-line anti-depressant or indexed on use of esketamine preceded by a first-line anti-depressant subset to the earliest entry with a depressive disorder diagnosis in the prior year and no history of mania, dementia, or psychosis requiring continuous enrollment for the year preceding the index date and the year preceding the depression diagnosis cohort exit is the end of continuous observation.","25297, 28060, 4226263",,2023-09-20,2023-10-04
+1010,Earliest event of Chronic Graft Versus Host Disease (GVHD),"Earliest occurrence of Chronic graft-versus-host disease indexed on diagnosis date of Chronic graft-versus-host disease or acute on Chronic graft-versus-host disease (for the first time in history) or unspecified raft-versus-host disease with a Hematopoietic Stem Cell Transplantation (HSCT) anytime prior to 180 days prior to index, cohort exit is the end of continuous observation","257007, 4320791",,2023-09-20,2023-09-20
+1011,Earliest event of Marginal zone lymphoma,"Earliest occurrence of Marginal zone lymphoma, indexed on diagnosis date, for the first time in history cohort exit is the end of continuous observation","260123, 4283893",https://forums.ohdsi.org/t/17895,2023-09-20,2023-09-20
+1012,Earliest event of Waldenstrom macroglobulinemia,"Earliest occurrence of Waldenstrom macroglobulinemia indexed on diagnosis date, for the first time in history cohort exit is the end of continuous observation",435502,,2023-09-20,2023-10-04
+1013,Earliest event of Ankylosing Spondylitis,"Earliest occurrence of Ankylosing Spondylitis indexed on diagnosis date, for the first time in history cohort exit is the end of continuous observation","257007, 43021227",https://forums.ohdsi.org/t/17895,2023-09-20,2023-09-20
+1016,Earliest event of Polyarticular juvenile idiopathic arthritis (JIA),"First occurrence of Polyarticular juvenile idiopathic arthritis (JIA)) indexed on diagnosis date, for the first time in history. Requiring that events occurred on or after January of 2016 and limited to patients with age less or equal to 16 years old. cohort exit is the end of continuous observation.",372328,,2023-09-20,2023-10-05
+1017,"Earliest event of Neonatal Thrombocytopenia (NT), less than 1 year old","Earliest occurrence of Neonatal Thrombocytopenia indexed on diagnosis date, for the first time in history limited to patients less than 1 years old, cohort exit is the end of continuous observation",439777,https://forums.ohdsi.org/t/17856,2023-09-20,2023-09-20
+1018,Earliest event of Warm Autoimmune Hemolytic Anemia (wAIHA),"Earliest occurrence of Warm Autoimmune Hemolytic Anemia (wAIHA) indexed on diagnosis date, for the first time in history cohort exit is the end of continuous observation","437264, 440069",,2023-09-20,2023-10-05
+1019,"All events of Hemolytic Disease Fetus and Newborn (HDFN), RhD type, with a pregnancy episode","All events of Hemolytic Disease Fetus and Newborn (HDFN) indexed on diagnosis date, requiring a pregnancy episode that started any time prior index and pregnancy ends between 14 days pre to all time post index patients exit the cohort 270 days post index or on events signaling pregnancy end. Reoccurrence events are collapsed if the next event starts within 90 days of end of prior event.","444367, 4145627",,2023-09-20,2023-09-20
+1020,"Earliest event of Major depressive disorder, with NO occurrence of certain psychiatric disorder","Earliest occurrence of major depressive disorder indexed on diagnosis date requiring no occurrence anytime prior including day 0 of Bipolar disorder, Schizoaffective, Schizophrenia not including paraphrenia, Dementia or Psychotic disorder cohort exit is the end of continuous observation.","441259, 4177600",,2023-09-20,2023-09-20
+1021,"Earliest event of Myasthenia Gravis, inpatient, 2nd diagnosis or treatment, age gte 18","Earliest occurrence of myasthenia gravis (excluding congenital, juvenile, neonatal or genetic) indexed on diagnosis date requiring either a second diagnosis of myasthenia gravis within 365 days after the first diagnosis (index date) or a drug exposure to Pyridostigmine on or 60 days after the first diagnosis or that the first diagnosis occur in an inpatient setting cohort exit is the end of continuous observation. Limit to persons with age greater than or equal to 18 on entry.",4155911,,2023-09-20,2023-09-20
+1022,Earliest event of Depressive and Sleep Disorder,Earliest occurrence of either 1) a depressive disorder diagnosis that is preceded by a sleep disorder diagnosis in the prior year 2) a sleep disorder diagnosis that is preceded by a depressive disorder diagnosis in the prior year cohort exit is the end of continuous observation.,"441259, 4307580",,2023-09-20,2023-09-20
+1023,Earliest Event of Depressive Disorder with Suicidal Ideation or Attempt Prevalent,"Earliest occurrence of either 1) a depressive disorder diagnosis that is preceded by a suicidal ideation diagnosis or suicide observation in the prior year, or 2) a suicide ideation diagnosis that is preceded by a depressive disorder diagnosis in the prior year, or 3) a suicide attempt observation that is preceded by a depressive disorder diagnosis in the prior year cohort exit is the end of continuous observation.","438252, 4118793",,2023-09-20,2023-09-20
+1024,Earliest Event of Depressive Disorder with Anhedonia,Earliest occurrence of either 1) a depressive disorder diagnosis that is preceded by an Anhedonia diagnosis in the prior year or 2) an anhedonia diagnosis that is preceded by a depressive disorder diagnosis in the prior year cohort exit is the end of continuous observation.,"137977, 435656",https://forums.ohdsi.org/t/17895,2023-09-20,2023-09-20
+1025,First event of Attention-deficit hyperactivity (ADHD) disorder or procedure,"First occurrence of Attention-deficit hyperactivity disorder (ADHD) condition or related procedures, indexed on the earliest occurrence of ADHD condition, procedure or treatment (limited to drug exposure followed by a related condition or procedure), with 365d prior observation, exit at end of observation","40480225,4047120",,2023-09-20,2023-10-04
+1026,Earliest Event of Multiple Sclerosis,Earliest occurrence of multiple sclerosis indexed on diagnosis date for the first time in persons history cohort exit is the end of continuous observation.,"135618, 4169287",https://forums.ohdsi.org/t/17895,2023-09-20,2023-09-20
+1027,Earliest event of Chronic Leukocytic Leukemia,"Earliest event of Chronic Leukocytic Leukemia (not including Hairy cell, prolymphocytic leukemia, T cell, reticuloendotheliosis) for the first time in persons history, exit cohort at the end of continuous observation period.","133834, 133835, 45766714",,2023-09-20,2023-09-20
+1028,Earliest event of Urothelial carcinoma,Earliest event of Urothelial Carcinoma indexed on diagnosis Indexed on Primary or malignant urothelial bladder cancer diagnosis cohort exit is the end of continuous observation.,134438,,2023-09-20,2023-09-20
+1029,Earliest event of Mantle Cell Lymphoma,Earliest event of Urothelial Carcinoma indexed on diagnosis Indexed on Primary or malignant urothelial bladder cancer diagnosis cohort exit is the end of continuous observation.,4242574,,2023-09-20,2023-09-20
+1030,"Earliest event of Prostate cancer, among adult males",Earliest event of Prostate cancer restricting age greater than or equal to 18 and males indexed on prostate cancer diagnosis cohort exit is the end of continuous observation.,137053,,2023-09-20,2023-09-20
+1031,Earliest event of Coronary artery disease (CAD),Earliest event of Coronary Artery Disease for the first time in the persons history Indexed on coronary artery disease diagnosis (condition or observation) cohort exit is the end of continuous observation.,"4203600, 4239682, 4331304",,2023-09-20,2023-09-20
+1032,"Earliest event of Type 2 Diabetes Mellitus (DM), with no type 1 or secondary DM","Earliest event of Type 2 Diabetes Mellitus (DM), indexed on diagnosis or Blood glucose lowering drugs excluding insulin or high Hemoglobin A1c (limited to treatments or measurement that are followed with Type 2 DM diagnosis within 365 days) excluding persons with Type 1 DM or secondary diabetes mellitus in the all time prior including index date",4027396,,2023-09-20,2023-09-20
+1033,"Earliest event of Human Immunodeficiency Virus I (HIV), with treatment, lab or 2nd diagnosis","Earliest event of Human Immunodeficiency Virus I (HIV), with HIV drugs or laboratory results any time after index date or second diagnosis post index cohort exit is the end of continuous observation","4027396, 4117779",,2023-09-20,2023-10-04
+1034,"All events of Respiratory syncytial virus infection, with 30 days washout","All events of Respiratory syncytial virus infection, with no such events in prior 30 days (washout). Persons exit the cohort at the start date + 30 day.",377889,,2023-09-20,2023-09-20
+1035,New users of Thiazide diuretics,New users of Thiazide diuretics,,,2023-09-21,2023-09-21
+1036,New users of Beta blockers,New users of Beta blockers,,,2023-09-21,2023-09-21
+1037,New users of SGLT2 inhibitor,New users of SGLT2 inhibitor,,,2023-09-21,2023-09-21
+1038,New users of GLP-1 receptor antagonists,New users of GLP-1 receptor antagonists,,,2023-09-21,2023-09-21
+1039,New users of DPP-4 inhibitors,New users of DPP-4 inhibitors,,,2023-09-21,2023-09-21
+1040,New users of Tumor Necrosis Factor alpha (TNFa) inhibitors,New users of Tumor Necrosis Factor alpha (TNFa) inhibitors,,,2023-09-21,2023-09-21
+1041,New users of JAK inhibitors,New users of JAK inhibitors,,,2023-09-21,2023-09-21
+1042,New users of IL-23 inhibitors,New users of IL-23 inhibitors,,,2023-09-21,2023-10-03
+1043,New users of Fluoroquinolone systemic,New users of Fluoroquinolone systemic,,,2023-09-21,2023-09-21
+1044,New users of Cephalosporin systemetic,New users of Cephalosporin systemetic,,,2023-09-21,2023-09-21
+1045,New users of Trimethoprim systemetic,New users of Trimethoprim systemetic,,,2023-09-21,2023-09-21
+1046,New users of Thiazide diuretics nested in essential hypertension,New users of Thiazide diuretics nested in essential hypertension,,,2023-09-21,2023-09-21
+1047,New users of dihydropyridine calcium channel blockers nested in essential hypertension,New users of dihydropyridine calcium channel blockers nested in essential hypertension,,,2023-09-21,2023-09-21
+1048,New users of dihydropyridine calcium channel blockers,New users of dihydropyridine calcium channel blockers,,,2023-09-21,2023-09-21
+1049,New users of Beta blockers nested in essential hypertension,New users of Beta blockers nested in essential hypertension,,,2023-09-21,2023-09-21
+1050,New users of Beta blockers nested in Left Heart Failure,New users of Beta blockers nested in Left Heart Failure,,,2023-09-21,2023-09-21
+1051,New users of SGLT2 inhibitor nested in Left Heart Failure,New users of SGLT2 inhibitor nested in Left Heart Failure,,,2023-09-21,2023-09-21
+1052,New users of Beta blockers nested in Acute Myocardial Infarction,New users of Beta blockers nested in Acute Myocardial Infarction,,,2023-09-21,2023-09-21
+1053,New users of GLP-1 receptor antagonists nested in Type 2 diabetes mellitus,New users of GLP-1 receptor antagonists nested in Type 2 diabetes mellitus,,,2023-09-21,2023-09-21
+1054,New users of SGLT2 inhibitor nested in Type 2 diabetes mellitus,New users of SGLT2 inhibitor nested in Type 2 diabetes mellitus,,,2023-09-21,2023-09-21
+1055,New users of DPP-4 inhibitors nested in Type 2 diabetes mellitus,New users of DPP-4 inhibitors nested in Type 2 diabetes mellitus,,,2023-09-21,2023-09-21
+1056,New users of GLP-1 receptor antagonists nested in obesity,New users of GLP-1 receptor antagonists nested in obesity,,,2023-09-21,2023-09-21
+1057,New users of IL-23 inhibitors nested in Plaque psoriasis,New users of IL-23 inhibitors nested in Plaque psoriasis,,,2023-09-21,2023-10-03
+1058,New users of Tumor Necrosis Factor alpha (TNFa) inhibitors nested in Plaque psoriasis,New users of Tumor Necrosis Factor alpha (TNFa) inhibitors nested in Plaque psoriasis,,,2023-09-21,2023-09-21
+1059,New users of Tumor Necrosis Factor alpha (TNFa) inhibitors nested in Psoriatic Arthritis,New users of Tumor Necrosis Factor alpha (TNFa) inhibitors nested in Psoriatic Arthritis,,,2023-09-21,2023-09-21
+1060,New users of Fluoroquinolone systemic nested in Urinary Tract Infection,New users of Fluoroquinolone systemic nested in Urinary Tract Infection,,,2023-09-21,2023-09-21
+1061,New users of Cephalosporin systemetic nested in Urinary Tract Infection,New users of Cephalosporin systemetic nested in Urinary Tract Infection,,,2023-09-21,2023-09-21
+1062,New users of Trimethoprim systemetic nested in Urinary Tract Infection,New users of Trimethoprim systemetic nested in Urinary Tract Infection,,,2023-09-21,2023-09-21
+1063,New users of Fluoroquinolone systemic nested in Acute Typical Pneumonia,New users of Fluoroquinolone systemic nested in Acute Typical Pneumonia,,,2023-09-21,2023-09-21
+1064,New users of Cephalosporin systemetic nested in Acute Typical Pneumonia,New users of Cephalosporin systemetic nested in Acute Typical Pneumonia,,,2023-09-21,2023-09-21
+1065,New users of Trimethoprim systemetic nested in Acute Typical Pneumonia,New users of Trimethoprim systemetic nested in Acute Typical Pneumonia,,,2023-09-21,2023-09-21
+1066,New users of Tumor Necrosis Factor alpha (TNFa) inhibitors nested in Rheumatoid arthritis,New users of Tumor Necrosis Factor alpha (TNFa) inhibitors nested in Rheumatoid arthritis,,,2023-09-21,2023-09-21
+1067,New users of JAK inhibitors nested in Ulcerative colitis,New users of JAK inhibitors nested in Ulcerative colitis,,,2023-09-21,2023-09-21
+1068,New users of Tumor Necrosis Factor alpha (TNFa) inhibitors nested in Ulcerative colitis,New users of Tumor Necrosis Factor alpha (TNFa) inhibitors nested in Ulcerative colitis,,,2023-09-21,2023-09-21
+1069,New users of Tumor Necrosis Factor alpha (TNFa) inhibitors nested in Crohns disease,New users of Tumor Necrosis Factor alpha (TNFa) inhibitors nested in Crohns disease,,,2023-09-21,2023-09-21
+1070,New users of JAK inhibitors nested in Rheumatoid arthritis,New users of JAK inhibitors nested in Rheumatoid arthritis,,,2023-09-21,2023-09-21
+1071,persons at risk at start of year 2012-2022 with 365d prior observation,persons at risk at start of year 2012-2022 with 365d prior observation,,,2023-09-21,2023-10-02
+1072,Cytomegalovirus CMV Anterior Uveitis,,436100,,2023-09-21,2023-10-18
+1073,"Serious Infection, opportunistic infections and other infections of interest event","Incidence of Serious Infection, opportunistic infections and other infections of interest event.",81893,,2023-09-22,2023-09-22
+1074,Serious Infection,Incidence of Serious Infection.,81893,,2023-09-22,2023-09-22
+1075,Narcolepsy,Narcolepsy,,,2023-09-22,2023-09-22
+1076,Anaphylaxis,Anaphylaxis,,,2023-09-22,2023-09-22
+1077,Anaphylaxis v2,Anaphylaxis v2,,,2023-09-22,2023-10-09
+1078,Bells Palsy,Bells Palsy,,,2023-09-22,2023-09-22
+1079,Encephalomyelitis,Encephalomyelitis,,,2023-09-22,2023-09-22
+1080,Guillain Barre Syndrome,Guillain Barre Syndrome,,,2023-09-22,2023-09-22
+1081,Acute Myocardial Infarction including its complications,Acute Myocardial Infarction,,,2023-09-22,2023-09-25
+1082,Myocarditis Pericarditis,Myocarditis Pericarditis,,,2023-09-22,2023-09-22
+1083,Immune Thrombocytopenia (ITP),Immune Thrombocytopenia (ITP),,,2023-09-22,2023-09-22
+1084,Disseminated Intravascular Coagulation,Disseminated Intravascular Coagulation,,,2023-09-22,2023-09-22
+1085,Appendicitis,Appendicitis,,,2023-09-22,2023-09-22
+1086,Transverse Myelitis,Transverse Myelitis,,,2023-09-22,2023-09-22
+1087,Hemorrhagic Stroke,Hemorrhagic Stroke,,,2023-09-22,2023-09-22
+1088,Deep Vein Thrombosis (DVT),Deep Vein Thrombosis (DVT),,,2023-09-22,2023-09-22
+1089,Non-hemorrhagic Stroke,Non-hemorrhagic Stroke,,,2023-09-22,2023-09-22
+1090,Pulmonary Embolism,Pulmonary Embolism,,,2023-09-22,2023-09-22
+1091,Thrombosis with Thrombocytopenia (TWT),Thrombosis with Thrombocytopenia (TWT),,,2023-09-22,2023-09-22
+1093,"Abdominal Aortic Aneurysm Repair, adults, inpt stay, no ED, post op new Afib","Non emergent (No ED visit) AAA repair (requiring inpatient stay) among adults, first occurrence Afib (any) that occurs 14d after index (date of surgery), no prior atrial fibrillation",,,2023-09-25,2024-01-05
+1094,Lower Extremity Bypass - post op new Afib,"Non emergent (No ED visit) Lower Extremity Bypass (requiring inpatient stay) among adults, first occurrence Afib (any) that occurs 14d after index (date of surgery), no prior atrial fibrillation.",,,2023-09-25,2024-01-05
+1095,"Carotid Endarterectomy, adults, inpt stay, no ED, post op new Afib","Non emergent (No ED visit) Carotid Endarterctomy (requiring inpatient stay) among adults, first occurrence Afib (any) that occurs 14d after index (date of surgery), no prior atrial fibrillation",,,2023-09-25,2024-01-05
+1097,"Esophagectomy, adults, inpt stay, no ED, post op new Afib","Non emergent (No ED visit) Esophagectomy (requiring inpatient stay) among adults, first occurrence Afib (any) that occurs 14d after index (date of surgery), no prior atrial fibrillation",,,2023-09-25,2024-01-05
+1098,"Pancreatectomy, adults, inpt stay, no ED, post op new Afib","Non emergent (No ED visit) Pancreatectomy (requiring inpatient stay) among adults, first occurrence Afib (any) that occurs 14d after index (date of surgery), no prior atrial fibrillation",,,2023-09-25,2024-01-05
+1099,"Colectomy, adults, inpt stay, no ED, post op new Afib","Non emergent (No ED visit) Colectomy (requiring inpatient stay) among adults, first occurrence Afib (any) that occurs 14d after index (date of surgery), no prior atrial fibrillation",,,2023-09-25,2024-01-05
+1100,"Cystectomy, adults, inpt stay, no ED, post op new Afib","Non emergent (No ED visit) Cystectomy (requiring inpatient stay) among adults, first occurrence Afib (any) that occurs 14d after index (date of surgery), no prior atrial fibrillation",,,2023-09-25,2024-01-05
+1101,"Nephrectomy, adults, inpt stay, no ED, post op new Afib","Non emergent (No ED visit) Nephrectomy (requiring inpatient stay) among adults, first occurrence Afib (any) that occurs 14d after index (date of surgery), no prior atrial fibrillation",,,2023-09-25,2024-01-05
+1102,"Coronary Artery Bypass Graft Surgery, adults, inpt stay, no ED, post op new Afib","Non emergent (No ED visit)CABG (requiring inpatient stay) among adults, first occurrence Afib (any) that occurs 14d after index (date of surgery), no prior atrial fibrillation",,,2023-09-25,2024-01-05
+1103,"Cardiac Valve Surgery, adults, inpt stay, no ED, post op new Afib","Non emergent (No ED visit) Aortic Or Mitral Repair or Replacement (requiring inpatient stay) among adults, first occurrence Afib (any) that occurs 14d after index (date of surgery), no prior atrial fibrillation",,,2023-09-25,2024-01-05
+1104,"RBC Transfusion (adult relevant, no auto 1yr clean window)",RBC transfusion with no prior transfusion,,,2023-09-25,2023-09-25
+1105,Clostridium difficile - first episode,Clostridium difficile with no history of clostridium difficle,4307981,,2023-09-25,2023-10-04
+1106,Non-Emergent Major Non Cardiac Surgery no prior Opioid,Persons having any of major non cardiac surgery,,,2023-09-25,2023-10-05
+1150,"Emergency room visits (0Pe, 0Era)",All events of Emergency Room visits or Emergency room or inpatient visit. This cohort is deemed validated as it represents data convention and did not need to go thru peer review process,,,2023-10-04,2023-10-04
+1151,Autism,,439776,,2023-10-05,2023-10-05
+1152,Deep Vein Thrombosis DVT,"All events of Deep Vein Thrombosis (DVT), indexed on a condition occurrence of Deep Vein Thrombosis (DVT). Requiring a clean window of 30 days, cohort exit is 1 day after start date.",4133004,,2023-10-09,2023-10-09
+1153,Seizure,First Seizure record in 42 days continues for 1 day,377091,,2023-10-09,2023-10-09
+1154,Heart failure,First Heart failure continues until observation end,316139,,2023-10-09,2023-10-09
+1155,Non-hemorrhagic Stroke,"All events of Ischemic (Non-hemorrhagic) Stroke, indexed on a condition occurrence of Ischemic (Non-hemorrhagic), limited to events with overlapping inpatient visit with no such events in prior 365 days (clean window). Persons exit the cohort at the start date + 1 day.",443454,,2023-10-09,2023-10-09
+1156,Hemorrhagic stroke,"All events of Hemorrhagic stroke, indexed on a condition occurrence of Hemorrhagic stroke, limited to events with overlapping inpatient visit with no such events in prior 365 days (clean window). Persons exit the cohort at the start date + 1 day.",439847,,2023-10-09,2023-10-09
+1157,peripheral vascular disease,First peripheral vascular disease continues until end of observation,321052,,2023-10-09,2023-10-09
+1158,Aspirin,aspirin exposures w 0d prior obsv 30d gap,1112807,,2023-10-09,2023-10-09
+1159,Angina,First Angina in 30 days continues for 1 days,77670,,2023-10-09,2023-10-09
+1160,Atrial Fibrillation,First Atrial Fibrillation continues until end of observation,313217,,2023-10-09,2023-10-09
+1161,Major depressive disorder with NO occurrence of certain psychiatric disorder,"Earliest occurrence of major depressive disorder indexed on diagnosis date requiring no occurrence anytime prior including day 0 of Bipolar disorder, Schizoaffective, Schizophrenia not including paraphrenia, Dementia or Psychotic disorder cohort exit is the end of continuous observation.",440383,,2023-10-09,2023-10-09
+1162,Coronary artery disease (CAD),First coronary artery disease (CAD) continues until observation end,318443,,2023-10-09,2023-10-09
+1163,Acute Kidney Injury,"All events of Acute Kidney Injury (AKI) indexed on a diagnosis of Acute kidney injury or a Dialysis procedure at a medicare certified esrd facility for acute kidney injury without esrd,. Applying a washout period of 30 days between observed events excluding events/patients with 1. a diagnosis of End-Stage Kidney Disease in the 365 days before AKI occurrence 2. patients receiving chronic dialysis defined as more than 3 recorded events of dialysis in 365 days before AKI occurrence 3. kidney Transplant any time prior . patients exit the cohort 7 days post index.",197320,,2023-10-09,2023-10-09
+1164,Asthma,First Asthma continues until end of observation,317009,,2023-10-09,2023-10-09
+1165,Alcoholism,First record of Alcoholism until observation end,4218106,,2023-10-09,2023-10-09
+1166,Smoking,First Smoking condition or observtion or procedure record continues until end of observation,4209423,,2023-10-09,2023-10-09
+1167,sleep apnea,First sleep apnea record continues until end of observation,313459,,2023-10-09,2023-10-09
+1168,skin ulcer,First skin ulcer record in 365 days continues for 30 days,4262920,,2023-10-09,2023-10-09
+1169,Chronic hepatitis,First Chronic hepatitis continues until end of observation,4212540,,2023-10-09,2023-10-09
+1170,hyperlipidemia,First hyperlipidemia continues until end of observation,432867,,2023-10-09,2023-10-09
+1171,hypothyroidism,First hypothyroidism continues until end of observation,140673,,2023-10-09,2023-10-09
+1172,Heart valve disorder,First Heart valve disorder continues until end of observation,4281749,,2023-10-09,2023-10-09
+1173,Low back pain,First Low back pain continues until end of observation,194133,,2023-10-09,2023-10-09
+1174,neuropathy,First neuropathy continues until end of observation,4301699,,2023-10-09,2023-10-09
+1175,Psychotic disorder,First Psychotic disorder continues until end of observation,436073,,2023-10-09,2023-10-09
+1176,Sepsis,First Sepsis record in 180 days continues for 7 days,132797,,2023-10-09,2023-10-09
+1177,Acute Respiratory failure,First Acute Respiratory failure record in 365 days continues for 14 days,319049,,2023-10-09,2023-10-09
+1178,Gastroesophageal reflux disease,First Gastroesophageal reflux disease continues until observation end,318800,,2023-10-09,2023-10-09
+1179,obesity,First obesity measurement or condition or observation continues until end of observation,433736,,2023-10-09,2023-10-09
+1180,Inflammatory Bowel Disease,First Inflammatory Bowel Disease continues until end of observation,201606,,2023-10-09,2023-10-09
+1181,STEROIDS,STEROIDS record with 60 day persistence,1551099,,2023-10-09,2023-10-09
+1182,Opioids,Opioids with 30 day persistence,1174888,,2023-10-09,2023-10-09
+1183,ANTIEPILEPTICS,ANTIEPILEPTICS exposure with 30 day persistence,797399,,2023-10-09,2023-10-09
+1184,Osteoarthritis,First Osteoarthritis continues until end of observation,80180,,2023-10-09,2023-10-09
+1185,Osteoporosis,First Osteoporosis continues until end of observation,80502,,2023-10-09,2023-10-09
+1186,Urinary tract infectious,First Urinary tract infectious record in 30 days continues for 1 day,81902,,2023-10-09,2023-10-09
+1187,acetaminophen exposure,acetaminophen exposure with 30 day persistence window,1125315,,2023-10-09,2023-10-09
+1188,Anemia,Anemia record or measurement continues for 21 days unless normal measurement,4144746,,2023-10-09,2023-10-09
+1189,Anxiety,First Anxiety continues until end of observation,441542,,2023-10-09,2023-10-09
+1190,HORMONAL CONTRACEPTIVES,HORMONAL CONTRACEPTIVES with 30 day persistence window,21602473,,2023-10-09,2023-10-09
+1191,Chronic kidney disease or end stage renal disease,First chronic kidney disease or end stage renal disease continues until observation end,46271022,,2023-10-09,2023-10-09
+1192,Chronic obstructive pulmonary disease (COPD),First chronic obstructive pulmonary disease (COPD) continues until observation end,255573,,2023-10-09,2023-10-09
+1193,Type 1 diabetes and no prior specific nonT1DM diabetes,Earliest Type 1 diabetes with no prior type 2 or secondary diabetes continues until end of observation.,201254,,2023-10-09,2023-10-09
+1194,Type 2 Diabetes Mellitus with no type 1 or secondary DM,Earliest Type 2 diabetes with no prior type 1 or secondary diabetes continues until end of observation.,201820,,2023-10-09,2023-10-09
+1195,Dyspnea,All events of Dyspnea with no Dyspnea in prior 30 days,312437,,2023-10-09,2023-10-09
+1196,Edema,All events of Edema with no Edemain prior 30 days and cohort ends 3 days after index.,433595,,2023-10-09,2023-10-09
+1197,Acute gastrointestinal bleeding,First gastrointestinal bleed in 45 days continues for 7 days,192671,,2023-10-09,2023-10-09
+1198,Hypertension,First Hypertension continues until end of observation,316866,,2023-10-09,2023-10-09
+1199,Pneumonia,First Pneumonia record in 180 days continues until for 30 days,255848,,2023-10-09,2023-10-09
+1200,Rheumatoid Arthritis,First Rheumatoid Arthritis record continues until end of observation,80809,,2023-10-09,2023-10-09
+1201,Antibiotics Aminoglycosides,any Antibiotics Aminoglycosides with 30 day persistence,915981,,2023-10-09,2023-10-09
+1202,Antibiotics Carbapenems,any Antibiotics Carbapenems with 30 day persistence,1709170,,2023-10-09,2023-10-09
+1203,Antibiotics Cephalosporins,any Antibiotics Cephalosporins with 30 day persistence,1786621,,2023-10-09,2023-10-09
+1204,Antibiotics Fluoroquinolones,any Antibiotics Fluoroquinolones with 30 day persistence,1797513,,2023-10-09,2023-10-09
+1205,Antibiotics Glycopeptides and lipoglycopeptides,any Antibiotics Glycopeptides and lipoglycopeptides with 30 day persistence,1707687,,2023-10-09,2023-10-09
+1206,Antibiotics Macrolides,any Antibiotics Macrolides with 30 day persistence,1734104,,2023-10-09,2023-10-09
+1207,Antibiotics Monobactams,any Antibiotics Monobactams with 30 day persistence,1715117,,2023-10-09,2023-10-09
+1208,Antibiotics Oxazolidinones,any Antibiotics Oxazolidinones with 30 day persistence,1736887,,2023-10-09,2023-10-09
+1209,Antibiotics Penicillins,any Antibiotics Penicillins with 30 day persistence,1713332,,2023-10-09,2023-10-09
+1210,Antibiotics Polypeptides,any Antibiotics Polypeptides with 30 day persistence,948582,,2023-10-09,2023-10-09
+1211,Antibiotics Rifamycins,any Antibiotics Rifamycins with 30 day persistence,1735947,,2023-10-09,2023-10-09
+1212,Antibiotics Sulfonamides,any Antibiotics Sulfonamides with 30 day persistence,1836430,,2023-10-09,2023-10-09
+1213,Antibiotics Streptogramins,any Antibiotics Streptogramins with 30 day persistence,1789517,,2023-10-09,2023-10-09
+1214,Antibiotics Tetracyclines,any Antibiotics Tetracyclines with 30 day persistence,1738521,,2023-10-09,2023-10-09
+1215,Any cancer (excl. prostate cancer and benign cancer),First cancer (excluding prostate and benign) continues until end of observation,438112,,2023-10-09,2023-10-09
+1217,Platinum based chemotherapy regimens,Events of platinum based chemotherapy with 60 days of surveillance because most cycles of every 4 weeks,,,2023-10-09,2023-11-30
+1219,Hyperlipidemia,Earliest event of hyperlipidemia,432867,,2023-10-16,2023-11-29
+1220,Hypoparathyroidism,Earliest event of hypoparathyroidism,140362,,2023-10-16,2023-10-16
+1221,Osteoporosis,Earliest event of Osteoporosis,80502,,2023-10-16,2023-10-16
+1222,Viral Hepatitis A,Earliest event of Viral Hepatitis A,4223947,,2023-10-16,2023-10-16
+1223,Birdshot chorioretinitis,,436100,,2023-10-17,2023-10-17
+1224,CMV Anterior Uveitis sensitivite,,436100,,2023-10-18,2023-10-19
+1225,VZV Anterior Uveitis (SUN),,436100,,2023-10-19,2023-10-19
+1226,VZV Anterior Uveitis (SUN) sensitive,,436100,,2023-10-19,2023-10-19
+1227,HSV Anterior Uveitis (SUN),,436100,,2023-10-19,2023-10-19
+1228,HSV Anterior Uveitis (SUN) sensitive,,436100,,2023-10-19,2023-10-19
+1229,Behcet Uveitis (SUN),,436100,,2023-10-19,2023-10-19
+1231,Sickle Cell Crisis,First occurrence of Sickle Cell Crisis,4216915,,2023-10-19,2023-10-19
+1244,Non Platinum chemotherapy regimen,Events of non platinum based chemotherapy with 60 days of surveillance because most cycles of every 4 weeks,,,2023-11-30,2023-11-30
+1261,Acute Typical Pneumonia,Acute Typical Pneumonia,"255848, 4318404",,2024-01-05,2024-01-05
+1262,Asthma or Chronic obstructive pulmonary disease (COPD),Asthma or Chronic obstructive pulmonary disease (COPD),"255573, 317009",,2024-01-05,2024-01-05
+1263,Chronic obstructive pulmonary disease (COPD) without asthma,Chronic obstructive pulmonary disease (COPD) without asthma,255573,,2024-01-05,2024-01-05
+1264,Pneumonitis and lung infections,Pneumonitis and lung infections,"253506, 255848",,2024-01-05,2024-01-05
+1265,Pulmonary hypertension associated with lung diseases and/or hypoxia (WHO Group 3),Pulmonary hypertension associated with lung diseases and or hypoxia (WHO Group 3),4322024,,2024-01-05,2024-01-05
+1266,Non-small cell lung cancer (NSCLC),Non-small cell lung cancer (NSCLC) for first time using ICD0,"439676, 37311061",,2024-01-05,2024-01-05
+1267,Lung cancer,Lung cancer using ICD0,"439676, 37311061",,2024-01-05,2024-01-05
+1268,"Lung Resection, adults, inpt stay, no ED, post op new Afib",Lung Resection - post op new Afib (any),,,2024-01-05,2024-01-05
+1269,Pulmonary fibrosis,Pulmonary fibrosis,4197819,,2024-01-05,2024-01-05
+1270,Bladder cancer including history,History of Bladder cancer,197508,,2024-01-05,2024-01-05
+1271,Chronic obstructive pulmonary disease (COPD),Chronic obstructive pulmonary disease (COPD),255573,,2024-01-05,2024-01-05
+1272,Chronic Interstitial lung disease (ILD) not including Acute Respiratory Distress Syndrome,Chronic Interstitial lung disease (ILD),4119786,,2024-01-05,2024-01-05
+1273,Lung Nodule,Lung Nodule,37206719,,2024-01-05,2024-01-05
+1274,Lung Nodule - solitary,Lung Nodule - solitary,"37206719,4142875",,2024-01-05,2024-01-05
+1275,Lung Nodule - multiple,Lung Nodule - multiple,"37206719,40482871",,2024-01-05,2024-01-05
+1276,"Lung Mass (not acute, necrotic, atlectatic, abscess, fibrosis)","Lung Mass (not acute, necrotic, atlectatic, abscess, fibrosis)",37206719,,2024-01-05,2024-01-05
+1277,"Lung Lesion that is not acute, necrotic, atlectatic, abscess, fibrosis","Lung Lesion (not acute, necrotic, atlectatic, abscess, fibrosis)","4116778,37206719",,2024-01-05,2024-01-05
+1278,"Stage 3 Non Small Cell Lung Cancer (NSCLC), indexed on lung abnormaility with no evidence of SCLC and had follow-up for NSCLC",Non Small Cell Lung Cancer (Stage 3),"37206719,4311499",,2024-01-05,2024-01-05
+1279,"Non Small Cell Lung Cancer (NSCLC), indexed on lung abnormaility with no evidence of SCLC and had follow-up for NSCLC",Non Small Cell Lung Cancer,"37206719,4311499",,2024-01-05,2024-01-05
+1280,Small Cell Lung Cancer,Small Cell Lung Cancer,37206719,,2024-01-05,2024-01-05
+1281,"Primary Lung Cancer, indexed on lung abnormaility",Primary Lung Cancer,"37206719,4311499",,2024-01-05,2024-01-05
+1282,Hoarseness,Hoarseness,"312437, 4041664",,2024-01-05,2024-01-05
+1283,Bone Pain,Bone Pain,4129418,,2024-01-05,2024-01-05
+1284,Weight loss,Weight loss,"4177176,435928",,2024-01-05,2024-01-05
+1285,Acute Bronchitis,Acute bronchitis,"256451,260139",,2024-01-05,2024-01-05
+1286,"Stage 3 Non Small Cell Lung Cancer (NSCLC), indexed on lung abnormaility with no evidence of SCLC and had follow-up for NSCLC",Non Small Cell Lung Cancer (Stage 3) without second diagnosis,"37206719,4311499",,2024-01-05,2024-01-05
+1287,Intestinal obstruction - colorectal specific,Earliest occurence of Intestinal obstruction - colorectal specific,193518,,2024-01-05,2024-01-05
+1288,Intraabdominal abscess - narrow for colorectal cancer,Earliest occurence of Intraabdominal abscess - narrow for colorectal cancer,193518,,2024-01-05,2024-01-05
+1289,"Major Non Cardiac Surgery, adults",,,,2024-01-05,2024-01-05
+1290,"Abdominal Aortic Aneurysm repair, adults",,,,2024-01-05,2024-01-05
+1291,"Lower Extremity Bypass, adults",,,,2024-01-05,2024-01-05
+1292,"Carotid Endarterectomy, adults",,,,2024-01-05,2024-01-05
+1293,"Lung Resection, adults",,,,2024-01-05,2024-01-05
+1294,"Esophagectomy, adults",,,,2024-01-05,2024-01-05
+1295,"Pancreatectomy, adults",,,,2024-01-05,2024-01-05
+1296,"Colectomy, adults",,,,2024-01-05,2024-01-05
+1297,"Cystectomy, adults",,,,2024-01-05,2024-01-05
+1298,"Nephrectomy, adults",,,,2024-01-05,2024-01-05
+1299,"Coronary Artery Bypass Graft, adults",,,,2024-01-05,2024-01-05
+1300,"Cardiac Valve Surgery, adults",,,,2024-01-05,2024-01-05
+1301,Acute Urinary tract infections UTI,all events of acute urinary tract infection,81902,,2024-01-05,2024-01-05
+1303,Acute Heart failure,"The first condition record of heart failure, which is followed by at least 1 heart failure condition record in the following year","78232, 80180",https://forums.ohdsi.org/t/17895,2024-01-05,2024-01-05
+1304,"Major Non Cardiac Surgery, adults, post op new Afib",,,,2024-01-05,2024-01-05
+1305,"AAA repair, adults, post op new Afib",,,,2024-01-05,2024-01-05
+1306,"Lower Extremity Bypass, adults, post op new Afib",,,,2024-01-05,2024-01-05
+1307,"Carotid Endarterectomy, adults, post op new Afib",,,,2024-01-05,2024-01-05
+1308,"Lung Resection, adults, post op new Afib",,,,2024-01-05,2024-01-05
+1309,"Esophagectomy, adults, post op new Afib",,,,2024-01-05,2024-01-05
+1310,"Pancreatectomy, adults, post op new Afib",,,,2024-01-05,2024-01-05
+1311,"Colectomy, adults, post op new Afib",,,,2024-01-05,2024-01-05
+1312,"Cystectomy, adults, post op new Afib",,,,2024-01-05,2024-01-05
+1313,"Nephrectomy, adults, post op new Afib",,,,2024-01-05,2024-01-05
+1314,"Coronary Artery Bypass Graft, adults, post op new Afib",,,,2024-01-05,2024-01-05
+1315,"Cardiac Valve Surgery, adults, post op new Afib",,,,2024-01-05,2024-01-05
+1316,Neutropenia or unspecified leukopenia,"All events of neutropenia indexed on diagnosis or lab results, with no congenital or genetic neutropenia all days pre to 7 days post index. Also excluded, events with normal neutrophil count or a diagnosis of Neutrophilia on index. patients exit 21 days post end date or with the occurrence of a normal neutrophil count. Reoccurring events for the same patients will be combined into event eras if they are within 365 days of each other.",435224,https://forums.ohdsi.org/t/17409,2024-09-06,2024-09-06
+1317,Reyes syndrome,First occurrence of Reyes syndrome,375241,,2024-09-11,2024-09-26
+1318,Solitary Primary Non Small Cell Lung Cancer - treatment naive,First occurrence of Solitary Primary Non Small Cell Lung Cancer - treatment naive,4311499,,2024-12-06,2025-03-28
+1329,Death due to substance overdose,first event of death with measurement of overdose within 7 days of death to account for reporting date discrepancy,4306655,,2025-03-28,2025-03-28
+1330,Acute Overdose (or Acute Toxicity) by substances with abuse potential,Acute Overdose (or Acute Toxicity) by substances with abuse potential events,602985,,2025-03-28,2025-03-31
+1331,Opioid overdose - treatment drugs,Opioid overdose - treatment drugs,21604816,,2025-03-28,2025-03-28
+1332,Alcohol poisoning (acute severe intoxication),All events of Alcohol poisoning (acute severe intoxication),602985,,2025-03-28,2025-03-28
+1333,Advanced Liver Disease,earliest event of Advanced Liver Disease. Persons exit on end of observation period,45769564,,2025-03-28,2025-03-28
+1334,Liver cirrhosis from alcohol,earliest event of Liver cirrhosis from alcohol. Persons exit on end of observation period,4064161,,2025-03-28,2025-03-28
+1336,Infective Endocarditis events,earliest event of Infective Endocarditis. Events within 180 days are collapsed,4064161,,2025-03-28,2025-03-28
+1337,Human immunodeficiency virus infection,Earliest diagnosis of Human immunodeficiency virus infection,439727,,2025-03-28,2025-03-28
+1338,All events of binge eating disorder,All events of binge eating disorder assumed to last 30 days. Events within 1 year are collapsed.,4208913,,2025-03-28,2025-03-28
+1339,All events of Bulimia Nervosa,All events of Bulimia Nervosa assumed to last 30 days. Events within 1 year are collapsed.,438407,,2025-03-28,2025-03-28
+1340,All events of Anorexia Nervosa,All events of Anorexia Nervosa assumed to last 30 days. Events within 1 year are collapsed.,436675,,2025-03-28,2025-03-28
+1341,All events of Eating Disorders,All events of Eating Disorders assumed to last 30 days. Events within 1 year are collapsed.,439002,,2025-03-29,2025-03-29
+1342,All events of Narcissistic personality disorder,All events of Narcissistic personality disorder assumed to last 30 days. Events within 1 year are collapsed.,440080,,2025-03-29,2025-03-29
+1343,All events of Antisocial Personality Disorder,All events of Antisocial Personality Disorder assumed to last 30 days. Events within 1 year are collapsed.,440080,,2025-03-29,2025-03-29
+1344,All events of Borderline Personality Disorder,All events of Borderline Personality Disorder assumed to last 30 days. Events within 1 year are collapsed.,440080,,2025-03-29,2025-03-29
+1345,All events of Personality Disorders,All events of Personality Disorder assumed to last 30 days. Events within 1 year are collapsed.,440080,,2025-03-29,2025-03-29
+1346,All events of Attention-Deficit Hyperactivity Disorder,All events of Attention-Deficit Hyperactivity Disorder assumed to last 30 days. Events within 1 year are collapsed.,438409,,2025-03-29,2025-03-29
+1347,All events of Posttraumatic Stress Disorder,All events of Posttraumatic Stress Disorder assumed to last 30 days. Events within 1 year are collapsed.,436676,,2025-03-29,2025-03-29
+1348,All events of Obsessive Compulsive Disorder,All events of Obsessive Compulsive Disorder assumed to last 30 days. Events within 1 year are collapsed.,440374,,2025-03-29,2025-03-29
+1349,All events of Posttraumatic Stress Disorder,All events of Posttraumatic Stress Disorder assumed to last 30 days. Events within 1 year are collapsed.,442077,,2025-03-29,2025-03-29
+1350,Primary Psychiatric Disorders,All events of Primary Psychiatric Disorders,432586,,2025-03-29,2025-03-29
+1351,Gambling Disorder,All events of Gambling Disorder,4023166,,2025-03-29,2025-03-29
+1352,Behavioral Addictions,All events of Behavioral Addictions,4023166,,2025-03-29,2025-03-29
+1353,Tobacco and Nicotine User,All events of Tobacco and Nicotine User,903654,,2025-03-29,2025-03-29
+1354,Tobacco and Nicotine Use Disorder - procedure,All events of Tobacco and Nicotine Use Disorder - procedure,46273821,,2025-03-29,2025-03-29
+1355,Measurements for Opioid Use Disorder,All events of Measurements for Opioid Use Disorder,4091460,,2025-03-29,2025-03-29
+1356,Opioid Use Disorder - treatment procedure,All events of Opioid Use Disorder - treatment procedure,46273821,,2025-03-29,2025-03-29
+1357,Measurements for Cannabis Use Disorder,All events of Measurements for Cannabis Use Disorder,4280954,,2025-03-29,2025-03-29
+1358,Alcohol Withdrawal - procedure,All events of Alcohol Withdrawal - procedure,37311131,,2025-03-29,2025-03-29
+1359,Alcohol Withdrawal,All events of Alcohol Withdrawal,37311131,,2025-03-29,2025-03-29
+1360,Alcohol Withdrawal,All events of Alcohol Withdrawal,37311131,,2025-03-29,2025-03-29
+1361,Alcohol detoxification,All events of Alcohol detoxification,37311131,,2025-03-29,2025-03-29
+1362,[P] Alcohol poisoning,All events of [P] Alcohol poisoning,37162280,,2025-03-29,2025-03-29
+1363,[P] Psychosis caused by ethanol - condition,All events of [P] Psychosis caused by ethanol - condition,37162280,,2025-03-29,2025-03-29
+1364,[P] Alcohol Intoxication - condition,All events of [P] Alcohol Intoxication - condition,37162280,,2025-03-29,2025-03-29
+1365,[P] Heroin use disorder - condition,All events of [P] Heroin use disorder - condition,37162280,,2025-03-29,2025-03-29
+1366,[P] Fentanyl use disorder,All events of [P] Fentanyl use disorder,37162280,,2025-03-29,2025-03-29
+1367,[P] Stimulant Use Disorder,All events of [P] Stimulant Use Disorder,37162280,,2025-03-29,2025-03-29
+1368,[P] Cocaine Use Disorder,All events of [P] Cocaine Use Disorder,37162280,,2025-03-29,2025-03-29
+1369,[P] Methamphetamine use disorder,All events of [P] Methamphetamine use disorder,37162280,,2025-03-29,2025-03-29
+1370,[P] Sedative Hypnotic Anxiolytic Use Disorder,All events of [P] Sedative Hypnotic Anxiolytic Use Disorder,37162280,,2025-03-29,2025-03-29
+1371,[P] Benzodiazepines use disorder,All events of [P] Benzodiazepines use disorder,37162280,,2025-03-29,2025-03-29
+1372,[P] Barbiturates use disorder,All events of [P] Barbiturates use disorder,37162280,,2025-03-29,2025-03-29
+1373,[P] Inhalant Use Disorder,All events of [P] Inhalant Use Disorder,37162280,,2025-03-29,2025-03-29
+1374,[P] Tobacco and Nicotine Use Disorder - condition,All events of [P] Tobacco and Nicotine Use Disorder - condition,37162280,,2025-03-29,2025-03-29
+1375,[P] Tobacco and Nicotine Toxicity,All events of [P] Tobacco and Nicotine Toxicity,37162280,,2025-03-29,2025-03-29
+1376,"[P] Infectious Diseases (HIV, Hepatitis B, Hepatitis C)","All events of [P] Infectious Diseases (HIV, Hepatitis B, Hepatitis C)",37162280,,2025-03-29,2025-03-29
+1377,[P] Substance Use Disorder in Remission,All events of [P] Substance Use Disorder in Remission,37162280,,2025-03-29,2025-03-29
+1378,[P] Controlled Medication Use,All events of [P] Controlled Medication Use,37162280,,2025-03-29,2025-03-29
+1379,[P] Physical Dependence from Legitimate Therapy,All events of [P] Physical Dependence from Legitimate Therapy,37162280,,2025-03-29,2025-03-29
+1380,[P] Prescription Drug Misuse,All events of [P] Prescription Drug Misuse,37162280,,2025-03-29,2025-03-29
+1381,[P] Cravings,All events of [P] Cravings,37162280,,2025-03-29,2025-03-29
+1382,[P] Compulsions,All events of [P] Compulsions,37162280,,2025-03-29,2025-03-29
+1383,[P] Mental or Moral Distress,All events of [P] Mental or Moral Distress,37162280,,2025-03-29,2025-03-29
+1384,[P] Any Distress (Physical or Mental),All events of [P] Any Distress (Physical or Mental),37162280,,2025-03-29,2025-03-29
+1385,[P] Withdrawal of substances with abuse potential,All events of [P] Withdrawal of substances with abuse potential,37162280,,2025-03-29,2025-03-29
+1386,[P] Withdrawal Seizures,All events of [P] Withdrawal Seizures,37162280,,2025-03-29,2025-03-29
+1387,[P] Methadone,[P] Methadone,,,2025-04-02,2025-04-02
+1388,[P] Methadone Treatment Program Enrollment,[P] Methadone Treatment Program Enrollment,,,2025-04-02,2025-04-02
+1389,[P] Naltrexone,[P] Naltrexone,,,2025-04-02,2025-04-02
+1390,[P] Naltrexone Maintenance Therapy,[P] Naltrexone Maintenance Therapy,,,2025-04-02,2025-04-02
+1391,[P] Opioid Agonists,[P] Opioid Agonists,,,2025-04-02,2025-04-02
+1392,[P] Opioid Antagonists,[P] Opioid Antagonists,,,2025-04-02,2025-04-02
+1393,[P] Medication-Assisted Treatment,[P] Medication-Assisted Treatment,,,2025-04-02,2025-04-02
+1394,[P] Nicotine Replacement Therapy,[P] Nicotine Replacement Therapy,,,2025-04-02,2025-04-02
+1395,[P] OTC Nicotine Replacement,[P] OTC Nicotine Replacement,,,2025-04-02,2025-04-02
+1396,[P] Varenicline,[P] Varenicline,,,2025-04-02,2025-04-02
+1397,[P] Pain Management,[P] Pain Management,,,2025-04-02,2025-04-02
+1398,[P] Terminal Palliative Care,[P] Terminal Palliative Care,,,2025-04-02,2025-04-02
+1399,[P] Alcohol Misuse Counseling,[P] Alcohol Misuse Counseling,,,2025-04-02,2025-04-02
+1400,[P] Smoking Cessation Counseling,[P] Smoking Cessation Counseling,,,2025-04-02,2025-04-02
+1401,[P] Psychotherapy,[P] Psychotherapy,,,2025-04-02,2025-04-02
+1402,[P] Group Therapy,[P] Group Therapy,,,2025-04-02,2025-04-02
+1403,[P] Family Psychotherapy,[P] Family Psychotherapy,,,2025-04-02,2025-04-02
+1404,[P] Behavioral Therapies,[P] Behavioral Therapies,,,2025-04-02,2025-04-02
+1405,[P] 12-Step Facilitation Behavioral Therapy,[P] 12-Step Facilitation Behavioral Therapy,,,2025-04-02,2025-04-02
+1406,[P] Harm Reduction Interventions,[P] Harm Reduction Interventions,,,2025-04-02,2025-04-02
+1407,[P] Specialty Addiction Treatment,[P] Specialty Addiction Treatment,,,2025-04-02,2025-04-02
+1408,[P] Alcohol Use Screening,[P] Alcohol Use Screening,,,2025-04-02,2025-04-02
+1409,[P] Screening for substance abuse,[P] Screening for substance abuse,,,2025-04-02,2025-04-02
+1410,[P] Use of Substance Use Screening Tools,[P] Use of Substance Use Screening Tools,,,2025-04-02,2025-04-02
+1411,[P] Laboratory Toxicology Tests,[P] Laboratory Toxicology Tests,,,2025-04-02,2025-04-02
+1412,[P] Naloxone Dispensing,[P] Naloxone Dispensing,,,2025-04-02,2025-04-02
+1413,"[P] Screening, Brief Intervention, and Referral to Treatment (SBIRT)","[P] Screening, Brief Intervention, and Referral to Treatment (SBIRT)",,,2025-04-02,2025-04-02
+1415,[P] Impaired Control,[P] Impaired Control,,,2025-04-02,2025-04-02
+1416,[P] Neglect of Roles or Social Impairment,[P] Neglect of Roles or Social Impairment,,,2025-04-02,2025-04-02
+1417,[P] Risky Use,[P] Risky Use,,,2025-04-02,2025-04-02
+1418,[P] Tolerance,[P] Tolerance,,,2025-04-02,2025-04-02
+1419,[P] Pattern of Use Causing Harm or Distress,[P] Pattern of Use Causing Harm or Distress,,,2025-04-02,2025-04-02
+1420,[P] Medical Conditions Mimicking Intoxication,[P] Medical Conditions Mimicking Intoxication,,,2025-04-02,2025-04-02
+1421,[P] Hypoglycemic disorder,[P] Hypoglycemic disorder,,,2025-04-02,2025-04-02
+1422,[P] Stroke events,[P] Stroke events,,,2025-04-02,2025-04-02
+1423,[P] Single Acute Intoxication,[P] Single Acute Intoxication,,,2025-04-02,2025-04-02
+1424,[P] Opioid Acute intoxication,[P] Opioid Acute intoxication,,,2025-04-02,2025-04-02
+1425,[P] Alcohol Acute intoxication,[P] Alcohol Acute intoxication,,,2025-04-02,2025-04-02
+1426,[P] Psychoactive Substances,[P] Psychoactive Substances,,,2025-04-02,2025-04-02
+1427,"[P] Acamprosate, all exposures","[P] Acamprosate, all exposures",,,2025-04-02,2025-04-02
+1428,"[P] Disulfiram, all exposures","[P] Disulfiram, all exposures",,,2025-04-02,2025-04-02
+1429,"[P] Buprenorphine, all exposures","[P] Buprenorphine, all exposures",,,2025-04-02,2025-04-02

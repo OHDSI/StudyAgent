@@ -1,0 +1,8 @@
+{
+  "title": "cohort_lint",
+  "type": "object",
+  "properties": {
+    "cohortRef": { "type": "string" }
+  },
+  "required": ["cohortRef"]
+}
