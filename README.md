@@ -2,7 +2,7 @@
 
 ### Note
 
-This project is in a design phase. Check out branches for initial coded proof of concepts such as shown [in this video]https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=70502f91-3594-4cb6-b776-b3bd012cf637). You may post question issues to this repo as well.   
+This project is in a design phase. Check out branches for initial coded proof of concepts such as shown [in this video](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=70502f91-3594-4cb6-b776-b3bd012cf637). You may post question issues to this repo as well.   
 
 ### Overview 
 
