@@ -5,8 +5,8 @@
 This project seeks to develop an AI Study Agent to support OHDSI researchers to more rapidly, accurately, and reproducibly determine research feasibility, design research studies, and execute them. The set of services provided by the Study Agent will help a researcher go from a study idea to a well-specified research question, and then from a research question to a computable study specification, complete with computable outcome and exposure phenotypes and parameters for executing the study.
 
 
-### Preliminary Note
-This project is in a design phase. Check out the tag `proof_of_concept` for the code for the initial coded proof of concepts such as shown [in this video](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=70502f91-3594-4cb6-b776-b3bd012cf637). See [this branch](https://github.com/OHDSI/StudyAgent/blob/proof-of-concept-mcp-plus-acp/) for demonstration of clean separation between an ACP server (agent UX + policy) and MCP servers (tools). It demonstrates how an interactive client can rely on ACP for orchestration while keeping tool logic portable and reusable via MCP.
+### Preliminary Note and initial roadmap
+This project is in a design phase. Check out the tag `proof_of_concept` for the code for the initial coded proof of concepts such as shown [in this video](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=70502f91-3594-4cb6-b776-b3bd012cf637). See [this branch](https://github.com/OHDSI/StudyAgent/blob/proof-of-concept-mcp-plus-acp/) for demonstration of clean separation between an ACP server (agent UX + policy) and MCP servers (tools). It demonstrates how an interactive client can rely on ACP for orchestration while keeping tool logic portable and reusable via MCP. These illustrate part of the main architectural concepts. The steps in process now are 1) fleshing out a much larger set of potential Study Agent services, and 2) building out more completely two initial service `phenotype_recommendations` and `phenotype_improvements`.
 
 #### Want to contribute? 
 
