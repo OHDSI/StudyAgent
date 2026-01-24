@@ -1,0 +1,4 @@
+anyio
+mcp
+pydantic
+pytest
