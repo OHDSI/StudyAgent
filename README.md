@@ -1,6 +1,6 @@
 # Study Design Assistant - proof of concept - MCP + ACP  
 
-This is a complete refactoring of the initial proof of concept to concretely advance the specification of the architecture (see the README.md on the main branch) 
+This is a complete refactoring of the initial proof of concept to concretely advance the specification of the architecture (see the [README.md on the main branch](https://github.com/OHDSI/StudyAgent/blob/main/README.md)) 
 
 A) Study Agent (ACP server)
 
