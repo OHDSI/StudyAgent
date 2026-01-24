@@ -18,4 +18,4 @@ pure/portable; no local file access unless explicitly designed for it
 
 This is the same overall direction you’re seeing in ACP ecosystem work: ACP agents commonly support “client MCP servers” to expand tool availability
 
-See `docs/TESTING.md` for CLI smoke tests.
+See [.docs/TESTING.md](./docs/TESTING.md) for CLI smoke tests.
