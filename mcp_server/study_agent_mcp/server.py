@@ -25,7 +25,7 @@ def _with_meta(payload: Dict[str, Any], tool_name: str) -> Dict[str, Any]:
     return payload
 
 
-@mcp.tool()
+@mcp.tool(name="propose_concept_set_diff")
 def propose_concept_set_diff_tool(
     concept_set: Any,
     study_intent: str = "",
@@ -44,7 +44,7 @@ def propose_concept_set_diff_tool(
     return _with_meta(result, "propose_concept_set_diff")
 
 
-@mcp.tool()
+@mcp.tool(name="cohort_lint")
 def cohort_lint_tool(
     cohort: Dict[str, Any],
     llm_result: Optional[Dict[str, Any]] = None,
@@ -54,7 +54,7 @@ def cohort_lint_tool(
     return _with_meta(result, "cohort_lint")
 
 
-@mcp.tool()
+@mcp.tool(name="phenotype_recommendations")
 def phenotype_recommendations_tool(
     protocol_text: str,
     catalog_rows: List[Dict[str, Any]],
@@ -76,7 +76,7 @@ def phenotype_recommendations_tool(
     return _with_meta(result, "phenotype_recommendations")
 
 
-@mcp.tool()
+@mcp.tool(name="phenotype_improvements")
 def phenotype_improvements_tool(
     protocol_text: str,
     cohorts: List[Dict[str, Any]],

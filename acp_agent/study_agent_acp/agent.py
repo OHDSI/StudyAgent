@@ -71,7 +71,8 @@ class StudyAgent:
         if self._mcp_client is not None:
             try:
                 result = self._mcp_client.call_tool(name, arguments)
-                return self._wrap_result(name, result, warnings=[])
+                normalized = self._normalize_result(result)
+                return self._wrap_result(name, normalized, warnings=[])
             except Exception as exc:
                 return {
                     "status": "error",
@@ -95,7 +96,8 @@ class StudyAgent:
 
         try:
             result = self._core_tools[name](**arguments)
-            return self._wrap_result(name, result, warnings=["Used core fallback (no MCP client)."])
+            normalized = self._normalize_result(result)
+            return self._wrap_result(name, normalized, warnings=["Used core fallback (no MCP client)."])
         except Exception as exc:
             return {
                 "status": "error",
@@ -112,6 +114,11 @@ class StudyAgent:
             "safe_summary": safe_summary,
             "full_result": result,
         }
+
+    def _normalize_result(self, result: Dict[str, Any]) -> Dict[str, Any]:
+        if isinstance(result, dict) and "result" in result and isinstance(result["result"], dict):
+            return result["result"]
+        return result
 
     def _safe_summary(self, result: Dict[str, Any]) -> Dict[str, Any]:
         if "error" in result:
