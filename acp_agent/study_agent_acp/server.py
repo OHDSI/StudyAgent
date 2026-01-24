@@ -29,13 +29,17 @@ def _write_json(handler: BaseHTTPRequestHandler, status: int, payload: Dict[str,
 
 class ACPRequestHandler(BaseHTTPRequestHandler):
     agent: StudyAgent
+    mcp_client: Optional[StdioMCPClient]
 
     def log_message(self, format: str, *args: Any) -> None:
         return None
 
     def do_GET(self) -> None:
         if self.path == "/health":
-            _write_json(self, 200, {"status": "ok"})
+            payload = {"status": "ok"}
+            if self.mcp_client is not None:
+                payload["mcp"] = self.mcp_client.health_check()
+            _write_json(self, 200, payload)
             return
         if self.path == "/tools":
             _write_json(self, 200, {"tools": self.agent.list_tools()})
@@ -68,13 +72,13 @@ def _build_agent(
     mcp_command: Optional[str],
     mcp_args: Optional[list[str]],
     allow_core_fallback: bool,
-) -> StudyAgent:
+) -> tuple[StudyAgent, Optional[StdioMCPClient]]:
     mcp_client = None
     if mcp_command:
         mcp_client = StdioMCPClient(
             StdioMCPClientConfig(command=mcp_command, args=mcp_args or []),
         )
-    return StudyAgent(mcp_client=mcp_client, allow_core_fallback=allow_core_fallback)
+    return StudyAgent(mcp_client=mcp_client, allow_core_fallback=allow_core_fallback), mcp_client
 
 
 def main(host: str = "127.0.0.1", port: int = 8765) -> None:
@@ -85,14 +89,24 @@ def main(host: str = "127.0.0.1", port: int = 8765) -> None:
     allow_core_fallback = os.getenv("STUDY_AGENT_ALLOW_CORE_FALLBACK", "1") == "1"
 
     args_list = [arg for arg in mcp_args.split(" ") if arg]
-    agent = _build_agent(mcp_command, args_list, allow_core_fallback)
+    agent, mcp_client = _build_agent(mcp_command, args_list, allow_core_fallback)
 
     class Handler(ACPRequestHandler):
         agent = None
+        mcp_client = None
 
     Handler.agent = agent
+    Handler.mcp_client = mcp_client
     server = HTTPServer((host, port), Handler)
-    server.serve_forever()
+    _serve(server, mcp_client)
+
+
+def _serve(server: HTTPServer, mcp_client: Optional[StdioMCPClient]) -> None:
+    try:
+        server.serve_forever()
+    finally:
+        if mcp_client is not None:
+            mcp_client.close()
 
 
 if __name__ == "__main__":

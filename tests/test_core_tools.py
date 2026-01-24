@@ -1,3 +1,5 @@
+import pytest
+
 from study_agent_core.tools import (
     cohort_lint,
     phenotype_improvements,
@@ -6,11 +8,13 @@ from study_agent_core.tools import (
 )
 
 
+@pytest.mark.core
 def test_propose_concept_set_diff_empty():
     result = propose_concept_set_diff([], "test intent")
     assert any(f.get("id") == "empty_concept_set" for f in result["findings"])
 
 
+@pytest.mark.core
 def test_propose_concept_set_diff_descendants_action():
     concept_set = [
         {
@@ -22,6 +26,7 @@ def test_propose_concept_set_diff_descendants_action():
     assert any(a.get("type") == "set_include_descendants" for a in result["actions"])
 
 
+@pytest.mark.core
 def test_cohort_lint_washout_and_inverted():
     cohort = {
         "PrimaryCriteria": {"ObservationWindow": {"PriorDays": 0}},
@@ -33,6 +38,7 @@ def test_cohort_lint_washout_and_inverted():
     assert "inverted_window_0" in ids
 
 
+@pytest.mark.core
 def test_phenotype_recommendations_stub():
     catalog = [
         {"cohortId": 1, "cohortName": "Alpha"},
@@ -43,6 +49,7 @@ def test_phenotype_recommendations_stub():
     assert len(result["phenotype_recommendations"]) == 1
 
 
+@pytest.mark.core
 def test_phenotype_recommendations_llm_filters():
     catalog = [
         {"cohortId": 1, "cohortName": "Alpha"},
@@ -59,6 +66,7 @@ def test_phenotype_recommendations_llm_filters():
     assert len(result["phenotype_recommendations"]) == 1
 
 
+@pytest.mark.core
 def test_phenotype_improvements_filters_targets():
     cohorts = [{"id": 10}, {"id": 20}]
     llm = {
