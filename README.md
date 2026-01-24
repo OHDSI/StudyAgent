@@ -1,12 +1,16 @@
 # Study Design Assistant
 
-### Note
-
-This project is in a design phase. Check out branches for initial coded proof of concepts such as shown [in this video](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=70502f91-3594-4cb6-b776-b3bd012cf637). You may post question issues to this repo as well.   
-
 ### Overview 
 
 This project seeks to develop an AI Study Agent to support OHDSI researchers to more rapidly, accurately, and reproducibly determine research feasibility, design research studies, and execute them. The set of services provided by the Study Agent will help a researcher go from a study idea to a well-specified research question, and then from a research question to a computable study specification, complete with computable outcome and exposure phenotypes and parameters for executing the study.
+
+
+### Preliminary Note
+This project is in a design phase. Check out the tag `proof_of_concept` for the code for the initial coded proof of concepts such as shown [in this video](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=70502f91-3594-4cb6-b776-b3bd012cf637). See [this branch](https://github.com/OHDSI/StudyAgent/blob/proof-of-concept-mcp-plus-acp/) for demonstration of clean separation between an ACP server (agent UX + policy) and MCP servers (tools). It demonstrates how an interactive client can rely on ACP for orchestration while keeping tool logic portable and reusable via MCP.
+
+#### Want to contribute? 
+
+Very soon we will post to OHDSI forums and invite folks to join. Until then, attend the Generative AI WG monthly calls (currently 2nd Tuesdays of the month at 12 Eastern) or reach out directly to Rich Boyce on the OHDSI Teams. You may also post "question" issues on this repo. 
 
 ### Design 
 
