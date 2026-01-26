@@ -22,10 +22,17 @@ def task_test_acp():
     }
 
 
+def task_test_mcp():
+    return {
+        "actions": ["pytest -m mcp"],
+        "verbosity": 2,
+    }
+
+
 def task_test_unit():
     return {
         "actions": None,
-        "task_dep": ["test_core", "test_acp"],
+        "task_dep": ["test_core", "test_acp", "test_mcp"],
     }
 
 
