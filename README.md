@@ -12,7 +12,7 @@ This project is in a design phase. Check out the tag `proof_of_concept` for the 
 
 Here are some ways:
 - Create a for of the projct, branch the new project's main branch, edit the README.md and do a pull request back this main branch. Your changes could be integrated very quickly that way!
-- Join the (https://forums.ohdsi.org/t/seeking-input-on-services-that-the-ohdsi-study-agent-will-provide/24890?u=rkboyce)[discussion on the OHDSI Forums]
+- Join the [discussion on the OHDSI Forums](https://forums.ohdsi.org/t/seeking-input-on-services-that-the-ohdsi-study-agent-will-provide/24890)
 - Attend the Generative AI WG monthly calls (currently 2nd Tuesdays of the month at 12 Eastern) or reach out directly to Rich Boyce on the OHDSI Teams.
 - You may also post "question" issues on this repo.
 
