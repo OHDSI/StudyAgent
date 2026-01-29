@@ -10,7 +10,11 @@ This project is in a design phase. Check out the tag `proof_of_concept` for the 
 
 #### Want to contribute? 
 
-Very soon we will post to OHDSI forums and invite folks to join. Until then, attend the Generative AI WG monthly calls (currently 2nd Tuesdays of the month at 12 Eastern) or reach out directly to Rich Boyce on the OHDSI Teams. You may also post "question" issues on this repo. 
+Here are some ways:
+- Create a for of the projct, branch the new project's main branch, edit the README.md and do a pull request back this main branch. Your changes could be integrated very quickly that way!
+- Join the (https://forums.ohdsi.org/t/seeking-input-on-services-that-the-ohdsi-study-agent-will-provide/24890?u=rkboyce)[discussion on the OHDSI Forums]
+- Attend the Generative AI WG monthly calls (currently 2nd Tuesdays of the month at 12 Eastern) or reach out directly to Rich Boyce on the OHDSI Teams.
+- You may also post "question" issues on this repo.
 
 ### Design 
 
@@ -27,6 +31,22 @@ In a similar way, the Study Agent, through the services it provides, will assist
 It's important to note that the study agent services will never receive row level patient data. Rather the architecture will be such that the tools that call the services (e.g., R or Atlas) will have authorized access to the data while the information that's passed through the Study Agent services will restricted to be descriptive and aggregated. This will lower the risk of data breaches while enabling a variety of different models, or model configurations (e.g., LoRA tunings) to be used or swapped out depending on the service use case.
 
 In one mode of operation, the study agent will have access to output from Data Quality Dashboard, Achilles Heel data quality checks, and Achilles data source characterizations over one or more sources that a user intends to use within a study.  In this mode, specifically designed OHDSI study agent MCP tools will derive insights from those sources based on the user's study intent.  This is important because it will make the information in the characterizations and QC reports more relevant and actionable to users than static and broad-scope reports (current state). 
+
+### Initial Services (draft!)
+
+Below is the first draft of study agent services based on what I am calling "study intent" (a narrative description of the research question) : 
+
+NOTE: at no time for any of the services would an LLM see row-level data (this can be accomplished through the careful use of protocols (MCP for tooling, Agent Client Protocol for OHDSI tool <-> LLM communication) and a security layer). 
+
+* `phenotype_recommendations`: Suggest relevant phenotypes from the thousands of phenotype definitions available from various credible sources (OHDSI Phenotype library, VA CIPHER, a user's own Atlas cohort definitions) for the study intent. **Write cohort definition artifacts** for any phenotype definitions the user accepts as relecant.
+* `phenotype_improvements`: Review selected phenotypes for improvements against study intent. Of the use accepts, **write the new artifacts** (JSON cohort definitions or Atlas cohort records)
+* `phenotype_characterize`: **Generate R code** that the user will run, or request the user's permission to **run Atlas services**, to characterize the population of individuals that match a selected phenotype (i.e., same as a cohort characterization)  
+* `phenotype_data_quality_review`: Check for likely issues and propose mitigation based on information from the Data Quality Dashboard, Achilles Heel data quality checks, and Achilles data source characterizations over the one or more sources that a user intends to use within the study. For issues that the use acknowledges ,  **patch the artifacts** (JSON cohort definitions or Atlas cohort records)
+* `phenotype_validation_review`: Generate Keeper code for the use to run that will enable them to review case samples from the population of patients meeting a selected phenotype definition. **The agen will write the code to make the sample** such that the user can compare performance characteristics with their sample to known for the phenotype from other sources where it was tested.   
+* `cohort_definition_build`: **Write the Capr code** for a use to define a phenotype or covariate relevant to the study intent for which a cohort definition has not yet been defined.
+* `cohort_definition_lint`: Review cohort JSON for general design issues (washout/time-at-risk, inverted windows, empty or conflicting criteria) and for execution efficiency (unnecessary criterion nesting, sub-optimal logical ordering of criteria) and **write the proposed patches** (new JSON or new cohort definitions in Atlas)
+* `concept_set_recommendations`:Based on a phenotype or covariate relevant to the study intent for which a cohort definition has not been defined, suggest relevant concept sets from sources available to the user (concept set JSON, Atlas) to use in a new cohort definition. **If the user accepts, create the concept set artifacts.** 
+* `propose_concept_set_diff`: Review concept set for gaps and inconsistencies given the study intent.  **If the user accepts, patch the concept set artifacts.**
 
 ### Initial Architecture - Existing OHDSI tools + Agent Client Protocol (ACP) + Model Context Protocol (MCP)
 
