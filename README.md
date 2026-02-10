@@ -38,15 +38,32 @@ Below is the first draft of study agent services based on what I am calling "stu
 
 NOTE: at no time for any of the services would an LLM see row-level data (this can be accomplished through the careful use of protocols (MCP for tooling, Agent Client Protocol for OHDSI tool <-> LLM communication) and a security layer). 
 
+#### High level Conceptual
+* `protocol_generator`: given the PICO/TAR for a study intent, **write a templated protocol**
+* `background_writer`: based on PICO/TAR and hypothesis **do (systematic) research and write document justifying study**
+* `protocol_critique`: given a protocol, **write a critique reviewing the protocol for required components and consistency**
+
+#### High level operational
+* `strategus_*`: compose/compare/edit/critique/debug study specification **all of these services edit Strategus .json)** and may utilize one or more of the other services listed below.
+
+
+#### Search and suggest
 * `phenotype_recommendations`: Suggest relevant phenotypes from the thousands of phenotype definitions available from various credible sources (OHDSI Phenotype library, VA CIPHER, a user's own Atlas cohort definitions) for the study intent. **Write cohort definition artifacts** for any phenotype definitions the user accepts as relecant.
-* `phenotype_improvements`: Review selected phenotypes for improvements against study intent. Of the use accepts, **write the new artifacts** (JSON cohort definitions or Atlas cohort records)
+* `phenotype_improvements` or `phenotype fit`: Review *already selected* phenotypes for improvements against study intent. Of the use accepts, **write the new artifacts** (JSON cohort definitions or Atlas cohort records)
+* `concept_set_recommendations`:Based on a phenotype or covariate relevant to the study intent for which a cohort definition has not been defined, suggest relevant concept sets from sources available to the user (concept set JSON, Atlas) to use in a new cohort definition. **If the user accepts, create the concept set artifacts.** 
+* `propose_negative_control_outcomes`: Given a target (and optionally a comparator) recommend outcomes that are unlikely to be caused by the target (nor by the comparator). **If the user accepts, create the cohort definitions for the negative control outcomes**
+* `propose_comparator`: Given a target, propose a comparator. This could leverage the [OHDSI Comparator Selector tool](https://data.ohdsi.org/ComparatorSelectionExplorer/). **If the user accepts, create the cohort definition for the comparator**
+
+
+#### Study component testing, improvement, and linting  
+* `propose_concept_set_diff`: Review concept set for gaps and inconsistencies given the study intent.  **If the user accepts, patch the concept set artifacts.**
 * `phenotype_characterize`: **Generate R code** that the user will run, or request the user's permission to **run Atlas services**, to characterize the population of individuals that match a selected phenotype (i.e., same as a cohort characterization)  
-* `phenotype_data_quality_review`: Check for likely issues and propose mitigation based on information from the Data Quality Dashboard, Achilles Heel data quality checks, and Achilles data source characterizations over the one or more sources that a user intends to use within the study. For issues that the use acknowledges ,  **patch the artifacts** (JSON cohort definitions or Atlas cohort records)
+* `phenotype_data_quality_review`: Check for likely issues with a set of phenotype definitions and propose mitigation based on information from the Data Quality Dashboard, Achilles Heel data quality checks, and Achilles data source characterizations over the one or more sources that a user intends to use within the study. For issues that the use acknowledges ,  **patch the artifacts** (JSON cohort definitions or Atlas cohort records)
+* `phenotype_dataset_profiler`: **Generate R code** to execute a given phenotype definition on multiple datasets (possibly using [Cohort Diagnostics](https://ohdsi.github.io/CohortDiagnostics/)) and **write an brief summary** that compares which phenotype definition elements cause the biggest differences in variation in cohort size (CohortDiagnostics)
 * `phenotype_validation_review`: Generate Keeper code for the use to run that will enable them to review case samples from the population of patients meeting a selected phenotype definition. **The agen will write the code to make the sample** such that the user can compare performance characteristics with their sample to known for the phenotype from other sources where it was tested.   
 * `cohort_definition_build`: **Write the Capr code** for a use to define a phenotype or covariate relevant to the study intent for which a cohort definition has not yet been defined.
 * `cohort_definition_lint`: Review cohort JSON for general design issues (washout/time-at-risk, inverted windows, empty or conflicting criteria) and for execution efficiency (unnecessary criterion nesting, sub-optimal logical ordering of criteria) and **write the proposed patches** (new JSON or new cohort definitions in Atlas)
-* `concept_set_recommendations`:Based on a phenotype or covariate relevant to the study intent for which a cohort definition has not been defined, suggest relevant concept sets from sources available to the user (concept set JSON, Atlas) to use in a new cohort definition. **If the user accepts, create the concept set artifacts.** 
-* `propose_concept_set_diff`: Review concept set for gaps and inconsistencies given the study intent.  **If the user accepts, patch the concept set artifacts.**
+* `review_negative_control`: Given a target and an outcome, judge whether they are unlikely to be causally related. **Provide a clear explanation for the judgement with accurate citations**
 
 ### Initial Architecture - Existing OHDSI tools + Agent Client Protocol (ACP) + Model Context Protocol (MCP)
 
