@@ -42,6 +42,7 @@ NOTE: at no time for any of the services would an LLM see row-level data (this c
 * `protocol_generator`: given the PICO/TAR for a study intent, **write a templated protocol**
 * `background_writer`: based on PICO/TAR and hypothesis **do (systematic) research and write document justifying study**
 * `protocol_critique`: given a protocol, **write a critique reviewing the protocol for required components and consistency**
+* `dag_create`: given a protocol or a study intent statement, **propose a directed acyclic graph of known causal and associative relations** (leveraging LLMs and literature-based discovery methods)
 
 #### High level operational
 * `strategus_*`: compose/compare/edit/critique/debug study specification **all of these services edit Strategus .json)** and may utilize one or more of the other services listed below.
@@ -53,6 +54,7 @@ NOTE: at no time for any of the services would an LLM see row-level data (this c
 * `concept_set_recommendations`:Based on a phenotype or covariate relevant to the study intent for which a cohort definition has not been defined, suggest relevant concept sets from sources available to the user (concept set JSON, Atlas) to use in a new cohort definition. **If the user accepts, create the concept set artifacts.** 
 * `propose_negative_control_outcomes`: Given a target (and optionally a comparator) recommend outcomes that are unlikely to be caused by the target (nor by the comparator). **If the user accepts, create the cohort definitions for the negative control outcomes**
 * `propose_comparator`: Given a target, propose a comparator. This could leverage the [OHDSI Comparator Selector tool](https://data.ohdsi.org/ComparatorSelectionExplorer/). **If the user accepts, create the cohort definition for the comparator**
+* `propose_adjustment_set`: Given a study intent statement and a DAG (see `dag_create`), 1) filter the default OHDSI features to an appropriate adjustment set that correctly handles confounders, colliders, and mediators; and 2) suggest features that could be constructed using FeatureExtraction and added to the adjustment set.
 
 
 #### Study component testing, improvement, and linting  
