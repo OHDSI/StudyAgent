@@ -10,20 +10,20 @@
 ## NOTE: running from a directory above the AgenticStudyAssistant so that we can reuse the .renv
 
 # Import the R thin api to the ACP server/bridge
-devtools::load_all("AgenticStudyAssistant/R/OHDSIAssistant")
+devtools::load_all("OHDSI-Study-Agent/R/OHDSIAssistant") # was under AgenticStudyAssistant/
 
 # confirm the ACP server/bridge is running
 OHDSIAssistant::acp_connect("http://127.0.0.1:7777")
 
 ############################################################
 ## Test: -- `concept-sets-review`
-# this concept set has no descendant concepts specified
+ this concept set has no descendant concepts specified
 concept_set_ref <- "demo/concept_set.json"  # This path is relative to the ACP server's base folder
                                         
 # Ask tool for findings and actions
 resp <- OHDSIAssistant:::`.acp_post`("/tools/propose_concept_set_diff", list(
   conceptSetRef = concept_set_ref,
-  studyIntent   = paste(readLines("./AgenticStudyAssistant/demo/protocol.md", warn = FALSE), collapse = " ") # this path is relative the start of the R session
+  studyIntent   = paste(readLines("./OHDSI-Study-Agent/demo/protocol.md", warn = FALSE), collapse = " ") # this path is relative the start of the R session
 ))
 actions <- resp$actions
 cat("LLM actions:\n");
@@ -43,7 +43,7 @@ cat("LLM applied written_to:\n"); print(applied$written_to)
 ############################################################
 
 ## -- `cohort-critique-general-design` (LLM-backed cohort lint demo)
-cohort_ref <- "AgenticStudyAssistant/demo/cohort_definition.json"
+cohort_ref <- "OHDSI-Study-Agent/demo/cohort_definition.json"
 cohort_body <- list(cohortRef = cohort_ref)
 cohort_resp <- OHDSIAssistant:::`.acp_post`("/tools/cohort_lint", cohort_body)
 cat("\n== Cohort Critique (general design) ==\n")
@@ -134,9 +134,9 @@ if (length(cohort_resp$actions)) {
 ############################################################
 
 ## -- `phenotype_recommendations`
-protocol <- "AgenticStudyAssistant/demo/protocol.md"
-catalog  <- "AgenticStudyAssistant/demo/Cohorts.csv"
-study_dir <- "AgenticStudyAssistant/demo"
+protocol <- "OHDSI-Study-Agent/demo/protocol.md"
+catalog  <- "OHDSI-Study-Agent/demo/Cohorts.csv"
+study_dir <- "OHDSI-Study-Agent/demo"
 
 rec <- OHDSIAssistant::suggestPhenotypes(protocol, catalog, maxResults = 10, interactive = TRUE)
 ids <- OHDSIAssistant::selectPhenotypeRecommendations(rec$phenotype_recommendations, select = NULL, interactive = interactive())
