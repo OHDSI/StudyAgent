@@ -81,6 +81,11 @@ Default root is `PHENOTYPE_INDEX_DIR` or `data/phenotype_index`.
 Candidate selection:
 1. ACP truncates the candidate list before the LLM using `LLM_CANDIDATE_LIMIT` or per-request `candidate_limit`.
 
+**LLM Formats**
+1. Default: OpenAI Chat Completions payload (`/v1/chat/completions`-style).
+2. Optional: OpenAI Responses payload (`/v1/responses`-style) enabled with `LLM_USE_RESPONSES=1`.
+3. This setting only changes request/response formatting for the LLM API; it does not affect MCP tool usage.
+
 **Update and Reindex**
 1. MCP exposes `POST /phenotypes/reindex` for manual refresh.
 2. Index build script accepts CSV metadata + JSON cohort definitions.
@@ -99,7 +104,7 @@ Candidate selection:
 10. `LLM_TIMEOUT` (default `180`)
 11. `LLM_LOG` (default `0`)
 12. `LLM_DRY_RUN` (default `0`)
-13. `LLM_USE_RESPONSES` (default `0`)
+13. `LLM_USE_RESPONSES` (default `0`) selects OpenAI Responses API format instead of Chat Completions. It does not affect MCP tool use.
 14. `LLM_CANDIDATE_LIMIT` (default `10`)
 
 **Risks and Mitigations**

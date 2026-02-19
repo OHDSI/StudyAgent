@@ -11,7 +11,7 @@ Set these environment variables to enable LLM calls from ACP:
 - `LLM_TIMEOUT` (default `180`)
 - `LLM_LOG` (default `0`)
 - `LLM_DRY_RUN` (default `0`)
-- `LLM_USE_RESPONSES` (default `0`)
+- `LLM_USE_RESPONSES` (default `0`, use OpenAI Responses API payload/parse instead of Chat Completions; unrelated to MCP tool use)
 - `LLM_CANDIDATE_LIMIT` (default `10`)
 
 See `docs/TESTING.md` for CLI smoke tests.
