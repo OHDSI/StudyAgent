@@ -9,7 +9,7 @@ import re
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 
