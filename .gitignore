@@ -15,3 +15,4 @@ scripts/output-cohort-diagn/
 .DS_Store
 **/inst/assistant/*.json
 **__pycache__**
+data/

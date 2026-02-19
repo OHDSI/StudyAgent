@@ -24,4 +24,9 @@ def test_register_all_tools() -> None:
         "cohort_lint",
         "phenotype_recommendations",
         "phenotype_improvements",
+        "phenotype_search",
+        "phenotype_fetch_summary",
+        "phenotype_fetch_definition",
+        "phenotype_list_similar",
+        "phenotype_reindex",
     }

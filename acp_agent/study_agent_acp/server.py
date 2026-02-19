@@ -24,14 +24,21 @@ def _write_json(handler: BaseHTTPRequestHandler, status: int, payload: Dict[str,
     handler.send_header("Content-Type", "application/json")
     handler.send_header("Content-Length", str(len(body)))
     handler.end_headers()
-    handler.wfile.write(body)
+    try:
+        handler.wfile.write(body)
+    except BrokenPipeError:
+        if getattr(handler, "debug", False):
+            print("ACP response write failed: client disconnected.")
 
 
 class ACPRequestHandler(BaseHTTPRequestHandler):
     agent: StudyAgent
     mcp_client: Optional[StdioMCPClient]
+    debug: bool = False
 
     def log_message(self, format: str, *args: Any) -> None:
+        if self.debug:
+            return super().log_message(format, *args)
         return None
 
     def do_GET(self) -> None:
@@ -47,25 +54,60 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
         _write_json(self, 404, {"error": "not_found"})
 
     def do_POST(self) -> None:
-        if self.path != "/tools/call":
-            _write_json(self, 404, {"error": "not_found"})
-            return
-        try:
-            body = _read_json(self)
-        except Exception as exc:
-            _write_json(self, 400, {"error": f"invalid_json: {exc}"})
+        if self.path == "/tools/call":
+            try:
+                body = _read_json(self)
+            except Exception as exc:
+                _write_json(self, 400, {"error": f"invalid_json: {exc}"})
+                return
+
+            name = body.get("name")
+            arguments = body.get("arguments") or {}
+            confirm = bool(body.get("confirm", False))
+            if not name:
+                _write_json(self, 400, {"error": "missing tool name"})
+                return
+
+            try:
+                result = self.agent.call_tool(name=name, arguments=arguments, confirm=confirm)
+            except Exception as exc:
+                if self.debug:
+                    import traceback
+
+                    traceback.print_exc()
+                _write_json(self, 500, {"error": "tool_call_failed", "detail": str(exc) if self.debug else None})
+                return
+            status = 200 if result.get("status") != "error" else 500
+            _write_json(self, status, result)
             return
 
-        name = body.get("name")
-        arguments = body.get("arguments") or {}
-        confirm = bool(body.get("confirm", False))
-        if not name:
-            _write_json(self, 400, {"error": "missing tool name"})
+        if self.path == "/flows/phenotype_recommendation":
+            try:
+                body = _read_json(self)
+            except Exception as exc:
+                _write_json(self, 400, {"error": f"invalid_json: {exc}"})
+                return
+            study_intent = body.get("study_intent") or body.get("query") or ""
+            top_k = int(body.get("top_k", 20))
+            max_results = int(body.get("max_results", 10))
+            try:
+                result = self.agent.run_phenotype_recommendation_flow(
+                    study_intent=study_intent,
+                    top_k=top_k,
+                    max_results=max_results,
+                )
+            except Exception as exc:
+                if self.debug:
+                    import traceback
+
+                    traceback.print_exc()
+                _write_json(self, 500, {"error": "flow_failed", "detail": str(exc) if self.debug else None})
+                return
+            status = 200 if result.get("status") != "error" else 500
+            _write_json(self, status, result)
             return
 
-        result = self.agent.call_tool(name=name, arguments=arguments, confirm=confirm)
-        status = 200 if result.get("status") != "error" else 500
-        _write_json(self, status, result)
+        _write_json(self, 404, {"error": "not_found"})
 
 
 def _build_agent(
@@ -87,6 +129,7 @@ def main(host: str = "127.0.0.1", port: int = 8765) -> None:
     mcp_command = os.getenv("STUDY_AGENT_MCP_COMMAND")
     mcp_args = os.getenv("STUDY_AGENT_MCP_ARGS", "")
     allow_core_fallback = os.getenv("STUDY_AGENT_ALLOW_CORE_FALLBACK", "1") == "1"
+    debug = os.getenv("STUDY_AGENT_DEBUG", "0") == "1"
 
     args_list = [arg for arg in mcp_args.split(" ") if arg]
     agent, mcp_client = _build_agent(mcp_command, args_list, allow_core_fallback)
@@ -94,9 +137,11 @@ def main(host: str = "127.0.0.1", port: int = 8765) -> None:
     class Handler(ACPRequestHandler):
         agent = None
         mcp_client = None
+        debug = False
 
     Handler.agent = agent
     Handler.mcp_client = mcp_client
+    Handler.debug = debug
     server = HTTPServer((host, port), Handler)
     _serve(server, mcp_client)
 

@@ -105,6 +105,61 @@ class StudyAgent:
                 "warnings": [f"Core tool call failed: {exc}"],
             }
 
+    def run_phenotype_recommendation_flow(
+        self,
+        study_intent: str,
+        top_k: int = 20,
+        max_results: int = 10,
+    ) -> Dict[str, Any]:
+        if not study_intent:
+            return {"status": "error", "error": "missing study_intent"}
+        if self._mcp_client is None:
+            return {"status": "error", "error": "MCP client unavailable"}
+
+        search_result = self.call_tool(
+            name="phenotype_search",
+            arguments={"query": study_intent, "top_k": top_k},
+        )
+        if search_result.get("status") != "ok":
+            return {
+                "status": "error",
+                "error": "phenotype_search_failed",
+                "details": search_result,
+            }
+
+        full = search_result.get("full_result") or {}
+        if "results" not in full and full.get("content"):
+            return {
+                "status": "error",
+                "error": "phenotype_search_failed",
+                "details": full,
+            }
+        candidates = full.get("results") or []
+        catalog_rows = []
+        for row in candidates:
+            if not isinstance(row, dict):
+                continue
+            catalog_rows.append(
+                {
+                    "cohortId": row.get("cohortId"),
+                    "cohortName": row.get("name") or "",
+                    "short_description": row.get("short_description"),
+                }
+            )
+
+        core_result = phenotype_recommendations(
+            protocol_text=study_intent,
+            catalog_rows=catalog_rows,
+            max_results=max_results,
+            llm_result=None,
+        )
+
+        return {
+            "status": "ok",
+            "search": full,
+            "recommendations": core_result,
+        }
+
     def _wrap_result(self, name: str, result: Dict[str, Any], warnings: List[str]) -> Dict[str, Any]:
         safe_summary = self._safe_summary(result)
         return {

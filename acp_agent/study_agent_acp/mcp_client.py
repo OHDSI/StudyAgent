@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
+import os
 from threading import Lock
 from typing import Any, Dict, List, Optional
 
@@ -24,18 +25,29 @@ class StdioMCPClient:
         self._config = config
         self._lock = Lock()
         self._portal = None
+        self._portal_cm = None
         self._session: ClientSession | None = None
         self._exit_stack: AsyncExitStack | None = None
 
     def list_tools(self) -> List[Dict[str, Any]]:
-        self._ensure_session()
-        assert self._portal is not None
-        return self._portal.call(self._list_tools)
+        try:
+            self._ensure_session()
+            assert self._portal is not None
+            return self._portal.call(self._list_tools)
+        except Exception as exc:
+            if _should_use_oneshot(exc):
+                return anyio.run(self._list_tools_oneshot)
+            raise
 
     def call_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        self._ensure_session()
-        assert self._portal is not None
-        return self._portal.call(self._call_tool, name, arguments)
+        try:
+            self._ensure_session()
+            assert self._portal is not None
+            return self._portal.call(self._call_tool, name, arguments)
+        except Exception as exc:
+            if _should_use_oneshot(exc):
+                return anyio.run(self._call_tool_oneshot, name, arguments)
+            raise
 
     def health_check(self) -> Dict[str, Any]:
         try:
@@ -62,13 +74,44 @@ class StdioMCPClient:
         await self._session.send_ping()
         return {"ok": True}
 
+    async def _list_tools_oneshot(self) -> List[Dict[str, Any]]:
+        server = StdioServerParameters(
+            command=self._config.command,
+            args=self._config.args,
+            env=self._config.env or os.environ.copy(),
+            cwd=self._config.cwd,
+        )
+        async with stdio_client(server) as (read_stream, write_stream):
+            session = ClientSession(read_stream, write_stream)
+            async with session:
+                await session.initialize()
+                result = await session.list_tools()
+                return [tool.model_dump() for tool in result.tools]
+
+    async def _call_tool_oneshot(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        server = StdioServerParameters(
+            command=self._config.command,
+            args=self._config.args,
+            env=self._config.env or os.environ.copy(),
+            cwd=self._config.cwd,
+        )
+        async with stdio_client(server) as (read_stream, write_stream):
+            session = ClientSession(read_stream, write_stream)
+            async with session:
+                await session.initialize()
+                result = await session.call_tool(name=name, arguments=arguments)
+                if result.structuredContent is not None:
+                    return result.structuredContent
+                return {"content": [c.model_dump() for c in result.content or []]}
+
     def _ensure_session(self) -> None:
         if self._session is not None:
             return
         with self._lock:
             if self._session is not None:
                 return
-            self._portal = start_blocking_portal()
+            self._portal_cm = start_blocking_portal()
+            self._portal = self._portal_cm.__enter__()
             assert self._portal is not None
             self._portal.call(self._async_init)
 
@@ -76,7 +119,7 @@ class StdioMCPClient:
         server = StdioServerParameters(
             command=self._config.command,
             args=self._config.args,
-            env=self._config.env,
+            env=self._config.env or os.environ.copy(),
             cwd=self._config.cwd,
         )
         self._exit_stack = AsyncExitStack()
@@ -92,7 +135,9 @@ class StdioMCPClient:
         try:
             self._portal.call(self._async_close)
         finally:
-            self._portal.stop()
+            if self._portal_cm is not None:
+                self._portal_cm.__exit__(None, None, None)
+                self._portal_cm = None
             self._portal = None
 
     async def _async_close(self) -> None:
@@ -100,3 +145,14 @@ class StdioMCPClient:
             await self._exit_stack.aclose()
         self._exit_stack = None
         self._session = None
+
+
+def _should_use_oneshot(exc: Exception) -> bool:
+    if os.getenv("STUDY_AGENT_MCP_ONESHOT", "0") == "1":
+        return True
+    message = str(exc)
+    if "cancel scope" in message:
+        return True
+    if "GeneratorContextManager" in message:
+        return True
+    return False
