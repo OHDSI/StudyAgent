@@ -22,6 +22,7 @@ def main() -> int:
         "study_intent": STUDY_INTENT,
         "top_k": 20,
         "max_results": 10,
+        "candidate_limit": int(os.getenv("LLM_CANDIDATE_LIMIT", "10")),
     }
     body = json.dumps(payload).encode("utf-8")
     request = urllib.request.Request(ACP_URL, data=body, method="POST")

@@ -1,3 +1,4 @@
+import os
 from typing import Any, Dict, List, Optional, Protocol
 
 from study_agent_core.models import (
@@ -12,6 +13,7 @@ from study_agent_core.tools import (
     phenotype_recommendations,
     propose_concept_set_diff,
 )
+from .llm_client import build_prompt, call_llm
 
 
 class MCPClient(Protocol):
@@ -110,6 +112,7 @@ class StudyAgent:
         study_intent: str,
         top_k: int = 20,
         max_results: int = 10,
+        candidate_limit: Optional[int] = None,
     ) -> Dict[str, Any]:
         if not study_intent:
             return {"status": "error", "error": "missing study_intent"}
@@ -135,6 +138,32 @@ class StudyAgent:
                 "details": full,
             }
         candidates = full.get("results") or []
+        if candidate_limit is None:
+            candidate_limit = int(os.getenv("LLM_CANDIDATE_LIMIT", "10"))
+        if candidate_limit > 0:
+            candidates = candidates[:candidate_limit]
+
+        prompt_bundle = self.call_tool(
+            name="phenotype_prompt_bundle",
+            arguments={"task": "phenotype_recommendations"},
+        )
+        prompt_full = prompt_bundle.get("full_result") or {}
+        if prompt_bundle.get("status") != "ok" or prompt_full.get("error"):
+            return {
+                "status": "error",
+                "error": "phenotype_prompt_bundle_failed",
+                "details": prompt_bundle,
+            }
+
+        prompt = build_prompt(
+            overview=prompt_full.get("overview", ""),
+            spec=prompt_full.get("spec", ""),
+            output_schema=prompt_full.get("output_schema", {}),
+            study_intent=study_intent,
+            candidates=candidates,
+            max_results=max_results,
+        )
+        llm_result = call_llm(prompt)
         catalog_rows = []
         for row in candidates:
             if not isinstance(row, dict):
@@ -151,12 +180,15 @@ class StudyAgent:
             protocol_text=study_intent,
             catalog_rows=catalog_rows,
             max_results=max_results,
-            llm_result=None,
+            llm_result=llm_result,
         )
 
         return {
             "status": "ok",
             "search": full,
+            "llm_used": llm_result is not None,
+            "candidate_limit": candidate_limit,
+            "candidate_count": len(candidates),
             "recommendations": core_result,
         }
 

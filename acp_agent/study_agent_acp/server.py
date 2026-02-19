@@ -90,11 +90,15 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             study_intent = body.get("study_intent") or body.get("query") or ""
             top_k = int(body.get("top_k", 20))
             max_results = int(body.get("max_results", 10))
+            candidate_limit = body.get("candidate_limit")
+            if candidate_limit is not None:
+                candidate_limit = int(candidate_limit)
             try:
                 result = self.agent.run_phenotype_recommendation_flow(
                     study_intent=study_intent,
                     top_k=top_k,
                     max_results=max_results,
+                    candidate_limit=candidate_limit,
                 )
             except Exception as exc:
                 if self.debug:

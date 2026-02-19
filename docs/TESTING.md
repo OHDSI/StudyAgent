@@ -76,6 +76,26 @@ STUDY_AGENT_MCP_COMMAND=study-agent-mcp STUDY_AGENT_MCP_ARGS="" study-agent-acp
 
 Then run the same curl commands as above.
 
+## ACP phenotype flow (MCP + LLM)
+
+Ensure MCP is running and set LLM env vars for an OpenAI-compatible endpoint:
+
+```bash
+export LLM_API_URL="http://localhost:3000/api/chat/completions"
+export LLM_API_KEY="..."
+export LLM_MODEL="agentstudyassistant"
+export LLM_DRY_RUN=0
+export LLM_USE_RESPONSES=0
+```
+
+Then call:
+
+```bash
+curl -s -X POST http://127.0.0.1:8765/flows/phenotype_recommendation \
+  -H 'Content-Type: application/json' \
+  -d '{"study_intent":"Example intent text","top_k":20,"max_results":10,"candidate_limit":10}'
+```
+
 ## MCP smoke test (import)
 
 ```bash

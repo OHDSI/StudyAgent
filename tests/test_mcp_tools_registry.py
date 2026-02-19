@@ -29,4 +29,5 @@ def test_register_all_tools() -> None:
         "phenotype_fetch_definition",
         "phenotype_list_similar",
         "phenotype_reindex",
+        "phenotype_prompt_bundle",
     }

@@ -69,12 +69,17 @@ Default root is `PHENOTYPE_INDEX_DIR` or `data/phenotype_index`.
 2. `phenotype_fetch_summary(cohortId)`
 3. `phenotype_fetch_definition(cohortId, truncate=true)`
 4. `phenotype_list_similar(cohortId, top_k=10)`
+5. `phenotype_prompt_bundle(task)` (returns overview/spec/output_schema)
 
 **ACP Orchestration**
 1. User submits study intent to ACP.
 2. ACP calls `phenotype_search` to get top-K candidates.
-3. ACP calls LLM with candidates for ranking and justification.
-4. ACP validates with `core.phenotype_recommendations(...)`.
+3. ACP calls `phenotype_prompt_bundle` to fetch prompt assets.
+4. ACP calls LLM with candidates for ranking and justification.
+5. ACP validates with `core.phenotype_recommendations(...)`.
+
+Candidate selection:
+1. ACP truncates the candidate list before the LLM using `LLM_CANDIDATE_LIMIT` or per-request `candidate_limit`.
 
 **Update and Reindex**
 1. MCP exposes `POST /phenotypes/reindex` for manual refresh.
@@ -88,6 +93,14 @@ Default root is `PHENOTYPE_INDEX_DIR` or `data/phenotype_index`.
 4. `OLLAMA_API_KEY` (optional)
 5. `PHENOTYPE_DENSE_WEIGHT` (default `0.6`)
 6. `PHENOTYPE_SPARSE_WEIGHT` (default `0.4`)
+7. `LLM_API_URL` (default `http://localhost:3000/api/chat/completions`)
+8. `LLM_API_KEY` (required for LLM calls)
+9. `LLM_MODEL` (default `agentstudyassistant`)
+10. `LLM_TIMEOUT` (default `180`)
+11. `LLM_LOG` (default `0`)
+12. `LLM_DRY_RUN` (default `0`)
+13. `LLM_USE_RESPONSES` (default `0`)
+14. `LLM_CANDIDATE_LIMIT` (default `10`)
 
 **Risks and Mitigations**
 1. Missing dependencies for FAISS
