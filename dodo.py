@@ -24,6 +24,16 @@ DEFAULT_ENV = {
 }
 
 
+def _pytest_cmd(marker: str | None = None) -> str:
+    opts = os.getenv("PYTEST_OPTS", "")
+    base = "pytest"
+    if marker:
+        base = f"{base} -m {marker}"
+    if opts:
+        return f"{base} {opts}"
+    return base
+
+
 def task_install():
     return {
         "actions": ["pip install -e ."],
@@ -33,21 +43,21 @@ def task_install():
 
 def task_test_core():
     return {
-        "actions": ["pytest -m core"],
+        "actions": [_pytest_cmd("core")],
         "verbosity": 2,
     }
 
 
 def task_test_acp():
     return {
-        "actions": ["pytest -m acp"],
+        "actions": [_pytest_cmd("acp")],
         "verbosity": 2,
     }
 
 
 def task_test_mcp():
     return {
-        "actions": ["pytest -m mcp"],
+        "actions": [_pytest_cmd("mcp")],
         "verbosity": 2,
     }
 
@@ -61,8 +71,15 @@ def task_test_unit():
 
 def task_test_all():
     return {
-        "actions": ["pytest"],
+        "actions": [_pytest_cmd()],
         "verbosity": 2,
+    }
+
+
+def task_run_all_tests():
+    return {
+        "actions": None,
+        "task_dep": ["test_all"],
     }
 
 
@@ -97,7 +114,7 @@ def task_smoke_phenotype_flow():
             print("Waiting for ACP health endpoint...")
             _wait_for_acp("http://127.0.0.1:8765/health", timeout_s=30)
             print("Running phenotype flow smoke test...")
-            subprocess.run(["python", "demo/phenotype_flow_smoke_test.py"], check=True, env=env)
+            subprocess.run(["python", "tests/phenotype_flow_smoke_test.py"], check=True, env=env)
             print(f"ACP logs: {acp_stdout} {acp_stderr}")
         finally:
             print("Stopping ACP...")

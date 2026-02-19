@@ -8,6 +8,7 @@ import urllib.request
 
 ACP_URL = os.getenv("ACP_URL", "http://127.0.0.1:8765/flows/phenotype_recommendation")
 ACP_TIMEOUT = int(os.getenv("ACP_TIMEOUT", "180"))
+LLM_API_KEY = os.getenv("LLM_API_KEY")
 
 STUDY_INTENT = (
     "Study intent: Identify clinical risk factors for older adult patients who experience "
@@ -18,6 +19,9 @@ STUDY_INTENT = (
 
 
 def main() -> int:
+    if not LLM_API_KEY:
+        print("Missing LLM_API_KEY in environment. Set it before running this smoke test.")
+        return 1
     payload = {
         "study_intent": STUDY_INTENT,
         "top_k": 20,

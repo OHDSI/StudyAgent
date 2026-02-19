@@ -26,6 +26,17 @@ Or enable per-test progress lines via environment variable:
 STUDY_AGENT_PYTEST_PROGRESS=1 pytest
 ```
 
+You can also set `PYTEST_OPTS` and `doit` will pass it through:
+
+```bash
+PYTEST_OPTS="-vv -rA -s" doit run_all_tests
+```
+
+## ACP/MCP test groups
+
+- `pytest -m acp` covers ACP flow tests (including phenotype flow).
+- `pytest -m mcp` covers MCP tool tests (including prompt bundles and search weights).
+
 ## Task runner (doit)
 
 List tasks:
@@ -94,6 +105,14 @@ Then call:
 curl -s -X POST http://127.0.0.1:8765/flows/phenotype_recommendation \
   -H 'Content-Type: application/json' \
   -d '{"study_intent":"Example intent text","top_k":20,"max_results":10,"candidate_limit":10}'
+```
+
+## Phenotype flow smoke test (ACP + MCP)
+
+Run the Python smoke test via `doit`:
+
+```bash
+doit smoke_phenotype_flow
 ```
 
 ## MCP smoke test (import)
