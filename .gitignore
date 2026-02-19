@@ -16,3 +16,7 @@ scripts/output-cohort-diagn/
 **/inst/assistant/*.json
 **__pycache__**
 data/
+demo/1197_Acute_gastrointestinal_bleeding.json
+demo/299_Acute_gastrointestinal_bleeding_or_perforation_events.json
+demo/417_Acute_gastrointestinal_bleeding_events.json
+docs/study-agent-development-phenotype-suggestion-tool-architecture-plan.pdf
