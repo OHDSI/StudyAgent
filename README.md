@@ -16,10 +16,11 @@ Here are some ways:
 
 ### Near term
 
-- `phenotype_improvements`
 - `phenotype_validation_review`
 
-Show these tools in use to design, run, and interpret the results of an OHDSI incidence rate analysis using the [CohortIncidenceModule](https://raw.githubusercontent.com/OHDSI/Strategus/main/inst/doc/CreatingAnalysisSpecification.pdf) of  [OHDSI Strategus](https://github.com/OHDSI/Strategus) 
+Show the phenotype_* tools in use to design, run, and interpret the results of an OHDSI incidence rate analysis using the [CohortIncidenceModule](https://raw.githubusercontent.com/OHDSI/Strategus/main/inst/doc/CreatingAnalysisSpecification.pdf) of  [OHDSI Strategus](https://github.com/OHDSI/Strategus) 
+
+Extend the study agent so it uses resulsts from Data Quality Dashboard, Achilles Heel data quality checks, and Achilles data source characterizations over one or more sources that a user intends to use within a study.  In this mode, the study agent derive insights from those sources based on the user's study intent.  This is important because it will make the information in the characterizations and QC reports more relevant and actionable to users than static and broad-scope reports (current state). 
 
 ### Long term
 
@@ -57,7 +58,6 @@ See `docs/TESTING.md` for install and CLI smoke tests.
 4. Core validates and filters LLM output.
 
 For details on the design, see `docs/PHENOTYPE_RECOMMENDATION_DESIGN.md`.
-In one mode of operation, the study agent will have access to output from Data Quality Dashboard, Achilles Heel data quality checks, and Achilles data source characterizations over one or more sources that a user intends to use within a study.  In this mode, specifically designed OHDSI study agent MCP tools will derive insights from those sources based on the user's study intent.  This is important because it will make the information in the characterizations and QC reports more relevant and actionable to users than static and broad-scope reports (current state). 
 
 #### Example run for `phenotype_recommendations`
 
