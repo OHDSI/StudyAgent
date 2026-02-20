@@ -59,6 +59,26 @@ See `docs/TESTING.md` for install and CLI smoke tests.
 
 For details on the design, see `docs/PHENOTYPE_RECOMMENDATION_DESIGN.md`.
 
+### `phenotype_improvements` flow (ACP + MCP + LLM)
+
+1. ACP calls MCP `phenotype_prompt_bundle` for improvement prompts.
+2. ACP calls an OpenAI-compatible LLM API for improvement suggestions.
+3. ACP calls MCP `phenotype_improvements` with LLM output for validation.
+
+This flow reviews one phenotype definition at a time. If multiple cohorts are provided, ACP uses the first.
+
+### `concept-sets-review` flow (ACP + MCP + LLM)
+
+1. ACP calls MCP `lint_prompt_bundle` for lint prompts.
+2. ACP calls an OpenAI-compatible LLM API for findings/patches/actions.
+3. ACP calls MCP `propose_concept_set_diff` with LLM output for validation.
+
+### `cohort-critique-general-design` flow (ACP + MCP + LLM)
+
+1. ACP calls MCP `phenotype_prompt_bundle` for cohort critique prompts.
+2. ACP calls an OpenAI-compatible LLM API for findings/patches.
+3. ACP calls MCP `cohort_lint` with LLM output for validation.
+
 #### Example run for `phenotype_recommendations`
 
 *Prerequisite:* you have embedded phenotype definitions - see `./docs/PHENOTYPE_INDEXING.md`
@@ -190,5 +210,4 @@ Below is a set of planned study agent services, organized by category. For each 
 **Input:** Target + outcome.  
 **Output:** Judgement on causal implausibility with explanation and citations.  
 **Validation:** Citation review and domain plausibility.
-
 
