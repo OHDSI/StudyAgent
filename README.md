@@ -7,20 +7,18 @@ The goal OHDSI Study Design Assistant (SDA) is to provide an experience similar 
 #### Want to contribute? 
 
 Here are some ways:
-- Create a for of the project, branch the new project's main branch, edit the README.md and do a pull request back this main branch. Your changes could be integrated very quickly that way!
+- Create a fork of the project, branch the new project's main branch, edit the README.md and do a pull request back this main branch. Your changes could be integrated very quickly that way!
 - Join the [discussion on the OHDSI Forums](https://forums.ohdsi.org/t/seeking-input-on-services-that-the-ohdsi-study-agent-will-provide/24890)
-- Attend the Generative AI WG monthly calls (currently 2nd Tuesdays of the month at 12 Eastern) or reach out directly to Rich Boyce on the OHDSI Teams.
+- Attend the Generative AI WG monthly calls (currently 2nd Tuesdays of the month at 12 Eastern) or reach out directly to Rich Boyce on the OHDSI Teams or the OHDSI forums.
 - You may also post "question" issues on this repo.
 
 ### Roadmap
 
 ### Near term
 
-- `phenotype_validation_review`
-
 Show the phenotype_* tools in use to design, run, and interpret the results of an OHDSI incidence rate analysis using the [CohortIncidenceModule](https://raw.githubusercontent.com/OHDSI/Strategus/main/inst/doc/CreatingAnalysisSpecification.pdf) of  [OHDSI Strategus](https://github.com/OHDSI/Strategus) 
 
-Extend the study agent so it uses resulsts from Data Quality Dashboard, Achilles Heel data quality checks, and Achilles data source characterizations over one or more sources that a user intends to use within a study.  In this mode, the study agent derive insights from those sources based on the user's study intent.  This is important because it will make the information in the characterizations and QC reports more relevant and actionable to users than static and broad-scope reports (current state). 
+Extend the study agent so it uses resulst from Data Quality Dashboard, Achilles Heel data quality checks, and Achilles data source characterizations over one or more sources that a user intends to use within a study.  In this mode, the study agent derive insights from those sources based on the user's study intent.  This is important because it will make the information in the characterizations and QC reports more relevant and actionable to users than static and broad-scope reports (current state). 
 
 ### Long term
 
@@ -28,7 +26,7 @@ Build out the entire set of planned services, each one evaluated and user-tested
 
 ## Design 
 
-- An [Agent Client Protocol](https://agentclientprotocol.com/get-started/introduction) ACP server that owns interaction policy: confirmations, safe summaries, and tool invocation routing.
+- An [Agent Client Protocol](https://agentclientprotocol.com/get-started/introduction) (ACP) server that owns interaction policy: confirmations, safe summaries, and tool invocation routing.
    - `acp_agent/`: interaction policy + routing; calls MCP tools or falls back to core.
    
 - Multiple MCP servers that own tool contracts: JSON schemas + deterministic tool outputs.
