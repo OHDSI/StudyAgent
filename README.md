@@ -18,6 +18,10 @@ This repo refactors the initial proof of concept into a clean separation between
 
 ACP provides consistent UX and control across environments (R, Atlas/WebAPI, notebooks), while MCP provides a shared tool bus that can be reused across agents and institutions. ACP orchestrates tool calls and LLM calls; MCP owns retrieval, prompt assets, and deterministic tool outputs. This prototype shows how the same core tools can be accessed via MCP or directly by ACP without coupling to datasets or local files.
 
+## Current unit tests 
+
+See `docs/TESTING.md` for install and CLI smoke tests.
+
 ## Phenotype Recommendation Flow (ACP + MCP + LLM)
 
 1. ACP calls MCP `phenotype_search` to retrieve candidates.
@@ -25,14 +29,38 @@ ACP provides consistent UX and control across environments (R, Atlas/WebAPI, not
 3. ACP calls an OpenAI-compatible LLM API to rank candidates.
 4. Core validates and filters LLM output.
 
-See `docs/PHENOTYPE_RECOMMENDATION_DESIGN.md` for details.
+For details on the design, see `docs/PHENOTYPE_RECOMMENDATION_DESIGN.md`.
 
-## Getting started
+### Example run for `phenotype_recommendations`
 
-See `docs/TESTING.md` for install and CLI smoke tests.
+*Prerequisite:* you have embedded phenotype definitions - see `./docs/PHENOTYPE_INDEXING.md`
 
-## Roadmap (near term)
+1. Start the ACP server (runs on http://127.0.0.1:8765/ by default):
+```bash
+export LLM_API_KEY=<YOUR KEY>
+export LLM_API_URL="<URL BASE>/api/chat/completions"
+export LLM_LOG=1
+export LLM_MODEL=<a model that supports completions> 
+export EMBED_API_KEY=<YOUR KEY>
+export EMBED_MODEL=<a text embedding model>
+export EMBED_URL="<URL BASE>/ollama/api/embed"
+export STUDY_AGENT_MCP_COMMAND=study-agent-mcp
+export STUDY_AGENT_MCP_ARGS=""
+study-agent-acp
+```
 
-- ACP: session lifecycle, confirmations, and audit trail integration.
-- MCP: expand tool surface area and schemas; add portable validation utilities.
-- Core: enrich deterministic checks and improve coverage with synthetic fixtures.
+2. Run `phenotype_recommendation`
+```bash
+curl -s -X POST http://127.0.0.1:8765/flows/phenotype_recommendation \
+  -H 'Content-Type: application/json' \
+  -d '{"study_intent":"Identify clinical risk factors for older adult patients who experience an adverse event of acute gastro-intenstinal (GI) bleeding", "top_k":20, "max_results":10,"candidate_limit":10}'
+```
+
+## Roadmap
+
+### near term
+
+- `phenotype_improvements`
+- `phenotype_validation_review`
+
+Show these tools in use to design, run, and interpret the results of an OHDSI incidence rate analysis using the [CohortIncidenceModule](https://raw.githubusercontent.com/OHDSI/Strategus/main/inst/doc/CreatingAnalysisSpecification.pdf) of  [OHDSI Strategus](https://github.com/OHDSI/Strategus) 

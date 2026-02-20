@@ -1,3 +1,4 @@
+*.env*
 *study_agent.egg-info/
 *.doit.db
 *.agent-shell/

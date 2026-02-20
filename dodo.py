@@ -10,8 +10,8 @@ DEFAULT_ENV = {
     "PHENOTYPE_INDEX_DIR": os.getenv("PHENOTYPE_INDEX_DIR", "data/phenotype_index"),
     "PHENOTYPE_DENSE_WEIGHT": os.getenv("PHENOTYPE_DENSE_WEIGHT", "0.9"),
     "PHENOTYPE_SPARSE_WEIGHT": os.getenv("PHENOTYPE_SPARSE_WEIGHT", "0.1"),
-    "OLLAMA_EMBED_URL": os.getenv("OLLAMA_EMBED_URL", "http://localhost:3000/ollama/api/embed"),
-    "OLLAMA_EMBED_MODEL": os.getenv("OLLAMA_EMBED_MODEL", "qwen3-embedding:4b"),
+    "EMBED_URL": os.getenv("EMBED_URL", "http://localhost:3000/ollama/api/embed"),
+    "EMBED_MODEL": os.getenv("EMBED_MODEL", "qwen3-embedding:4b"),
     "LLM_API_URL": os.getenv("LLM_API_URL", "http://localhost:3000/api/chat/completions"),
     "LLM_MODEL": os.getenv("LLM_MODEL", "gemma3:4b"),
     "LLM_TIMEOUT": os.getenv("LLM_TIMEOUT", "240"),
@@ -76,10 +76,10 @@ def task_test_all():
     }
 
 
-def task_run_all_tests():
+def task_run_all():
     return {
         "actions": None,
-        "task_dep": ["test_all"],
+        "task_dep": ["test_all","smoke_phenotype_flow"],
     }
 
 

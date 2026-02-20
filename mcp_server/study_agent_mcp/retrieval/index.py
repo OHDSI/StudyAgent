@@ -288,9 +288,9 @@ def get_default_index() -> PhenotypeIndex:
     global _DEFAULT_INDEX
     if _DEFAULT_INDEX is None:
         index_dir = os.getenv("PHENOTYPE_INDEX_DIR", "data/phenotype_index")
-        embed_url = os.getenv("OLLAMA_EMBED_URL", "http://localhost:3000/ollama/api/embed")
-        embed_model = os.getenv("OLLAMA_EMBED_MODEL", "qwen3-embedding:4b")
-        api_key = os.getenv("OLLAMA_API_KEY")
+        embed_url = os.getenv("EMBED_URL", "http://localhost:3000/ollama/api/embed")
+        embed_model = os.getenv("EMBED_MODEL", "qwen3-embedding:4b")
+        api_key = os.getenv("EMBED_API_KEY")
         embedding_client = EmbeddingClient(url=embed_url, model=embed_model, api_key=api_key)
         _DEFAULT_INDEX = PhenotypeIndex(index_dir=index_dir, embedding_client=embedding_client).load()
     return _DEFAULT_INDEX

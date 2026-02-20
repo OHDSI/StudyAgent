@@ -46,9 +46,9 @@ Default root is `PHENOTYPE_INDEX_DIR` or `data/phenotype_index`.
 **Embedding Strategy**
 1. Embed only `name + short_description + pop_keywords`.
 2. Use the local embedding API:
-   - URL: `OLLAMA_EMBED_URL` (default `http://localhost:3000/ollama/api/embed`)
-   - Model: `OLLAMA_EMBED_MODEL` (default `qwen3-embedding:4b`)
-   - Key: `OLLAMA_API_KEY` (optional)
+   - URL: `EMBED_URL` (default `http://localhost:3000/ollama/api/embed`)
+   - Model: `EMBED_MODEL` (default `qwen3-embedding:4b`)
+   - Key: `EMBED_API_KEY` (optional)
 3. Cache embeddings by `(cohortId, input_text_hash)` to avoid recompute.
 
 **Sparse Retrieval Strategy**
@@ -93,9 +93,9 @@ Candidate selection:
 
 **Configuration**
 1. `PHENOTYPE_INDEX_DIR` (default `data/phenotype_index`)
-2. `OLLAMA_EMBED_URL` (default `http://localhost:3000/ollama/api/embed`)
-3. `OLLAMA_EMBED_MODEL` (default `qwen3-embedding:4b`)
-4. `OLLAMA_API_KEY` (optional)
+2. `EMBED_URL` (default `http://localhost:3000/ollama/api/embed`)
+3. `EMBED_MODEL` (default `qwen3-embedding:4b`)
+4. `EMBED_API_KEY` (optional)
 5. `PHENOTYPE_DENSE_WEIGHT` (default `0.6`)
 6. `PHENOTYPE_SPARSE_WEIGHT` (default `0.4`)
 7. `LLM_API_URL` (default `http://localhost:3000/api/chat/completions`)

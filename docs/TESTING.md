@@ -104,7 +104,7 @@ Then call:
 ```bash
 curl -s -X POST http://127.0.0.1:8765/flows/phenotype_recommendation \
   -H 'Content-Type: application/json' \
-  -d '{"study_intent":"Example intent text","top_k":20,"max_results":10,"candidate_limit":10}'
+  -d '{"study_intent":"Identify clinical risk factors for older adult patients who experience an adverse event of acute gastro-intenstinal (GI) bleeding", "top_k":20, "max_results":10,"candidate_limit":10}'
 ```
 
 ## Phenotype flow smoke test (ACP + MCP)

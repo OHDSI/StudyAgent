@@ -287,9 +287,9 @@ def main() -> int:
 
     dense_info = {"status": "skipped"}
     if args.build_dense:
-        embed_url = os.getenv("OLLAMA_EMBED_URL", "http://localhost:3000/ollama/api/embed")
-        embed_model = os.getenv("OLLAMA_EMBED_MODEL", "qwen3-embedding:4b")
-        api_key = os.getenv("OLLAMA_API_KEY")
+        embed_url = os.getenv("EMBED_URL", "http://localhost:3000/ollama/api/embed")
+        embed_model = os.getenv("EMBED_MODEL", "qwen3-embedding:4b")
+        api_key = os.getenv("EMBED_API_KEY")
         client = EmbeddingClient(url=embed_url, model=embed_model, api_key=api_key)
         dense_info = _build_dense_index(
             catalog=catalog,
@@ -309,8 +309,8 @@ def main() -> int:
             "k1": sparse_index["k1"],
             "b": sparse_index["b"],
         },
-        "embedding_model": os.getenv("OLLAMA_EMBED_MODEL", "qwen3-embedding:4b"),
-        "embedding_url": os.getenv("OLLAMA_EMBED_URL", "http://localhost:3000/ollama/api/embed"),
+        "embedding_model": os.getenv("EMBED_MODEL", "qwen3-embedding:4b"),
+        "embedding_url": os.getenv("EMBED_URL", "http://localhost:3000/ollama/api/embed"),
     }
     with open(os.path.join(args.output_dir, "meta.json"), "w", encoding="utf-8") as handle:
         json.dump(meta, handle, ensure_ascii=True, indent=2)
