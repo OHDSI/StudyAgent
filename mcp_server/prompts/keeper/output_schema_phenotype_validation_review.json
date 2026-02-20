@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "phenotype_validation_review_output",
+  "type": "object",
+  "properties": {
+    "label": { "type": "string", "enum": ["yes", "no", "unknown"] },
+    "rationale": { "type": "string" }
+  },
+  "required": ["label", "rationale"],
+  "additionalProperties": false
+}

@@ -13,7 +13,7 @@ from study_agent_core.tools import (
     phenotype_recommendations,
     propose_concept_set_diff,
 )
-from .llm_client import build_improvements_prompt, build_lint_prompt, build_prompt, call_llm
+from .llm_client import build_improvements_prompt, build_keeper_prompt, build_lint_prompt, build_prompt, call_llm
 
 
 class MCPClient(Protocol):
@@ -312,6 +312,72 @@ class StudyAgent:
         if isinstance(result, dict):
             result.setdefault("llm_used", llm_result is not None)
         return result
+
+    def run_phenotype_validation_review_flow(
+        self,
+        keeper_row: Dict[str, Any],
+        disease_name: str,
+    ) -> Dict[str, Any]:
+        if self._mcp_client is None:
+            return {"status": "error", "error": "MCP client unavailable"}
+        if not disease_name:
+            return {"status": "error", "error": "missing disease_name"}
+
+        sanitize = self.call_tool(
+            name="keeper_sanitize_row",
+            arguments={"row": keeper_row},
+        )
+        sanitize_full = sanitize.get("full_result") or {}
+        if sanitize.get("status") != "ok" or sanitize_full.get("error"):
+            return {
+                "status": "error",
+                "error": "phi_detected",
+                "details": sanitize,
+            }
+        sanitized_row = sanitize_full.get("sanitized_row") or {}
+
+        prompt_bundle = self.call_tool(
+            name="keeper_prompt_bundle",
+            arguments={"disease_name": disease_name},
+        )
+        prompt_full = prompt_bundle.get("full_result") or {}
+        if prompt_bundle.get("status") != "ok" or prompt_full.get("error"):
+            return {
+                "status": "error",
+                "error": "keeper_prompt_bundle_failed",
+                "details": prompt_bundle,
+            }
+
+        build_prompt = self.call_tool(
+            name="keeper_build_prompt",
+            arguments={"disease_name": disease_name, "sanitized_row": sanitized_row},
+        )
+        build_full = build_prompt.get("full_result") or {}
+        if build_prompt.get("status") != "ok" or build_full.get("error"):
+            return {
+                "status": "error",
+                "error": "keeper_build_prompt_failed",
+                "details": build_prompt,
+            }
+
+        system_prompt = prompt_full.get("system_prompt") or ""
+        main_prompt = build_full.get("prompt") or ""
+        prompt = build_keeper_prompt(
+            overview=prompt_full.get("overview", ""),
+            spec=prompt_full.get("spec", ""),
+            output_schema=prompt_full.get("output_schema", {}),
+            system_prompt=system_prompt,
+            main_prompt=main_prompt,
+        )
+        llm_result = call_llm(prompt)
+
+        parsed = self.call_tool(
+            name="keeper_parse_response",
+            arguments={"llm_output": llm_result},
+        )
+        if isinstance(parsed, dict):
+            parsed.setdefault("llm_used", llm_result is not None)
+        return parsed
 
     def _wrap_result(self, name: str, result: Dict[str, Any], warnings: List[str]) -> Dict[str, Any]:
         safe_summary = self._safe_summary(result)

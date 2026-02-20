@@ -111,6 +111,35 @@ def build_lint_prompt(
     return "\n\n".join([s for s in sections if s])
 
 
+def build_keeper_prompt(
+    overview: str,
+    spec: str,
+    output_schema: Dict[str, Any],
+    system_prompt: str,
+    main_prompt: str,
+) -> str:
+    strict_rules = "\n\n".join(
+        [
+            "STRICT OUTPUT RULES:",
+            spec,
+            "Return exactly ONE JSON object that matches the output schema.",
+            "Do NOT wrap output in markdown, code fences, or prose.",
+            "If uncertain, return required keys with label \"unknown\".",
+        ]
+    )
+    sections = [
+        overview,
+        "SYSTEM PROMPT:",
+        system_prompt,
+        "OUTPUT SCHEMA (JSON):",
+        json.dumps(output_schema, ensure_ascii=True),
+        "PATIENT SUMMARY:",
+        main_prompt,
+        strict_rules,
+    ]
+    return "\n\n".join([s for s in sections if s])
+
+
 def _extract_json_object(text: str) -> Optional[Dict[str, Any]]:
     if not text:
         return None

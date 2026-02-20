@@ -79,6 +79,17 @@ This flow reviews one phenotype definition at a time. If multiple cohorts are pr
 2. ACP calls an OpenAI-compatible LLM API for findings/patches.
 3. ACP calls MCP `cohort_lint` with LLM output for validation.
 
+### `phenotype_validation_review` flow (ACP + MCP + LLM)
+
+1. ACP calls MCP `keeper_sanitize_row` to remove PHI/PII (fail-closed).
+2. ACP calls MCP `keeper_prompt_bundle` and `keeper_build_prompt` for a sanitized patient prompt.
+3. ACP calls an OpenAI-compatible LLM API to review the patient summary.
+4. ACP calls MCP `keeper_parse_response` to normalize the label.
+
+LLM requests never include row-level PHI/PII; only sanitized summaries are sent.
+
+For details on PHI/PII handling, see `docs/PHENOTYPE_VALIDATION_REVIEW.md`.
+
 #### Example run for `phenotype_recommendations`
 
 *Prerequisite:* you have embedded phenotype definitions - see `./docs/PHENOTYPE_INDEXING.md`
@@ -210,4 +221,3 @@ Below is a set of planned study agent services, organized by category. For each 
 **Input:** Target + outcome.  
 **Output:** Judgement on causal implausibility with explanation and citations.  
 **Validation:** Citation review and domain plausibility.
-

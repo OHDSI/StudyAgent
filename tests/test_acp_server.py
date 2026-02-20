@@ -67,6 +67,19 @@ class StubMCPClient:
             return {"overview": "overview", "spec": "spec", "output_schema": {"type": "object"}}
         if name == "lint_prompt_bundle":
             return {"overview": "overview", "spec": "spec", "output_schema": {"type": "object"}}
+        if name == "keeper_sanitize_row":
+            return {"sanitized_row": {"age_bucket": "40-44", "gender": "Male"}}
+        if name == "keeper_prompt_bundle":
+            return {
+                "overview": "overview",
+                "spec": "spec",
+                "output_schema": {"type": "object"},
+                "system_prompt": "system",
+            }
+        if name == "keeper_build_prompt":
+            return {"prompt": "main"}
+        if name == "keeper_parse_response":
+            return {"label": "yes", "rationale": "ok"}
         if name == "propose_concept_set_diff":
             return {"plan": "ok", "findings": [], "patches": [], "actions": [], "risk_notes": []}
         if name == "cohort_lint":
@@ -122,3 +135,20 @@ def test_flow_cohort_critique_calls_tool(monkeypatch):
     result = agent.run_cohort_critique_general_design_flow(cohort={"PrimaryCriteria": {}})
     assert result["status"] == "ok"
     assert result["tool"] == "cohort_lint"
+
+
+@pytest.mark.acp
+def test_flow_phenotype_validation_review(monkeypatch):
+    import study_agent_acp.agent as agent_module
+
+    def fake_llm(prompt):
+        return {"label": "yes", "rationale": "ok"}
+
+    monkeypatch.setattr(agent_module, "call_llm", fake_llm)
+    agent = StudyAgent(mcp_client=StubMCPClient())
+    result = agent.run_phenotype_validation_review_flow(
+        keeper_row={"age": 44, "gender": "Male"},
+        disease_name="GI bleed",
+    )
+    assert result["status"] == "ok"
+    assert result["label"] == "yes"
