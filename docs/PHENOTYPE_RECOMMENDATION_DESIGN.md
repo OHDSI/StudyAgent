@@ -81,6 +81,10 @@ Default root is `PHENOTYPE_INDEX_DIR` or `data/phenotype_index`.
 Candidate selection:
 1. ACP truncates the candidate list before the LLM using `LLM_CANDIDATE_LIMIT` or per-request `candidate_limit`.
 
+**Phenotype Improvements Scope**
+1. The improvements flow reviews one phenotype definition at a time.
+2. If multiple cohorts are provided, ACP uses the first cohort only.
+
 **LLM Formats**
 1. Default: OpenAI Chat Completions payload (`/v1/chat/completions`-style).
 2. Optional: OpenAI Responses payload (`/v1/responses`-style) enabled with `LLM_USE_RESPONSES=1`.

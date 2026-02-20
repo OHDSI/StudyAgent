@@ -29,12 +29,21 @@ def _load_bundle(task: str) -> Dict[str, Any]:
     cached = _CACHE.get(task)
     if cached is not None:
         return cached
-    if task != "phenotype_recommendations":
+    if task not in ("phenotype_recommendations", "phenotype_improvements", "cohort_critique_general_design"):
         return {"error": f"unsupported task {task}"}
     base = _prompt_dir()
-    overview = _load_text(os.path.join(base, "overview_phenotype.md"))
-    spec = _load_text(os.path.join(base, "spec_phenotype_recommendations.md"))
-    schema = _load_json(os.path.join(base, "output_schema_phenotype_recommendations.json"))
+    if task == "cohort_critique_general_design":
+        overview = _load_text(os.path.join(os.path.dirname(base), "lint", "overview_lint.md"))
+        spec = _load_text(os.path.join(os.path.dirname(base), "lint", "spec_cohort_critique.md"))
+        schema = _load_json(os.path.join(os.path.dirname(base), "lint", "output_schema_cohort_critique_general_design.json"))
+    else:
+        overview = _load_text(os.path.join(base, "overview_phenotype.md"))
+    if task == "phenotype_improvements":
+        spec = _load_text(os.path.join(base, "spec_phenotype_improvements.md"))
+        schema = _load_json(os.path.join(base, "output_schema_phenotype_improvements.json"))
+    elif task == "phenotype_recommendations":
+        spec = _load_text(os.path.join(base, "spec_phenotype_recommendations.md"))
+        schema = _load_json(os.path.join(base, "output_schema_phenotype_recommendations.json"))
     payload = {
         "task": task,
         "overview": overview,

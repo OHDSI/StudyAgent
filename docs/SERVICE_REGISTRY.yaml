@@ -1,0 +1,62 @@
+services:
+  phenotype_recommendation:
+    endpoint: /flows/phenotype_recommendation
+    mcp_tools:
+      - phenotype_search
+      - phenotype_prompt_bundle
+    input:
+      - study_intent
+      - top_k
+      - max_results
+      - candidate_limit
+    output:
+      - recommendations
+      - candidate_count
+      - candidate_limit
+    validation:
+      - core.phenotype_recommendations filters to allowed cohortIds
+      - user confirmation before any writes
+
+  phenotype_improvements:
+    endpoint: /flows/phenotype_improvements
+    mcp_tools:
+      - phenotype_improvements
+    input:
+      - protocol_text
+      - cohort (single)
+      - characterization_previews
+    output:
+      - phenotype_improvements
+      - code_suggestion
+    validation:
+      - core.phenotype_improvements filters to allowed cohortIds
+      - user confirmation before any writes
+
+  concept_sets_review:
+    endpoint: /flows/concept_sets_review
+    mcp_tools:
+      - propose_concept_set_diff
+    input:
+      - concept_set
+      - study_intent
+    output:
+      - findings
+      - patches
+      - actions
+    validation:
+      - core.propose_concept_set_diff deterministic checks
+      - user confirmation before any writes
+
+  cohort_critique_general_design:
+    endpoint: /flows/cohort_critique_general_design
+    mcp_tools:
+      - cohort_lint
+    input:
+      - cohort
+    output:
+      - findings
+      - patches
+      - actions
+    validation:
+      - core.cohort_lint deterministic checks
+      - user confirmation before any writes
