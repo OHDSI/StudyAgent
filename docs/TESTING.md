@@ -153,6 +153,14 @@ curl -s -X POST http://127.0.0.1:8765/flows/cohort_critique_general_design \
   -d '{"cohort_path":"demo/cohort_definition.json"}'
 ```
 
+Phenotype validation review (single patient):
+
+```bash
+curl -s -X POST http://127.0.0.1:8765/flows/phenotype_validation_review \
+  -H 'Content-Type: application/json' \
+  -d '{"disease_name":"Gastrointestinal bleeding","keeper_row":{"age":44,"gender":"Male","visitContext":"Inpatient Visit","presentation":"Gastrointestinal hemorrhage","priorDisease":"Peptic ulcer","symptoms":"","comorbidities":"","priorDrugs":"celecoxib","priorTreatmentProcedures":"","diagnosticProcedures":"","measurements":"","alternativeDiagnosis":"","afterDisease":"","afterDrugs":"Naproxen","afterTreatmentProcedures":""}}'
+```
+
 ## Phenotype flow smoke test (ACP + MCP)
 
 Run the Python smoke test via `doit`:
@@ -171,6 +179,12 @@ doit smoke_concept_sets_review_flow
 
 ```bash
 doit smoke_cohort_critique_flow
+```
+
+## Phenotype validation review smoke test
+
+```bash
+doit smoke_phenotype_validation_review_flow
 ```
 
 ## MCP smoke test (import)

@@ -31,4 +31,8 @@ def test_register_all_tools() -> None:
         "phenotype_reindex",
         "phenotype_prompt_bundle",
         "lint_prompt_bundle",
+        "keeper_prompt_bundle",
+        "keeper_sanitize_row",
+        "keeper_build_prompt",
+        "keeper_parse_response",
     }

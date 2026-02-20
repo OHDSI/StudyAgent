@@ -17,6 +17,7 @@ TOOL_MODULES: list[str] = [
     "study_agent_mcp.tools.phenotype_reindex",
     "study_agent_mcp.tools.phenotype_prompt_bundle",
     "study_agent_mcp.tools.lint_prompt_bundle",
+    "study_agent_mcp.tools.keeper_validation",
 ]
 
 

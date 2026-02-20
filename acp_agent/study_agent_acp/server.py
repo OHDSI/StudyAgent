@@ -220,6 +220,48 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             _write_json(self, status, result)
             return
 
+        if self.path == "/flows/phenotype_validation_review":
+            try:
+                body = _read_json(self)
+            except Exception as exc:
+                _write_json(self, 400, {"error": f"invalid_json: {exc}"})
+                return
+            disease_name = body.get("disease_name") or ""
+            keeper_row = body.get("keeper_row")
+            keeper_row_path = body.get("keeper_row_path")
+            if keeper_row is None and keeper_row_path:
+                try:
+                    if keeper_row_path.endswith(".csv"):
+                        import csv
+
+                        with open(keeper_row_path, "r", encoding="utf-8") as handle:
+                            reader = csv.DictReader(handle)
+                            keeper_row = next(reader, None)
+                    else:
+                        with open(keeper_row_path, "r", encoding="utf-8") as handle:
+                            keeper_row = json.load(handle)
+                except Exception as exc:
+                    _write_json(self, 400, {"error": f"invalid_keeper_row_path: {exc}"})
+                    return
+            if not isinstance(keeper_row, dict):
+                _write_json(self, 400, {"error": "keeper_row must be a JSON object"})
+                return
+            try:
+                result = self.agent.run_phenotype_validation_review_flow(
+                    keeper_row=keeper_row,
+                    disease_name=disease_name,
+                )
+            except Exception as exc:
+                if self.debug:
+                    import traceback
+
+                    traceback.print_exc()
+                _write_json(self, 500, {"error": "flow_failed", "detail": str(exc) if self.debug else None})
+                return
+            status = 200 if result.get("status") != "error" else 500
+            _write_json(self, status, result)
+            return
+
         _write_json(self, 404, {"error": "not_found"})
 
 

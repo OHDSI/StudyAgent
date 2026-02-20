@@ -60,3 +60,20 @@ services:
     validation:
       - core.cohort_lint deterministic checks
       - user confirmation before any writes
+
+  phenotype_validation_review:
+    endpoint: /flows/phenotype_validation_review
+    mcp_tools:
+      - keeper_prompt_bundle
+      - keeper_sanitize_row
+      - keeper_build_prompt
+      - keeper_parse_response
+    input:
+      - keeper_row (single patient)
+      - disease_name
+    output:
+      - label
+      - rationale
+    validation:
+      - PHI/PII fail-closed sanitation (HIPAA 18)
+      - output label constrained to yes/no/unknown
