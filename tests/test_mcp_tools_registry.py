@@ -30,4 +30,5 @@ def test_register_all_tools() -> None:
         "phenotype_list_similar",
         "phenotype_reindex",
         "phenotype_prompt_bundle",
+        "lint_prompt_bundle",
     }

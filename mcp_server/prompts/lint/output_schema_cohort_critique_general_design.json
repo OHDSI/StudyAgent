@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "cohort_critique_general_design_output",
+  "type": "object",
+  "properties": {
+    "plan": { "type": "string" },
+    "findings": { "type": "array", "items": { "type": "object" } },
+    "patches": { "type": "array", "items": { "type": "object" } },
+    "risk_notes": { "type": "array", "items": { "type": "string" } }
+  },
+  "required": ["plan", "findings", "patches", "risk_notes"],
+  "additionalProperties": false
+}

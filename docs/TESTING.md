@@ -141,12 +141,36 @@ curl -s -X POST http://127.0.0.1:8765/flows/cohort_critique_general_design \
   -d '{"cohort":{"PrimaryCriteria":{}}}'
 ```
 
+Using file paths:
+
+```bash
+curl -s -X POST http://127.0.0.1:8765/flows/concept_sets_review \
+  -H 'Content-Type: application/json' \
+  -d '{"concept_set_path":"demo/concept_set.json","study_intent":"Example intent"}'
+
+curl -s -X POST http://127.0.0.1:8765/flows/cohort_critique_general_design \
+  -H 'Content-Type: application/json' \
+  -d '{"cohort_path":"demo/cohort_definition.json"}'
+```
+
 ## Phenotype flow smoke test (ACP + MCP)
 
 Run the Python smoke test via `doit`:
 
 ```bash
 doit smoke_phenotype_flow
+```
+
+## Concept sets review smoke test
+
+```bash
+doit smoke_concept_sets_review_flow
+```
+
+## Cohort critique smoke test
+
+```bash
+doit smoke_cohort_critique_flow
 ```
 
 ## MCP smoke test (import)

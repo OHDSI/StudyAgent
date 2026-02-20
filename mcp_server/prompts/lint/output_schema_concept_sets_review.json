@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "concept_sets_review_output",
+  "type": "object",
+  "properties": {
+    "plan": { "type": "string" },
+    "findings": { "type": "array", "items": { "type": "object" } },
+    "patches": { "type": "array", "items": { "type": "object" } },
+    "risk_notes": { "type": "array", "items": { "type": "string" } },
+    "actions": { "type": "array", "items": { "type": "object" } }
+  },
+  "required": ["plan", "findings", "patches", "risk_notes"],
+  "additionalProperties": false
+}

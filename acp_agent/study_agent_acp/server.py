@@ -167,6 +167,14 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
                 _write_json(self, 400, {"error": f"invalid_json: {exc}"})
                 return
             concept_set = body.get("concept_set")
+            concept_set_path = body.get("concept_set_path")
+            if concept_set is None and concept_set_path:
+                try:
+                    with open(concept_set_path, "r", encoding="utf-8") as handle:
+                        concept_set = json.load(handle)
+                except Exception as exc:
+                    _write_json(self, 400, {"error": f"invalid_concept_set_path: {exc}"})
+                    return
             study_intent = body.get("study_intent") or ""
             try:
                 result = self.agent.run_concept_sets_review_flow(
@@ -191,6 +199,14 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
                 _write_json(self, 400, {"error": f"invalid_json: {exc}"})
                 return
             cohort = body.get("cohort") or {}
+            cohort_path = body.get("cohort_path")
+            if (not cohort or cohort == {}) and cohort_path:
+                try:
+                    with open(cohort_path, "r", encoding="utf-8") as handle:
+                        cohort = json.load(handle)
+                except Exception as exc:
+                    _write_json(self, 400, {"error": f"invalid_cohort_path: {exc}"})
+                    return
             try:
                 result = self.agent.run_cohort_critique_general_design_flow(cohort=cohort)
             except Exception as exc:

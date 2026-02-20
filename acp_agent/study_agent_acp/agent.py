@@ -13,7 +13,7 @@ from study_agent_core.tools import (
     phenotype_recommendations,
     propose_concept_set_diff,
 )
-from .llm_client import build_improvements_prompt, build_prompt, call_llm
+from .llm_client import build_improvements_prompt, build_lint_prompt, build_prompt, call_llm
 
 
 class MCPClient(Protocol):
@@ -244,10 +244,36 @@ class StudyAgent:
     ) -> Dict[str, Any]:
         if self._mcp_client is None:
             return {"status": "error", "error": "MCP client unavailable"}
+        prompt_bundle = self.call_tool(
+            name="lint_prompt_bundle",
+            arguments={"task": "concept_sets_review"},
+        )
+        prompt_full = prompt_bundle.get("full_result") or {}
+        if prompt_bundle.get("status") != "ok" or prompt_full.get("error"):
+            return {
+                "status": "error",
+                "error": "lint_prompt_bundle_failed",
+                "details": prompt_bundle,
+            }
+        prompt = build_lint_prompt(
+            overview=prompt_full.get("overview", ""),
+            spec=prompt_full.get("spec", ""),
+            output_schema=prompt_full.get("output_schema", {}),
+            task="concept-sets-review",
+            payload={"concept_set": concept_set, "study_intent": study_intent},
+            max_kb=15,
+        )
+        llm_result = call_llm(prompt)
         result = self.call_tool(
             name="propose_concept_set_diff",
-            arguments={"concept_set": concept_set, "study_intent": study_intent},
+            arguments={
+                "concept_set": concept_set,
+                "study_intent": study_intent,
+                "llm_result": llm_result,
+            },
         )
+        if isinstance(result, dict):
+            result.setdefault("llm_used", llm_result is not None)
         return result
 
     def run_cohort_critique_general_design_flow(
@@ -256,10 +282,35 @@ class StudyAgent:
     ) -> Dict[str, Any]:
         if self._mcp_client is None:
             return {"status": "error", "error": "MCP client unavailable"}
+        prompt_bundle = self.call_tool(
+            name="phenotype_prompt_bundle",
+            arguments={"task": "cohort_critique_general_design"},
+        )
+        prompt_full = prompt_bundle.get("full_result") or {}
+        if prompt_bundle.get("status") != "ok" or prompt_full.get("error"):
+            return {
+                "status": "error",
+                "error": "phenotype_prompt_bundle_failed",
+                "details": prompt_bundle,
+            }
+        prompt = build_lint_prompt(
+            overview=prompt_full.get("overview", ""),
+            spec=prompt_full.get("spec", ""),
+            output_schema=prompt_full.get("output_schema", {}),
+            task="cohort-critique-general-design",
+            payload={"cohort": cohort},
+            max_kb=15,
+        )
+        llm_result = call_llm(prompt)
         result = self.call_tool(
             name="cohort_lint",
-            arguments={"cohort": cohort},
+            arguments={
+                "cohort": cohort,
+                "llm_result": llm_result,
+            },
         )
+        if isinstance(result, dict):
+            result.setdefault("llm_used", llm_result is not None)
         return result
 
     def _wrap_result(self, name: str, result: Dict[str, Any], warnings: List[str]) -> Dict[str, Any]:

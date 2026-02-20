@@ -65,6 +65,8 @@ class StubMCPClient:
             return {"plan": "ok", "phenotype_improvements": []}
         if name == "phenotype_prompt_bundle":
             return {"overview": "overview", "spec": "spec", "output_schema": {"type": "object"}}
+        if name == "lint_prompt_bundle":
+            return {"overview": "overview", "spec": "spec", "output_schema": {"type": "object"}}
         if name == "propose_concept_set_diff":
             return {"plan": "ok", "findings": [], "patches": [], "actions": [], "risk_notes": []}
         if name == "cohort_lint":
@@ -92,7 +94,13 @@ def test_flow_phenotype_improvements_calls_tool(monkeypatch):
 
 
 @pytest.mark.acp
-def test_flow_concept_sets_review_calls_tool():
+def test_flow_concept_sets_review_calls_tool(monkeypatch):
+    import study_agent_acp.agent as agent_module
+
+    def fake_llm(prompt):
+        return {"findings": [], "patches": [], "risk_notes": [], "actions": []}
+
+    monkeypatch.setattr(agent_module, "call_llm", fake_llm)
     agent = StudyAgent(mcp_client=StubMCPClient())
     result = agent.run_concept_sets_review_flow(
         concept_set={"items": []},
@@ -103,7 +111,13 @@ def test_flow_concept_sets_review_calls_tool():
 
 
 @pytest.mark.acp
-def test_flow_cohort_critique_calls_tool():
+def test_flow_cohort_critique_calls_tool(monkeypatch):
+    import study_agent_acp.agent as agent_module
+
+    def fake_llm(prompt):
+        return {"findings": [], "patches": [], "risk_notes": []}
+
+    monkeypatch.setattr(agent_module, "call_llm", fake_llm)
     agent = StudyAgent(mcp_client=StubMCPClient())
     result = agent.run_cohort_critique_general_design_flow(cohort={"PrimaryCriteria": {}})
     assert result["status"] == "ok"

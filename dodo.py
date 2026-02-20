@@ -80,7 +80,7 @@ def task_test_all():
 def task_run_all():
     return {
         "actions": None,
-        "task_dep": ["test_all","smoke_phenotype_recommend_flow", "smoke_phenotype_improvements_flow"],
+        "task_dep": ["test_all","smoke_phenotype_recommend_flow", "smoke_phenotype_improvements_flow", "smoke_concept_sets_review_flow", "smoke_cohort_critique_flow"],
     }
 
 
@@ -167,12 +167,135 @@ def task_smoke_phenotype_improvements_flow():
                 {
                     "protocol_path": "demo/protocol.md",
                     "cohort_paths": [
-                        "demo/417_Acute_gastrointestinal_bleeding_events.json"
+                        "demo/demo/test_git_event_cohort.json"
                     ],
                 }
             ).encode("utf-8")
             req = urllib.request.Request(
                 "http://127.0.0.1:8765/flows/phenotype_improvements",
+                data=payload,
+                method="POST",
+            )
+            req.add_header("Content-Type", "application/json")
+            with urllib.request.urlopen(req, timeout=int(env.get("ACP_TIMEOUT", "180"))) as response:
+                body = response.read().decode("utf-8")
+                print(body)
+            print(f"ACP logs: {acp_stdout} {acp_stderr}")
+        finally:
+            print("Stopping ACP...")
+            acp_proc.terminate()
+            try:
+                acp_proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                acp_proc.kill()
+
+    return {
+        "actions": [_run_smoke],
+        "verbosity": 2,
+    }
+
+
+def task_smoke_concept_sets_review_flow():
+    def _wait_for_acp(url: str, timeout_s: int = 30) -> None:
+        deadline = time.time() + timeout_s
+        while time.time() < deadline:
+            try:
+                with urllib.request.urlopen(url, timeout=2) as response:
+                    if response.status == 200:
+                        return
+            except Exception:
+                time.sleep(0.5)
+        raise RuntimeError(f"ACP did not become ready at {url}")
+
+    def _run_smoke() -> None:
+        env = os.environ.copy()
+        if not env.get("LLM_API_KEY"):
+            print("Missing LLM_API_KEY in environment. Set it before running this task.")
+            return
+        for key, value in DEFAULT_ENV.items():
+            env.setdefault(key, value)
+        env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
+        env.setdefault("STUDY_AGENT_MCP_ARGS", "")
+        env.setdefault("LLM_LOG", "1")
+
+        acp_stdout = env.get("ACP_STDOUT", "/tmp/study_agent_acp_stdout.log")
+        acp_stderr = env.get("ACP_STDERR", "/tmp/study_agent_acp_stderr.log")
+        print("Starting ACP (will spawn MCP via stdio)...")
+        with open(acp_stdout, "w", encoding="utf-8") as out, open(acp_stderr, "w", encoding="utf-8") as err:
+            acp_proc = subprocess.Popen(["study-agent-acp"], env=env, stdout=out, stderr=err)
+        try:
+            print("Waiting for ACP health endpoint...")
+            _wait_for_acp("http://127.0.0.1:8765/health", timeout_s=30)
+            print("Running concept sets review flow smoke test...")
+            payload = json.dumps(
+                {
+                    "concept_set_path": "demo/concept_set.json",
+                    "study_intent": "Identify clinical risk factors for older adult patients who experience an adverse event of acute gastro-intenstinal (GI) bleeding. The GI bleed has to be detected in the hospital setting. Risk factors can include concomitant medications or chronic and acute conditions.",
+                }
+            ).encode("utf-8")
+            req = urllib.request.Request(
+                "http://127.0.0.1:8765/flows/concept_sets_review",
+                data=payload,
+                method="POST",
+            )
+            req.add_header("Content-Type", "application/json")
+            with urllib.request.urlopen(req, timeout=int(env.get("ACP_TIMEOUT", "180"))) as response:
+                body = response.read().decode("utf-8")
+                print(body)
+            print(f"ACP logs: {acp_stdout} {acp_stderr}")
+        finally:
+            print("Stopping ACP...")
+            acp_proc.terminate()
+            try:
+                acp_proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                acp_proc.kill()
+
+    return {
+        "actions": [_run_smoke],
+        "verbosity": 2,
+    }
+
+
+def task_smoke_cohort_critique_flow():
+    def _wait_for_acp(url: str, timeout_s: int = 30) -> None:
+        deadline = time.time() + timeout_s
+        while time.time() < deadline:
+            try:
+                with urllib.request.urlopen(url, timeout=2) as response:
+                    if response.status == 200:
+                        return
+            except Exception:
+                time.sleep(0.5)
+        raise RuntimeError(f"ACP did not become ready at {url}")
+
+    def _run_smoke() -> None:
+        env = os.environ.copy()
+        if not env.get("LLM_API_KEY"):
+            print("Missing LLM_API_KEY in environment. Set it before running this task.")
+            return
+        for key, value in DEFAULT_ENV.items():
+            env.setdefault(key, value)
+        env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
+        env.setdefault("STUDY_AGENT_MCP_ARGS", "")
+        env.setdefault("LLM_LOG", "1")
+
+        acp_stdout = env.get("ACP_STDOUT", "/tmp/study_agent_acp_stdout.log")
+        acp_stderr = env.get("ACP_STDERR", "/tmp/study_agent_acp_stderr.log")
+        print("Starting ACP (will spawn MCP via stdio)...")
+        with open(acp_stdout, "w", encoding="utf-8") as out, open(acp_stderr, "w", encoding="utf-8") as err:
+            acp_proc = subprocess.Popen(["study-agent-acp"], env=env, stdout=out, stderr=err)
+        try:
+            print("Waiting for ACP health endpoint...")
+            _wait_for_acp("http://127.0.0.1:8765/health", timeout_s=30)
+            print("Running cohort critique flow smoke test...")
+            payload = json.dumps(
+                {
+                    "cohort_path": "demo/cohort_definition.json",
+                }
+            ).encode("utf-8")
+            req = urllib.request.Request(
+                "http://127.0.0.1:8765/flows/cohort_critique_general_design",
                 data=payload,
                 method="POST",
             )
