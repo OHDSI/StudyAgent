@@ -74,7 +74,7 @@ def test_phenotype_improvements_filters_targets():
             {"targetCohortId": 10, "suggestion": "good"},
             {"targetCohortId": 999, "suggestion": "bad"},
         ],
-        "code_suggestion": "example",
+        "code_suggestion": {"language": "R", "summary": "example", "snippet": "x"},
     }
     result = phenotype_improvements("protocol", cohorts, llm_result=llm)
     assert result["invalid_targets_filtered"] == [999]

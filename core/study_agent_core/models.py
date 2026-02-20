@@ -55,6 +55,6 @@ class PhenotypeRecommendationsOutput(BaseModel):
 class PhenotypeImprovementsOutput(BaseModel):
     plan: str
     phenotype_improvements: List[Dict[str, Any]] = Field(default_factory=list)
-    code_suggestion: Optional[str] = None
+    code_suggestion: Optional[Dict[str, Any]] = None
     mode: str
     invalid_targets_filtered: List[int] = Field(default_factory=list)

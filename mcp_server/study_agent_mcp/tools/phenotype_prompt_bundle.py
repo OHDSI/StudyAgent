@@ -29,12 +29,16 @@ def _load_bundle(task: str) -> Dict[str, Any]:
     cached = _CACHE.get(task)
     if cached is not None:
         return cached
-    if task != "phenotype_recommendations":
+    if task not in ("phenotype_recommendations", "phenotype_improvements"):
         return {"error": f"unsupported task {task}"}
     base = _prompt_dir()
     overview = _load_text(os.path.join(base, "overview_phenotype.md"))
-    spec = _load_text(os.path.join(base, "spec_phenotype_recommendations.md"))
-    schema = _load_json(os.path.join(base, "output_schema_phenotype_recommendations.json"))
+    if task == "phenotype_improvements":
+        spec = _load_text(os.path.join(base, "spec_phenotype_improvements.md"))
+        schema = _load_json(os.path.join(base, "output_schema_phenotype_improvements.json"))
+    else:
+        spec = _load_text(os.path.join(base, "spec_phenotype_recommendations.md"))
+        schema = _load_json(os.path.join(base, "output_schema_phenotype_recommendations.json"))
     payload = {
         "task": task,
         "overview": overview,

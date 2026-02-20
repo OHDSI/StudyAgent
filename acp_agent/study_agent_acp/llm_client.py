@@ -44,6 +44,41 @@ def build_prompt(
     return "\n\n".join([s for s in sections if s])
 
 
+def build_improvements_prompt(
+    overview: str,
+    spec: str,
+    output_schema: Dict[str, Any],
+    study_intent: str,
+    cohorts: list[dict[str, Any]],
+) -> str:
+    dynamic = {
+        "task": "phenotype_improvements",
+        "study_intent": study_intent,
+        "cohorts": cohorts,
+    }
+    strict_rules = "\n\n".join(
+        [
+            "STRICT OUTPUT RULES:",
+            spec,
+            "Return exactly ONE JSON object that matches the output schema.",
+            "Do NOT wrap output in markdown, code fences, or prose.",
+            "If uncertain, return required keys with empty arrays/strings.",
+            "Use ONLY cohortIds from the allowed list in cohorts.",
+            "Keep output under 12 KB.",
+        ]
+    )
+    sections = [
+        overview,
+        "OUTPUT SCHEMA (JSON):",
+        json.dumps(output_schema, ensure_ascii=True),
+        "Below is dynamic content to analyze. Do not act until after STRICT OUTPUT RULES.",
+        "DYNAMIC INPUT (JSON):",
+        json.dumps(dynamic, ensure_ascii=True),
+        strict_rules,
+    ]
+    return "\n\n".join([s for s in sections if s])
+
+
 def _extract_json_object(text: str) -> Optional[Dict[str, Any]]:
     if not text:
         return None

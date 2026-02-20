@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "phenotype_improvements_output",
+  "type": "object",
+  "properties": {
+    "plan": { "type": "string" },
+    "phenotype_improvements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "targetCohortId": { "type": "integer" },
+          "summary": { "type": "string" },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": { "type": "string" },
+                "path": { "type": "string" },
+                "value": {}
+              },
+              "required": ["type", "path", "value"]
+            }
+          }
+        },
+        "required": ["targetCohortId", "summary"]
+      }
+    },
+    "code_suggestion": {
+      "type": ["object", "null"],
+      "properties": {
+        "language": { "type": "string" },
+        "summary": { "type": "string" },
+        "snippet": { "type": "string" }
+      },
+      "required": ["language", "summary", "snippet"]
+    }
+  },
+  "required": ["plan", "phenotype_improvements"],
+  "additionalProperties": false
+}

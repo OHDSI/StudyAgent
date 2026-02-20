@@ -25,3 +25,15 @@ def test_prompt_bundle_tool_returns_schema() -> None:
     assert "spec" in payload
     assert "output_schema" in payload
     assert payload["output_schema"]["title"] == "phenotype_recommendations_output"
+
+
+@pytest.mark.mcp
+def test_prompt_bundle_improvements_schema() -> None:
+    mcp = DummyMCP()
+    phenotype_prompt_bundle.register(mcp)
+    fn = mcp.tools["phenotype_prompt_bundle"]
+    payload = fn("phenotype_improvements")
+    assert "overview" in payload
+    assert "spec" in payload
+    assert "output_schema" in payload
+    assert payload["output_schema"]["title"] == "phenotype_improvements_output"

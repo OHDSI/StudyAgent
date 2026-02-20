@@ -13,7 +13,7 @@ from study_agent_core.tools import (
     phenotype_recommendations,
     propose_concept_set_diff,
 )
-from .llm_client import build_prompt, call_llm
+from .llm_client import build_improvements_prompt, build_prompt, call_llm
 
 
 class MCPClient(Protocol):
@@ -191,6 +191,76 @@ class StudyAgent:
             "candidate_count": len(candidates),
             "recommendations": core_result,
         }
+
+    def run_phenotype_improvements_flow(
+        self,
+        protocol_text: str,
+        cohorts: List[Dict[str, Any]],
+        characterization_previews: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        if self._mcp_client is None:
+            return {"status": "error", "error": "MCP client unavailable"}
+        prompt_bundle = self.call_tool(
+            name="phenotype_prompt_bundle",
+            arguments={"task": "phenotype_improvements"},
+        )
+        prompt_full = prompt_bundle.get("full_result") or {}
+        if prompt_bundle.get("status") != "ok" or prompt_full.get("error"):
+            return {
+                "status": "error",
+                "error": "phenotype_prompt_bundle_failed",
+                "details": prompt_bundle,
+            }
+
+        if len(cohorts) > 1:
+            cohorts = [cohorts[0]]
+        prompt = build_improvements_prompt(
+            overview=prompt_full.get("overview", ""),
+            spec=prompt_full.get("spec", ""),
+            output_schema=prompt_full.get("output_schema", {}),
+            study_intent=protocol_text,
+            cohorts=cohorts,
+        )
+        llm_result = call_llm(prompt)
+
+        result = self.call_tool(
+            name="phenotype_improvements",
+            arguments={
+                "protocol_text": protocol_text,
+                "cohorts": cohorts,
+                "characterization_previews": characterization_previews or [],
+                "llm_result": llm_result,
+            },
+        )
+        if isinstance(result, dict):
+            result.setdefault("llm_used", llm_result is not None)
+            result.setdefault("cohort_count", len(cohorts))
+        return result
+
+    def run_concept_sets_review_flow(
+        self,
+        concept_set: Any,
+        study_intent: str,
+    ) -> Dict[str, Any]:
+        if self._mcp_client is None:
+            return {"status": "error", "error": "MCP client unavailable"}
+        result = self.call_tool(
+            name="propose_concept_set_diff",
+            arguments={"concept_set": concept_set, "study_intent": study_intent},
+        )
+        return result
+
+    def run_cohort_critique_general_design_flow(
+        self,
+        cohort: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        if self._mcp_client is None:
+            return {"status": "error", "error": "MCP client unavailable"}
+        result = self.call_tool(
+            name="cohort_lint",
+            arguments={"cohort": cohort},
+        )
+        return result
 
     def _wrap_result(self, name: str, result: Dict[str, Any], warnings: List[str]) -> Dict[str, Any]:
         safe_summary = self._safe_summary(result)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Dict, Optional
 
@@ -111,6 +112,98 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             _write_json(self, status, result)
             return
 
+        if self.path == "/flows/phenotype_improvements":
+            try:
+                body = _read_json(self)
+            except Exception as exc:
+                _write_json(self, 400, {"error": f"invalid_json: {exc}"})
+                return
+            protocol_text = body.get("protocol_text") or ""
+            protocol_path = body.get("protocol_path")
+            if not protocol_text and protocol_path:
+                try:
+                    with open(protocol_path, "r", encoding="utf-8") as handle:
+                        protocol_text = handle.read()
+                except Exception as exc:
+                    _write_json(self, 400, {"error": f"invalid_protocol_path: {exc}"})
+                    return
+            cohorts = body.get("cohorts") or []
+            cohort_paths = body.get("cohort_paths") or []
+            if cohort_paths and not cohorts:
+                loaded = []
+                for path in cohort_paths:
+                    try:
+                        with open(path, "r", encoding="utf-8") as handle:
+                            loaded.append(json.load(handle))
+                    except Exception as exc:
+                        _write_json(self, 400, {"error": f"invalid_cohort_path: {exc}"})
+                        return
+                cohorts = loaded
+            cohorts = _ensure_cohort_ids(cohorts, cohort_paths)
+            if len(cohorts) > 1:
+                cohorts = [cohorts[0]]
+            characterization_previews = body.get("characterization_previews") or []
+            try:
+                result = self.agent.run_phenotype_improvements_flow(
+                    protocol_text=protocol_text,
+                    cohorts=cohorts,
+                    characterization_previews=characterization_previews,
+                )
+            except Exception as exc:
+                if self.debug:
+                    import traceback
+
+                    traceback.print_exc()
+                _write_json(self, 500, {"error": "flow_failed", "detail": str(exc) if self.debug else None})
+                return
+            status = 200 if result.get("status") != "error" else 500
+            _write_json(self, status, result)
+            return
+
+        if self.path == "/flows/concept_sets_review":
+            try:
+                body = _read_json(self)
+            except Exception as exc:
+                _write_json(self, 400, {"error": f"invalid_json: {exc}"})
+                return
+            concept_set = body.get("concept_set")
+            study_intent = body.get("study_intent") or ""
+            try:
+                result = self.agent.run_concept_sets_review_flow(
+                    concept_set=concept_set,
+                    study_intent=study_intent,
+                )
+            except Exception as exc:
+                if self.debug:
+                    import traceback
+
+                    traceback.print_exc()
+                _write_json(self, 500, {"error": "flow_failed", "detail": str(exc) if self.debug else None})
+                return
+            status = 200 if result.get("status") != "error" else 500
+            _write_json(self, status, result)
+            return
+
+        if self.path == "/flows/cohort_critique_general_design":
+            try:
+                body = _read_json(self)
+            except Exception as exc:
+                _write_json(self, 400, {"error": f"invalid_json: {exc}"})
+                return
+            cohort = body.get("cohort") or {}
+            try:
+                result = self.agent.run_cohort_critique_general_design_flow(cohort=cohort)
+            except Exception as exc:
+                if self.debug:
+                    import traceback
+
+                    traceback.print_exc()
+                _write_json(self, 500, {"error": "flow_failed", "detail": str(exc) if self.debug else None})
+                return
+            status = 200 if result.get("status") != "error" else 500
+            _write_json(self, status, result)
+            return
+
         _write_json(self, 404, {"error": "not_found"})
 
 
@@ -125,6 +218,49 @@ def _build_agent(
             StdioMCPClientConfig(command=mcp_command, args=mcp_args or []),
         )
     return StudyAgent(mcp_client=mcp_client, allow_core_fallback=allow_core_fallback), mcp_client
+
+
+def _cohort_id_from_path(path: str) -> Optional[int]:
+    base = os.path.basename(path or "")
+    if not base:
+        return None
+    digits = []
+    for ch in base:
+        if ch.isdigit():
+            digits.append(ch)
+        else:
+            if digits:
+                break
+    if digits:
+        try:
+            return int("".join(digits))
+        except ValueError:
+            return None
+    return None
+
+
+def _ensure_cohort_ids(cohorts: Any, cohort_paths: list[str]) -> list[dict[str, Any]]:
+    if not isinstance(cohorts, list):
+        return []
+    ids_from_paths = []
+    for path in cohort_paths or []:
+        ids_from_paths.append(_cohort_id_from_path(path))
+    patched = []
+    for idx, cohort in enumerate(cohorts):
+        if not isinstance(cohort, dict):
+            continue
+        cid = cohort.get("id") or cohort.get("cohortId") or cohort.get("CohortId")
+        if cid is None and idx < len(ids_from_paths):
+            cid = ids_from_paths[idx]
+        if cid is None:
+            cid = _cohort_id_from_path(cohort.get("name") or "")
+        if cid is not None:
+            try:
+                cohort["id"] = int(cid)
+            except (TypeError, ValueError):
+                pass
+        patched.append(cohort)
+    return patched
 
 
 def main(host: str = "127.0.0.1", port: int = 8765) -> None:

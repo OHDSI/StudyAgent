@@ -107,6 +107,40 @@ curl -s -X POST http://127.0.0.1:8765/flows/phenotype_recommendation \
   -d '{"study_intent":"Identify clinical risk factors for older adult patients who experience an adverse event of acute gastro-intenstinal (GI) bleeding", "top_k":20, "max_results":10,"candidate_limit":10}'
 ```
 
+## ACP flow examples (MCP-backed)
+
+Phenotype improvements:
+
+```bash
+curl -s -X POST http://127.0.0.1:8765/flows/phenotype_improvements \
+  -H 'Content-Type: application/json' \
+  -d '{"protocol_text":"Example protocol text","cohorts":[{"id":1,"name":"Example"}],"characterization_previews":[]}'
+```
+
+Using file paths:
+
+```bash
+curl -s -X POST http://127.0.0.1:8765/flows/phenotype_improvements \
+  -H 'Content-Type: application/json' \
+  -d '{"protocol_path":"demo/protocol.md","cohort_paths":["demo/1197_Acute_gastrointestinal_bleeding.json"]}'
+```
+
+Concept sets review:
+
+```bash
+curl -s -X POST http://127.0.0.1:8765/flows/concept_sets_review \
+  -H 'Content-Type: application/json' \
+  -d '{"concept_set":{"items":[]},"study_intent":"Example intent"}'
+```
+
+Cohort critique (general design):
+
+```bash
+curl -s -X POST http://127.0.0.1:8765/flows/cohort_critique_general_design \
+  -H 'Content-Type: application/json' \
+  -d '{"cohort":{"PrimaryCriteria":{}}}'
+```
+
 ## Phenotype flow smoke test (ACP + MCP)
 
 Run the Python smoke test via `doit`:
