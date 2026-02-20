@@ -1,0 +1,6 @@
+anyio
+mcp
+pydantic
+pytest
+numpy
+faiss-cpu

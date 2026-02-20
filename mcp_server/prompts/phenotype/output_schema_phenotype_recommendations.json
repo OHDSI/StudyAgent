@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "phenotype_recommendations_output",
+  "type": "object",
+  "properties": {
+    "plan": { "type": "string" },
+    "phenotype_recommendations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "cohortId": { "type": "integer" },
+          "cohortName": { "type": "string" },
+          "justification": { "type": "string" },
+          "confidence": { "type": ["number", "null"] }
+        },
+        "required": ["cohortId", "cohortName", "justification"]
+      }
+    }
+  },
+  "required": ["plan", "phenotype_recommendations"],
+  "additionalProperties": false
+}
