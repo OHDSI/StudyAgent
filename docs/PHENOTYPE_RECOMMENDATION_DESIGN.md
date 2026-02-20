@@ -84,6 +84,7 @@ Candidate selection:
 **Phenotype Improvements Scope**
 1. The improvements flow reviews one phenotype definition at a time.
 2. If multiple cohorts are provided, ACP uses the first cohort only.
+3. If the cohort JSON has no `id`, ACP injects a synthetic `id` for validation only and does not write it back.
 
 **LLM Formats**
 1. Default: OpenAI Chat Completions payload (`/v1/chat/completions`-style).

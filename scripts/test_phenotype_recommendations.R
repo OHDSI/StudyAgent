@@ -1,9 +1,6 @@
-### Demo: apply LLM-proposed actions for the tools we are prototyping:
+### Demo:  `phenotype_recommendations`
 
-## - Study artifact selection/improvement
-## -- `phenotype_recommendations`
-
-## NOTE: running from a directory above the AgenticStudyAssistant so that we can reuse the .renv
+## !!!!NOTE!!!! run this from a directory above the OHDSI-Study-Agent where an .renv has the HADES packages loaded  !!!!NOTE!!!! 
 
 # Import the R thin api to the ACP server/bridge
 devtools::load_all("OHDSI-Study-Agent/R/OHDSIAssistant")

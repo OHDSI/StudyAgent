@@ -270,11 +270,20 @@ def _ensure_cohort_ids(cohorts: Any, cohort_paths: list[str]) -> list[dict[str, 
             cid = ids_from_paths[idx]
         if cid is None:
             cid = _cohort_id_from_path(cohort.get("name") or "")
+        if cid is None:
+            cid = _cohort_id_from_path(cohort.get("Name") or "")
+        if cid is None:
+            cid = _cohort_id_from_path(cohort.get("cohortName") or "")
+        if cid is None:
+            cid = cohort.get("id") or cohort.get("Id")
         if cid is not None:
             try:
                 cohort["id"] = int(cid)
             except (TypeError, ValueError):
                 pass
+        else:
+            cohort["id"] = idx + 1
+            cohort["_synthetic_id"] = True
         patched.append(cohort)
     return patched
 
