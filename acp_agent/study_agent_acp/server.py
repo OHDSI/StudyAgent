@@ -14,6 +14,7 @@ SERVICES = [
     {"name": "concept_sets_review", "endpoint": "/flows/concept_sets_review"},
     {"name": "cohort_critique_general_design", "endpoint": "/flows/cohort_critique_general_design"},
     {"name": "phenotype_validation_review", "endpoint": "/flows/phenotype_validation_review"},
+    {"name": "phenotype_recommendation_advice", "endpoint": "/flows/phenotype_recommendation_advice"},
 ]
 SERVICE_REGISTRY_PATH = os.getenv("STUDY_AGENT_SERVICE_REGISTRY", "docs/SERVICE_REGISTRY.yaml")
 
@@ -56,6 +57,8 @@ def _load_registry_services() -> tuple[list[Dict[str, Any]], list[str]]:
         return [], [f"service_registry_error:{exc}"]
     services = []
     for name, entry in (data.get("services") or {}).items():
+        if str(name).startswith("_"):
+            continue
         endpoint = entry.get("endpoint")
         if endpoint:
             services.append({"name": name, "endpoint": endpoint})
@@ -143,12 +146,16 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             candidate_limit = body.get("candidate_limit")
             if candidate_limit is not None:
                 candidate_limit = int(candidate_limit)
+            candidate_offset = body.get("candidate_offset")
+            if candidate_offset is not None:
+                candidate_offset = int(candidate_offset)
             try:
                 result = self.agent.run_phenotype_recommendation_flow(
                     study_intent=study_intent,
                     top_k=top_k,
                     max_results=max_results,
                     candidate_limit=candidate_limit,
+                    candidate_offset=candidate_offset,
                 )
             except Exception as exc:
                 if self.debug:
@@ -299,6 +306,28 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
                 result = self.agent.run_phenotype_validation_review_flow(
                     keeper_row=keeper_row,
                     disease_name=disease_name,
+                )
+            except Exception as exc:
+                if self.debug:
+                    import traceback
+
+                    traceback.print_exc()
+                _write_json(self, 500, {"error": "flow_failed", "detail": str(exc) if self.debug else None})
+                return
+            status = 200 if result.get("status") != "error" else 500
+            _write_json(self, status, result)
+            return
+
+        if self.path == "/flows/phenotype_recommendation_advice":
+            try:
+                body = _read_json(self)
+            except Exception as exc:
+                _write_json(self, 400, {"error": f"invalid_json: {exc}"})
+                return
+            study_intent = body.get("study_intent") or body.get("query") or ""
+            try:
+                result = self.agent.run_phenotype_recommendation_advice_flow(
+                    study_intent=study_intent,
                 )
             except Exception as exc:
                 if self.debug:

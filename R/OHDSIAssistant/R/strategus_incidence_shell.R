@@ -7,6 +7,8 @@
 #' @param candidateLimit max candidates to pass to LLM
 #' @param indexDir phenotype index directory (contains definitions/)
 #' @param interactive whether to prompt for inputs
+#' @param bannerPath optional path to ASCII banner
+#' @param reset when TRUE, delete outputDir before running
 #' @param allowCache reuse cached artifacts when present
 #' @param promptOnCache prompt before using cached artifacts
 #' @return invisible list with output paths
@@ -19,6 +21,8 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
                                       candidateLimit = 10,
                                       indexDir = Sys.getenv("PHENOTYPE_INDEX_DIR", "data/phenotype_index"),
                                       interactive = TRUE,
+                                      bannerPath = "ohdsi-logo-ascii.txt",
+                                      reset = FALSE,
                                       allowCache = TRUE,
                                       promptOnCache = TRUE) {
   `%||%` <- function(x, y) if (is.null(x)) y else x
@@ -28,7 +32,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   }
 
   prompt_yesno <- function(prompt, default = TRUE) {
-    if (!interactive()) return(default)
+    if (!isTRUE(interactive)) return(default)
     suffix <- if (default) "[Y/n]" else "[y/N]"
     resp <- tolower(trimws(readline(sprintf("%s %s ", prompt, suffix))))
     if (resp == "") return(default)
@@ -60,7 +64,72 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     dest
   }
 
+  apply_action <- function(obj, action) {
+    path <- action$path %||% ""
+    value <- action$value
+    if (!nzchar(path)) return(obj)
+    segs <- strsplit(path, "/", fixed = TRUE)[[1]]
+    segs <- segs[segs != ""]
+
+    set_in <- function(x, segs, value) {
+      if (length(segs) == 0) return(value)
+      seg <- segs[[1]]
+      name <- seg
+      idx <- NA_integer_
+      if (grepl("\\[\\d+\\]$", seg)) {
+        name <- sub("\\[\\d+\\]$", "", seg)
+        idx <- as.integer(sub("^.*\\[(\\d+)\\]$", "\\1", seg))
+      }
+      if (name != "") {
+        if (is.null(x[[name]])) x[[name]] <- list()
+        if (length(segs) == 1) {
+          if (!is.na(idx)) {
+            if (length(x[[name]]) < idx) {
+              while (length(x[[name]]) < idx) x[[name]][[length(x[[name]]) + 1]] <- NULL
+            }
+            x[[name]][[idx]] <- value
+          } else {
+            x[[name]] <- value
+          }
+          return(x)
+        }
+        if (!is.na(idx)) {
+          if (length(x[[name]]) < idx) {
+            while (length(x[[name]]) < idx) x[[name]][[length(x[[name]]) + 1]] <- list()
+          }
+          x[[name]][[idx]] <- set_in(x[[name]][[idx]], segs[-1], value)
+        } else {
+          x[[name]] <- set_in(x[[name]], segs[-1], value)
+        }
+        return(x)
+      }
+      idx <- suppressWarnings(as.integer(seg))
+      if (is.na(idx)) return(x)
+      if (idx == 0) idx <- 1
+      if (length(x) < idx) {
+        while (length(x) < idx) x[[length(x) + 1]] <- list()
+      }
+      if (length(segs) == 1) {
+        x[[idx]] <- value
+        return(x)
+      }
+      x[[idx]] <- set_in(x[[idx]], segs[-1], value)
+      x
+    }
+
+    set_in(obj, segs, value)
+  }
+
   outputDir <- normalizePath(outputDir, winslash = "/", mustWork = FALSE)
+  if (isTRUE(reset) && dir.exists(outputDir)) {
+    ok <- TRUE
+    if (isTRUE(interactive)) {
+      ok <- prompt_yesno(sprintf("Delete existing output directory %s?", outputDir), default = FALSE)
+    }
+    if (ok) {
+      unlink(outputDir, recursive = TRUE, force = TRUE)
+    }
+  }
   base_dir <- outputDir
   index_dir <- normalizePath(indexDir, winslash = "/", mustWork = FALSE)
   if (!dir.exists(index_dir) && !grepl("^/", indexDir)) {
@@ -86,19 +155,36 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   ensure_dir(analysis_settings_dir)
   ensure_dir(scripts_dir)
 
-  if (is.null(studyIntent) || !nzchar(trimws(studyIntent))) {
-    if (interactive) {
-      studyIntent <- utils::edit("Enter study intent text below and save/close to continue.")
+  if (interactive) {
+    banner_path <- normalizePath(bannerPath, winslash = "/", mustWork = FALSE)
+    if (!file.exists(banner_path) && !grepl("^/", bannerPath)) {
+      alt <- file.path(getwd(), "OHDSI-Study-Agent", bannerPath)
+      if (file.exists(alt)) banner_path <- normalizePath(alt, winslash = "/", mustWork = FALSE)
     }
-  }
-  if (is.null(studyIntent) || !nzchar(trimws(studyIntent))) {
-    stop("studyIntent is required.")
+    if (file.exists(banner_path)) {
+      cat(paste(readLines(banner_path, warn = FALSE), collapse = "\n"), "\n")
+    }
+    cat("\nStudy Agent: Strategus CohortIncidence shell\n")
   }
 
+  default_intent <- studyIntent %||% "What is the risk of GI bleed in new users of Celecoxib compared to new users of Diclofenac?"
+  if (interactive) {
+    entered <- readline(sprintf("Study intent [%s]: ", default_intent))
+    if (nzchar(trimws(entered))) studyIntent <- entered else studyIntent <- default_intent
+  } else {
+    if (is.null(studyIntent) || !nzchar(trimws(studyIntent))) studyIntent <- default_intent
+  }
+
+  if (interactive) {
+    cat("\nConnecting to ACP...\n")
+  }
   acp_connect(acpUrl)
 
   recs_path <- file.path(output_dir, "recommendations.json")
   rec_response <- NULL
+  if (interactive) {
+    cat("\n== Step 1: Phenotype recommendations ==\n")
+  }
   if (maybe_use_cache(recs_path, "recommendations")) {
     rec_response <- read_json(recs_path)
   } else {
@@ -122,6 +208,59 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     rec <- recommendations[[i]]
     cat(sprintf("%d. %s (ID %s)\n", i, rec$cohortName %||% "<unknown>", rec$cohortId %||% "?"))
     if (!is.null(rec$justification)) cat(sprintf("   %s\n", rec$justification))
+  }
+
+  if (interactive) {
+    ok_any <- prompt_yesno("Are any of these acceptable?", default = TRUE)
+    if (!ok_any) {
+      widen <- prompt_yesno("Widen candidate pool and try again?", default = TRUE)
+      if (widen) {
+        message("Generating additional recommendations (next window)...")
+        body <- list(
+          study_intent = studyIntent,
+          top_k = topK,
+          max_results = maxResults,
+          candidate_limit = candidateLimit,
+          candidate_offset = candidateLimit
+        )
+        rec_response <- .acp_post("/flows/phenotype_recommendation", body)
+        recs_path <- file.path(output_dir, "recommendations_window2.json")
+        write_json(rec_response, recs_path)
+
+        recs_core <- rec_response$recommendations %||% rec_response
+        recommendations <- recs_core$phenotype_recommendations %||% list()
+        cat("\n== Phenotype Recommendations (window 2) ==\n")
+        for (i in seq_along(recommendations)) {
+          rec <- recommendations[[i]]
+          cat(sprintf("%d. %s (ID %s)\n", i, rec$cohortName %||% "<unknown>", rec$cohortId %||% "?"))
+          if (!is.null(rec$justification)) cat(sprintf("   %s\n", rec$justification))
+        }
+        ok_any <- prompt_yesno("Are any of these acceptable?", default = TRUE)
+      }
+      if (!ok_any) {
+        message("Generating advisory guidance (this may take a moment)...")
+        advice <- .acp_post("/flows/phenotype_recommendation_advice", list(study_intent = studyIntent))
+        advice_core <- advice$advice %||% advice
+        cat("\n== Advisory guidance ==\n")
+        cat(advice_core$advice %||% "", "\n")
+        if (length(advice_core$next_steps %||% list()) > 0) {
+          cat("Next steps:\n")
+          for (step in advice_core$next_steps) cat(sprintf("  - %s\n", step))
+        }
+        if (length(advice_core$questions %||% list()) > 0) {
+          cat("Questions to clarify:\n")
+          for (q in advice_core$questions) cat(sprintf("  - %s\n", q))
+        }
+        return(invisible(list(output_dir = output_dir, recommendations = recs_path)))
+      }
+    }
+  }
+
+  if (interactive) {
+    if (!prompt_yesno("Continue to cohort selection?", default = TRUE)) {
+      return(invisible(list(output_dir = output_dir, recommendations = recs_path)))
+    }
+    cat("\n== Step 2: Select cohorts ==\n")
   }
 
   selected_ids <- NULL
@@ -185,8 +324,16 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   cohort_df <- do.call(rbind, cohort_rows)
   write.csv(cohort_df, cohort_csv, row.names = FALSE)
 
+  if (interactive) {
+    if (!prompt_yesno("Continue to phenotype improvements?", default = TRUE)) {
+      return(invisible(list(output_dir = output_dir, cohort_csv = cohort_csv)))
+    }
+    cat("\n== Step 3: Phenotype improvements ==\n")
+  }
+
   improvements_path <- file.path(output_dir, "improvements.json")
   imp_response <- list()
+  improvements_applied <- FALSE
   if (maybe_use_cache(improvements_path, "improvements")) {
     imp_response <- read_json(improvements_path)
   } else {
@@ -202,6 +349,39 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
       imp_response[[as.character(new_ids[[i]])]] <- resp
     }
     write_json(imp_response, improvements_path)
+  }
+
+  if (interactive) {
+    for (cid in names(imp_response)) {
+      resp <- imp_response[[cid]]
+      core <- resp$full_result %||% resp
+      items <- core$phenotype_improvements %||% list()
+      if (length(items) == 0) next
+      cat(sprintf("\n== Improvements for cohort %s ==\n", cid))
+      for (item in items) {
+        cat(sprintf("- %s\n", item$summary %||% "(no summary)"))
+        if (!is.null(item$actions)) {
+          for (act in item$actions) {
+            cat(sprintf("  action: %s %s\n", act$type %||% "set", act$path %||% ""))
+          }
+        }
+      }
+      if (prompt_yesno(sprintf("Apply improvements for cohort %s now?", cid), default = FALSE)) {
+        cohort_path <- file.path(selected_dir, sprintf("%s.json", cid))
+        cohort_obj <- read_json(cohort_path)
+        for (item in items) {
+          if (is.null(item$actions)) next
+          for (act in item$actions) {
+            cohort_obj <- apply_action(cohort_obj, act)
+          }
+        }
+        ensure_dir(patched_dir)
+        out_path <- file.path(patched_dir, sprintf("%s.json", cid))
+        write_json(cohort_obj, out_path)
+        improvements_applied <- TRUE
+        cat(sprintf("Patched cohort saved: %s\n", out_path))
+      }
+    }
   }
 
   state <- list(
@@ -222,6 +402,9 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   write_json(state, state_path)
 
   # ---- Generate scripts ----
+  if (interactive) {
+    cat("\n== Step 4: Generate scripts ==\n")
+  }
   write_lines <- function(path, lines) {
     writeLines(lines, con = path, useBytes = TRUE)
   }
@@ -229,6 +412,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   script_header <- c(
     "# Generated by OHDSIAssistant::runStrategusIncidenceShell",
     "# Edit values as needed and run in order.",
+    if (improvements_applied) "# NOTE: improvements were already applied in the shell run." else "# NOTE: improvements not applied yet; see 02_apply_improvements.R.",
     ""
   )
 
@@ -523,6 +707,15 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   )
   write_lines(file.path(scripts_dir, "06_incidence_spec.R"), script_06)
 
+  if (interactive) {
+    cat("\nScripts written to:\n")
+    cat(sprintf("  %s\n", scripts_dir))
+    cat("Recommended run order:\n")
+    cat("  1) scripts/03_generate_cohorts.R\n")
+    cat("  2) scripts/04_keeper_review.R\n")
+    cat("  3) scripts/05_diagnostics.R\n")
+    cat("  4) scripts/06_incidence_spec.R\n")
+  }
   message("Study agent shell complete. Scripts written to: ", scripts_dir)
   invisible(list(
     output_dir = output_dir,

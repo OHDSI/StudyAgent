@@ -1,6 +1,7 @@
 from .tools import (
     cohort_lint,
     phenotype_improvements,
+    phenotype_recommendation_advice,
     phenotype_recommendations,
     propose_concept_set_diff,
 )
@@ -8,6 +9,7 @@ from .tools import (
 __all__ = [
     "cohort_lint",
     "phenotype_improvements",
+    "phenotype_recommendation_advice",
     "phenotype_recommendations",
     "propose_concept_set_diff",
 ]

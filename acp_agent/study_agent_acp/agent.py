@@ -5,15 +5,24 @@ from study_agent_core.models import (
     CohortLintInput,
     ConceptSetDiffInput,
     PhenotypeImprovementsInput,
+    PhenotypeRecommendationAdviceInput,
     PhenotypeRecommendationsInput,
 )
 from study_agent_core.tools import (
     cohort_lint,
     phenotype_improvements,
+    phenotype_recommendation_advice,
     phenotype_recommendations,
     propose_concept_set_diff,
 )
-from .llm_client import build_improvements_prompt, build_keeper_prompt, build_lint_prompt, build_prompt, call_llm
+from .llm_client import (
+    build_advice_prompt,
+    build_improvements_prompt,
+    build_keeper_prompt,
+    build_lint_prompt,
+    build_prompt,
+    call_llm,
+)
 
 
 class MCPClient(Protocol):
@@ -39,6 +48,7 @@ class StudyAgent:
             "propose_concept_set_diff": propose_concept_set_diff,
             "cohort_lint": cohort_lint,
             "phenotype_recommendations": phenotype_recommendations,
+            "phenotype_recommendation_advice": phenotype_recommendation_advice,
             "phenotype_improvements": phenotype_improvements,
         }
 
@@ -46,6 +56,7 @@ class StudyAgent:
             "propose_concept_set_diff": ConceptSetDiffInput.model_json_schema(),
             "cohort_lint": CohortLintInput.model_json_schema(),
             "phenotype_recommendations": PhenotypeRecommendationsInput.model_json_schema(),
+            "phenotype_recommendation_advice": PhenotypeRecommendationAdviceInput.model_json_schema(),
             "phenotype_improvements": PhenotypeImprovementsInput.model_json_schema(),
         }
 
@@ -113,15 +124,20 @@ class StudyAgent:
         top_k: int = 20,
         max_results: int = 10,
         candidate_limit: Optional[int] = None,
+        candidate_offset: Optional[int] = None,
     ) -> Dict[str, Any]:
         if not study_intent:
             return {"status": "error", "error": "missing study_intent"}
         if self._mcp_client is None:
             return {"status": "error", "error": "MCP client unavailable"}
 
+        search_args = {"query": study_intent, "top_k": top_k}
+        if candidate_offset is not None:
+            search_args["offset"] = int(candidate_offset)
+
         search_result = self.call_tool(
             name="phenotype_search",
-            arguments={"query": study_intent, "top_k": top_k},
+            arguments=search_args,
         )
         if search_result.get("status") != "ok":
             return {
@@ -188,8 +204,48 @@ class StudyAgent:
             "search": full,
             "llm_used": llm_result is not None,
             "candidate_limit": candidate_limit,
+            "candidate_offset": candidate_offset or 0,
             "candidate_count": len(candidates),
             "recommendations": core_result,
+        }
+
+    def run_phenotype_recommendation_advice_flow(
+        self,
+        study_intent: str,
+    ) -> Dict[str, Any]:
+        if not study_intent:
+            return {"status": "error", "error": "missing study_intent"}
+        if self._mcp_client is None:
+            return {"status": "error", "error": "MCP client unavailable"}
+
+        prompt_bundle = self.call_tool(
+            name="phenotype_recommendation_advice",
+            arguments={},
+        )
+        prompt_full = prompt_bundle.get("full_result") or {}
+        if prompt_bundle.get("status") != "ok" or prompt_full.get("error"):
+            return {
+                "status": "error",
+                "error": "phenotype_recommendation_advice_prompt_failed",
+                "details": prompt_bundle,
+            }
+
+        prompt = build_advice_prompt(
+            overview=prompt_full.get("overview", ""),
+            spec=prompt_full.get("spec", ""),
+            output_schema=prompt_full.get("output_schema", {}),
+            study_intent=study_intent,
+        )
+        llm_result = call_llm(prompt)
+        core_result = phenotype_recommendation_advice(
+            study_intent=study_intent,
+            llm_result=llm_result,
+        )
+
+        return {
+            "status": "ok",
+            "llm_used": llm_result is not None,
+            "advice": core_result,
         }
 
     def run_phenotype_improvements_flow(

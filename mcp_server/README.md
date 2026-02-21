@@ -13,6 +13,7 @@ Phenotype retrieval + metadata:
 - `phenotype_list_similar`
 - `phenotype_reindex`
 - `phenotype_prompt_bundle`
+- `phenotype_recommendation_advice`
 
 Study design linting:
 - `propose_concept_set_diff`

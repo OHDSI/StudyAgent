@@ -80,6 +80,8 @@ Default root is `PHENOTYPE_INDEX_DIR` or `data/phenotype_index`.
 
 Candidate selection:
 1. ACP truncates the candidate list before the LLM using `LLM_CANDIDATE_LIMIT` or per-request `candidate_limit`.
+2. ACP supports `candidate_offset` to request the next window of candidates from MCP `phenotype_search`
+   (for example, offset by `candidate_limit` to avoid re-sending the same top hits).
 
 **Phenotype Improvements Scope**
 1. The improvements flow reviews one phenotype definition at a time.

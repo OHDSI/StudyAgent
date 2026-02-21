@@ -148,6 +148,7 @@ class PhenotypeIndex:
         self,
         query: str,
         top_k: int = 20,
+        offset: int = 0,
         dense_k: int = 100,
         sparse_k: int = 100,
         dense_weight: float = 0.9,
@@ -169,7 +170,9 @@ class PhenotypeIndex:
         for doc_id, score in sparse_scores.items():
             merged[doc_id] = merged.get(doc_id, 0.0) + sparse_weight * score
 
-        ranked = sorted(merged.items(), key=lambda item: item[1], reverse=True)[:top_k]
+        ranked_all = sorted(merged.items(), key=lambda item: item[1], reverse=True)
+        offset = max(0, int(offset or 0))
+        ranked = ranked_all[offset : offset + top_k]
         results: List[Dict[str, Any]] = []
         for doc_id, score in ranked:
             if doc_id < 0 or doc_id >= len(self._catalog):

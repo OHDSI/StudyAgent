@@ -13,6 +13,7 @@ def register(mcp: object) -> None:
     def phenotype_search_tool(
         query: str,
         top_k: int = 20,
+        offset: int = 0,
         dense_k: int = 100,
         sparse_k: int = 100,
         dense_weight: Optional[float] = None,
@@ -28,6 +29,7 @@ def register(mcp: object) -> None:
         results = index.search(
             query=query,
             top_k=top_k,
+            offset=offset,
             dense_k=dense_k,
             sparse_k=sparse_k,
             dense_weight=dense_weight,

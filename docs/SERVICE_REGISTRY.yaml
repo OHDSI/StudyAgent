@@ -83,3 +83,16 @@ services:
     validation:
       - PHI/PII fail-closed sanitation (HIPAA 18)
       - output label constrained to yes/no/unknown
+
+  phenotype_recommendation_advice:
+    endpoint: /flows/phenotype_recommendation_advice
+    mcp_tools:
+      - phenotype_recommendation_advice
+    input:
+      - study_intent
+    output:
+      - advice
+      - next_steps
+      - questions
+    validation:
+      - core.phenotype_recommendation_advice schema validation

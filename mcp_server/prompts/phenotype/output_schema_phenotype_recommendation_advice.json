@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "phenotype_recommendation_advice_output",
+  "type": "object",
+  "properties": {
+    "plan": { "type": "string" },
+    "advice": { "type": "string" },
+    "next_steps": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "questions": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "required": ["plan", "advice", "next_steps"],
+  "additionalProperties": false
+}
