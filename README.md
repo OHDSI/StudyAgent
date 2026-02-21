@@ -2,7 +2,7 @@
 
 ## Overview
 
-The goal OHDSI Study Design Assistant (SDA) is to provide an experience similar to working with a coding agent but for designing and executing observational retrospective studies using OHDSI tools. SDA is designed to organize and enable users to interact with a wide variety of agentic tools to suppor their study work.  It does so by providing a clean separation between the agentic user experience and the generative AI tools. Check out the tag `proof_of_concept` for the code for the initial coded proof of concepts such as shown [in this video](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=70502f91-3594-4cb6-b776-b3bd012cf637). See [this branch](https://github.com/OHDSI/StudyAgent/blob/proof-of-concept-mcp-plus-acp/) 
+The goal OHDSI Study Design Assistant (SDA) is to provide an experience similar to working with a coding agent but for designing and executing observational retrospective studies using OHDSI tools. SDA is designed to organize and enable users to interact with a wide variety of agentic tools to suppor their study work.  It does so by providing a clean separation between the agentic user experience and the generative AI tools. Check out the tag `first_agent_and_strategus` for the first version to assist with Strategus (not validated) as shown [in this video](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=f802b01f-9bce-4f38-a4c4-b3f800e6ebdd&start=254). This demonstrates a possible way for the agent to help the user design, run, and interpret the results of an OHDSI incidence rate analysis using the [CohortIncidenceModule](https://raw.githubusercontent.com/OHDSI/Strategus/main/inst/doc/CreatingAnalysisSpecification.pdf) of  [OHDSI Strategus](https://github.com/OHDSI/Strategus).
  
 #### Want to contribute? 
 
@@ -16,9 +16,7 @@ Here are some ways:
 
 ### Near term
 
-Show the phenotype_* tools in use to design, run, and interpret the results of an OHDSI incidence rate analysis using the [CohortIncidenceModule](https://raw.githubusercontent.com/OHDSI/Strategus/main/inst/doc/CreatingAnalysisSpecification.pdf) of  [OHDSI Strategus](https://github.com/OHDSI/Strategus) 
-
-Extend the study agent so it uses results from Data Quality Dashboard, Achilles Heel data quality checks, and Achilles data source characterizations over one or more sources that a user intends to use within a study.  In this mode, the study agent derive insights from those sources based on the user's study intent.  This is important because it will make the information in the characterizations and QC reports more relevant and actionable to users than static and broad-scope reports (current state). 
+Review with colleagues, test that scripts function, deploy to a different environment for portability testing, and plan. Extend the study agent so it uses results from Data Quality Dashboard, Achilles Heel data quality checks, and Achilles data source characterizations over one or more sources that a user intends to use within a study.  In this mode, the study agent derive insights from those sources based on the user's study intent.  This is important because it will make the information in the characterizations and QC reports more relevant and actionable to users than static and broad-scope reports (current state). 
 
 ### Long term
 
