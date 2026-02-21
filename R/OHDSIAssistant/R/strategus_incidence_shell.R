@@ -336,6 +336,9 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   improvements_applied <- FALSE
   if (maybe_use_cache(improvements_path, "improvements")) {
     imp_response <- read_json(improvements_path)
+    if (interactive) {
+      cat(sprintf("\nLoaded cached improvements from %s\n", improvements_path))
+    }
   } else {
     for (i in seq_along(selected_paths)) {
       cohort_obj <- read_json(selected_paths[[i]])
@@ -356,7 +359,6 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
       resp <- imp_response[[cid]]
       core <- resp$full_result %||% resp
       items <- core$phenotype_improvements %||% list()
-      if (length(items) == 0) next
       cat(sprintf("\n== Improvements for cohort %s ==\n", cid))
       for (item in items) {
         cat(sprintf("- %s\n", item$summary %||% "(no summary)"))
@@ -365,6 +367,10 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
             cat(sprintf("  action: %s %s\n", act$type %||% "set", act$path %||% ""))
           }
         }
+      }
+      if (length(items) == 0) {
+        cat("  No improvements returned for this cohort.\n")
+        next
       }
       if (prompt_yesno(sprintf("Apply improvements for cohort %s now?", cid), default = FALSE)) {
         cohort_path <- file.path(selected_dir, sprintf("%s.json", cid))

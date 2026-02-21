@@ -383,6 +383,14 @@ def phenotype_improvements(
 
     if payload.llm_result:
         raw_improvements = payload.llm_result.get("phenotype_improvements") or []
+        if len(allowed_ids) == 1:
+            only_id = allowed_ids[0]
+            for imp in raw_improvements:
+                if not isinstance(imp, dict):
+                    continue
+                target_id = imp.get("targetCohortId")
+                if target_id is not None and target_id != only_id:
+                    imp["targetCohortId"] = only_id
         invalid_targets = sorted(
             {
                 imp.get("targetCohortId")
