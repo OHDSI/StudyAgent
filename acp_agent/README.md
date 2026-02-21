@@ -5,6 +5,7 @@ Orchestrates user interaction and calls MCP tools. No direct data plane access u
 
 - `STUDY_AGENT_HOST` (default `127.0.0.1`)
 - `STUDY_AGENT_PORT` (default `8765`)
+- Shutdown: Prefer stopping the ACP process (SIGINT/SIGTERM) so the MCP subprocess is closed cleanly. Killing the MCP directly can leave defunct processes.
 
 ## LLM Configuration (OpenAI-compatible)
 

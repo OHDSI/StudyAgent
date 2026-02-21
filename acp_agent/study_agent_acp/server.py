@@ -410,6 +410,8 @@ def _ensure_cohort_ids(cohorts: Any, cohort_paths: list[str]) -> list[dict[str, 
 
 def main(host: str = "127.0.0.1", port: int = 8765) -> None:
     import os
+    import signal
+    import threading
 
     host = os.getenv("STUDY_AGENT_HOST", host)
     port = int(os.getenv("STUDY_AGENT_PORT", str(port)))
@@ -430,6 +432,27 @@ def main(host: str = "127.0.0.1", port: int = 8765) -> None:
     Handler.mcp_client = mcp_client
     Handler.debug = debug
     server = HTTPServer((host, port), Handler)
+
+    shutdown_lock = threading.Lock()
+    shutdown_once = {"done": False}
+
+    def _shutdown(signum, frame) -> None:
+        with shutdown_lock:
+            if shutdown_once["done"]:
+                return
+            shutdown_once["done"] = True
+        if mcp_client is not None:
+            try:
+                mcp_client.close()
+            except Exception:
+                pass
+        try:
+            server.shutdown()
+        except Exception:
+            pass
+
+    signal.signal(signal.SIGINT, _shutdown)
+    signal.signal(signal.SIGTERM, _shutdown)
     _serve(server, mcp_client)
 
 

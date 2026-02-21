@@ -146,10 +146,45 @@ def task_list_services():
         url = env.get("ACP_BASE_URL", f"http://{host}:{port}")
         if url.endswith("/"):
             url = url[:-1]
-        req = urllib.request.Request(f"{url}/services")
-        with urllib.request.urlopen(req, timeout=10) as response:
-            body = response.read().decode("utf-8")
-        print(body)
+
+        def _wait_for_acp(base_url: str, timeout_s: int = 15) -> None:
+            deadline = time.time() + timeout_s
+            health = f"{base_url}/health"
+            while time.time() < deadline:
+                try:
+                    with urllib.request.urlopen(health, timeout=2) as response:
+                        if response.status == 200:
+                            return
+                except Exception:
+                    time.sleep(0.5)
+            raise RuntimeError(f"ACP did not become ready at {health}")
+
+        acp_proc = None
+        try:
+            try:
+                _wait_for_acp(url, timeout_s=3)
+            except Exception:
+                env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
+                env.setdefault("STUDY_AGENT_MCP_ARGS", "")
+                acp_stdout = env.get("ACP_STDOUT", "/tmp/study_agent_acp_stdout.log")
+                acp_stderr = env.get("ACP_STDERR", "/tmp/study_agent_acp_stderr.log")
+                print("Starting ACP (will spawn MCP via stdio) to list services...")
+                with open(acp_stdout, "w", encoding="utf-8") as out, open(acp_stderr, "w", encoding="utf-8") as err:
+                    acp_proc = subprocess.Popen(["study-agent-acp"], env=env, stdout=out, stderr=err)
+                _wait_for_acp(url, timeout_s=15)
+
+            req = urllib.request.Request(f"{url}/services")
+            with urllib.request.urlopen(req, timeout=10) as response:
+                body = response.read().decode("utf-8")
+            print(body)
+        finally:
+            if acp_proc is not None:
+                print("Stopping ACP...")
+                acp_proc.terminate()
+                try:
+                    acp_proc.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    acp_proc.kill()
 
     return {
         "actions": [_run_list],

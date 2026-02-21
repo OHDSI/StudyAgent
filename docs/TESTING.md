@@ -195,6 +195,14 @@ doit smoke_phenotype_validation_review_flow
 
 ## MCP smoke test (import)
 
+## Service listing
+
+Use the `/services` endpoint (or the helper task) to list ACP services:
+
+```bash
+doit list_services
+```
+
 ```bash
 python -c "import study_agent_mcp; print('mcp import ok')"
 ```
