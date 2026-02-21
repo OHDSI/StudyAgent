@@ -45,7 +45,7 @@ List tasks:
 doit list
 ```
 
-Common tasks:
+Common tasks but see `doit list` for the most current set:
 
 ```bash
 doit install
@@ -85,6 +85,12 @@ Start ACP with an MCP tool server:
 STUDY_AGENT_MCP_COMMAND=study-agent-mcp STUDY_AGENT_MCP_ARGS="" study-agent-acp
 ```
 
+Optional host/port override:
+
+```bash
+STUDY_AGENT_HOST=0.0.0.0 STUDY_AGENT_PORT=9000 study-agent-acp
+```
+
 Then run the same curl commands as above.
 
 ## ACP phenotype flow (MCP + LLM)
@@ -94,7 +100,7 @@ Ensure MCP is running and set LLM env vars for an OpenAI-compatible endpoint:
 ```bash
 export LLM_API_URL="http://localhost:3000/api/chat/completions"
 export LLM_API_KEY="..."
-export LLM_MODEL="agentstudyassistant"
+export LLM_MODEL="gemma3:4b"
 export LLM_DRY_RUN=0
 export LLM_USE_RESPONSES=0
 ```

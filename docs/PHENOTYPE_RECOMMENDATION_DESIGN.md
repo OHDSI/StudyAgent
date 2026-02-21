@@ -111,6 +111,8 @@ Candidate selection:
 12. `LLM_DRY_RUN` (default `0`)
 13. `LLM_USE_RESPONSES` (default `0`) selects OpenAI Responses API format instead of Chat Completions. It does not affect MCP tool use.
 14. `LLM_CANDIDATE_LIMIT` (default `10`)
+15. `STUDY_AGENT_HOST` (default `127.0.0.1`)
+16. `STUDY_AGENT_PORT` (default `8765`)
 
 **Risks and Mitigations**
 1. Missing dependencies for FAISS

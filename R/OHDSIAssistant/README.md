@@ -42,3 +42,24 @@ rec <- OHDSIAssistant::suggestPhenotypes()
 - The ACP server must be running and configured with its MCP connection.
 - The R client calls ACP `/flows/phenotype_recommendation`.
 - The response includes `recommendations`, which contains the validated core output.
+
+## Strategus Incidence Shell (ACP-assisted, outputs pure R)
+
+This helper runs an interactive, ACP-backed design session and writes a set of clean R scripts
+that do not require ACP to run at other sites.
+
+```r
+OHDSIAssistant::runStrategusIncidenceShell(
+  outputDir = "demo-strategus-cohort-incidence",
+  studyIntent = "What is the risk of GI bleed in new users of Celecoxib compared to new users of Diclofenac?"
+)
+```
+
+It generates scripts under `demo-strategus-cohort-incidence/scripts/` following the flow:
+
+1. `01_recommend_and_select.R`
+2. `02_apply_improvements.R`
+3. `03_generate_cohorts.R`
+4. `04_keeper_review.R`
+5. `05_diagnostics.R`
+6. `06_incidence_spec.R`

@@ -22,6 +22,8 @@ DEFAULT_ENV = {
     "LLM_CANDIDATE_LIMIT": os.getenv("LLM_CANDIDATE_LIMIT", "10"),
     "ACP_URL": os.getenv("ACP_URL", "http://127.0.0.1:8765/flows/phenotype_recommendation"),
     "ACP_TIMEOUT": os.getenv("ACP_TIMEOUT", "180"),
+    "STUDY_AGENT_HOST": os.getenv("STUDY_AGENT_HOST", "127.0.0.1"),
+    "STUDY_AGENT_PORT": os.getenv("STUDY_AGENT_PORT", "8765"),
 }
 
 
@@ -81,6 +83,77 @@ def task_run_all():
     return {
         "actions": None,
         "task_dep": ["test_all","smoke_phenotype_recommend_flow", "smoke_phenotype_improvements_flow", "smoke_concept_sets_review_flow", "smoke_cohort_critique_flow"],
+    }
+
+
+def task_check_llm_connectivity():
+    def _run_check() -> None:
+        env = os.environ.copy()
+        if not env.get("LLM_API_KEY"):
+            print("Missing LLM_API_KEY in environment. Set it before running this task.")
+            return
+        for key, value in DEFAULT_ENV.items():
+            env.setdefault(key, value)
+
+        url = env["LLM_API_URL"]
+        model = env["LLM_MODEL"]
+        use_responses = env.get("LLM_USE_RESPONSES", "0") == "1"
+
+        if use_responses:
+            payload = json.dumps(
+                {
+                    "model": model,
+                    "input": "What we have here is a failure to communicate!.",
+                    "temperature": 0,
+                }
+            )
+        else:
+            payload = json.dumps(
+                {
+                    "model": model,
+                    "messages": [{"role": "user", "content": "Tau Ceti here we ."}],
+                    "temperature": 0,
+                }
+            )
+
+        cmd = [
+            "curl",
+            "-sS",
+            "-X",
+            "POST",
+            url,
+            "-H",
+            "Content-Type: application/json",
+            "-H",
+            f"Authorization: Bearer {env['LLM_API_KEY']}",
+            "-d",
+            payload,
+        ]
+        print("Running LLM connectivity check...")
+        subprocess.run(cmd, check=True)
+
+    return {
+        "actions": [_run_check],
+        "verbosity": 2,
+    }
+
+
+def task_list_services():
+    def _run_list() -> None:
+        env = os.environ.copy()
+        host = env.get("STUDY_AGENT_HOST", DEFAULT_ENV["STUDY_AGENT_HOST"])
+        port = env.get("STUDY_AGENT_PORT", DEFAULT_ENV["STUDY_AGENT_PORT"])
+        url = env.get("ACP_BASE_URL", f"http://{host}:{port}")
+        if url.endswith("/"):
+            url = url[:-1]
+        req = urllib.request.Request(f"{url}/services")
+        with urllib.request.urlopen(req, timeout=10) as response:
+            body = response.read().decode("utf-8")
+        print(body)
+
+    return {
+        "actions": [_run_list],
+        "verbosity": 2,
     }
 
 

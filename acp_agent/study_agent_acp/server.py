@@ -8,6 +8,15 @@ from typing import Any, Dict, Optional
 from .agent import StudyAgent
 from .mcp_client import StdioMCPClient, StdioMCPClientConfig
 
+SERVICES = [
+    {"name": "phenotype_recommendation", "endpoint": "/flows/phenotype_recommendation"},
+    {"name": "phenotype_improvements", "endpoint": "/flows/phenotype_improvements"},
+    {"name": "concept_sets_review", "endpoint": "/flows/concept_sets_review"},
+    {"name": "cohort_critique_general_design", "endpoint": "/flows/cohort_critique_general_design"},
+    {"name": "phenotype_validation_review", "endpoint": "/flows/phenotype_validation_review"},
+]
+SERVICE_REGISTRY_PATH = os.getenv("STUDY_AGENT_SERVICE_REGISTRY", "docs/SERVICE_REGISTRY.yaml")
+
 
 def _read_json(handler: BaseHTTPRequestHandler) -> Dict[str, Any]:
     length = int(handler.headers.get("Content-Length", "0"))
@@ -32,6 +41,29 @@ def _write_json(handler: BaseHTTPRequestHandler, status: int, payload: Dict[str,
             print("ACP response write failed: client disconnected.")
 
 
+def _load_registry_services() -> tuple[list[Dict[str, Any]], list[str]]:
+    warnings: list[str] = []
+    try:
+        import yaml
+    except Exception:
+        return [], ["pyyaml_not_installed"]
+    if not os.path.exists(SERVICE_REGISTRY_PATH):
+        return [], [f"service_registry_missing:{SERVICE_REGISTRY_PATH}"]
+    try:
+        with open(SERVICE_REGISTRY_PATH, "r", encoding="utf-8") as handle:
+            data = yaml.safe_load(handle) or {}
+    except Exception as exc:
+        return [], [f"service_registry_error:{exc}"]
+    services = []
+    for name, entry in (data.get("services") or {}).items():
+        endpoint = entry.get("endpoint")
+        if endpoint:
+            services.append({"name": name, "endpoint": endpoint})
+        else:
+            warnings.append(f"service_registry_missing_endpoint:{name}")
+    return services, warnings
+
+
 class ACPRequestHandler(BaseHTTPRequestHandler):
     agent: StudyAgent
     mcp_client: Optional[StdioMCPClient]
@@ -51,6 +83,23 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             return
         if self.path == "/tools":
             _write_json(self, 200, {"tools": self.agent.list_tools()})
+            return
+        if self.path == "/services":
+            registry_services, warnings = _load_registry_services()
+            registry_map = {svc["endpoint"]: svc for svc in registry_services}
+            runtime_map = {svc["endpoint"]: svc for svc in SERVICES}
+
+            services = []
+            for endpoint, svc in registry_map.items():
+                merged = dict(svc)
+                merged["implemented"] = endpoint in runtime_map
+                services.append(merged)
+            for endpoint, svc in runtime_map.items():
+                if endpoint not in registry_map:
+                    services.append({**svc, "implemented": True, "source": "acp"})
+                    warnings.append(f"service_missing_in_registry:{endpoint}")
+
+            _write_json(self, 200, {"services": services, "warnings": warnings})
             return
         _write_json(self, 404, {"error": "not_found"})
 
@@ -333,6 +382,8 @@ def _ensure_cohort_ids(cohorts: Any, cohort_paths: list[str]) -> list[dict[str, 
 def main(host: str = "127.0.0.1", port: int = 8765) -> None:
     import os
 
+    host = os.getenv("STUDY_AGENT_HOST", host)
+    port = int(os.getenv("STUDY_AGENT_PORT", str(port)))
     mcp_command = os.getenv("STUDY_AGENT_MCP_COMMAND")
     mcp_args = os.getenv("STUDY_AGENT_MCP_ARGS", "")
     allow_core_fallback = os.getenv("STUDY_AGENT_ALLOW_CORE_FALLBACK", "1") == "1"

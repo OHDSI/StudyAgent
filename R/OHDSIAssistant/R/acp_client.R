@@ -26,11 +26,14 @@ acp_connect <- function(url = "http://127.0.0.1:8765", token = NULL) {
   if (!is.null(acp_state$token)) {
     headers <- c(headers, Authorization = paste("Bearer", acp_state$token))
   }
+  timeout_seconds <- as.numeric(Sys.getenv("ACP_TIMEOUT", "180"))
+  if (is.na(timeout_seconds) || timeout_seconds <= 0) timeout_seconds <- 180
   resp <- httr::POST(
     url,
     body = body,
     encode = "json",
-    httr::add_headers(.headers = headers)
+    httr::add_headers(.headers = headers),
+    httr::timeout(timeout_seconds)
   )
   if (httr::status_code(resp) >= 300) stop("ACP error: ", httr::content(resp, as = "text"))
   jsonlite::fromJSON(httr::content(resp, as = "text"), simplifyVector = FALSE)
