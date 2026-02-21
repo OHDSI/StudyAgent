@@ -80,6 +80,8 @@ Default root is `PHENOTYPE_INDEX_DIR` or `data/phenotype_index`.
 
 Candidate selection:
 1. ACP truncates the candidate list before the LLM using `LLM_CANDIDATE_LIMIT` or per-request `candidate_limit`.
+2. ACP supports `candidate_offset` to request the next window of candidates from MCP `phenotype_search`
+   (for example, offset by `candidate_limit` to avoid re-sending the same top hits).
 
 **Phenotype Improvements Scope**
 1. The improvements flow reviews one phenotype definition at a time.
@@ -111,6 +113,8 @@ Candidate selection:
 12. `LLM_DRY_RUN` (default `0`)
 13. `LLM_USE_RESPONSES` (default `0`) selects OpenAI Responses API format instead of Chat Completions. It does not affect MCP tool use.
 14. `LLM_CANDIDATE_LIMIT` (default `10`)
+15. `STUDY_AGENT_HOST` (default `127.0.0.1`)
+16. `STUDY_AGENT_PORT` (default `8765`)
 
 **Risks and Mitigations**
 1. Missing dependencies for FAISS

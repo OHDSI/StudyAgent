@@ -18,7 +18,7 @@ Here are some ways:
 
 Show the phenotype_* tools in use to design, run, and interpret the results of an OHDSI incidence rate analysis using the [CohortIncidenceModule](https://raw.githubusercontent.com/OHDSI/Strategus/main/inst/doc/CreatingAnalysisSpecification.pdf) of  [OHDSI Strategus](https://github.com/OHDSI/Strategus) 
 
-Extend the study agent so it uses resulst from Data Quality Dashboard, Achilles Heel data quality checks, and Achilles data source characterizations over one or more sources that a user intends to use within a study.  In this mode, the study agent derive insights from those sources based on the user's study intent.  This is important because it will make the information in the characterizations and QC reports more relevant and actionable to users than static and broad-scope reports (current state). 
+Extend the study agent so it uses results from Data Quality Dashboard, Achilles Heel data quality checks, and Achilles data source characterizations over one or more sources that a user intends to use within a study.  In this mode, the study agent derive insights from those sources based on the user's study intent.  This is important because it will make the information in the characterizations and QC reports more relevant and actionable to users than static and broad-scope reports (current state). 
 
 ### Long term
 
@@ -88,7 +88,26 @@ LLM requests never include row-level PHI/PII; only sanitized summaries are sent.
 
 For details on PHI/PII handling, see `docs/PHENOTYPE_VALIDATION_REVIEW.md`.
 
-#### Example run for `phenotype_recommendations`
+### `phenotype_recommendation_advice` flow (ACP + MCP + LLM)
+
+1. ACP calls MCP `phenotype_recommendation_advice` for advisory prompt assets and schema.
+2. ACP calls an OpenAI-compatible LLM API to return actionable guidance.
+3. Core validates the advisory output.
+
+This flow is used as a fallback when users do not accept initial recommendations.
+
+### Strategus incidence shell (R)
+
+The interactive Strategus shell orchestrates phenotype selection, improvements, and script
+generation for a CohortIncidence study. See `docs/STRATEGUS_SHELL.md`.
+
+### Service Registry
+
+Service definitions live in `docs/SERVICE_REGISTRY.yaml`. ACP exposes a `/services` endpoint that
+reports registry entries plus any additional ACP-implemented services. You can list services
+quickly with `doit list_services`.
+
+#### Example run for `phenotype_recommendation`
 
 *Prerequisite:* you have embedded phenotype definitions - see `./docs/PHENOTYPE_INDEXING.md`
 
@@ -100,11 +119,14 @@ export LLM_LOG=1
 export LLM_MODEL=<a model that supports completions> 
 export EMBED_API_KEY=<YOUR KEY>
 export EMBED_MODEL=<a text embedding model>
-export EMBED_URL="<URL BASE>/ollama/api/embed"
+export EMBED_URL="<URL BASE>/v1/embeddings"
+export STUDY_AGENT_HOST=127.0.0.1
+export STUDY_AGENT_PORT=8765
 export STUDY_AGENT_MCP_COMMAND=study-agent-mcp
 export STUDY_AGENT_MCP_ARGS=""
 study-agent-acp
 ```
+Note: Prefer stopping the ACP process (SIGINT/SIGTERM) so the MCP subprocess is closed cleanly. Killing the MCP directly can leave defunct processes.
 
 2. Run `phenotype_recommendation`
 ```bash

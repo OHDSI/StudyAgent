@@ -79,3 +79,16 @@ def test_phenotype_improvements_filters_targets():
     result = phenotype_improvements("protocol", cohorts, llm_result=llm)
     assert result["invalid_targets_filtered"] == [999]
     assert len(result["phenotype_improvements"]) == 1
+
+
+@pytest.mark.core
+def test_phenotype_improvements_remaps_single_target():
+    cohorts = [{"id": 33}]
+    llm = {
+        "phenotype_improvements": [
+            {"targetCohortId": 999, "suggestion": "fix"},
+        ]
+    }
+    result = phenotype_improvements("protocol", cohorts, llm_result=llm)
+    assert len(result["phenotype_improvements"]) == 1
+    assert result["phenotype_improvements"][0]["targetCohortId"] == 33

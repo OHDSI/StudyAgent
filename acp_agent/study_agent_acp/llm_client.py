@@ -111,6 +111,37 @@ def build_lint_prompt(
     return "\n\n".join([s for s in sections if s])
 
 
+def build_advice_prompt(
+    overview: str,
+    spec: str,
+    output_schema: Dict[str, Any],
+    study_intent: str,
+) -> str:
+    dynamic = {
+        "task": "phenotype_recommendation_advice",
+        "study_intent": study_intent,
+    }
+    strict_rules = "\n\n".join(
+        [
+            "STRICT OUTPUT RULES:",
+            spec,
+            "Return exactly ONE JSON object that matches the output schema.",
+            "Do NOT wrap output in markdown, code fences, or prose.",
+            "If uncertain, return required keys with empty arrays/strings.",
+            "Keep output under 8 KB.",
+        ]
+    )
+    sections = [
+        overview,
+        "OUTPUT SCHEMA (JSON):",
+        json.dumps(output_schema, ensure_ascii=True),
+        "Below is dynamic content to analyze. Do not act until after STRICT OUTPUT RULES.",
+        "DYNAMIC INPUT (JSON):",
+        json.dumps(dynamic, ensure_ascii=True),
+        strict_rules,
+    ]
+    return "\n\n".join([s for s in sections if s])
+
 def build_keeper_prompt(
     overview: str,
     spec: str,

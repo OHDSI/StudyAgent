@@ -22,6 +22,8 @@ DEFAULT_ENV = {
     "LLM_CANDIDATE_LIMIT": os.getenv("LLM_CANDIDATE_LIMIT", "10"),
     "ACP_URL": os.getenv("ACP_URL", "http://127.0.0.1:8765/flows/phenotype_recommendation"),
     "ACP_TIMEOUT": os.getenv("ACP_TIMEOUT", "180"),
+    "STUDY_AGENT_HOST": os.getenv("STUDY_AGENT_HOST", "127.0.0.1"),
+    "STUDY_AGENT_PORT": os.getenv("STUDY_AGENT_PORT", "8765"),
 }
 
 
@@ -81,6 +83,112 @@ def task_run_all():
     return {
         "actions": None,
         "task_dep": ["test_all","smoke_phenotype_recommend_flow", "smoke_phenotype_improvements_flow", "smoke_concept_sets_review_flow", "smoke_cohort_critique_flow"],
+    }
+
+
+def task_check_llm_connectivity():
+    def _run_check() -> None:
+        env = os.environ.copy()
+        if not env.get("LLM_API_KEY"):
+            print("Missing LLM_API_KEY in environment. Set it before running this task.")
+            return
+        for key, value in DEFAULT_ENV.items():
+            env.setdefault(key, value)
+
+        url = env["LLM_API_URL"]
+        model = env["LLM_MODEL"]
+        use_responses = env.get("LLM_USE_RESPONSES", "0") == "1"
+
+        if use_responses:
+            payload = json.dumps(
+                {
+                    "model": model,
+                    "input": "What we have here is a failure to communicate!.",
+                    "temperature": 0,
+                }
+            )
+        else:
+            payload = json.dumps(
+                {
+                    "model": model,
+                    "messages": [{"role": "user", "content": "Tau Ceti here we ."}],
+                    "temperature": 0,
+                }
+            )
+
+        cmd = [
+            "curl",
+            "-sS",
+            "-X",
+            "POST",
+            url,
+            "-H",
+            "Content-Type: application/json",
+            "-H",
+            f"Authorization: Bearer {env['LLM_API_KEY']}",
+            "-d",
+            payload,
+        ]
+        print("Running LLM connectivity check...")
+        subprocess.run(cmd, check=True)
+
+    return {
+        "actions": [_run_check],
+        "verbosity": 2,
+    }
+
+
+def task_list_services():
+    def _run_list() -> None:
+        env = os.environ.copy()
+        host = env.get("STUDY_AGENT_HOST", DEFAULT_ENV["STUDY_AGENT_HOST"])
+        port = env.get("STUDY_AGENT_PORT", DEFAULT_ENV["STUDY_AGENT_PORT"])
+        url = env.get("ACP_BASE_URL", f"http://{host}:{port}")
+        if url.endswith("/"):
+            url = url[:-1]
+
+        def _wait_for_acp(base_url: str, timeout_s: int = 15) -> None:
+            deadline = time.time() + timeout_s
+            health = f"{base_url}/health"
+            while time.time() < deadline:
+                try:
+                    with urllib.request.urlopen(health, timeout=2) as response:
+                        if response.status == 200:
+                            return
+                except Exception:
+                    time.sleep(0.5)
+            raise RuntimeError(f"ACP did not become ready at {health}")
+
+        acp_proc = None
+        try:
+            try:
+                _wait_for_acp(url, timeout_s=3)
+            except Exception:
+                env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
+                env.setdefault("STUDY_AGENT_MCP_ARGS", "")
+                acp_stdout = env.get("ACP_STDOUT", "/tmp/study_agent_acp_stdout.log")
+                acp_stderr = env.get("ACP_STDERR", "/tmp/study_agent_acp_stderr.log")
+                print("Starting ACP (will spawn MCP via stdio) to list services...")
+                with open(acp_stdout, "w", encoding="utf-8") as out, open(acp_stderr, "w", encoding="utf-8") as err:
+                    acp_proc = subprocess.Popen(["study-agent-acp"], env=env, stdout=out, stderr=err)
+                _wait_for_acp(url, timeout_s=15)
+
+            req = urllib.request.Request(f"{url}/services")
+            with urllib.request.urlopen(req, timeout=10) as response:
+                body = response.read().decode("utf-8")
+            print(body)
+        finally:
+            if acp_proc is not None:
+                print("Stopping ACP...")
+                acp_proc.terminate()
+                try:
+                    acp_proc.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    acp_proc.kill()
+
+    return {
+        "actions": [_run_list],
+        "verbosity": 2,
     }
 
 
@@ -192,6 +300,63 @@ def task_smoke_phenotype_improvements_flow():
                 acp_proc.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 acp_proc.kill()
+
+    return {
+        "actions": [_run_smoke],
+        "verbosity": 2,
+    }
+
+
+def task_smoke_phenotype_recommendation_advice_flow():
+    def _wait_for_acp(url: str, timeout_s: int = 30) -> None:
+        deadline = time.time() + timeout_s
+        while time.time() < deadline:
+            try:
+                with urllib.request.urlopen(url, timeout=2) as response:
+                    if response.status == 200:
+                        return
+            except Exception:
+                time.sleep(0.5)
+        raise RuntimeError(f"ACP did not become ready at {url}")
+
+    def _run_smoke() -> None:
+        env = os.environ.copy()
+        if not env.get("LLM_API_KEY"):
+            print("Missing LLM_API_KEY in environment. Set it before running this task.")
+            return
+        for key, value in DEFAULT_ENV.items():
+            env.setdefault(key, value)
+        env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
+        env.setdefault("STUDY_AGENT_MCP_ARGS", "")
+        env.setdefault("LLM_LOG", "1")
+
+        acp_stdout = env.get("ACP_STDOUT", "/tmp/study_agent_acp_stdout.log")
+        acp_stderr = env.get("ACP_STDERR", "/tmp/study_agent_acp_stderr.log")
+        print("Starting ACP (will spawn MCP via stdio)...")
+        with open(acp_stdout, "w", encoding="utf-8") as out, open(acp_stderr, "w", encoding="utf-8") as err:
+            acp_proc = subprocess.Popen(["study-agent-acp"], env=env, stdout=out, stderr=err)
+        try:
+            print("Waiting for ACP health endpoint...")
+            _wait_for_acp("http://127.0.0.1:8765/health", timeout_s=30)
+            print("Running phenotype recommendation advice flow smoke test...")
+            body = json.dumps(
+                {
+                    "study_intent": "What is the risk of GI bleed in new users of celecoxib compared to diclofenac?",
+                }
+            ).encode("utf-8")
+            req = urllib.request.Request(
+                "http://127.0.0.1:8765/flows/phenotype_recommendation_advice",
+                data=body,
+                method="POST",
+            )
+            req.add_header("Content-Type", "application/json")
+            with urllib.request.urlopen(req, timeout=int(env.get("ACP_TIMEOUT", "180"))) as response:
+                payload = response.read().decode("utf-8")
+            print(payload)
+        finally:
+            print("Stopping ACP...")
+            acp_proc.terminate()
+            acp_proc.wait(timeout=10)
 
     return {
         "actions": [_run_smoke],

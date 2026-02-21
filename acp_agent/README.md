@@ -1,6 +1,12 @@
 # study-agent ACP agent
 Orchestrates user interaction and calls MCP tools. No direct data plane access unless explicitly required.
 
+## ACP Server Configuration
+
+- `STUDY_AGENT_HOST` (default `127.0.0.1`)
+- `STUDY_AGENT_PORT` (default `8765`)
+- Shutdown: Prefer stopping the ACP process (SIGINT/SIGTERM) so the MCP subprocess is closed cleanly. Killing the MCP directly can leave defunct processes.
+
 ## LLM Configuration (OpenAI-compatible)
 
 Set these environment variables to enable LLM calls from ACP:

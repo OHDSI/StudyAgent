@@ -1,0 +1,14 @@
++----------------------------------------------------------------------------------------------------+
+|oooooooooooooooooooooooooooooooo=oooooooooooooooooooooooooooooooooooooooo=oooooo=ooooooooooooooooooo|
+|oooo=++++++++++++++++==ooooooooooo======ooooooo====oooooo===ooo======ooooooooooooo=====oooo====ooooo|
+|oooo+  ..        .~:::::+oooooo+~       .~+oooo~  ~ooooo=.  :oo:        .~+ooooo:.      .=o=   +oooo|
+|oooo+   ~:.  .:++::::::~+oooo+.   .:::~.   .=oo.  ~oooooo   :oo~   ~~~..    +oo~   :::~.+=o=   +oooo|
+|oooo+     :+=+:~~~::::::+ooo=   .=oooooo+   .oo.  .++++++   :oo~  .ooooo=~   +o   .+=oooooo=   +oooo|
+|oooo+    ~++:+:~::::::::+o=o+   +o======o:   =o.            :oo~   =====o=   ~o+.      ~+oo=   +oooo|
+|oooo+   ++:~~:++:~~:::::+ooo+   ~oooooooo.   =o.  .++++++   :oo~  .oooooo:   +oooo=+:~   :o+   +oooo|
+|oooo+ .=:~~:::~:++::::::+oooo:   .++==+:.   +oo.  ~oooooo   :oo~   ++++~.   :oo=~:+==+   :o+   +oooo|
+|oooo: =:~:::::::::+++:::+ooooo+~          ~=o=o.  .o=ooo=   :oo~         .~=oo=.        ~oo=   +oooo|
+|oooo++:~::::::::::::+++:+ooooooo=++::::++oooooo++++oooooo+++==o=+++++++==oooooo=++::::+=ooo=+++=oooo|
+|oooo=+:::::::::::::::+++=oooo=::::++++++++:::+:==+:+:++:+=:+++:+=:++:+:+::++::::=+++++::::++++++oooo|
+|ooooo===================oooooo==================================================================oooo|
++----------------------------------------------------------------------------------------------------+

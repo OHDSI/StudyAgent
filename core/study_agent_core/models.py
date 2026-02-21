@@ -28,6 +28,11 @@ class PhenotypeImprovementsInput(BaseModel):
     llm_result: Optional[Dict[str, Any]] = None
 
 
+class PhenotypeRecommendationAdviceInput(BaseModel):
+    study_intent: str
+    llm_result: Optional[Dict[str, Any]] = None
+
+
 class ConceptSetDiffOutput(BaseModel):
     plan: str
     findings: List[Dict[str, Any]] = Field(default_factory=list)
@@ -58,3 +63,11 @@ class PhenotypeImprovementsOutput(BaseModel):
     code_suggestion: Optional[Dict[str, Any]] = None
     mode: str
     invalid_targets_filtered: List[int] = Field(default_factory=list)
+
+
+class PhenotypeRecommendationAdviceOutput(BaseModel):
+    plan: str
+    advice: str
+    next_steps: List[str] = Field(default_factory=list)
+    questions: List[str] = Field(default_factory=list)
+    mode: str

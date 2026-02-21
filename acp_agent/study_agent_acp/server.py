@@ -8,6 +8,16 @@ from typing import Any, Dict, Optional
 from .agent import StudyAgent
 from .mcp_client import StdioMCPClient, StdioMCPClientConfig
 
+SERVICES = [
+    {"name": "phenotype_recommendation", "endpoint": "/flows/phenotype_recommendation"},
+    {"name": "phenotype_improvements", "endpoint": "/flows/phenotype_improvements"},
+    {"name": "concept_sets_review", "endpoint": "/flows/concept_sets_review"},
+    {"name": "cohort_critique_general_design", "endpoint": "/flows/cohort_critique_general_design"},
+    {"name": "phenotype_validation_review", "endpoint": "/flows/phenotype_validation_review"},
+    {"name": "phenotype_recommendation_advice", "endpoint": "/flows/phenotype_recommendation_advice"},
+]
+SERVICE_REGISTRY_PATH = os.getenv("STUDY_AGENT_SERVICE_REGISTRY", "docs/SERVICE_REGISTRY.yaml")
+
 
 def _read_json(handler: BaseHTTPRequestHandler) -> Dict[str, Any]:
     length = int(handler.headers.get("Content-Length", "0"))
@@ -32,6 +42,31 @@ def _write_json(handler: BaseHTTPRequestHandler, status: int, payload: Dict[str,
             print("ACP response write failed: client disconnected.")
 
 
+def _load_registry_services() -> tuple[list[Dict[str, Any]], list[str]]:
+    warnings: list[str] = []
+    try:
+        import yaml
+    except Exception:
+        return [], ["pyyaml_not_installed"]
+    if not os.path.exists(SERVICE_REGISTRY_PATH):
+        return [], [f"service_registry_missing:{SERVICE_REGISTRY_PATH}"]
+    try:
+        with open(SERVICE_REGISTRY_PATH, "r", encoding="utf-8") as handle:
+            data = yaml.safe_load(handle) or {}
+    except Exception as exc:
+        return [], [f"service_registry_error:{exc}"]
+    services = []
+    for name, entry in (data.get("services") or {}).items():
+        if str(name).startswith("_"):
+            continue
+        endpoint = entry.get("endpoint")
+        if endpoint:
+            services.append({"name": name, "endpoint": endpoint})
+        else:
+            warnings.append(f"service_registry_missing_endpoint:{name}")
+    return services, warnings
+
+
 class ACPRequestHandler(BaseHTTPRequestHandler):
     agent: StudyAgent
     mcp_client: Optional[StdioMCPClient]
@@ -51,6 +86,23 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             return
         if self.path == "/tools":
             _write_json(self, 200, {"tools": self.agent.list_tools()})
+            return
+        if self.path == "/services":
+            registry_services, warnings = _load_registry_services()
+            registry_map = {svc["endpoint"]: svc for svc in registry_services}
+            runtime_map = {svc["endpoint"]: svc for svc in SERVICES}
+
+            services = []
+            for endpoint, svc in registry_map.items():
+                merged = dict(svc)
+                merged["implemented"] = endpoint in runtime_map
+                services.append(merged)
+            for endpoint, svc in runtime_map.items():
+                if endpoint not in registry_map:
+                    services.append({**svc, "implemented": True, "source": "acp"})
+                    warnings.append(f"service_missing_in_registry:{endpoint}")
+
+            _write_json(self, 200, {"services": services, "warnings": warnings})
             return
         _write_json(self, 404, {"error": "not_found"})
 
@@ -94,12 +146,16 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             candidate_limit = body.get("candidate_limit")
             if candidate_limit is not None:
                 candidate_limit = int(candidate_limit)
+            candidate_offset = body.get("candidate_offset")
+            if candidate_offset is not None:
+                candidate_offset = int(candidate_offset)
             try:
                 result = self.agent.run_phenotype_recommendation_flow(
                     study_intent=study_intent,
                     top_k=top_k,
                     max_results=max_results,
                     candidate_limit=candidate_limit,
+                    candidate_offset=candidate_offset,
                 )
             except Exception as exc:
                 if self.debug:
@@ -262,6 +318,28 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             _write_json(self, status, result)
             return
 
+        if self.path == "/flows/phenotype_recommendation_advice":
+            try:
+                body = _read_json(self)
+            except Exception as exc:
+                _write_json(self, 400, {"error": f"invalid_json: {exc}"})
+                return
+            study_intent = body.get("study_intent") or body.get("query") or ""
+            try:
+                result = self.agent.run_phenotype_recommendation_advice_flow(
+                    study_intent=study_intent,
+                )
+            except Exception as exc:
+                if self.debug:
+                    import traceback
+
+                    traceback.print_exc()
+                _write_json(self, 500, {"error": "flow_failed", "detail": str(exc) if self.debug else None})
+                return
+            status = 200 if result.get("status") != "error" else 500
+            _write_json(self, status, result)
+            return
+
         _write_json(self, 404, {"error": "not_found"})
 
 
@@ -332,7 +410,11 @@ def _ensure_cohort_ids(cohorts: Any, cohort_paths: list[str]) -> list[dict[str, 
 
 def main(host: str = "127.0.0.1", port: int = 8765) -> None:
     import os
+    import signal
+    import threading
 
+    host = os.getenv("STUDY_AGENT_HOST", host)
+    port = int(os.getenv("STUDY_AGENT_PORT", str(port)))
     mcp_command = os.getenv("STUDY_AGENT_MCP_COMMAND")
     mcp_args = os.getenv("STUDY_AGENT_MCP_ARGS", "")
     allow_core_fallback = os.getenv("STUDY_AGENT_ALLOW_CORE_FALLBACK", "1") == "1"
@@ -350,6 +432,27 @@ def main(host: str = "127.0.0.1", port: int = 8765) -> None:
     Handler.mcp_client = mcp_client
     Handler.debug = debug
     server = HTTPServer((host, port), Handler)
+
+    shutdown_lock = threading.Lock()
+    shutdown_once = {"done": False}
+
+    def _shutdown(signum, frame) -> None:
+        with shutdown_lock:
+            if shutdown_once["done"]:
+                return
+            shutdown_once["done"] = True
+        if mcp_client is not None:
+            try:
+                mcp_client.close()
+            except Exception:
+                pass
+        try:
+            server.shutdown()
+        except Exception:
+            pass
+
+    signal.signal(signal.SIGINT, _shutdown)
+    signal.signal(signal.SIGTERM, _shutdown)
     _serve(server, mcp_client)
 
 

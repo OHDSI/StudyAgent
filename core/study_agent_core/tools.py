@@ -8,6 +8,8 @@ from .models import (
     ConceptSetDiffOutput,
     PhenotypeImprovementsInput,
     PhenotypeImprovementsOutput,
+    PhenotypeRecommendationAdviceInput,
+    PhenotypeRecommendationAdviceOutput,
     PhenotypeRecommendationsInput,
     PhenotypeRecommendationsOutput,
 )
@@ -381,6 +383,14 @@ def phenotype_improvements(
 
     if payload.llm_result:
         raw_improvements = payload.llm_result.get("phenotype_improvements") or []
+        if len(allowed_ids) == 1:
+            only_id = allowed_ids[0]
+            for imp in raw_improvements:
+                if not isinstance(imp, dict):
+                    continue
+                target_id = imp.get("targetCohortId")
+                if target_id is not None and target_id != only_id:
+                    imp["targetCohortId"] = only_id
         invalid_targets = sorted(
             {
                 imp.get("targetCohortId")
@@ -402,5 +412,47 @@ def phenotype_improvements(
         code_suggestion=code_suggestion,
         mode=mode,
         invalid_targets_filtered=invalid_targets,
+    )
+    return _model_dump(output)
+
+
+def phenotype_recommendation_advice(
+    study_intent: str,
+    llm_result: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    payload = PhenotypeRecommendationAdviceInput(
+        study_intent=study_intent,
+        llm_result=llm_result,
+    )
+
+    plan = "Provide next-step guidance when phenotype recommendations are insufficient."
+    advice = ""
+    next_steps: List[str] = []
+    questions: List[str] = []
+    mode = "llm"
+
+    if payload.llm_result:
+        if payload.llm_result.get("plan"):
+            plan = payload.llm_result["plan"]
+        advice = payload.llm_result.get("advice") or ""
+        if isinstance(payload.llm_result.get("next_steps"), list):
+            next_steps = [str(s) for s in payload.llm_result["next_steps"]]
+        if isinstance(payload.llm_result.get("questions"), list):
+            questions = [str(s) for s in payload.llm_result["questions"]]
+    else:
+        mode = "stub"
+        advice = "No LLM response available. Refine the study intent and retry phenotype recommendations."
+        next_steps = [
+            "Clarify the population and outcome definitions in the study intent.",
+            "Try alternate terms for the outcome or exposure.",
+            "Review existing OHDSI phenotype library for similar cohorts.",
+        ]
+
+    output = PhenotypeRecommendationAdviceOutput(
+        plan=plan,
+        advice=advice,
+        next_steps=next_steps,
+        questions=questions,
+        mode=mode,
     )
     return _model_dump(output)
