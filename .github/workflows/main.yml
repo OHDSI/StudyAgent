@@ -1,0 +1,23 @@
+# .github/workflows/sync-in.yml (on VA GHE)
+name: Sync in from GitHub.com
+on:
+  schedule:
+    - cron: '0 3 * * *'   # daily 03:00 UTC
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure Git
+        run: |
+          git config user.name "Richard Boyce"
+          git config user.email "richard.boyce1@va.gov"
+      - name: Add public remote
+        run: |
+          git remote add upstream https://github.com/OHDSI/StudyAgent.git || true
+          git fetch --prune upstream main
+          git checkout -B sync/public upstream/main
+      - name: Push to VA
+        run: git push origin sync/public

@@ -196,7 +196,7 @@ Below is a set of planned study agent services, organized by category. For each 
 #### `propose_adjustment_set`
 **Input:** Study intent + DAG.  
 **Output:** Adjustment set from OHDSI features plus suggested FeatureExtraction features.  
-**Validation:** Confounder/collider/mediator checks against DAG.
+**Validation:** Confounder/collider/mediator checks against DAG. E.g., showing the user if any known and biased collider that *someone in another paper published* might accidentally be including in their study design. See [this JAMA article](https://jamanetwork.com/journals/jama/fullarticle/2790247) for more about colliders. Also, potentially using a knowledge graph of causal findings from the entire literature to informat the user of the same.  
 
 ### Study Component Testing, Improvement, and Linting
 
