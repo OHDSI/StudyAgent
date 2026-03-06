@@ -109,7 +109,7 @@ Candidate selection:
 8. `LLM_API_KEY` (required for LLM calls)
 9. `LLM_MODEL` (default `agentstudyassistant`)
 10. `LLM_TIMEOUT` (default `180`)
-11. `LLM_LOG` (default `0`)
+11. `LLM_LOG` (default `0`) enables verbose LLM logging to ACP stdout (config, prompt, raw response).
 12. `LLM_DRY_RUN` (default `0`)
 13. `LLM_USE_RESPONSES` (default `0`) selects OpenAI Responses API format instead of Chat Completions. It does not affect MCP tool use.
 14. `LLM_CANDIDATE_LIMIT` (default `10`)

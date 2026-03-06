@@ -78,6 +78,13 @@ def test_phenotype_improvements_filters_targets():
     }
     result = phenotype_improvements("protocol", cohorts, llm_result=llm)
     assert result["invalid_targets_filtered"] == [999]
+
+
+@pytest.mark.core
+def test_phenotype_validation_review_stub():
+    result = phenotype_validation_review("GI bleed")
+    assert result["mode"] == "stub"
+    assert result["label"] == "unknown"
     assert len(result["phenotype_improvements"]) == 1
 
 

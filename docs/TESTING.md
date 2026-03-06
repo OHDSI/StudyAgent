@@ -77,6 +77,55 @@ curl -s -X POST http://127.0.0.1:8765/tools/call \
   -d '{"name":"cohort_lint","arguments":{"cohort":{"PrimaryCriteria":{"ObservationWindow":{"PriorDays":0}}}}}'
 ```
 
+### PowerShell (Windows) equivalents
+
+Notes:
+- PowerShell aliases `curl` to `Invoke-WebRequest`. Use `curl.exe` for real curl, or use `Invoke-RestMethod` below.
+- Use here-strings to keep JSON readable.
+
+Start ACP with verbose logging (server + LLM):
+
+```powershell
+$env:STUDY_AGENT_ALLOW_CORE_FALLBACK = "1"
+$env:STUDY_AGENT_DEBUG = "1"
+$env:LLM_LOG = "1"
+study-agent-acp
+```
+
+Health/tools checks:
+
+```powershell
+curl.exe -s http://127.0.0.1:8765/health
+curl.exe -s http://127.0.0.1:8765/tools
+curl.exe -s http://127.0.0.1:8765/services
+```
+
+Tool call (Invoke-RestMethod):
+
+```powershell
+$body = @'
+{"name":"cohort_lint","arguments":{"cohort":{"PrimaryCriteria":{"ObservationWindow":{"PriorDays":0}}}}}
+'@
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8765/tools/call `
+  -Headers @{ "Content-Type" = "application/json" } `
+  -Body $body
+```
+
+Tool call (curl.exe):
+
+```powershell
+$body = @'
+{"name":"cohort_lint","arguments":{"cohort":{"PrimaryCriteria":{"ObservationWindow":{"PriorDays":0}}}}}
+'@
+
+curl.exe -s -X POST http://127.0.0.1:8765/tools/call `
+  -H "Content-Type: application/json" `
+  -d $body
+```
+
 ## ACP smoke test (MCP-backed)
 
 Start ACP with an MCP tool server:
@@ -103,7 +152,10 @@ export LLM_API_KEY="..."
 export LLM_MODEL="gemma3:4b"
 export LLM_DRY_RUN=0
 export LLM_USE_RESPONSES=0
+export LLM_LOG=1
 ```
+
+`LLM_LOG=1` enables verbose LLM logging to ACP stdout (config, prompt, raw response).
 
 Then call:
 

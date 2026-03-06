@@ -1,0 +1,15 @@
+name: study-agent
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - anyio
+      - faiss-cpu
+      - flask
+      - mcp
+      - numpy
+      - pydantic
+      - pytest
+      - requests
