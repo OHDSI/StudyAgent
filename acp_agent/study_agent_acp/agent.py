@@ -4,18 +4,21 @@ from typing import Any, Dict, List, Optional, Protocol
 from study_agent_core.models import (
     CohortLintInput,
     ConceptSetDiffInput,
+    PhenotypeIntentSplitInput,
     PhenotypeImprovementsInput,
     PhenotypeRecommendationAdviceInput,
     PhenotypeRecommendationsInput,
 )
 from study_agent_core.tools import (
     cohort_lint,
+    phenotype_intent_split,
     phenotype_improvements,
     phenotype_recommendation_advice,
     phenotype_recommendations,
     propose_concept_set_diff,
 )
 from .llm_client import (
+    build_intent_split_prompt,
     build_advice_prompt,
     build_improvements_prompt,
     build_keeper_prompt,
@@ -50,6 +53,7 @@ class StudyAgent:
             "phenotype_recommendations": phenotype_recommendations,
             "phenotype_recommendation_advice": phenotype_recommendation_advice,
             "phenotype_improvements": phenotype_improvements,
+            "phenotype_intent_split": phenotype_intent_split,
         }
 
         self._schemas = {
@@ -58,6 +62,7 @@ class StudyAgent:
             "phenotype_recommendations": PhenotypeRecommendationsInput.model_json_schema(),
             "phenotype_recommendation_advice": PhenotypeRecommendationAdviceInput.model_json_schema(),
             "phenotype_improvements": PhenotypeImprovementsInput.model_json_schema(),
+            "phenotype_intent_split": PhenotypeIntentSplitInput.model_json_schema(),
         }
 
     def list_tools(self) -> List[Dict[str, Any]]:
@@ -246,6 +251,50 @@ class StudyAgent:
             "status": "ok",
             "llm_used": llm_result is not None,
             "advice": core_result,
+        }
+
+    def run_phenotype_intent_split_flow(
+        self,
+        study_intent: str,
+    ) -> Dict[str, Any]:
+        if not study_intent:
+            return {"status": "error", "error": "missing study_intent"}
+        if self._mcp_client is None:
+            return {"status": "error", "error": "MCP client unavailable"}
+
+        prompt_bundle = self.call_tool(
+            name="phenotype_intent_split",
+            arguments={},
+        )
+        prompt_full = prompt_bundle.get("full_result") or {}
+        if prompt_bundle.get("status") != "ok" or prompt_full.get("error"):
+            return {
+                "status": "error",
+                "error": "phenotype_intent_split_prompt_failed",
+                "details": prompt_bundle,
+            }
+
+        prompt = build_intent_split_prompt(
+            overview=prompt_full.get("overview", ""),
+            spec=prompt_full.get("spec", ""),
+            output_schema=prompt_full.get("output_schema", {}),
+            study_intent=study_intent,
+        )
+        llm_result = call_llm(prompt)
+        if llm_result is None:
+            return {
+                "status": "error",
+                "error": "llm_unavailable",
+            }
+        core_result = phenotype_intent_split(
+            study_intent=study_intent,
+            llm_result=llm_result,
+        )
+
+        return {
+            "status": "ok",
+            "llm_used": llm_result is not None,
+            "intent_split": core_result,
         }
 
     def run_phenotype_improvements_flow(

@@ -10,6 +10,7 @@ TOOL_MODULES: list[str] = [
     "study_agent_mcp.tools.cohort_lint",
     "study_agent_mcp.tools.phenotype_recommendations",
     "study_agent_mcp.tools.phenotype_improvements",
+    "study_agent_mcp.tools.phenotype_intent_split",
     "study_agent_mcp.tools.phenotype_search",
     "study_agent_mcp.tools.phenotype_fetch_summary",
     "study_agent_mcp.tools.phenotype_fetch_definition",

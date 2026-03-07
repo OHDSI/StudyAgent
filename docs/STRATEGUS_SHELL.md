@@ -8,10 +8,11 @@ script generation for a CohortIncidence analysis.
 ## What the shell does
 
 - Prompts for a study intent (with a default).
-- Calls `phenotype_recommendation` to retrieve candidate phenotypes.
-- Lets the user select accepted phenotypes and optionally remap cohort IDs.
-- Calls `phenotype_improvements` for each selected cohort and lets the user
-  apply improvements immediately.
+- Calls `phenotype_intent_split` to derive target and outcome cohort statements.
+- Calls `phenotype_recommendation` separately for target and outcome cohorts.
+- Lets the user select accepted target/outcome phenotypes and optionally remap cohort IDs.
+- Calls `phenotype_improvements` for each selected cohort (target then outcome) and lets
+  the user apply improvements immediately.
 - Writes reproducible scripts for cohort generation, Keeper review, diagnostics,
   and incidence analysis.
 - Saves session state to `outputs/study_agent_state.json` for traceability.
@@ -20,9 +21,13 @@ script generation for a CohortIncidence analysis.
 
 Default output directory: `demo-strategus-cohort-incidence/`
 
-- `outputs/`: recommendations, improvements, and session state.
-- `selected-cohorts/`: selected cohort JSON + `Cohorts.csv`.
-- `patched-cohorts/`: improved cohort JSON (if applied).
+- `outputs/`: intent split, recommendations, improvements, roles, and session state.
+- `selected-cohorts/`: combined selected cohort JSON + `Cohorts.csv`.
+- `selected-target-cohorts/`: target cohort JSON.
+- `selected-outcome-cohorts/`: outcome cohort JSON.
+- `patched-cohorts/`: combined improved cohort JSON (if applied).
+- `patched-target-cohorts/`: improved target cohort JSON (if applied).
+- `patched-outcome-cohorts/`: improved outcome cohort JSON (if applied).
 - `keeper-case-review/`: Keeper outputs and review artifacts.
 - `analysis-settings/`: analysis specification JSON.
 - `scripts/`: generated R scripts (01–06).

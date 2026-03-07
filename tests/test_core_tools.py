@@ -2,8 +2,10 @@ import pytest
 
 from study_agent_core.tools import (
     cohort_lint,
+    phenotype_intent_split,
     phenotype_improvements,
     phenotype_recommendations,
+    phenotype_validation_review,
     propose_concept_set_diff,
 )
 
@@ -99,3 +101,23 @@ def test_phenotype_improvements_remaps_single_target():
     result = phenotype_improvements("protocol", cohorts, llm_result=llm)
     assert len(result["phenotype_improvements"]) == 1
     assert result["phenotype_improvements"][0]["targetCohortId"] == 33
+
+
+@pytest.mark.core
+def test_phenotype_intent_split_requires_llm():
+    result = phenotype_intent_split("intent", llm_result=None)
+    assert result["error"] == "no_llm_response"
+
+
+@pytest.mark.core
+def test_phenotype_intent_split_llm():
+    llm = {
+        "plan": "plan",
+        "target_statement": "Target",
+        "outcome_statement": "Outcome",
+        "rationale": "Because",
+        "questions": ["Q1"],
+    }
+    result = phenotype_intent_split("intent", llm_result=llm)
+    assert result["target_statement"] == "Target"
+    assert result["outcome_statement"] == "Outcome"

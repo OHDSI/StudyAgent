@@ -65,6 +65,10 @@ class StubMCPClient:
             return {"plan": "ok", "phenotype_improvements": []}
         if name == "phenotype_prompt_bundle":
             return {"overview": "overview", "spec": "spec", "output_schema": {"type": "object"}}
+        if name == "phenotype_recommendation_advice":
+            return {"overview": "overview", "spec": "spec", "output_schema": {"type": "object"}}
+        if name == "phenotype_intent_split":
+            return {"overview": "overview", "spec": "spec", "output_schema": {"type": "object"}}
         if name == "lint_prompt_bundle":
             return {"overview": "overview", "spec": "spec", "output_schema": {"type": "object"}}
         if name == "keeper_sanitize_row":
@@ -152,3 +156,118 @@ def test_flow_phenotype_validation_review(monkeypatch):
     )
     assert result["status"] == "ok"
     assert result["label"] == "yes"
+
+
+@pytest.mark.acp
+def test_flow_phenotype_recommendation_advice(monkeypatch):
+    import study_agent_acp.agent as agent_module
+
+    captured = {}
+
+    def fake_llm(prompt):
+        captured["prompt"] = prompt
+        return {
+            "plan": "plan",
+            "advice": "Refine intent",
+            "next_steps": ["step1"],
+            "questions": ["question1"],
+        }
+
+    monkeypatch.setattr(agent_module, "call_llm", fake_llm)
+    agent = StudyAgent(mcp_client=StubMCPClient())
+    result = agent.run_phenotype_recommendation_advice_flow(
+        study_intent="Intent text",
+    )
+    assert result["status"] == "ok"
+    assert result["llm_used"] is True
+    assert result["advice"]["advice"] == "Refine intent"
+    assert "Intent text" in captured.get("prompt", "")
+
+
+@pytest.mark.acp
+def test_flow_phenotype_recommendation_advice_missing_intent():
+    agent = StudyAgent(mcp_client=StubMCPClient())
+    result = agent.run_phenotype_recommendation_advice_flow(study_intent="")
+    assert result["status"] == "error"
+    assert result["error"] == "missing study_intent"
+
+
+@pytest.mark.acp
+def test_flow_phenotype_recommendation_advice_prompt_bundle_error(monkeypatch):
+    import study_agent_acp.agent as agent_module
+
+    def fake_llm(prompt):
+        return {"advice": "unused"}
+
+    monkeypatch.setattr(agent_module, "call_llm", fake_llm)
+
+    class BadMCPClient(StubMCPClient):
+        def call_tool(self, name, arguments):
+            if name == "phenotype_recommendation_advice":
+                return {"error": "bad prompt"}
+            return super().call_tool(name, arguments)
+
+    agent = StudyAgent(mcp_client=BadMCPClient())
+    result = agent.run_phenotype_recommendation_advice_flow(
+        study_intent="Intent text",
+    )
+    assert result["status"] == "error"
+    assert result["error"] == "phenotype_recommendation_advice_prompt_failed"
+
+
+@pytest.mark.acp
+def test_flow_phenotype_intent_split(monkeypatch):
+    import study_agent_acp.agent as agent_module
+
+    captured = {}
+
+    def fake_llm(prompt):
+        captured["prompt"] = prompt
+        return {
+            "plan": "plan",
+            "target_statement": "Target cohort",
+            "outcome_statement": "Outcome cohort",
+            "rationale": "Rationale",
+            "questions": ["question1"],
+        }
+
+    monkeypatch.setattr(agent_module, "call_llm", fake_llm)
+    agent = StudyAgent(mcp_client=StubMCPClient())
+    result = agent.run_phenotype_intent_split_flow(
+        study_intent="Intent text",
+    )
+    assert result["status"] == "ok"
+    assert result["llm_used"] is True
+    assert result["intent_split"]["target_statement"] == "Target cohort"
+    assert "Intent text" in captured.get("prompt", "")
+
+
+@pytest.mark.acp
+def test_flow_phenotype_intent_split_missing_intent():
+    agent = StudyAgent(mcp_client=StubMCPClient())
+    result = agent.run_phenotype_intent_split_flow(study_intent="")
+    assert result["status"] == "error"
+    assert result["error"] == "missing study_intent"
+
+
+@pytest.mark.acp
+def test_flow_phenotype_intent_split_prompt_bundle_error(monkeypatch):
+    import study_agent_acp.agent as agent_module
+
+    def fake_llm(prompt):
+        return {"target_statement": "unused"}
+
+    monkeypatch.setattr(agent_module, "call_llm", fake_llm)
+
+    class BadMCPClient(StubMCPClient):
+        def call_tool(self, name, arguments):
+            if name == "phenotype_intent_split":
+                return {"error": "bad prompt"}
+            return super().call_tool(name, arguments)
+
+    agent = StudyAgent(mcp_client=BadMCPClient())
+    result = agent.run_phenotype_intent_split_flow(
+        study_intent="Intent text",
+    )
+    assert result["status"] == "error"
+    assert result["error"] == "phenotype_intent_split_prompt_failed"

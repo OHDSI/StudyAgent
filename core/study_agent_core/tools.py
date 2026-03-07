@@ -8,6 +8,8 @@ from .models import (
     ConceptSetDiffOutput,
     PhenotypeImprovementsInput,
     PhenotypeImprovementsOutput,
+    PhenotypeIntentSplitInput,
+    PhenotypeIntentSplitOutput,
     PhenotypeRecommendationAdviceInput,
     PhenotypeRecommendationAdviceOutput,
     PhenotypeValidationReviewInput,
@@ -454,6 +456,44 @@ def phenotype_recommendation_advice(
         plan=plan,
         advice=advice,
         next_steps=next_steps,
+        questions=questions,
+        mode=mode,
+    )
+    return _model_dump(output)
+
+
+def phenotype_intent_split(
+    study_intent: str,
+    llm_result: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    payload = PhenotypeIntentSplitInput(
+        study_intent=study_intent,
+        llm_result=llm_result,
+    )
+
+    if not payload.llm_result:
+        return {"error": "no_llm_response"}
+
+    plan = "Extract target and outcome cohort statements from the study intent."
+    target_statement = ""
+    outcome_statement = ""
+    rationale = ""
+    questions: List[str] = []
+    mode = "llm"
+
+    if payload.llm_result.get("plan"):
+        plan = str(payload.llm_result["plan"])
+    target_statement = str(payload.llm_result.get("target_statement") or "")
+    outcome_statement = str(payload.llm_result.get("outcome_statement") or "")
+    rationale = str(payload.llm_result.get("rationale") or "")
+    if isinstance(payload.llm_result.get("questions"), list):
+        questions = [str(q) for q in payload.llm_result["questions"]]
+
+    output = PhenotypeIntentSplitOutput(
+        plan=plan,
+        target_statement=target_statement,
+        outcome_statement=outcome_statement,
+        rationale=rationale,
         questions=questions,
         mode=mode,
     )

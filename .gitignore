@@ -1,3 +1,13 @@
+*sandbox*
+*.doit.db*
+*data*
+*~
+*.agent-shell*
+docs/study-agent-development-phenotype-suggestion-tool-architecture-plan.pdf
+demo/417_Acute_gastrointestinal_bleeding_events.json
+demo/299_Acute_gastrointestinal_bleeding_or_perforation_events.json
+demo/1197_Acute_gastrointestinal_bleeding.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -25,7 +35,6 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
-
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.

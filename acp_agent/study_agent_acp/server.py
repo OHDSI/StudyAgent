@@ -15,6 +15,7 @@ SERVICES = [
     {"name": "cohort_critique_general_design", "endpoint": "/flows/cohort_critique_general_design"},
     {"name": "phenotype_validation_review", "endpoint": "/flows/phenotype_validation_review"},
     {"name": "phenotype_recommendation_advice", "endpoint": "/flows/phenotype_recommendation_advice"},
+    {"name": "phenotype_intent_split", "endpoint": "/flows/phenotype_intent_split"},
 ]
 SERVICE_REGISTRY_PATH = os.getenv("STUDY_AGENT_SERVICE_REGISTRY", "docs/SERVICE_REGISTRY.yaml")
 
@@ -334,6 +335,28 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             study_intent = body.get("study_intent") or body.get("query") or ""
             try:
                 result = self.agent.run_phenotype_recommendation_advice_flow(
+                    study_intent=study_intent,
+                )
+            except Exception as exc:
+                if self.debug:
+                    import traceback
+
+                    traceback.print_exc()
+                _write_json(self, 500, {"error": "flow_failed", "detail": str(exc) if self.debug else None})
+                return
+            status = 200 if result.get("status") != "error" else 500
+            _write_json(self, status, result)
+            return
+
+        if self.path == "/flows/phenotype_intent_split":
+            try:
+                body = _read_json(self)
+            except Exception as exc:
+                _write_json(self, 400, {"error": f"invalid_json: {exc}"})
+                return
+            study_intent = body.get("study_intent") or body.get("query") or ""
+            try:
+                result = self.agent.run_phenotype_intent_split_flow(
                     study_intent=study_intent,
                 )
             except Exception as exc:

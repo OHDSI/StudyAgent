@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "phenotype_intent_split_output",
+  "type": "object",
+  "properties": {
+    "plan": {"type": "string"},
+    "target_statement": {"type": "string"},
+    "outcome_statement": {"type": "string"},
+    "rationale": {"type": "string"},
+    "questions": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "required": ["plan", "target_statement", "outcome_statement", "rationale"],
+  "additionalProperties": false
+}

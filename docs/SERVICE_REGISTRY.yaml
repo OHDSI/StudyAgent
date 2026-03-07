@@ -96,3 +96,17 @@ services:
       - questions
     validation:
       - core.phenotype_recommendation_advice schema validation
+
+  phenotype_intent_split:
+    endpoint: /flows/phenotype_intent_split
+    mcp_tools:
+      - phenotype_intent_split
+    input:
+      - study_intent
+    output:
+      - target_statement
+      - outcome_statement
+      - rationale
+      - questions
+    validation:
+      - core.phenotype_intent_split schema validation
