@@ -13,6 +13,7 @@
 #' @param allowCache reuse cached artifacts when present
 #' @param promptOnCache prompt before using cached artifacts
 #' @param autoApplyImprovements when TRUE, apply improvements without prompting (defaults to TRUE for non-interactive)
+#' @param resume when TRUE, resume from last checkpoint if present
 #' @return invisible list with output paths
 #' @export
 runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incidence",
@@ -28,7 +29,8 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
                                       reset = FALSE,
                                       allowCache = TRUE,
                                       promptOnCache = TRUE,
-                                      autoApplyImprovements = NA) {
+                                      autoApplyImprovements = NA,
+                                      resume = FALSE) {
   `%||%` <- function(x, y) if (is.null(x)) y else x
 
   ensure_dir <- function(path) {
@@ -61,6 +63,20 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
 
   write_json <- function(x, path) {
     jsonlite::write_json(x, path, pretty = TRUE, auto_unbox = TRUE)
+  }
+
+  checkpoint_path <- function(label) {
+    file.path(output_dir, paste0("checkpoint_", label, ".json"))
+  }
+
+  mark_checkpoint <- function(label, payload = list()) {
+    checkpoint <- list(step = label)
+    if (length(payload) > 0) checkpoint <- c(checkpoint, payload)
+    write_json(checkpoint, checkpoint_path(label))
+  }
+
+  has_checkpoint <- function(label) {
+    file.exists(checkpoint_path(label))
   }
 
   is_absolute_path <- function(path) {
@@ -260,14 +276,34 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   rec_response_target <- NULL
   rec_response_outcome <- NULL
 
-  if (interactive) {
-    cat("\n== Step 2: Target phenotype recommendations ==\n")
+  do_target_recs <- !isTRUE(resume) || !has_checkpoint("target_advice")
+  if (interactive && !do_target_recs) {
+    cat("\n== Step 2: Target phenotype recommendations (resumed) ==\n")
   }
-  if (maybe_use_cache(recs_target_path, "target recommendations")) {
+  if (do_target_recs) {
+    if (interactive) {
+      cat("\n== Step 2: Target phenotype recommendations ==\n")
+    }
+    if (maybe_use_cache(recs_target_path, "target recommendations")) {
+      rec_response_target <- read_json(recs_target_path)
+      used_cached_recs_target <- TRUE
+    } else {
+      message("Calling ACP flow: phenotype_recommendation (target)")
+      body <- list(
+        study_intent = target_statement,
+        top_k = topK,
+        max_results = maxResults,
+        candidate_limit = candidateLimit
+      )
+      rec_response_target <- .acp_post("/flows/phenotype_recommendation", body)
+      write_json(rec_response_target, recs_target_path)
+    }
+  } else if (file.exists(recs_target_path)) {
     rec_response_target <- read_json(recs_target_path)
     used_cached_recs_target <- TRUE
   } else {
-    message("Calling ACP flow: phenotype_recommendation (target)")
+    do_target_recs <- TRUE
+    message("No cached target recommendations found; rerunning target recommendations.")
     body <- list(
       study_intent = target_statement,
       top_k = topK,
@@ -332,7 +368,9 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
           cat("Questions to clarify:\n")
           for (q in advice_core$questions) cat(sprintf("  - %s\n", q))
         }
-        return(invisible(list(output_dir = output_dir, recommendations = recs_target_path)))
+        mark_checkpoint("target_advice", list(recommendations_path = recs_target_path))
+        cat("\nHint: rerun with resume=TRUE after updating phenotypes to continue.\n")
+        stop("Stopping after target advice. Resume with resume=TRUE once phenotypes are updated.")
       }
     }
   }
@@ -388,55 +426,81 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
 
   copy_cohort_json_multi(selected_ids_target, new_ids_target, c(selected_target_dir, selected_dir), index_def_dir)
 
+  do_target_improvements <- TRUE
   if (interactive) {
-    if (!prompt_yesno("Continue to target phenotype improvements?", default = TRUE)) {
-      return(invisible(list(output_dir = output_dir, recommendations = recs_target_path)))
+    do_target_improvements <- prompt_yesno("Continue to target phenotype improvements?", default = TRUE)
+    if (do_target_improvements) {
+      cat("\n== Step 4: Target phenotype improvements ==\n")
     }
-    cat("\n== Step 4: Target phenotype improvements ==\n")
   }
 
   improvements_target_path <- file.path(output_dir, "improvements_target.json")
   imp_response_target <- list()
   improvements_applied <- FALSE
   used_cached_improvements_target <- FALSE
-  if (maybe_use_cache(improvements_target_path, "target improvements")) {
-    imp_response_target <- read_json(improvements_target_path)
-    used_cached_improvements_target <- TRUE
-    if (interactive) {
-      cat(sprintf("\nLoaded cached target improvements from %s\n", improvements_target_path))
+  if (isTRUE(do_target_improvements)) {
+    if (maybe_use_cache(improvements_target_path, "target improvements")) {
+      imp_response_target <- read_json(improvements_target_path)
+      used_cached_improvements_target <- TRUE
+      if (interactive) {
+        cat(sprintf("\nLoaded cached target improvements from %s\n", improvements_target_path))
+      }
+    } else {
+      cohort_obj <- read_json(file.path(selected_target_dir, sprintf("%s.json", new_ids_target)))
+      cohort_obj$id <- new_ids_target
+      body <- list(
+        protocol_text = studyIntent,
+        cohorts = list(cohort_obj)
+      )
+      message(sprintf("Calling ACP flow: phenotype_improvements (target cohort %s)", new_ids_target))
+      resp <- .acp_post("/flows/phenotype_improvements", body)
+      imp_response_target[[as.character(new_ids_target)]] <- resp
+      write_json(imp_response_target, improvements_target_path)
     }
-  } else {
-    cohort_obj <- read_json(file.path(selected_target_dir, sprintf("%s.json", new_ids_target)))
-    cohort_obj$id <- new_ids_target
-    body <- list(
-      protocol_text = studyIntent,
-      cohorts = list(cohort_obj)
-    )
-    message(sprintf("Calling ACP flow: phenotype_improvements (target cohort %s)", new_ids_target))
-    resp <- .acp_post("/flows/phenotype_improvements", body)
-    imp_response_target[[as.character(new_ids_target)]] <- resp
-    write_json(imp_response_target, improvements_target_path)
-  }
 
-  if (interactive) {
-    for (cid in names(imp_response_target)) {
-      resp <- imp_response_target[[cid]]
-      core <- resp$full_result %||% resp
-      items <- core$phenotype_improvements %||% list()
-      cat(sprintf("\n== Improvements for target cohort %s ==\n", cid))
-      for (item in items) {
-        cat(sprintf("- %s\n", item$summary %||% "(no summary)"))
-        if (!is.null(item$actions)) {
-          for (act in item$actions) {
-            cat(sprintf("  action: %s %s\n", act$type %||% "set", act$path %||% ""))
+    if (interactive) {
+      for (cid in names(imp_response_target)) {
+        resp <- imp_response_target[[cid]]
+        core <- resp$full_result %||% resp
+        items <- core$phenotype_improvements %||% list()
+        cat(sprintf("\n== Improvements for target cohort %s ==\n", cid))
+        for (item in items) {
+          cat(sprintf("- %s\n", item$summary %||% "(no summary)"))
+          if (!is.null(item$actions)) {
+            for (act in item$actions) {
+              cat(sprintf("  action: %s %s\n", act$type %||% "set", act$path %||% ""))
+            }
           }
         }
+        if (length(items) == 0) {
+          cat("  No improvements returned for this cohort.\n")
+          next
+        }
+        if (prompt_yesno(sprintf("Apply improvements for target cohort %s now?", cid), default = FALSE)) {
+          cohort_path <- file.path(selected_target_dir, sprintf("%s.json", cid))
+          cohort_obj <- read_json(cohort_path)
+          for (item in items) {
+            if (is.null(item$actions)) next
+            for (act in item$actions) {
+              cohort_obj <- apply_action(cohort_obj, act)
+            }
+          }
+          ensure_dir(patched_target_dir)
+          ensure_dir(patched_dir)
+          out_path <- file.path(patched_target_dir, sprintf("%s.json", cid))
+          write_json(cohort_obj, out_path)
+          file.copy(out_path, file.path(patched_dir, sprintf("%s.json", cid)), overwrite = TRUE)
+          improvements_applied <- TRUE
+          cat(sprintf("Patched target cohort saved: %s\n", out_path))
+        }
       }
-      if (length(items) == 0) {
-        cat("  No improvements returned for this cohort.\n")
-        next
-      }
-      if (prompt_yesno(sprintf("Apply improvements for target cohort %s now?", cid), default = FALSE)) {
+    }
+    if (!isTRUE(interactive) && isTRUE(autoApplyImprovements)) {
+      for (cid in names(imp_response_target)) {
+        resp <- imp_response_target[[cid]]
+        core <- resp$full_result %||% resp
+        items <- core$phenotype_improvements %||% list()
+        if (length(items) == 0) next
         cohort_path <- file.path(selected_target_dir, sprintf("%s.json", cid))
         cohort_obj <- read_json(cohort_path)
         for (item in items) {
@@ -451,41 +515,38 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
         write_json(cohort_obj, out_path)
         file.copy(out_path, file.path(patched_dir, sprintf("%s.json", cid)), overwrite = TRUE)
         improvements_applied <- TRUE
-        cat(sprintf("Patched target cohort saved: %s\n", out_path))
       }
-    }
-  }
-  if (!isTRUE(interactive) && isTRUE(autoApplyImprovements)) {
-    for (cid in names(imp_response_target)) {
-      resp <- imp_response_target[[cid]]
-      core <- resp$full_result %||% resp
-      items <- core$phenotype_improvements %||% list()
-      if (length(items) == 0) next
-      cohort_path <- file.path(selected_target_dir, sprintf("%s.json", cid))
-      cohort_obj <- read_json(cohort_path)
-      for (item in items) {
-        if (is.null(item$actions)) next
-        for (act in item$actions) {
-          cohort_obj <- apply_action(cohort_obj, act)
-        }
-      }
-      ensure_dir(patched_target_dir)
-      ensure_dir(patched_dir)
-      out_path <- file.path(patched_target_dir, sprintf("%s.json", cid))
-      write_json(cohort_obj, out_path)
-      file.copy(out_path, file.path(patched_dir, sprintf("%s.json", cid)), overwrite = TRUE)
-      improvements_applied <- TRUE
     }
   }
 
-  if (interactive) {
-    cat("\n== Step 5: Outcome phenotype recommendations ==\n")
+  do_outcome_recs <- !isTRUE(resume) || !has_checkpoint("outcome_advice")
+  if (interactive && !do_outcome_recs) {
+    cat("\n== Step 5: Outcome phenotype recommendations (resumed) ==\n")
   }
-  if (maybe_use_cache(recs_outcome_path, "outcome recommendations")) {
+  if (do_outcome_recs) {
+    if (interactive) {
+      cat("\n== Step 5: Outcome phenotype recommendations ==\n")
+    }
+    if (maybe_use_cache(recs_outcome_path, "outcome recommendations")) {
+      rec_response_outcome <- read_json(recs_outcome_path)
+      used_cached_recs_outcome <- TRUE
+    } else {
+      message("Calling ACP flow: phenotype_recommendation (outcome)")
+      body <- list(
+        study_intent = outcome_statement,
+        top_k = topK,
+        max_results = maxResults,
+        candidate_limit = candidateLimit
+      )
+      rec_response_outcome <- .acp_post("/flows/phenotype_recommendation", body)
+      write_json(rec_response_outcome, recs_outcome_path)
+    }
+  } else if (file.exists(recs_outcome_path)) {
     rec_response_outcome <- read_json(recs_outcome_path)
     used_cached_recs_outcome <- TRUE
   } else {
-    message("Calling ACP flow: phenotype_recommendation (outcome)")
+    do_outcome_recs <- TRUE
+    message("No cached outcome recommendations found; rerunning outcome recommendations.")
     body <- list(
       study_intent = outcome_statement,
       top_k = topK,
@@ -550,7 +611,9 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
           cat("Questions to clarify:\n")
           for (q in advice_core$questions) cat(sprintf("  - %s\n", q))
         }
-        return(invisible(list(output_dir = output_dir, recommendations = recs_outcome_path)))
+        mark_checkpoint("outcome_advice", list(recommendations_path = recs_outcome_path))
+        cat("\nHint: rerun with resume=TRUE after updating phenotypes to continue.\n")
+        stop("Stopping after outcome advice. Resume with resume=TRUE once phenotypes are updated.")
       }
     }
   }
@@ -589,57 +652,83 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     copy_cohort_json_multi(selected_ids_outcome[[i]], new_ids_outcome[[i]], c(selected_outcome_dir, selected_dir), index_def_dir)
   }
 
+  do_outcome_improvements <- TRUE
   if (interactive) {
-    if (!prompt_yesno("Continue to outcome phenotype improvements?", default = TRUE)) {
-      return(invisible(list(output_dir = output_dir, recommendations = recs_outcome_path)))
+    do_outcome_improvements <- prompt_yesno("Continue to outcome phenotype improvements?", default = TRUE)
+    if (do_outcome_improvements) {
+      cat("\n== Step 7: Outcome phenotype improvements ==\n")
     }
-    cat("\n== Step 7: Outcome phenotype improvements ==\n")
   }
 
   improvements_outcome_path <- file.path(output_dir, "improvements_outcome.json")
   imp_response_outcome <- list()
   used_cached_improvements_outcome <- FALSE
-  if (maybe_use_cache(improvements_outcome_path, "outcome improvements")) {
-    imp_response_outcome <- read_json(improvements_outcome_path)
-    used_cached_improvements_outcome <- TRUE
-    if (interactive) {
-      cat(sprintf("\nLoaded cached outcome improvements from %s\n", improvements_outcome_path))
+  if (isTRUE(do_outcome_improvements)) {
+    if (maybe_use_cache(improvements_outcome_path, "outcome improvements")) {
+      imp_response_outcome <- read_json(improvements_outcome_path)
+      used_cached_improvements_outcome <- TRUE
+      if (interactive) {
+        cat(sprintf("\nLoaded cached outcome improvements from %s\n", improvements_outcome_path))
+      }
+    } else {
+      for (i in seq_along(new_ids_outcome)) {
+        cid <- new_ids_outcome[[i]]
+        cohort_obj <- read_json(file.path(selected_outcome_dir, sprintf("%s.json", cid)))
+        cohort_obj$id <- cid
+        body <- list(
+          protocol_text = studyIntent,
+          cohorts = list(cohort_obj)
+        )
+        message(sprintf("Calling ACP flow: phenotype_improvements (outcome cohort %s)", cid))
+        resp <- .acp_post("/flows/phenotype_improvements", body)
+        imp_response_outcome[[as.character(cid)]] <- resp
+      }
+      write_json(imp_response_outcome, improvements_outcome_path)
     }
-  } else {
-    for (i in seq_along(new_ids_outcome)) {
-      cid <- new_ids_outcome[[i]]
-      cohort_obj <- read_json(file.path(selected_outcome_dir, sprintf("%s.json", cid)))
-      cohort_obj$id <- cid
-      body <- list(
-        protocol_text = studyIntent,
-        cohorts = list(cohort_obj)
-      )
-      message(sprintf("Calling ACP flow: phenotype_improvements (outcome cohort %s)", cid))
-      resp <- .acp_post("/flows/phenotype_improvements", body)
-      imp_response_outcome[[as.character(cid)]] <- resp
-    }
-    write_json(imp_response_outcome, improvements_outcome_path)
-  }
 
-  if (interactive) {
-    for (cid in names(imp_response_outcome)) {
-      resp <- imp_response_outcome[[cid]]
-      core <- resp$full_result %||% resp
-      items <- core$phenotype_improvements %||% list()
-      cat(sprintf("\n== Improvements for outcome cohort %s ==\n", cid))
-      for (item in items) {
-        cat(sprintf("- %s\n", item$summary %||% "(no summary)"))
-        if (!is.null(item$actions)) {
-          for (act in item$actions) {
-            cat(sprintf("  action: %s %s\n", act$type %||% "set", act$path %||% ""))
+    if (interactive) {
+      for (cid in names(imp_response_outcome)) {
+        resp <- imp_response_outcome[[cid]]
+        core <- resp$full_result %||% resp
+        items <- core$phenotype_improvements %||% list()
+        cat(sprintf("\n== Improvements for outcome cohort %s ==\n", cid))
+        for (item in items) {
+          cat(sprintf("- %s\n", item$summary %||% "(no summary)"))
+          if (!is.null(item$actions)) {
+            for (act in item$actions) {
+              cat(sprintf("  action: %s %s\n", act$type %||% "set", act$path %||% ""))
+            }
           }
         }
+        if (length(items) == 0) {
+          cat("  No improvements returned for this cohort.\n")
+          next
+        }
+        if (prompt_yesno(sprintf("Apply improvements for outcome cohort %s now?", cid), default = FALSE)) {
+          cohort_path <- file.path(selected_outcome_dir, sprintf("%s.json", cid))
+          cohort_obj <- read_json(cohort_path)
+          for (item in items) {
+            if (is.null(item$actions)) next
+            for (act in item$actions) {
+              cohort_obj <- apply_action(cohort_obj, act)
+            }
+          }
+          ensure_dir(patched_outcome_dir)
+          ensure_dir(patched_dir)
+          out_path <- file.path(patched_outcome_dir, sprintf("%s.json", cid))
+          write_json(cohort_obj, out_path)
+          file.copy(out_path, file.path(patched_dir, sprintf("%s.json", cid)), overwrite = TRUE)
+          improvements_applied <- TRUE
+          cat(sprintf("Patched outcome cohort saved: %s\n", out_path))
+        }
       }
-      if (length(items) == 0) {
-        cat("  No improvements returned for this cohort.\n")
-        next
-      }
-      if (prompt_yesno(sprintf("Apply improvements for outcome cohort %s now?", cid), default = FALSE)) {
+    }
+    if (!isTRUE(interactive) && isTRUE(autoApplyImprovements)) {
+      for (cid in names(imp_response_outcome)) {
+        resp <- imp_response_outcome[[cid]]
+        core <- resp$full_result %||% resp
+        items <- core$phenotype_improvements %||% list()
+        if (length(items) == 0) next
         cohort_path <- file.path(selected_outcome_dir, sprintf("%s.json", cid))
         cohort_obj <- read_json(cohort_path)
         for (item in items) {
@@ -654,30 +743,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
         write_json(cohort_obj, out_path)
         file.copy(out_path, file.path(patched_dir, sprintf("%s.json", cid)), overwrite = TRUE)
         improvements_applied <- TRUE
-        cat(sprintf("Patched outcome cohort saved: %s\n", out_path))
       }
-    }
-  }
-  if (!isTRUE(interactive) && isTRUE(autoApplyImprovements)) {
-    for (cid in names(imp_response_outcome)) {
-      resp <- imp_response_outcome[[cid]]
-      core <- resp$full_result %||% resp
-      items <- core$phenotype_improvements %||% list()
-      if (length(items) == 0) next
-      cohort_path <- file.path(selected_outcome_dir, sprintf("%s.json", cid))
-      cohort_obj <- read_json(cohort_path)
-      for (item in items) {
-        if (is.null(item$actions)) next
-        for (act in item$actions) {
-          cohort_obj <- apply_action(cohort_obj, act)
-        }
-      }
-      ensure_dir(patched_outcome_dir)
-      ensure_dir(patched_dir)
-      out_path <- file.path(patched_outcome_dir, sprintf("%s.json", cid))
-      write_json(cohort_obj, out_path)
-      file.copy(out_path, file.path(patched_dir, sprintf("%s.json", cid)), overwrite = TRUE)
-      improvements_applied <- TRUE
     }
   }
 
@@ -758,6 +824,9 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     cohort_roles_path = roles_path,
     target_ids = target_ids,
     outcome_ids = outcome_ids,
+    resume_enabled = resume,
+    checkpoint_target_advice = has_checkpoint("target_advice"),
+    checkpoint_outcome_advice = has_checkpoint("outcome_advice"),
     used_cached_recommendations_target = used_cached_recs_target,
     used_cached_recommendations_outcome = used_cached_recs_outcome,
     used_cached_improvements_target = used_cached_improvements_target,
@@ -960,10 +1029,23 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "library(Strategus)",
     "library(CohortGenerator)",
     "library(DatabaseConnector)",
+    "library(dplyr)",
+    "library(CirceR)",
+    "library(SqlRender)",
+    "",
+    "# loads the OHDSI StudyAssistant since it is not yet an installed package",
+    "if (!requireNamespace('OHDSIAssistant', quietly = TRUE)) {",
+    "  if (requireNamespace('devtools', quietly = TRUE)) {",
+    "    devtools::load_all('OHDSI-Study-Agent/R/OHDSIAssistant')",
+    "  } else {",
+    "    source('OHDSI-Study-Agent/R/OHDSIAssistant/R/zzz.R')",
+    "  }",
+    "}",
     "library(OHDSIAssistant)",
     "library(jsonlite)",
     "library(ParallelLogger)",
     "`%||%` <- function(x, y) if (is.null(x)) y else x",
+    "",
     sprintf("base_dir <- '%s'", base_dir),
     "output_dir <- file.path(base_dir, 'outputs')",
     "selected_dir <- file.path(base_dir, 'selected-cohorts')",
@@ -972,23 +1054,68 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "cohort_json_dir <- if (length(list.files(patched_dir, pattern = '\\\\.(json)$')) > 0) patched_dir else selected_dir",
     "sql_dir <- file.path(selected_dir, 'sql')",
     "dir.create(sql_dir, recursive = TRUE, showWarnings = FALSE)",
+    "",
     "connectionDetails <- OHDSIAssistant::createStrategusConnectionDetails()",
-    "# TODO: fill in executionSettings_cohorts",
-    "# executionSettings_cohorts <- createCdmExecutionSettings(...)",
+    "dbms <- connectionDetails$dbms %||% 'postgresql'",
+    "exec <- OHDSIAssistant::createStrategusExecutionSettings()",
+    "executionSettings_cohorts <- exec$executionSettings",
+    "cdmDatabaseSchema <- exec$cdmDatabaseSchema",
+    "workDatabaseSchema <- exec$workDatabaseSchema",
+    "resultsDatabaseSchema <- exec$resultsDatabaseSchema",
+    "vocabularyDatabaseSchema <- exec$vocabularyDatabaseSchema",
+    "cohortTable <- exec$cohortTable",
+    "cohortIdFieldName <- exec$cohortIdFieldName",
+    "dir.create(exec$workFolder, recursive = TRUE, showWarnings = FALSE)",
+    "dir.create(exec$resultsFolder, recursive = TRUE, showWarnings = FALSE)",
+    "",
+    "cohort_settings <- read.csv(cohort_csv, stringsAsFactors = FALSE)",
+    "if (nrow(cohort_settings) > 0) {",
+    "  id_col <- if ('cohort_id' %in% names(cohort_settings)) 'cohort_id' else 'cohortId'",
+    "  for (i in seq_len(nrow(cohort_settings))) {",
+    "    cohort_id <- cohort_settings[[id_col]][i]",
+    "    sql_path <- file.path(sql_dir, sprintf('%s.sql', cohort_id))",
+    "    if (!file.exists(sql_path)) {",
+    "      json_path <- file.path(cohort_json_dir, sprintf('%s.json', cohort_id))",
+    "      if (!file.exists(json_path)) stop('Missing cohort JSON: ', json_path)",
+    "      json_text <- readChar(json_path, nchars = file.info(json_path)$size, useBytes = TRUE)",
+    "      cohort_expression <- CirceR::cohortExpressionFromJson(json_text)",
+    "      generateOptions <- CirceR::createGenerateOptions(",
+    "        cohortIdFieldName = cohortIdFieldName,",
+    "        cdmSchema = cdmDatabaseSchema,",
+    "        targetTable = paste0(workDatabaseSchema, '.', cohortTable),",
+    "        resultSchema = resultsDatabaseSchema,",
+    "        vocabularySchema = vocabularyDatabaseSchema,",
+    "        generateStats = TRUE",
+    "      )",
+    "      sql <- CirceR::buildCohortQuery(cohort_expression, generateOptions)",
+    "      sql <- SqlRender::render(sql)",
+    "      sql <- SqlRender::translate(sql, targetDialect = dbms)",
+    "      writeLines(sql, sql_path, useBytes = TRUE)",
+    "    }",
+    "  }",
+    "}",
+    "",
     "cohortDefinitionSet <- CohortGenerator::getCohortDefinitionSet(",
     "  settingsFileName = cohort_csv,",
     "  jsonFolder = cohort_json_dir,",
     "  sqlFolder = sql_dir",
     ")",
+    "",
     "cgModule <- CohortGeneratorModule$new()",
     "cohortDefinitionSharedResource <- cgModule$createCohortSharedResourceSpecifications(",
     "  cohortDefinitionSet = cohortDefinitionSet",
     ")",
     "cohortGeneratorModuleSpecifications <- cgModule$createModuleSpecifications(generateStats = TRUE)",
-    "analysisSpecifications <- createEmptyAnalysisSpecificiations() %>%",
+    "",
+    "analysisSpecifications <- createEmptyAnalysisSpecifications() %>%",
     "  addSharedResources(cohortDefinitionSharedResource) %>%",
     "  addModuleSpecifications(cohortGeneratorModuleSpecifications)",
-    "# execute(connectionDetails, analysisSpecifications, executionSettings_cohorts)",
+    "",
+    "# execute(",
+    "#   analysisSpecifications = analysisSpecifications,",
+    "#   executionSettings = executionSettings_cohorts,",
+    "#   connectionDetails = connectionDetails",
+    "# )",
     ""
   )
   write_lines(file.path(scripts_dir, "03_generate_cohorts.R"), script_03)
@@ -999,19 +1126,31 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "library(Keeper)",
     "library(jsonlite)",
     "library(DatabaseConnector)",
+    "",
+    "# loads the OHDSI StudyAssistant since it is not yet an installed package",
+    "if (!requireNamespace('OHDSIAssistant', quietly = TRUE)) {",
+    "  if (requireNamespace('devtools', quietly = TRUE)) {",
+    "    devtools::load_all('OHDSI-Study-Agent/R/OHDSIAssistant')",
+    "  } else {",
+    "    source('OHDSI-Study-Agent/R/OHDSIAssistant/R/zzz.R')",
+    "  }",
+    "}",
     "library(OHDSIAssistant)",
     "`%||%` <- function(x, y) if (is.null(x)) y else x",
+    "",
     sprintf("base_dir <- '%s'", base_dir),
     "output_dir <- file.path(base_dir, 'outputs')",
     "keeper_dir <- file.path(base_dir, 'keeper-case-review')",
     "dir.create(keeper_dir, recursive = TRUE, showWarnings = FALSE)",
     "id_map <- jsonlite::fromJSON(file.path(output_dir, 'cohort_id_map.json'))$mapping",
     "connectionDetails <- OHDSIAssistant::createStrategusConnectionDetails()",
+    "",
     "# TODO: fill in schema/table info",
     "databaseId <- 'Synpuf'",
     "cdmDatabaseSchema <- 'main'",
     "cohortDatabaseSchema <- 'main'",
     "cohortTable <- 'cohort'",
+    "",
     "for (cid in id_map$cohort_id) {",
     "  keeper <- createKeeper(",
     "    connectionDetails = connectionDetails,",
@@ -1070,10 +1209,21 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "library(CohortDiagnostics)",
     "library(CohortGenerator)",
     "library(DatabaseConnector)",
+    "library(dplyr)",
+    "",
+    "# loads the OHDSI StudyAssistant since it is not yet an installed package",
+    "if (!requireNamespace('OHDSIAssistant', quietly = TRUE)) {",
+    "  if (requireNamespace('devtools', quietly = TRUE)) {",
+    "    devtools::load_all('OHDSI-Study-Agent/R/OHDSIAssistant')",
+    "  } else {",
+    "    source('OHDSI-Study-Agent/R/OHDSIAssistant/R/zzz.R')",
+    "  }",
+    "}",
     "library(OHDSIAssistant)",
     "library(jsonlite)",
     "library(ParallelLogger)",
     "`%||%` <- function(x, y) if (is.null(x)) y else x",
+    "",
     sprintf("base_dir <- '%s'", base_dir),
     "output_dir <- file.path(base_dir, 'outputs')",
     "selected_dir <- file.path(base_dir, 'selected-cohorts')",
@@ -1082,18 +1232,22 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "cohort_json_dir <- if (length(list.files(patched_dir, pattern = '\\\\.(json)$')) > 0) patched_dir else selected_dir",
     "sql_dir <- file.path(selected_dir, 'sql')",
     "dir.create(sql_dir, recursive = TRUE, showWarnings = FALSE)",
+    "",
     "connectionDetails <- OHDSIAssistant::createStrategusConnectionDetails()",
     "# TODO: fill in executionSettings_diagnostics",
     "# executionSettings_diagnostics <- createCdmExecutionSettings(...)",
+    "",
     "cohortDefinitionSet <- CohortGenerator::getCohortDefinitionSet(",
     "  settingsFileName = cohort_csv,",
     "  jsonFolder = cohort_json_dir,",
     "  sqlFolder = sql_dir",
     ")",
+    "",
     "cgModule <- CohortGeneratorModule$new()",
     "cohortDefinitionSharedResource <- cgModule$createCohortSharedResourceSpecifications(",
     "  cohortDefinitionSet = cohortDefinitionSet",
     ")",
+    "",
     "cdModule <- CohortDiagnosticsModule$new()",
     "cohortDiagnosticsModuleSpecifications <- cdModule$createModuleSpecifications(",
     "  runInclusionStatistics = TRUE,",
@@ -1106,10 +1260,15 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "  runCohortRelationship = TRUE,",
     "  runTemporalCohortCharacterization = TRUE",
     ")",
-    "analysisSpecifications <- createEmptyAnalysisSpecificiations() %>%",
+    "analysisSpecifications <- createEmptyAnalysisSpecifications() %>%",
     "  addSharedResources(cohortDefinitionSharedResource) %>%",
     "  addModuleSpecifications(cohortDiagnosticsModuleSpecifications)",
-    "# execute(connectionDetails, analysisSpecifications, executionSettings_diagnostics)",
+    "",
+    "# execute(",
+    "#   analysisSpecifications = analysisSpecifications,",
+    "#   executionSettings = executionSettings_diagnostics,",
+    "#   connectionDetails = connectionDetails",
+    "# )",
     ""
   )
   write_lines(file.path(scripts_dir, "05_diagnostics.R"), script_05)
@@ -1121,10 +1280,21 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "library(CohortGenerator)",
     "library(CohortIncidence)",
     "library(DatabaseConnector)",
+    "library(dplyr)",
+    "",
+    "# loads the OHDSI StudyAssistant since it is not yet an installed package",
+    "if (!requireNamespace('OHDSIAssistant', quietly = TRUE)) {",
+    "  if (requireNamespace('devtools', quietly = TRUE)) {",
+    "    devtools::load_all('OHDSI-Study-Agent/R/OHDSIAssistant')",
+    "  } else {",
+    "    source('OHDSI-Study-Agent/R/OHDSIAssistant/R/zzz.R')",
+    "  }",
+    "}",
     "library(OHDSIAssistant)",
     "library(jsonlite)",
     "library(ParallelLogger)",
     "`%||%` <- function(x, y) if (is.null(x)) y else x",
+    "",
     sprintf("base_dir <- '%s'", base_dir),
     "output_dir <- file.path(base_dir, 'outputs')",
     "analysis_settings_dir <- file.path(base_dir, 'analysis-settings')",
@@ -1135,14 +1305,17 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "cohort_json_dir <- if (length(list.files(patched_dir, pattern = '\\\\.(json)$')) > 0) patched_dir else selected_dir",
     "sql_dir <- file.path(selected_dir, 'sql')",
     "dir.create(sql_dir, recursive = TRUE, showWarnings = FALSE)",
+    "",
     "connectionDetails <- OHDSIAssistant::createStrategusConnectionDetails()",
     "# TODO: fill in executionSettings_incidence",
     "# executionSettings_incidence <- createCdmExecutionSettings(...)",
+    "",
     "cohortDefinitionSet <- CohortGenerator::getCohortDefinitionSet(",
     "  settingsFileName = cohort_csv,",
     "  jsonFolder = cohort_json_dir,",
     "  sqlFolder = sql_dir",
     ")",
+    "",
     "roles <- jsonlite::fromJSON(file.path(output_dir, 'cohort_roles.json'), simplifyVector = TRUE)",
     "target_ids <- as.integer(roles$targets %||% integer(0))",
     "outcome_ids <- as.integer(roles$outcomes %||% integer(0))",
@@ -1160,15 +1333,18 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "  row <- cohortDefinitionSet[cohortDefinitionSet$cohortId == id, ]",
     "  list(id = id, name = row$cohortName[1])",
     "})",
+    "",
     "tars <- list(",
     "  CohortIncidence::createTimeAtRiskDef(id = 1, startWith = 'start', endWith = 'end'),",
     "  CohortIncidence::createTimeAtRiskDef(id = 2, startWith = 'start', endWith = 'start', endOffset = 365)",
     ")",
+    "",
     "analysis1 <- CohortIncidence::createIncidenceAnalysis(",
     "  targets = sapply(targets, function(x) x$id),",
     "  outcomes = sapply(outcomes, function(x) x$id),",
     "  tars = c(1, 2)",
     ")",
+    "",
     "irDesign <- CohortIncidence::createIncidenceDesign(",
     "  targetDefs = targets,",
     "  outcomeDefs = outcomes,",
@@ -1176,16 +1352,23 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "  analysisList = list(analysis1),",
     "  strataSettings = CohortIncidence::createStrataSettings(byYear = TRUE, byGender = TRUE)",
     ")",
+    "",
     "ciModule <- CohortIncidenceModule$new()",
     "cohortIncidenceModuleSpecifications <- ciModule$createModuleSpecifications(",
     "  irDesign = irDesign$toList()",
     ")",
-    "analysisSpecifications <- createEmptyAnalysisSpecificiations() %>%",
+    "",
+    "analysisSpecifications <- createEmptyAnalysisSpecifications() %>%",
     "  addSharedResources(cohortDefinitionSharedResource) %>%",
     "  addModuleSpecifications(cohortIncidenceModuleSpecifications)",
     "analysis_spec_path <- file.path(analysis_settings_dir, 'analysisSpecification.json')",
     "ParallelLogger::saveSettingsToJson(analysisSpecifications, analysis_spec_path)",
-    "# execute(connectionDetails, analysisSpecifications, executionSettings_incidence)",
+    "",
+    "# execute(",
+    "#   analysisSpecifications = analysisSpecifications,",
+    "#   executionSettings = executionSettings_incidence,",
+    "#   connectionDetails = connectionDetails",
+    "# )",
     ""
   )
   write_lines(file.path(scripts_dir, "06_incidence_spec.R"), script_06)

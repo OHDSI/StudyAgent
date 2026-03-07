@@ -1,0 +1,10 @@
+{
+  "cdmDatabaseSchema": "cdm_schema",
+  "workDatabaseSchema": "work_schema",
+  "resultsDatabaseSchema": "results_schema",
+  "vocabularyDatabaseSchema": "vocab_schema",
+  "cohortTable": "cohort",
+  "workFolder": "demo-strategus-cohort-incidence/work",
+  "resultsFolder": "demo-strategus-cohort-incidence/results",
+  "cohortIdFieldName": "cohort_definition_id"
+}

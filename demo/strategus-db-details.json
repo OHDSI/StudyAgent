@@ -1,0 +1,9 @@
+{
+  "dbms": "postgresql",
+  "DB_SERVER": "localhost",
+  "DB_PORT": "5432",
+  "DB_USER": "ohdsi",
+  "DB_PASS": "change_me",
+  "DB_DRIVER_PATH": "",
+  "extraSettings": "sslmode=disable"
+}
