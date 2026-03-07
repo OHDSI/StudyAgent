@@ -33,3 +33,14 @@ OHDSIAssistant::runStrategusIncidenceShell(
     studyAgentBaseDir = "OHDSI-Study-Agent",
     studyIntent = "What is the risk of GI bleed in new users of tofacitinib compared to new users of ruxolitinib?"
     )
+
+
+## Use this to just resume and regenerate the output scripts from cached results
+OHDSIAssistant::runStrategusIncidenceShell(
+    outputDir = "demo-strategus-cohort-incidence",
+    studyAgentBaseDir = "OHDSI-Study-Agent",
+    resume = TRUE,
+    allowCache = TRUE,
+    promptOnCache = FALSE,
+    interactive = FALSE
+  )

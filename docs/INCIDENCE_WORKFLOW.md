@@ -22,7 +22,7 @@ flowchart TD
   J --> K[Stop + Resume Later]
   G -- Yes --> L[Select Target Cohort]
   L --> M{Do Improvements?}
-  M -- Yes --> N[phenotype_improvements (target)]
+  M -- Yes --> N[phenotype_improvements-target]
   N --> O[Apply Improvements?]
   O --> P[Patched Target Cohort]
   M -- No --> Q[Skip Target Improvements]
@@ -38,7 +38,7 @@ flowchart TD
   W --> X[Stop + Resume Later]
   T -- Yes --> Y[Select Outcome Cohorts]
   Y --> Z{Do Improvements?}
-  Z -- Yes --> AA[phenotype_improvements (outcome)]
+  Z -- Yes --> AA[phenotype_improvements-outcome]
   AA --> AB[Apply Improvements?]
   AB --> AC[Patched Outcome Cohorts]
   Z -- No --> AD[Skip Outcome Improvements]
