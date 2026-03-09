@@ -30,6 +30,7 @@ def test_register_all_tools() -> None:
         "phenotype_fetch_definition",
         "phenotype_list_similar",
         "phenotype_reindex",
+        "phenotype_index_status",
         "phenotype_prompt_bundle",
         "phenotype_recommendation_advice",
         "lint_prompt_bundle",

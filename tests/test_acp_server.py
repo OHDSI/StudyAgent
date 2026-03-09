@@ -155,7 +155,7 @@ def test_flow_phenotype_validation_review(monkeypatch):
         disease_name="GI bleed",
     )
     assert result["status"] == "ok"
-    assert result["label"] == "yes"
+    assert result["full_result"]["label"] == "yes"
 
 
 @pytest.mark.acp

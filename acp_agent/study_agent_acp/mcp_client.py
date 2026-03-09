@@ -55,7 +55,7 @@ class StdioMCPClient:
 
     def health_check(self) -> Dict[str, Any]:
         try:
-            if _prefer_oneshot():
+            if _prefer_oneshot() and hasattr(self, "_ping_oneshot"):
                 return anyio.run(self._ping_oneshot)
             self._ensure_session()
             assert self._portal is not None

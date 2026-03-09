@@ -87,7 +87,7 @@ def test_phenotype_validation_review_stub():
     result = phenotype_validation_review("GI bleed")
     assert result["mode"] == "stub"
     assert result["label"] == "unknown"
-    assert len(result["phenotype_improvements"]) == 1
+    assert "phenotype_improvements" not in result
 
 
 @pytest.mark.core
