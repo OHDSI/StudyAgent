@@ -65,6 +65,28 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     jsonlite::write_json(x, path, pretty = TRUE, auto_unbox = TRUE)
   }
 
+  acp_try <- function(path, body, label) {
+    repeat {
+      resp <- NULL
+      err <- NULL
+      resp <- tryCatch(
+        .acp_post(path, body),
+        error = function(e) {
+          err <<- e
+          NULL
+        }
+      )
+      if (is.null(err)) return(resp)
+      msg <- conditionMessage(err)
+      if (!isTRUE(interactive)) stop(msg)
+      retry <- prompt_yesno(sprintf("ACP call failed (%s). Try again?", msg), default = TRUE)
+      if (!retry) {
+        mark_checkpoint(label, list(path = path, error = msg))
+        stop(sprintf("Stopping after ACP error. Resume with resume=TRUE once ready. (%s)", label))
+      }
+    }
+  }
+
   checkpoint_path <- function(label) {
     file.path(output_dir, paste0("checkpoint_", label, ".json"))
   }
@@ -241,7 +263,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     intent_response <- read_json(intent_split_path)
   } else {
     message("Calling ACP flow: phenotype_intent_split")
-    intent_response <- .acp_post("/flows/phenotype_intent_split", list(study_intent = studyIntent))
+    intent_response <- acp_try("/flows/phenotype_intent_split", list(study_intent = studyIntent), "intent_split")
     write_json(intent_response, intent_split_path)
   }
   intent_core <- intent_response$intent_split %||% intent_response
@@ -295,7 +317,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
         max_results = maxResults,
         candidate_limit = candidateLimit
       )
-      rec_response_target <- .acp_post("/flows/phenotype_recommendation", body)
+      rec_response_target <- acp_try("/flows/phenotype_recommendation", body, "target_recommendation")
       write_json(rec_response_target, recs_target_path)
     }
   } else if (file.exists(recs_target_path)) {
@@ -310,7 +332,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
       max_results = maxResults,
       candidate_limit = candidateLimit
     )
-    rec_response_target <- .acp_post("/flows/phenotype_recommendation", body)
+    rec_response_target <- acp_try("/flows/phenotype_recommendation", body, "target_recommendation_resume")
     write_json(rec_response_target, recs_target_path)
   }
 
@@ -339,7 +361,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
           candidate_limit = candidateLimit,
           candidate_offset = candidateLimit
         )
-        rec_response_target <- .acp_post("/flows/phenotype_recommendation", body)
+        rec_response_target <- acp_try("/flows/phenotype_recommendation", body, "target_recommendation_window2")
         recs_target_path <- file.path(output_dir, "recommendations_target_window2.json")
         write_json(rec_response_target, recs_target_path)
 
@@ -355,7 +377,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
       }
       if (!ok_any) {
         message("Generating advisory guidance (this may take a moment)...")
-        advice <- .acp_post("/flows/phenotype_recommendation_advice", list(study_intent = studyIntent))
+        advice <- acp_try("/flows/phenotype_recommendation_advice", list(study_intent = studyIntent), "target_advice_call")
         used_advice_target <- TRUE
         advice_core <- advice$advice %||% advice
         cat("\n== Advisory guidance ==\n")
@@ -453,7 +475,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
         cohorts = list(cohort_obj)
       )
       message(sprintf("Calling ACP flow: phenotype_improvements (target cohort %s)", new_ids_target))
-      resp <- .acp_post("/flows/phenotype_improvements", body)
+      resp <- acp_try("/flows/phenotype_improvements", body, "target_improvements")
       imp_response_target[[as.character(new_ids_target)]] <- resp
       write_json(imp_response_target, improvements_target_path)
     }
@@ -538,7 +560,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
         max_results = maxResults,
         candidate_limit = candidateLimit
       )
-      rec_response_outcome <- .acp_post("/flows/phenotype_recommendation", body)
+      rec_response_outcome <- acp_try("/flows/phenotype_recommendation", body, "outcome_recommendation")
       write_json(rec_response_outcome, recs_outcome_path)
     }
   } else if (file.exists(recs_outcome_path)) {
@@ -553,7 +575,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
       max_results = maxResults,
       candidate_limit = candidateLimit
     )
-    rec_response_outcome <- .acp_post("/flows/phenotype_recommendation", body)
+    rec_response_outcome <- acp_try("/flows/phenotype_recommendation", body, "outcome_recommendation_resume")
     write_json(rec_response_outcome, recs_outcome_path)
   }
 
@@ -582,7 +604,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
           candidate_limit = candidateLimit,
           candidate_offset = candidateLimit
         )
-        rec_response_outcome <- .acp_post("/flows/phenotype_recommendation", body)
+        rec_response_outcome <- acp_try("/flows/phenotype_recommendation", body, "outcome_recommendation_window2")
         recs_outcome_path <- file.path(output_dir, "recommendations_outcome_window2.json")
         write_json(rec_response_outcome, recs_outcome_path)
 
@@ -598,7 +620,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
       }
       if (!ok_any) {
         message("Generating advisory guidance (this may take a moment)...")
-        advice <- .acp_post("/flows/phenotype_recommendation_advice", list(study_intent = studyIntent))
+        advice <- acp_try("/flows/phenotype_recommendation_advice", list(study_intent = studyIntent), "outcome_advice_call")
         used_advice_outcome <- TRUE
         advice_core <- advice$advice %||% advice
         cat("\n== Advisory guidance ==\n")
@@ -680,7 +702,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
           cohorts = list(cohort_obj)
         )
         message(sprintf("Calling ACP flow: phenotype_improvements (outcome cohort %s)", cid))
-        resp <- .acp_post("/flows/phenotype_improvements", body)
+        resp <- acp_try("/flows/phenotype_improvements", body, "outcome_improvements")
         imp_response_outcome[[as.character(cid)]] <- resp
       }
       write_json(imp_response_outcome, improvements_outcome_path)
@@ -1055,7 +1077,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "sql_dir <- file.path(selected_dir, 'sql')",
     "dir.create(sql_dir, recursive = TRUE, showWarnings = FALSE)",
     "",
-    "connectionDetails <- OHDSIAssistant::createStrategusConnectionDetails()",
+    "connectionDetails <- OHDSIAssistant::createStrategusConnectionDetails(path='<FILL IN>')",
     "dbms <- connectionDetails$dbms %||% 'postgresql'",
     "exec <- OHDSIAssistant::createStrategusExecutionSettings()",
     "executionSettings_cohorts <- exec$executionSettings",
@@ -1111,11 +1133,11 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "  addSharedResources(cohortDefinitionSharedResource) %>%",
     "  addModuleSpecifications(cohortGeneratorModuleSpecifications)",
     "",
-    "# execute(",
-    "#   analysisSpecifications = analysisSpecifications,",
-    "#   executionSettings = executionSettings_cohorts,",
-    "#   connectionDetails = connectionDetails",
-    "# )",
+    "execute(",
+    "   analysisSpecifications = analysisSpecifications,",
+    "   executionSettings = executionSettings_cohorts,",
+    "   connectionDetails = connectionDetails",
+    ")",
     ""
   )
   write_lines(file.path(scripts_dir, "03_generate_cohorts.R"), script_03)
@@ -1143,7 +1165,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "keeper_dir <- file.path(base_dir, 'keeper-case-review')",
     "dir.create(keeper_dir, recursive = TRUE, showWarnings = FALSE)",
     "id_map <- jsonlite::fromJSON(file.path(output_dir, 'cohort_id_map.json'))$mapping",
-    "connectionDetails <- OHDSIAssistant::createStrategusConnectionDetails()",
+    "connectionDetails <- OHDSIAssistant::createStrategusConnectionDetails(path='<FILL IN>')",
     "",
     "exec <- OHDSIAssistant::createStrategusExecutionSettings()",
     "# TODO: fill in databaseId (used by Keeper for labeling outputs)",
@@ -1185,67 +1207,67 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "}",
     "# Optional: if ACP is available, use phenotype_validation_review on rows from keeper_dir.",
     "# Uncomment to enable:",
-    "# if (requireNamespace('OHDSIAssistant', quietly = TRUE) || 'OHDSIAssistant' %in% loadedNamespaces()) {",
-    "#   OHDSIAssistant::acp_connect('http://127.0.0.1:8765')",
-    "#   roles <- jsonlite::fromJSON(file.path(output_dir, 'cohort_roles.json'), simplifyVector = TRUE)",
-    "#   intent <- jsonlite::fromJSON(file.path(output_dir, 'intent_split.json'), simplifyVector = TRUE)",
-    "#   cohort_type <- utils::select.list(c('target', 'outcome'), title = 'Keeper review for which cohort type?')",
-    "#   if (!nzchar(cohort_type)) stop('No cohort type selected.')",
-    "#   get_intent_field <- function(obj, field) {",
-    "#     if (!is.null(obj$intent_split) && !is.null(obj$intent_split[[field]])) return(obj$intent_split[[field]])",
-    "#     obj[[field]]",
-    "#   }",
-    "#   default_disease <- if (cohort_type == 'target') get_intent_field(intent, 'target_statement') else get_intent_field(intent, 'outcome_statement')",
-    "#   disease_name <- readline(sprintf('Disease name [%s]: ', default_disease))",
-    "#   if (!nzchar(trimws(disease_name))) disease_name <- default_disease",
-    "#   sample_n <- as.integer(readline('How many cases per cohort to review? [5]: '))",
-    "#   if (is.na(sample_n) || sample_n <= 0) sample_n <- 5",
-    "#   random_pick <- tolower(trimws(readline('Randomly sample cases? [Y/n]: ')))",
-    "#   random_pick <- !(random_pick %in% c('n', 'no'))",
-    "#   write_output <- tolower(trimws(readline('Write LLM review rows to file? [Y/n]: ')))",
-    "#   write_output <- !(write_output %in% c('n', 'no'))",
-    "#   cohort_ids <- if (cohort_type == 'target') roles$targets else roles$outcomes",
-    "#   for (cid in cohort_ids) {",
-    "#     keeper_path <- file.path(keeper_dir, sprintf('%s.csv', cid))",
-    "#     keeper_rows <- read.csv(keeper_path, stringsAsFactors = FALSE)",
-    "#     if (nrow(keeper_rows) == 0) next",
-    "#     n <- min(sample_n, nrow(keeper_rows))",
-    "#     idx <- if (random_pick) sample(seq_len(nrow(keeper_rows)), n) else seq_len(n)",
-    "#     selected <- keeper_rows[idx, , drop = FALSE]",
-    "#     results <- list()",
-    "#     for (i in seq_len(nrow(selected))) {",
-    "#       row_payload <- as.list(selected[i, , drop = FALSE])",
-    "#       row_payload <- lapply(row_payload, function(x) if (length(x) == 0) NA else x)",
-    "#       resp <- OHDSIAssistant:::`.acp_post`(",
-    "#         '/flows/phenotype_validation_review',",
-    "#         list(keeper_row = row_payload, disease_name = disease_name)",
-    "#       )",
-    "#       if (!is.null(resp$status) && resp$status == 'error') {",
-    "#         out <- c(row_payload, list(label = NA, rationale = NA, acp_error = resp$error %||% 'acp_error'))",
-    "#         results[[length(results) + 1]] <- as.data.frame(out, stringsAsFactors = FALSE, check.names = FALSE)",
-    "#         next",
-    "#       }",
-    "#       label <- resp$label",
-    "#       rationale <- resp$rationale",
-    "#       if (is.null(label) && !is.null(resp$full_result$label)) label <- resp$full_result$label",
-    "#       if (is.null(rationale) && !is.null(resp$full_result$rationale)) rationale <- resp$full_result$rationale",
-    "#       if (is.null(label) && !is.null(resp$result$label)) label <- resp$result$label",
-    "#       if (is.null(rationale) && !is.null(resp$result$rationale)) rationale <- resp$result$rationale",
-    "#       if (is.null(label)) label <- NA",
-    "#       if (is.null(rationale)) rationale <- NA",
-    "#       out <- c(row_payload, list(label = label, rationale = rationale))",
-    "#       results[[length(results) + 1]] <- as.data.frame(out, stringsAsFactors = FALSE, check.names = FALSE)",
-    "#     }",
-    "#     if (length(results) > 0) {",
-    "#       out_df <- do.call(rbind, results)",
-    "#       if (write_output) {",
-    "#         out_path <- file.path(keeper_dir, sprintf('%s_llm_review.csv', cid))",
-    "#         write.csv(out_df, out_path, row.names = FALSE)",
-    "#       }",
-    "#       print(out_df)",
-    "#     }",
-    "#   }",
-    "# }",
+    " if (requireNamespace('OHDSIAssistant', quietly = TRUE) || 'OHDSIAssistant' %in% loadedNamespaces()) {",
+    "   OHDSIAssistant::acp_connect('http://127.0.0.1:8765')",
+    "   roles <- jsonlite::fromJSON(file.path(output_dir, 'cohort_roles.json'), simplifyVector = TRUE)",
+    "   intent <- jsonlite::fromJSON(file.path(output_dir, 'intent_split.json'), simplifyVector = TRUE)",
+    "   cohort_type <- utils::select.list(c('target', 'outcome'), title = 'Keeper review for which cohort type?')",
+    "   if (!nzchar(cohort_type)) stop('No cohort type selected.')",
+    "   get_intent_field <- function(obj, field) {",
+    "     if (!is.null(obj$intent_split) && !is.null(obj$intent_split[[field]])) return(obj$intent_split[[field]])",
+    "     obj[[field]]",
+    "   }",
+    "   default_disease <- if (cohort_type == 'target') get_intent_field(intent, 'target_statement') else get_intent_field(intent, 'outcome_statement')",
+    "   disease_name <- readline(sprintf('Disease name [%s]: ', default_disease))",
+    "   if (!nzchar(trimws(disease_name))) disease_name <- default_disease",
+    "   sample_n <- as.integer(readline('How many cases per cohort to review? [5]: '))",
+    "   if (is.na(sample_n) || sample_n <= 0) sample_n <- 5",
+    "   random_pick <- tolower(trimws(readline('Randomly sample cases? [Y/n]: ')))",
+    "   random_pick <- !(random_pick %in% c('n', 'no'))",
+    "   write_output <- tolower(trimws(readline('Write LLM review rows to file? [Y/n]: ')))",
+    "   write_output <- !(write_output %in% c('n', 'no'))",
+    "   cohort_ids <- if (cohort_type == 'target') roles$targets else roles$outcomes",
+    "   for (cid in cohort_ids) {",
+    "     keeper_path <- file.path(keeper_dir, sprintf('%s.csv', cid))",
+    "     keeper_rows <- read.csv(keeper_path, stringsAsFactors = FALSE)",
+    "     if (nrow(keeper_rows) == 0) next",
+    "     n <- min(sample_n, nrow(keeper_rows))",
+    "     idx <- if (random_pick) sample(seq_len(nrow(keeper_rows)), n) else seq_len(n)",
+    "     selected <- keeper_rows[idx, , drop = FALSE]",
+    "     results <- list()",
+    "     for (i in seq_len(nrow(selected))) {",
+    "       row_payload <- as.list(selected[i, , drop = FALSE])",
+    "       row_payload <- lapply(row_payload, function(x) if (length(x) == 0) NA else x)",
+    "       resp <- OHDSIAssistant:::`.acp_post`(",
+    "         '/flows/phenotype_validation_review',",
+    "         list(keeper_row = row_payload, disease_name = disease_name)",
+    "       )",
+    "       if (!is.null(resp$status) && resp$status == 'error') {",
+    "         out <- c(row_payload, list(label = NA, rationale = NA, acp_error = resp$error %||% 'acp_error'))",
+    "         results[[length(results) + 1]] <- as.data.frame(out, stringsAsFactors = FALSE, check.names = FALSE)",
+    "         next",
+    "       }",
+    "       label <- resp$label",
+    "       rationale <- resp$rationale",
+    "       if (is.null(label) && !is.null(resp$full_result$label)) label <- resp$full_result$label",
+    "       if (is.null(rationale) && !is.null(resp$full_result$rationale)) rationale <- resp$full_result$rationale",
+    "       if (is.null(label) && !is.null(resp$result$label)) label <- resp$result$label",
+    "       if (is.null(rationale) && !is.null(resp$result$rationale)) rationale <- resp$result$rationale",
+    "       if (is.null(label)) label <- NA",
+    "       if (is.null(rationale)) rationale <- NA",
+    "       out <- c(row_payload, list(label = label, rationale = rationale))",
+    "       results[[length(results) + 1]] <- as.data.frame(out, stringsAsFactors = FALSE, check.names = FALSE)",
+    "     }",
+    "     if (length(results) > 0) {",
+    "       out_df <- do.call(rbind, results)",
+    "       if (write_output) {",
+    "         out_path <- file.path(keeper_dir, sprintf('%s_llm_review.csv', cid))",
+    "         write.csv(out_df, out_path, row.names = FALSE)",
+    "       }",
+    "       print(out_df)",
+    "     }",
+    "   }",
+    " }",
     ""
   )
   write_lines(file.path(scripts_dir, "04_keeper_review.R"), script_04)
@@ -1281,9 +1303,9 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "sql_dir <- file.path(selected_dir, 'sql')",
     "dir.create(sql_dir, recursive = TRUE, showWarnings = FALSE)",
     "",
-    "connectionDetails <- OHDSIAssistant::createStrategusConnectionDetails()",
-    "# TODO: fill in executionSettings_diagnostics",
-    "# executionSettings_diagnostics <- createCdmExecutionSettings(...)",
+    "connectionDetails <- OHDSIAssistant::createStrategusConnectionDetails(path='<FILL IN>')",
+    "exec <- OHDSIAssistant::createStrategusExecutionSettings(path='<FILL IN>')",
+    "executionSettings_diagnostics <- exec$executionSettings",
     "",
     "cohortDefinitionSet <- CohortGenerator::getCohortDefinitionSet(",
     "  settingsFileName = cohort_csv,",
@@ -1312,11 +1334,11 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "  addSharedResources(cohortDefinitionSharedResource) %>%",
     "  addModuleSpecifications(cohortDiagnosticsModuleSpecifications)",
     "",
-    "# execute(",
-    "#   analysisSpecifications = analysisSpecifications,",
-    "#   executionSettings = executionSettings_diagnostics,",
-    "#   connectionDetails = connectionDetails",
-    "# )",
+    " execute(",
+    "   analysisSpecifications = analysisSpecifications,",
+    "   executionSettings = executionSettings_diagnostics,",
+    "   connectionDetails = connectionDetails",
+    " )",
     ""
   )
   write_lines(file.path(scripts_dir, "05_diagnostics.R"), script_05)
@@ -1354,9 +1376,9 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "sql_dir <- file.path(selected_dir, 'sql')",
     "dir.create(sql_dir, recursive = TRUE, showWarnings = FALSE)",
     "",
-    "connectionDetails <- OHDSIAssistant::createStrategusConnectionDetails()",
-    "# TODO: fill in executionSettings_incidence",
-    "# executionSettings_incidence <- createCdmExecutionSettings(...)",
+    "connectionDetails <- OHDSIAssistant::createStrategusConnectionDetails(path='<FILL IN>')",
+    "exec <- OHDSIAssistant::createStrategusExecutionSettings(path='<FILL IN>')",
+    "executionSettings_incidence <- exec$executionSettings",
     "",
     "cohortDefinitionSet <- CohortGenerator::getCohortDefinitionSet(",
     "  settingsFileName = cohort_csv,",
@@ -1375,11 +1397,11 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     ")",
     "targets <- lapply(target_ids, function(id) {",
     "  row <- cohortDefinitionSet[cohortDefinitionSet$cohortId == id, ]",
-    "  list(id = id, name = row$cohortName[1])",
+    "  CohortIncidence::createCohortRef(id = id, name = row$cohortName[1])",
     "})",
     "outcomes <- lapply(outcome_ids, function(id) {",
     "  row <- cohortDefinitionSet[cohortDefinitionSet$cohortId == id, ]",
-    "  list(id = id, name = row$cohortName[1])",
+    "  CohortIncidence::createOutcomeDef(id = id, name = row$cohortName[1])",
     "})",
     "",
     "tars <- list(",
@@ -1412,11 +1434,11 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "analysis_spec_path <- file.path(analysis_settings_dir, 'analysisSpecification.json')",
     "ParallelLogger::saveSettingsToJson(analysisSpecifications, analysis_spec_path)",
     "",
-    "# execute(",
-    "#   analysisSpecifications = analysisSpecifications,",
-    "#   executionSettings = executionSettings_incidence,",
-    "#   connectionDetails = connectionDetails",
-    "# )",
+    " execute(",
+    "   analysisSpecifications = analysisSpecifications,",
+    "   executionSettings = executionSettings_incidence,",
+    "   connectionDetails = connectionDetails",
+    " )",
     ""
   )
   write_lines(file.path(scripts_dir, "06_incidence_spec.R"), script_06)
