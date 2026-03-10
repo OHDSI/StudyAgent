@@ -121,6 +121,9 @@ Candidate selection:
 19. `STUDY_AGENT_PORT` (default `8765`)
 20. `STUDY_AGENT_MCP_CWD` (optional) working directory passed to MCP subprocesses. Use for stable relative paths.
 21. `MCP_LOG_LEVEL` (default `INFO`) controls MCP stderr logging (`DEBUG|INFO|WARN|ERROR|OFF`).
+22. `STUDY_AGENT_MCP_URL` (optional) HTTP MCP endpoint. When set, ACP uses HTTP and ignores `STUDY_AGENT_MCP_COMMAND`.
+23. `STUDY_AGENT_MCP_TOKEN` (optional) bearer token passed to MCP over HTTP.
+24. `STUDY_AGENT_MCP_TIMEOUT` (default `30`) HTTP MCP request timeout in seconds.
 
 **Risks and Mitigations**
 1. Missing dependencies for FAISS

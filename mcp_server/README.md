@@ -28,3 +28,19 @@ Keeper validation:
 - `keeper_parse_response`
 
 Authoring new MCP tools: see `docs/MCP_TOOL_AUTHORING.md`.
+
+## Running MCP over HTTP (recommended for cross-platform stability)
+
+```bash
+export MCP_TRANSPORT=http
+export MCP_HOST=127.0.0.1
+export MCP_PORT=8790
+export MCP_PATH=/mcp
+study-agent-mcp
+```
+
+ACP connects via:
+
+```bash
+export STUDY_AGENT_MCP_URL="http://127.0.0.1:8790/mcp"
+```

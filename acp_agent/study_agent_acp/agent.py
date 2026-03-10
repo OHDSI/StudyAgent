@@ -273,6 +273,7 @@ class StudyAgent:
             return {"status": "error", "error": "missing study_intent"}
         if self._mcp_client is None:
             return {"status": "error", "error": "MCP client unavailable"}
+        debug = os.getenv("STUDY_AGENT_DEBUG", "0") == "1"
 
         prompt_bundle = self.call_tool(
             name="phenotype_intent_split",
@@ -292,7 +293,11 @@ class StudyAgent:
             output_schema=prompt_full.get("output_schema", {}),
             study_intent=study_intent,
         )
+        if debug:
+            print("ACP DEBUG > phenotype_intent_split: calling LLM")
         llm_result = call_llm(prompt)
+        if debug:
+            print("ACP DEBUG > phenotype_intent_split: LLM returned")
         if llm_result is None:
             return {
                 "status": "error",

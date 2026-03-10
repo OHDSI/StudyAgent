@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 from typing import Any, Dict, Optional
@@ -222,6 +223,9 @@ def call_llm(prompt: str) -> Optional[Dict[str, Any]]:
     model = os.getenv("LLM_MODEL", "agentstudyassistant")
     timeout = int(os.getenv("LLM_TIMEOUT", "180"))
     log_enabled = os.getenv("LLM_LOG", "0") == "1"
+    log_prompt = os.getenv("LLM_LOG_PROMPT", "0") == "1"
+    log_response = os.getenv("LLM_LOG_RESPONSE", "0") == "1"
+    log_json = os.getenv("LLM_LOG_JSON", "0") == "1"
     dry_run = os.getenv("LLM_DRY_RUN", "0") == "1"
     use_responses = os.getenv("LLM_USE_RESPONSES", "0") == "1"
 
@@ -229,7 +233,7 @@ def call_llm(prompt: str) -> Optional[Dict[str, Any]]:
         print(f"LLM CONFIG > url={api_url} model={model} timeout={timeout} responses={use_responses}")
 
     if dry_run:
-        if log_enabled:
+        if log_enabled or log_prompt:
             print("LLM DRY RUN > skipping API call")
             print("LLM OUTGOING PROMPT >", prompt)
         return None
@@ -257,15 +261,18 @@ def call_llm(prompt: str) -> Optional[Dict[str, Any]]:
     request.add_header("Content-Type", "application/json")
     request.add_header("Authorization", f"Bearer {api_key}")
 
-    if log_enabled:
+    if log_enabled or log_prompt:
         print("LLM OUTGOING PROMPT >", prompt)
 
     try:
+        start = time.time()
         with urllib.request.urlopen(request, timeout=timeout) as response:
             raw = response.read().decode("utf-8")
+        if log_enabled:
+            print(f"LLM TIMING > seconds={time.time() - start:.2f}")
     except urllib.error.HTTPError as exc:
         raw = exc.read().decode("utf-8")
-        if log_enabled:
+        if log_enabled or log_response:
             print(f"LLM HTTP ERROR > {exc.code}")
             print("LLM ERROR BODY >", raw)
         return None
@@ -274,13 +281,15 @@ def call_llm(prompt: str) -> Optional[Dict[str, Any]]:
             print(f"LLM ERROR > {exc}")
         return None
 
-    if log_enabled:
+    if log_enabled or log_response:
         print("LLM RAW RESPONSE >", raw)
 
     try:
         data = json.loads(raw)
     except json.JSONDecodeError:
         return _extract_json_object(raw)
+    if log_json:
+        print("LLM JSON >", data)
 
     if use_responses:
         output_text = None

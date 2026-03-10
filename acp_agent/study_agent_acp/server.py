@@ -6,7 +6,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from typing import Any, Dict, Optional
 
 from .agent import StudyAgent
-from .mcp_client import StdioMCPClient, StdioMCPClientConfig
+from .mcp_client import HttpMCPClient, HttpMCPClientConfig, StdioMCPClient, StdioMCPClientConfig
 
 SERVICES = [
     {"name": "phenotype_recommendation", "endpoint": "/flows/phenotype_recommendation"},
@@ -70,7 +70,7 @@ def _load_registry_services() -> tuple[list[Dict[str, Any]], list[str]]:
 
 class ACPRequestHandler(BaseHTTPRequestHandler):
     agent: StudyAgent
-    mcp_client: Optional[StdioMCPClient]
+    mcp_client: Optional[object]
     debug: bool = False
 
     def log_message(self, format: str, *args: Any) -> None:
@@ -383,9 +383,14 @@ def _build_agent(
     mcp_args: Optional[list[str]],
     allow_core_fallback: bool,
     mcp_cwd: Optional[str],
-) -> tuple[StudyAgent, Optional[StdioMCPClient]]:
+    mcp_url: Optional[str],
+    mcp_token: Optional[str],
+    mcp_timeout: int,
+) -> tuple[StudyAgent, Optional[object]]:
     mcp_client = None
-    if mcp_command:
+    if mcp_url:
+        mcp_client = HttpMCPClient(HttpMCPClientConfig(url=mcp_url, token=mcp_token, timeout=mcp_timeout))
+    elif mcp_command:
         mcp_client = StdioMCPClient(
             StdioMCPClientConfig(command=mcp_command, args=mcp_args or [], cwd=mcp_cwd),
         )
@@ -457,8 +462,15 @@ def main(host: str = "127.0.0.1", port: int = 8765) -> None:
     debug = os.getenv("STUDY_AGENT_DEBUG", "0") == "1"
     threaded = os.getenv("STUDY_AGENT_THREADING", "1") == "1"
     mcp_cwd = os.getenv("STUDY_AGENT_MCP_CWD") or os.getcwd()
+    mcp_url = os.getenv("STUDY_AGENT_MCP_URL")
+    mcp_token = os.getenv("STUDY_AGENT_MCP_TOKEN")
+    mcp_timeout = int(os.getenv("STUDY_AGENT_MCP_TIMEOUT", "30"))
 
-    if mcp_command:
+    if mcp_url:
+        if "://" in mcp_url and ":" not in mcp_url.split("://", 1)[1]:
+            raise RuntimeError("STUDY_AGENT_MCP_URL missing port (e.g., http://127.0.0.1:8790/mcp).")
+        print(f"ACP INFO > MCP url={mcp_url}")
+    elif mcp_command:
         if os.getenv("PHENOTYPE_INDEX_DIR") is None:
             print("ACP WARN > PHENOTYPE_INDEX_DIR not set; MCP will use its default.")
         if os.getenv("EMBED_URL") is None:
@@ -468,7 +480,15 @@ def main(host: str = "127.0.0.1", port: int = 8765) -> None:
         print(f"ACP INFO > MCP cwd={mcp_cwd}")
 
     args_list = [arg for arg in mcp_args.split(" ") if arg]
-    agent, mcp_client = _build_agent(mcp_command, args_list, allow_core_fallback, mcp_cwd)
+    agent, mcp_client = _build_agent(
+        mcp_command,
+        args_list,
+        allow_core_fallback,
+        mcp_cwd,
+        mcp_url,
+        mcp_token,
+        mcp_timeout,
+    )
 
     class Handler(ACPRequestHandler):
         agent = None
@@ -504,7 +524,7 @@ def main(host: str = "127.0.0.1", port: int = 8765) -> None:
     _serve(server, mcp_client)
 
 
-def _serve(server: HTTPServer, mcp_client: Optional[StdioMCPClient]) -> None:
+def _serve(server: HTTPServer, mcp_client: Optional[object]) -> None:
     try:
         server.serve_forever()
     finally:

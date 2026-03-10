@@ -46,8 +46,13 @@ def main() -> None:
     if transport in ("sse", "http"):
         host = os.getenv("MCP_HOST", "0.0.0.0")
         port = int(os.getenv("MCP_PORT", "3000"))
-        path = os.getenv("MCP_PATH", "/sse")
-        mcp.run(transport="streamable-http", host=host, port=port, path=path)
+        path = os.getenv("MCP_PATH", "/mcp")
+        mcp.settings.host = host
+        mcp.settings.port = port
+        mcp.settings.streamable_http_path = path
+        if os.getenv("MCP_LOG_LEVEL"):
+            mcp.settings.log_level = os.getenv("MCP_LOG_LEVEL", "INFO").upper()
+        mcp.run(transport="streamable-http")
     else:
         mcp.run()
 

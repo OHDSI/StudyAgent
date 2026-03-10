@@ -3,13 +3,18 @@ from __future__ import annotations
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
 import os
+import socket
 from threading import Lock
 from typing import Any, Dict, List, Optional
 
 import anyio
+import httpx
+from urllib.parse import urlparse
 from anyio.from_thread import start_blocking_portal
 from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
+from mcp.client.streamable_http import streamable_http_client
+from mcp.shared._httpx_utils import create_mcp_http_client
 
 
 @dataclass
@@ -184,3 +189,110 @@ def _should_use_oneshot(exc: Exception) -> bool:
     if "GeneratorContextManager" in message:
         return True
     return False
+
+
+@dataclass
+class HttpMCPClientConfig:
+    url: str
+    token: Optional[str] = None
+    timeout: int = 30
+
+
+class HttpMCPClient:
+    def __init__(self, config: HttpMCPClientConfig) -> None:
+        if "://" not in config.url:
+            config.url = f"http://{config.url}"
+        self._config = config
+        parsed = urlparse(config.url)
+        self._host = parsed.hostname
+        self._port = parsed.port
+        self._lock = Lock()
+        self._portal = None
+        self._portal_cm = None
+        self._session: ClientSession | None = None
+        self._exit_stack: AsyncExitStack | None = None
+
+    def list_tools(self) -> List[Dict[str, Any]]:
+        self._ensure_session()
+        assert self._portal is not None
+        return self._portal.call(self._list_tools)
+
+    def call_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        self._ensure_session()
+        assert self._portal is not None
+        return self._portal.call(self._call_tool, name, arguments)
+
+    def health_check(self) -> Dict[str, Any]:
+        if self._host and self._port:
+            try:
+                with socket.create_connection((self._host, self._port), timeout=1):
+                    return {"ok": True, "mode": "http"}
+            except OSError as exc:
+                return {"ok": False, "error": str(exc)}
+        try:
+            self._ensure_session()
+            assert self._portal is not None
+            return self._portal.call(self._ping)
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
+
+    async def _list_tools(self) -> List[Dict[str, Any]]:
+        assert self._session is not None
+        result = await self._session.list_tools()
+        return [tool.model_dump() for tool in result.tools]
+
+    async def _call_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        assert self._session is not None
+        result = await self._session.call_tool(name=name, arguments=arguments)
+        if result.structuredContent is not None:
+            return result.structuredContent
+        return {"content": [c.model_dump() for c in result.content or []]}
+
+    async def _ping(self) -> Dict[str, Any]:
+        assert self._session is not None
+        await self._session.send_ping()
+        return {"ok": True, "mode": "http"}
+
+    def _ensure_session(self) -> None:
+        if self._session is not None:
+            return
+        with self._lock:
+            if self._session is not None:
+                return
+            self._portal_cm = start_blocking_portal()
+            self._portal = self._portal_cm.__enter__()
+            assert self._portal is not None
+            self._portal.call(self._async_init)
+
+    async def _async_init(self) -> None:
+        headers = {}
+        if self._config.token:
+            headers["Authorization"] = f"Bearer {self._config.token}"
+        timeout = httpx.Timeout(self._config.timeout)
+        client = create_mcp_http_client(headers=headers, timeout=timeout)
+        self._exit_stack = AsyncExitStack()
+        await self._exit_stack.enter_async_context(client)
+        read_stream, write_stream, _ = await self._exit_stack.enter_async_context(
+            streamable_http_client(self._config.url, http_client=client)
+        )
+        session = ClientSession(read_stream, write_stream)
+        await self._exit_stack.enter_async_context(session)
+        await session.initialize()
+        self._session = session
+
+    def close(self) -> None:
+        if self._portal is None:
+            return
+        try:
+            self._portal.call(self._async_close)
+        finally:
+            if self._portal_cm is not None:
+                self._portal_cm.__exit__(None, None, None)
+                self._portal_cm = None
+            self._portal = None
+
+    async def _async_close(self) -> None:
+        if self._exit_stack is not None:
+            await self._exit_stack.aclose()
+        self._exit_stack = None
+        self._session = None

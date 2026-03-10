@@ -152,6 +152,51 @@ Start ACP with an MCP tool server:
 STUDY_AGENT_MCP_COMMAND=study-agent-mcp STUDY_AGENT_MCP_ARGS="" study-agent-acp
 ```
 
+This uses stdio MCP mode. If you use HTTP MCP, do not set `STUDY_AGENT_MCP_COMMAND`.
+
+HTTP MCP mode (recommended for cross-platform stability):
+
+```bash
+export MCP_TRANSPORT=http
+export MCP_HOST=127.0.0.1
+export MCP_PORT=8790
+export MCP_PATH=/mcp
+study-agent-mcp
+```
+
+Then in a second shell:
+
+```bash
+export STUDY_AGENT_MCP_URL="http://127.0.0.1:8790/mcp"
+study-agent-acp
+```
+
+Note: `STUDY_AGENT_MCP_URL` must include the port (e.g. `:8790`).
+When set, ACP uses HTTP and ignores `STUDY_AGENT_MCP_COMMAND`.
+
+PowerShell (Windows) MCP HTTP mode:
+
+```powershell
+$env:MCP_TRANSPORT = "http"
+$env:MCP_HOST = "127.0.0.1"
+$env:MCP_PORT = "8790"
+$env:MCP_PATH = "/mcp"
+study-agent-mcp
+```
+
+Then in a second PowerShell:
+
+```powershell
+$env:STUDY_AGENT_MCP_URL = "http://127.0.0.1:8790/mcp"
+study-agent-acp
+```
+
+Health check (PowerShell):
+
+```powershell
+Invoke-RestMethod -Uri http://127.0.0.1:8765/health
+```
+
 Recommended MCP environment (use absolute paths for stability):
 
 ```bash
@@ -282,6 +327,16 @@ Run the Python smoke test via `doit`:
 ```bash
 doit smoke_phenotype_flow
 ```
+
+If you want `doit` to spin up MCP over HTTP automatically, set:
+
+```bash
+export STUDY_AGENT_MCP_URL="http://127.0.0.1:8790/mcp"
+export STUDY_AGENT_MCP_MANAGED=1
+export MCP_START_TIMEOUT=3
+```
+
+Note: the smoke tasks set `ACP_URL` internally per flow. Avoid exporting a global `ACP_URL` unless you intend to override the target flow.
 
 ## Concept sets review smoke test
 

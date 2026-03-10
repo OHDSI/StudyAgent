@@ -126,10 +126,46 @@ export STUDY_AGENT_MCP_COMMAND=study-agent-mcp
 export STUDY_AGENT_MCP_ARGS=""
 study-agent-acp
 ```
+Note: This starts MCP via stdio. If you use MCP over HTTP, do not set `STUDY_AGENT_MCP_COMMAND`.
 Note: Prefer stopping the ACP process (SIGINT/SIGTERM) so the MCP subprocess is closed cleanly. Killing the MCP directly can leave defunct processes.
 Note: ACP uses a threaded HTTP server by default. Set `STUDY_AGENT_THREADING=0` to disable threading.
 Note: `/health` includes MCP preflight details under `mcp_index` when MCP is configured.
 Troubleshooting: run `python mcp_server/scripts/mcp_probe.py` to verify index paths and search without ACP.
+
+### MCP over HTTP (recommended for cross-platform stability)
+
+Start MCP as a separate HTTP service:
+
+```bash
+export MCP_TRANSPORT=http
+export MCP_HOST=127.0.0.1
+export MCP_PORT=8790
+export MCP_PATH=/mcp
+study-agent-mcp
+```
+
+Then point ACP at it:
+
+```bash
+export STUDY_AGENT_MCP_URL="http://127.0.0.1:8790/mcp"
+study-agent-acp
+```
+Note: `STUDY_AGENT_MCP_URL` must include the port (e.g. `:8790`). When set, ACP uses HTTP and ignores `STUDY_AGENT_MCP_COMMAND`.
+
+PowerShell (Windows) quickstart:
+
+```powershell
+$env:MCP_TRANSPORT = "http"
+$env:MCP_HOST = "127.0.0.1"
+$env:MCP_PORT = "8790"
+$env:MCP_PATH = "/mcp"
+study-agent-mcp
+```
+
+```powershell
+$env:STUDY_AGENT_MCP_URL = "http://127.0.0.1:8790/mcp"
+study-agent-acp
+```
 
 2. Run `phenotype_recommendation`
 ```bash
