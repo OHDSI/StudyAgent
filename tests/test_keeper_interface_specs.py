@@ -87,3 +87,14 @@ def test_service_registry_declares_case_causal_review_flow() -> None:
         "get_case_review_drug_label_details",
         "get_case_review_report_literature_stub",
     ]
+    assert service["validation"]["controlled_identifier_keys"] == [
+        "ingred_rxcui",
+        "rxcui",
+        "adverse_event_meddra_id",
+        "meddra_code",
+        "meddra_id",
+        "concept_id",
+        "ingredient_concept_id",
+        "adverse_event_concept_id",
+        "outcome_concept_id",
+    ]

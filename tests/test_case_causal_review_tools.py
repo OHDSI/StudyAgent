@@ -94,6 +94,72 @@ def test_case_causal_review_sanitize_row_supports_candidate_and_context_items() 
 
 
 @pytest.mark.mcp
+def test_case_causal_review_sanitize_row_preserves_controlled_identifier_fields() -> None:
+    tools = _registered_tools()
+    payload = tools["case_causal_review_sanitize_row"](
+        {
+            "case_id": "case-1",
+            "case_summary": "Bleeding event after anticoagulant exposure.",
+            "index_event": {
+                "domain": "index_event",
+                "label": "Gastrointestinal bleeding",
+                "source_record_id": "reaction-1",
+                "annotations": {"adverse_event_meddra_id": "10075534", "adverse_event_concept_id": 321},
+            },
+            "candidate_items": [
+                {
+                    "domain": "Drug Exposures",
+                    "label": "Warfarin",
+                    "source_record_id": "drug-1",
+                    "source_kind": "reported_drug",
+                    "subrole": "primary_suspect",
+                    "annotations": {"ingred_rxcui": "36567", "ingredient_concept_id": 123},
+                }
+            ],
+            "context_items": [],
+        },
+        ["drug_exposures"],
+    )
+    annotations = payload["sanitized_row"]["candidate_items"][0]["annotations"]
+    index_annotations = payload["sanitized_row"]["index_event"]["annotations"]
+    assert annotations["ingred_rxcui"] == "36567"
+    assert annotations["ingredient_concept_id"] == 123
+    assert index_annotations["adverse_event_meddra_id"] == "10075534"
+    assert index_annotations["adverse_event_concept_id"] == 321
+
+
+@pytest.mark.mcp
+def test_case_causal_review_sanitize_row_redacts_zip_in_free_text() -> None:
+    tools = _registered_tools()
+    payload = tools["case_causal_review_sanitize_row"](
+        {
+            "case_id": "case-1",
+            "case_summary": "Patient reported event near ZIP 15213 after exposure.",
+            "index_event": {
+                "domain": "index_event",
+                "label": "Gastrointestinal bleeding",
+                "source_record_id": "reaction-1",
+            },
+            "candidate_items": [
+                {
+                    "domain": "Drug Exposures",
+                    "label": "Warfarin",
+                    "source_record_id": "drug-1",
+                    "source_kind": "reported_drug",
+                    "subrole": "primary_suspect",
+                    "why_observed": "Filled in 15213 and later implicated",
+                }
+            ],
+            "context_items": [],
+        },
+        ["drug_exposures"],
+    )
+    sanitized = payload["sanitized_row"]
+    assert "[REDACTED_ZIP]" in sanitized["case_summary"]
+    assert "[REDACTED_ZIP]" in sanitized["candidate_items"][0]["why_observed"]
+
+
+@pytest.mark.mcp
 def test_case_causal_review_sanitize_row_rejects_phi() -> None:
     tools = _registered_tools()
     payload = tools["case_causal_review_sanitize_row"](
@@ -109,6 +175,28 @@ def test_case_causal_review_sanitize_row_rejects_phi() -> None:
                 {"domain": "drug_exposures", "label": "Ketamine", "source_record_id": "drug-1"}
             ],
             "case_metadata": {"birth_date": "2020-01-01"},
+        },
+        [],
+    )
+    assert payload["error"] == "unsafe_case_row"
+
+
+@pytest.mark.mcp
+def test_case_causal_review_sanitize_row_rejects_person_id_phi_key() -> None:
+    tools = _registered_tools()
+    payload = tools["case_causal_review_sanitize_row"](
+        {
+            "case_id": "case-2",
+            "case_summary": "Unsafe payload",
+            "index_event": {
+                "domain": "index_event",
+                "label": "Cystitis",
+                "source_record_id": "reaction-4",
+            },
+            "candidate_items": [
+                {"domain": "drug_exposures", "label": "Ketamine", "source_record_id": "drug-1"}
+            ],
+            "case_metadata": {"person_id": "12345"},
         },
         [],
     )

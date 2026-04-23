@@ -4,6 +4,8 @@ import json
 import re
 from typing import Any, Dict, Iterable, List
 
+from ._service_registry import get_controlled_identifier_keys
+
 _EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 _URL_RE = re.compile(r"https?://\S+")
 _IP_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
@@ -51,6 +53,22 @@ _PHI_KEYS = {
     "death_date",
 }
 
+_DEFAULT_CONTROLLED_IDENTIFIER_KEYS = {
+    "ingred_rxcui",
+    "rxcui",
+    "adverse_event_meddra_id",
+    "meddra_code",
+    "meddra_id",
+    "concept_id",
+    "ingredient_concept_id",
+    "adverse_event_concept_id",
+    "outcome_concept_id",
+}
+
+
+def _configured_controlled_identifier_keys() -> frozenset[str]:
+    return get_controlled_identifier_keys("case_causal_review", _DEFAULT_CONTROLLED_IDENTIFIER_KEYS)
+
 _ALLOWED_SUBROLES = {
     "primary_suspect",
     "secondary_suspect",
@@ -81,24 +99,27 @@ def bucket_age(age: Any) -> str:
     return f"{bucket}-{bucket+4}"
 
 
-def sanitize_text(text: str) -> str:
+def sanitize_text(text: str, key_name: str | None = None) -> str:
     if not text:
         return "None"
     value = str(text).strip()
     if not value:
         return "None"
+    value = _DAY_RE.sub("(prior)", value)
+    key_norm = str(key_name or "").strip().lower()
+    if key_norm in _configured_controlled_identifier_keys():
+        return value
     value = _EMAIL_RE.sub("[REDACTED_EMAIL]", value)
     value = _URL_RE.sub("[REDACTED_URL]", value)
     value = _IP_RE.sub("[REDACTED_IP]", value)
     value = _PHONE_RE.sub("[REDACTED_PHONE]", value)
     value = _DATE_RE.sub("[REDACTED_DATE]", value)
     value = _ZIP_RE.sub("[REDACTED_ZIP]", value)
-    value = _DAY_RE.sub("(prior)", value)
     return value
 
 
-def clean_optional_text(value: Any) -> str:
-    text = sanitize_text(str(value or ""))
+def clean_optional_text(value: Any, key_name: str | None = None) -> str:
+    text = sanitize_text(str(value or ""), key_name=key_name)
     return "" if text == "None" else text
 
 
@@ -161,27 +182,28 @@ def normalize_subrole(value: Any, default: str) -> str:
     return default
 
 
-def sanitize_scalar(value: Any) -> Any:
+def sanitize_scalar(value: Any, key_name: str | None = None) -> Any:
     if value is None:
         return None
     if isinstance(value, bool):
         return value
     if isinstance(value, (int, float)):
         return value
-    return sanitize_text(str(value))
+    return sanitize_text(str(value), key_name=key_name)
 
 
-def sanitize_nested(value: Any, depth: int = 0) -> Any:
+def sanitize_nested(value: Any, depth: int = 0, key_name: str | None = None) -> Any:
     if depth > 4:
-        return sanitize_text(json.dumps(value, ensure_ascii=True, sort_keys=True))
+        return sanitize_text(json.dumps(value, ensure_ascii=True, sort_keys=True), key_name=key_name)
     if isinstance(value, dict):
         sanitized: Dict[str, Any] = {}
         for key, inner in value.items():
-            sanitized[sanitize_text(str(key))] = sanitize_nested(inner, depth + 1)
+            raw_key = str(key)
+            sanitized[sanitize_text(raw_key)] = sanitize_nested(inner, depth + 1, key_name=raw_key)
         return sanitized
     if isinstance(value, list):
-        return [sanitize_nested(item, depth + 1) for item in value[:50]]
-    return sanitize_scalar(value)
+        return [sanitize_nested(item, depth + 1, key_name=key_name) for item in value[:50]]
+    return sanitize_scalar(value, key_name=key_name)
 
 
 def collect_phi_issues(value: Any, path: str = "case_row") -> List[str]:
