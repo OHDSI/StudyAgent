@@ -77,6 +77,9 @@ _ALLOWED_SUBROLES = {
     "vulnerability_factor",
     "contextual_factor",
     "proximate_marker",
+    "candidate_exposure",
+    "background_exposure",
+    "candidate_condition",
     "index_event",
 }
 
