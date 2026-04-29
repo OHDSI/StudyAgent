@@ -22,6 +22,19 @@ _METHOD_FAMILY_RULES = {
     "gw": [r"\bgw\b", r"genome[- ]wide", r"gwas"],
     "gwphewas": [r"\bgwphewas\b", r"gwphewas", r"phewas"],
 }
+_STOPWORD_RETRIEVAL_TERMS = {
+    "a",
+    "an",
+    "and",
+    "for",
+    "from",
+    "in",
+    "of",
+    "or",
+    "the",
+    "to",
+    "with",
+}
 
 
 def _parse_int(value: Any) -> Optional[int]:
@@ -77,6 +90,46 @@ def _compact_text_parts(parts: Iterable[Any]) -> List[str]:
 
 def _join_text(parts: Iterable[Any]) -> str:
     return "\n\n".join(_compact_text_parts(parts))
+
+
+def _dedupe_texts(values: Iterable[Any]) -> List[str]:
+    seen = set()
+    cleaned: List[str] = []
+    for value in values:
+        if value is None:
+            continue
+        text = re.sub(r"\s+", " ", str(value).strip())
+        if not text:
+            continue
+        if re.fullmatch(r"\d+", text):
+            continue
+        lowered = text.lower()
+        if lowered in seen:
+            continue
+        seen.add(lowered)
+        cleaned.append(text)
+    return cleaned
+
+
+def _derive_retrieval_keywords(values: Iterable[Any], max_terms: int = 32) -> List[str]:
+    keywords: List[str] = []
+    seen = set()
+    for value in values:
+        if value is None:
+            continue
+        text = re.sub(r"\s+", " ", str(value).strip(" ,;|"))
+        if not text:
+            continue
+        if re.fullmatch(r"\d+", text):
+            continue
+        lowered = text.lower()
+        if lowered in _STOPWORD_RETRIEVAL_TERMS or lowered in seen:
+            continue
+        seen.add(lowered)
+        keywords.append(text)
+        if len(keywords) >= max_terms:
+            break
+    return keywords
 
 
 def _definition_filename(phenotype_id: str) -> str:
@@ -145,7 +198,7 @@ def _load_cipher_enum_map(enum_path: Optional[str]) -> Dict[int, Dict[str, Any]]
     def _visit(entry: Dict[str, Any], parent_id: Optional[int] = None) -> None:
         enum_id = _parse_int(entry.get("id"))
         if enum_id is None:
-            return
+            return None
         enum_map[enum_id] = {
             "id": enum_id,
             "fieldType": entry.get("fieldType"),
@@ -177,6 +230,8 @@ def _normalize_keywords(values: Iterable[Any]) -> List[str]:
         text = str(value).strip()
         if not text:
             continue
+        if re.fullmatch(r"\d+", text):
+            continue
         lowered = text.lower()
         if lowered in seen:
             continue
@@ -203,6 +258,294 @@ def _extract_methodology_summary(text: str) -> str:
     if not sentences:
         return ""
     return sentences[0][:280]
+
+
+def _compose_retrieval_text(row: Dict[str, Any]) -> str:
+    parts = [
+        row.get("name"),
+        row.get("short_description"),
+        row.get("long_description"),
+        " ".join(row.get("tags") or []),
+        " ".join(row.get("raw_keywords") or []),
+        " ".join(row.get("retrieval_keywords") or []),
+        " ".join(row.get("retrieval_concept_labels") or []),
+        " ".join(row.get("ontology_keys") or []),
+        " ".join(row.get("signals") or []),
+        row.get("methodology_summary"),
+        row.get("adaptation_notes"),
+    ]
+    return "\n".join(_compact_text_parts(parts))
+
+
+def _keyword_prompt_payload(row: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "task": "phenotype_index_keyword_derivation",
+        "phenotype_id": row.get("phenotype_id"),
+        "source_dataset": row.get("source_dataset"),
+        "name": row.get("name") or "",
+        "short_description": row.get("short_description") or "",
+        "long_description": _truncate_for_prompt(row.get("long_description") or "", 2400),
+        "tags": row.get("tags") or [],
+        "raw_keywords": row.get("raw_keywords") or [],
+        "retrieval_concept_labels": (row.get("retrieval_concept_labels") or [])[:24],
+        "methodology_summary": row.get("methodology_summary") or "",
+        "signals": [signal for signal in (row.get("signals") or []) if signal.startswith("method_family:") or signal.startswith("execution:")],
+        "heuristic_keywords": row.get("retrieval_keywords") or [],
+        "executable_definition_status": row.get("executable_definition_status") or "",
+    }
+
+
+def _truncate_for_prompt(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    return text[:limit]
+
+
+def _keyword_cache_key(payload: Dict[str, Any]) -> str:
+    phenotype_id = str(payload.get("phenotype_id") or "unknown")
+    source_hash = _hash_text(json.dumps(payload, sort_keys=True, ensure_ascii=True))
+    return f"{phenotype_id}:{source_hash}"
+
+
+def _build_keyword_prompt(payload: Dict[str, Any], max_terms: int) -> str:
+    schema = {
+        "type": "object",
+        "properties": {
+            "retrieval_keywords": {
+                "type": "array",
+                "items": {"type": "string"},
+            }
+        },
+        "required": ["retrieval_keywords"],
+        "additionalProperties": False,
+    }
+    instructions = "\n".join([
+        "Task: derive compact phenotype retrieval keywords for indexing.",
+        f"Return 6 to {max_terms} short keyword phrases.",
+        "Prefer disease, syndrome, clinical focus, population, setting, code-family, and methodology cues.",
+        "Each keyword should usually be 1 to 4 words. Acronyms are allowed.",
+        "Avoid stop words, generic filler, and full-sentence fragments.",
+        "Do not invent unsupported facts. Stay grounded in the supplied phenotype metadata.",
+        "Return exactly one JSON object matching the schema.",
+    ])
+    return "\n\n".join([
+        instructions,
+        "OUTPUT SCHEMA (JSON):",
+        json.dumps(schema, ensure_ascii=True),
+        "DYNAMIC INPUT (JSON):",
+        json.dumps(payload, ensure_ascii=True),
+    ])
+
+
+def _call_keyword_llm(prompt: str) -> Dict[str, Any]:
+    try:
+        from study_agent_acp.llm_client import call_llm
+    except ImportError as exc:
+        return {"status": "disabled", "error": f"import_error:{exc}"}
+    result = call_llm(prompt, required_keys=["retrieval_keywords"])
+    return {
+        "status": result.status,
+        "error": result.error,
+        "parsed_content": result.parsed_content or {},
+        "schema_valid": result.schema_valid,
+    }
+
+
+def _normalize_llm_keywords(values: Iterable[Any], max_terms: int) -> List[str]:
+    return _derive_retrieval_keywords(values, max_terms=max_terms)
+
+
+def _apply_llm_retrieval_keywords(
+    row: Dict[str, Any],
+    keyword_cache: Dict[str, Dict[str, Any]],
+    enabled: bool = False,
+    max_terms: int = 12,
+) -> Optional[Dict[str, Any]]:
+    fallback = _normalize_llm_keywords(row.get("retrieval_keywords") or [], max_terms=max_terms)
+    row["retrieval_keywords"] = fallback
+    row["retrieval_keywords_source"] = "heuristic"
+    row["retrieval_text"] = _compose_retrieval_text(row)
+    if not enabled:
+        return
+
+    payload = _keyword_prompt_payload(row)
+    cache_key = _keyword_cache_key(payload)
+    cached = keyword_cache.get(cache_key) or {}
+    cached_keywords = _normalize_llm_keywords(cached.get("retrieval_keywords") or [], max_terms=max_terms)
+    if cached_keywords:
+        row["retrieval_keywords"] = cached_keywords
+        row["retrieval_keywords_source"] = "llm_cached"
+        row["retrieval_text"] = _compose_retrieval_text(row)
+        return None
+
+    result = _call_keyword_llm(_build_keyword_prompt(payload, max_terms=max_terms))
+    if result.get("status") == "ok":
+        llm_keywords = _normalize_llm_keywords((result.get("parsed_content") or {}).get("retrieval_keywords") or [], max_terms=max_terms)
+        if llm_keywords:
+            keyword_cache[cache_key] = {
+                "phenotype_id": row.get("phenotype_id"),
+                "retrieval_keywords": llm_keywords,
+            }
+            row["retrieval_keywords"] = llm_keywords
+            row["retrieval_keywords_source"] = "llm"
+            row["retrieval_text"] = _compose_retrieval_text(row)
+            return {
+                "cache_key": cache_key,
+                "phenotype_id": row.get("phenotype_id"),
+                "retrieval_keywords": llm_keywords,
+            }
+    return None
+
+
+def _load_jsonl_cache(path: str) -> Dict[str, Dict[str, Any]]:
+    if not os.path.exists(path):
+        return {}
+    cache: Dict[str, Dict[str, Any]] = {}
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            for line in handle:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    payload = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(payload, dict):
+                    continue
+                cache_key = payload.get("cache_key")
+                if isinstance(cache_key, str) and cache_key:
+                    cache[cache_key] = payload
+    except OSError:
+        return {}
+    return cache
+
+
+def _append_jsonl_cache_entry(path: str, entry: Dict[str, Any]) -> None:
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    with open(path, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps(entry, ensure_ascii=True) + "\n")
+
+
+def _split_ohdsi_domains(value: Any) -> List[str]:
+    if not value:
+        return []
+    return _dedupe_texts(re.split(r"[;,|]+", str(value)))
+
+
+def _extract_ohdsi_concept_evidence(definition: Optional[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[str, Any], List[str]]:
+    concept_sets = (definition or {}).get("ConceptSets")
+    if not isinstance(concept_sets, list):
+        return (
+            [],
+            {
+                "coded_terms": [],
+                "coverage_summary": {
+                    "has_codes": False,
+                    "has_labels": False,
+                    "has_omop_mapping": False,
+                },
+            },
+            [],
+        )
+
+    grouped: Dict[str, Dict[str, Any]] = {}
+    retrieval_labels: List[str] = []
+    for concept_set in concept_sets:
+        if not isinstance(concept_set, dict):
+            continue
+        concept_set_name = str(concept_set.get("name") or "").strip()
+        items = ((concept_set.get("expression") or {}).get("items") or [])
+        if concept_set_name:
+            retrieval_labels.append(concept_set_name)
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            concept = item.get("concept") if isinstance(item.get("concept"), dict) else {}
+            if not concept:
+                continue
+            vocabulary_id = str(concept.get("VOCABULARY_ID") or "Unknown").strip() or "Unknown"
+            group = grouped.setdefault(
+                vocabulary_id,
+                {
+                    "system_id": vocabulary_id,
+                    "system_name": vocabulary_id,
+                    "subsystem_id": None,
+                    "subsystem_name": None,
+                    "codes": [],
+                    "description": "",
+                    "va_specific": False,
+                    "concept_ids": [],
+                    "labels": [],
+                    "embedding_terms": [],
+                    "domains": [],
+                    "concept_set_names": [],
+                },
+            )
+            concept_id = _parse_int(concept.get("CONCEPT_ID"))
+            concept_code = str(concept.get("CONCEPT_CODE") or "").strip()
+            concept_name = str(concept.get("CONCEPT_NAME") or "").strip()
+            domain_id = str(concept.get("DOMAIN_ID") or "").strip()
+            if concept_id is not None:
+                group["concept_ids"].append(concept_id)
+            if concept_code:
+                group["codes"].append(concept_code)
+            if concept_name:
+                group["labels"].append(concept_name)
+                group["embedding_terms"].append(concept_name)
+                retrieval_labels.append(concept_name)
+            if domain_id:
+                group["domains"].append(domain_id)
+            if concept_set_name:
+                group["concept_set_names"].append(concept_set_name)
+
+    code_systems: List[Dict[str, Any]] = []
+    coded_terms: List[Dict[str, Any]] = []
+    for vocabulary_id, group in grouped.items():
+        codes = _dedupe_texts(group["codes"])
+        labels = _dedupe_texts(group["labels"])
+        concept_set_names = _dedupe_texts(group["concept_set_names"])
+        domains = _dedupe_texts(group["domains"])
+        concept_ids = sorted(set(group["concept_ids"]))
+        embedding_terms = _dedupe_texts(group["embedding_terms"] + concept_set_names + [vocabulary_id] + domains)
+        code_systems.append(
+            {
+                "system_id": group["system_id"],
+                "system_name": group["system_name"],
+                "subsystem_id": None,
+                "subsystem_name": None,
+                "codes": codes,
+                "description": ", ".join(concept_set_names[:3]),
+                "va_specific": False,
+                "concept_ids": concept_ids,
+                "concept_names": labels,
+                "domains": domains,
+                "concept_set_names": concept_set_names,
+            }
+        )
+        coded_terms.append(
+            {
+                "system": vocabulary_id,
+                "codes": codes,
+                "labels": labels,
+                "omop_candidates": concept_ids,
+                "embedding_terms": embedding_terms,
+                "concept_set_names": concept_set_names,
+                "domains": domains,
+            }
+        )
+
+    concept_evidence = {
+        "coded_terms": coded_terms,
+        "coverage_summary": {
+            "has_codes": any(item.get("codes") for item in coded_terms),
+            "has_labels": any(item.get("labels") for item in coded_terms),
+            "has_omop_mapping": any(item.get("omop_candidates") for item in coded_terms),
+        },
+    }
+    return code_systems, concept_evidence, _dedupe_texts(retrieval_labels + list(grouped.keys()))
 
 
 def _copy_definition(output_dir: str, phenotype_id: str, data: Dict[str, Any]) -> str:
@@ -238,8 +581,10 @@ def _build_ohdsi_row(meta: Dict[str, Any], definition: Optional[Dict[str, Any]])
         (definition or {}).get("description"),
     ])
     tags = _split_tags(meta.get("hashTag"))
-    keywords = _normalize_keywords(tags + _tokenize(" ".join([name, short_description, long_description])))
+    raw_keywords: List[str] = []
     ontology_keys = [str(value) for value in _parse_int_list(meta.get("recommendedReferentConceptIds"))]
+    code_systems, concept_evidence, retrieval_concept_labels = _extract_ohdsi_concept_evidence(definition)
+    ohdsi_domains = _split_ohdsi_domains(meta.get("domainsInEntryEvents"))
     logic_features = {
         "numberOfInclusionRules": _parse_int(meta.get("numberOfInclusionRules")) or 0,
         "numberOfConceptSets": _parse_int(meta.get("numberOfConceptSets")) or 0,
@@ -249,6 +594,10 @@ def _build_ohdsi_row(meta: Dict[str, Any], definition: Optional[Dict[str, Any]])
         "hasObservationType": meta.get("hasObservationType") or "",
         "hasProcedureType": meta.get("hasProcedureType") or "",
     }
+    methodology_summary = (
+        f"Native OHDSI cohort with {logic_features['numberOfConceptSets']} concept sets and "
+        f"{logic_features['numberOfInclusionRules']} inclusion rules."
+    )
     signals = ["source:ohdsi", "execution:native_ohdsi"]
     status = (meta.get("status") or "").strip()
     if status:
@@ -293,17 +642,15 @@ def _build_ohdsi_row(meta: Dict[str, Any], definition: Optional[Dict[str, Any]])
         "logic_features": logic_features,
         "domains_in_entry_events": meta.get("domainsInEntryEvents") or "",
     }
-    retrieval_parts = [
-        name,
-        short_description,
-        long_description,
-        " ".join(tags),
-        " ".join(keywords),
-        " ".join(ontology_keys),
-        " ".join(signals),
-    ]
-    retrieval_text = "\n".join(_compact_text_parts(retrieval_parts))
-    return {
+    retrieval_keywords = _derive_retrieval_keywords(
+        tags
+        + ohdsi_domains
+        + [meta.get("demographicCriteriaGender"), "native OHDSI cohort"]
+        + [f"entry domain {domain}" for domain in ohdsi_domains]
+        + [f"{logic_features['numberOfConceptSets']} concept sets" if logic_features["numberOfConceptSets"] else ""]
+        + [f"{logic_features['numberOfInclusionRules']} inclusion rules" if logic_features["numberOfInclusionRules"] else ""]
+    )
+    row = {
         "phenotype_id": phenotype_id,
         "source_dataset": "ohdsi_phenotype_library",
         "source_record_type": "cohort_definition",
@@ -312,18 +659,14 @@ def _build_ohdsi_row(meta: Dict[str, Any], definition: Optional[Dict[str, Any]])
         "short_description": short_description,
         "long_description": long_description,
         "tags": tags,
-        "keywords": keywords,
+        "raw_keywords": raw_keywords,
+        "retrieval_keywords": retrieval_keywords,
+        "retrieval_concept_labels": retrieval_concept_labels,
+        "methodology_summary": methodology_summary,
         "signals": signals,
         "ontology_keys": ontology_keys,
-        "code_systems": [],
-        "concept_evidence": {
-            "coded_terms": [],
-            "coverage_summary": {
-                "has_codes": False,
-                "has_labels": False,
-                "has_omop_mapping": bool(ontology_keys),
-            },
-        },
+        "code_systems": code_systems,
+        "concept_evidence": concept_evidence,
         "validation_features": validation_features,
         "population_features": population_features,
         "provenance": provenance,
@@ -332,7 +675,8 @@ def _build_ohdsi_row(meta: Dict[str, Any], definition: Optional[Dict[str, Any]])
         "execution_readiness_score": 1.0,
         "adaptation_notes": adaptation_notes,
         "translation_inputs": translation_inputs,
-        "retrieval_text": retrieval_text,
+        "retrieval_keywords_source": "heuristic",
+        "retrieval_text": "",
         "source_meta": {
             "status": status,
             "librarian": meta.get("librarian") or "",
@@ -344,6 +688,8 @@ def _build_ohdsi_row(meta: Dict[str, Any], definition: Optional[Dict[str, Any]])
         "source_payload_ref": "",
         "definition_ref": "",
     }
+    row["retrieval_text"] = _compose_retrieval_text(row)
+    return row
 
 
 def _resolve_enum_label(enum_map: Dict[int, Dict[str, Any]], enum_id: Optional[int]) -> Optional[str]:
@@ -361,7 +707,7 @@ def _extract_cipher_code_systems(
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Any], List[str]]:
     code_systems: List[Dict[str, Any]] = []
     coded_terms: List[Dict[str, Any]] = []
-    keyword_bits: List[str] = []
+    label_bits: List[str] = []
     has_labels = False
     for entry in assoc_codes or []:
         code_type = _parse_int(entry.get("codeType"))
@@ -381,10 +727,10 @@ def _extract_cipher_code_systems(
         if description:
             has_labels = True
         if system_name:
-            keyword_bits.append(system_name)
+            label_bits.append(system_name)
             has_labels = True
         if subsystem_name:
-            keyword_bits.append(subsystem_name)
+            label_bits.append(subsystem_name)
             has_labels = True
         code_systems.append(
             {
@@ -395,6 +741,7 @@ def _extract_cipher_code_systems(
                 "codes": codes,
                 "description": description,
                 "va_specific": bool(system_meta.get("vaSpecific")),
+                "labels": [text for text in [system_name, subsystem_name, description] if text],
             }
         )
         coded_terms.append(
@@ -414,7 +761,7 @@ def _extract_cipher_code_systems(
             "has_omop_mapping": False,
         },
     }
-    return code_systems, concept_evidence, keyword_bits
+    return code_systems, concept_evidence, _dedupe_texts(label_bits)
 
 
 def _infer_cipher_executable_status(description: str, algorithm_desc: str, code_systems: List[Dict[str, Any]]) -> str:
@@ -440,29 +787,26 @@ def _build_cipher_row(path: str, data: Dict[str, Any], enum_map: Dict[int, Dict[
     short_description = description or algorithm_desc
     long_description = _join_text([description, algorithm_desc, population_desc, validation_desc, publication_ack])
 
-    tags = _normalize_keywords(
-        [
-            data.get("phenotypeCategory"),
-            *[item.get("keyword") for item in data.get("keywords") or [] if isinstance(item, dict)],
-            *[item.get("otherSource") for item in data.get("sources") or [] if isinstance(item, dict)],
-        ]
+    tags = _dedupe_texts([data.get("phenotypeCategory")])
+    raw_keywords = _dedupe_texts(
+        [item.get("keyword") for item in data.get("keywords") or [] if isinstance(item, dict)]
     )
-    code_systems, concept_evidence, code_keywords = _extract_cipher_code_systems(
+    code_systems, concept_evidence, retrieval_concept_labels = _extract_cipher_code_systems(
         algorithm.get("assocCodes") or [],
         enum_map,
     )
     methodology_summary = _extract_methodology_summary(description or algorithm_desc)
-    methodology_signals = _method_family_signals(tags + [data.get("fullName") or "", description, algorithm_desc])
-    keywords = _normalize_keywords(
+    methodology_signals = _method_family_signals(tags + raw_keywords + [data.get("fullName") or "", description, algorithm_desc])
+    retrieval_keywords = _derive_retrieval_keywords(
         tags
-        + code_keywords
+        + raw_keywords
+        + retrieval_concept_labels
         + [
-            data.get("fullName"),
-            description,
-            algorithm_desc,
-            population_desc,
-            *[author.get("author", {}).get("name") for author in algorithm.get("authors") or [] if isinstance(author, dict)],
+            item.get("otherSource")
+            for item in data.get("sources") or []
+            if isinstance(item, dict)
         ]
+        + [signal.split(":", 1)[1].upper() for signal in methodology_signals]
     )
     signals = ["source:cipher"]
     status_id = data.get("phenotypeStatusId")
@@ -577,20 +921,7 @@ def _build_cipher_row(path: str, data: Dict[str, Any], enum_map: Dict[int, Dict[
         "source_provenance": provenance,
         "methodology_context": methodology_context,
     }
-    retrieval_parts = [
-        data.get("fullName") or "",
-        short_description,
-        long_description,
-        " ".join(tags),
-        " ".join(keywords),
-        " ".join(signals),
-        " ".join(code_keywords),
-        " ".join(code for item in code_systems for code in (item.get("codes") or [])),
-        methodology_summary,
-        adaptation_notes,
-    ]
-    retrieval_text = "\n".join(_compact_text_parts(retrieval_parts))
-    return {
+    row = {
         "phenotype_id": phenotype_id,
         "source_dataset": "va_cipher",
         "source_record_type": "disease_phenotype",
@@ -599,7 +930,10 @@ def _build_cipher_row(path: str, data: Dict[str, Any], enum_map: Dict[int, Dict[
         "short_description": short_description,
         "long_description": long_description,
         "tags": tags,
-        "keywords": keywords,
+        "raw_keywords": raw_keywords,
+        "retrieval_keywords": retrieval_keywords,
+        "retrieval_concept_labels": retrieval_concept_labels,
+        "methodology_summary": methodology_summary,
         "signals": list(dict.fromkeys(signals)),
         "ontology_keys": [str(item.get("relatedDiseaseId")) for item in algorithm.get("relatedDiseases") or [] if isinstance(item, dict) and item.get("relatedDiseaseId") is not None],
         "code_systems": code_systems,
@@ -612,7 +946,8 @@ def _build_cipher_row(path: str, data: Dict[str, Any], enum_map: Dict[int, Dict[
         "execution_readiness_score": readiness_score,
         "adaptation_notes": adaptation_notes,
         "translation_inputs": translation_inputs,
-        "retrieval_text": retrieval_text,
+        "retrieval_keywords_source": "heuristic",
+        "retrieval_text": "",
         "source_meta": {
             "uqid": data.get("uqid"),
             "phenotypeStatusId": data.get("phenotypeStatusId"),
@@ -625,6 +960,8 @@ def _build_cipher_row(path: str, data: Dict[str, Any], enum_map: Dict[int, Dict[
         "source_payload_ref": path,
         "definition_ref": "",
     }
+    row["retrieval_text"] = _compose_retrieval_text(row)
+    return row
 
 
 def _build_sparse_index(catalog: List[Dict[str, Any]], k1: float = 1.5, b: float = 0.75) -> Dict[str, Any]:
@@ -739,6 +1076,9 @@ def main() -> int:
     parser.add_argument("--cipher-dir", help="Path to CIPHER phenotype JSON definitions.")
     parser.add_argument("--cipher-enum", help="Path to CIPHER enum JSON for code-system labels.")
     parser.add_argument("--output-dir", required=True, help="Index output directory.")
+    parser.add_argument("--derive-keywords-llm", action="store_true", help="Use chat completion to derive retrieval keywords with caching.")
+    parser.add_argument("--keyword-cache-path", help="Path to retrieval keyword cache JSONL. Defaults to <output-dir>/keyword_cache.jsonl.")
+    parser.add_argument("--keyword-max-terms", type=int, default=12, help="Maximum derived retrieval keywords per phenotype.")
     parser.add_argument("--build-dense", action="store_true", help="Build dense FAISS index.")
     parser.add_argument("--require-dense", action="store_true", help="Fail if dense index cannot be built.")
     parser.add_argument("--batch-size", type=int, default=64, help="Embedding batch size.")
@@ -751,8 +1091,11 @@ def main() -> int:
     enum_map = _load_cipher_enum_map(args.cipher_enum)
 
     _ensure_dir(args.output_dir)
+    keyword_cache_path = args.keyword_cache_path or os.path.join(args.output_dir, "keyword_cache.jsonl")
+    keyword_cache = _load_jsonl_cache(keyword_cache_path)
     catalog: List[Dict[str, Any]] = []
     source_counts: Dict[str, int] = {}
+    keyword_source_counts: Dict[str, int] = {}
 
     if args.metadata_csv:
         metadata_rows = _load_metadata(args.metadata_csv)
@@ -762,14 +1105,34 @@ def main() -> int:
             built = _build_ohdsi_row(row, definition)
             if definition is not None:
                 built["definition_ref"] = _copy_definition(args.output_dir, built["phenotype_id"], definition)
+            new_cache_entry = _apply_llm_retrieval_keywords(
+                built,
+                keyword_cache=keyword_cache,
+                enabled=args.derive_keywords_llm,
+                max_terms=args.keyword_max_terms,
+            )
+            if new_cache_entry is not None:
+                _append_jsonl_cache_entry(keyword_cache_path, new_cache_entry)
             source_counts[built["source_dataset"]] = source_counts.get(built["source_dataset"], 0) + 1
+            keyword_source = built.get("retrieval_keywords_source") or "heuristic"
+            keyword_source_counts[keyword_source] = keyword_source_counts.get(keyword_source, 0) + 1
             catalog.append(built)
 
     if args.cipher_dir:
         for path, record in _load_cipher_records(args.cipher_dir):
             built = _build_cipher_row(path, record, enum_map)
             built["definition_ref"] = _copy_source_file(args.output_dir, built["phenotype_id"], path)
+            new_cache_entry = _apply_llm_retrieval_keywords(
+                built,
+                keyword_cache=keyword_cache,
+                enabled=args.derive_keywords_llm,
+                max_terms=args.keyword_max_terms,
+            )
+            if new_cache_entry is not None:
+                _append_jsonl_cache_entry(keyword_cache_path, new_cache_entry)
             source_counts[built["source_dataset"]] = source_counts.get(built["source_dataset"], 0) + 1
+            keyword_source = built.get("retrieval_keywords_source") or "heuristic"
+            keyword_source_counts[keyword_source] = keyword_source_counts.get(keyword_source, 0) + 1
             catalog.append(built)
 
     catalog.sort(key=lambda row: (row.get("source_dataset") or "", row.get("name") or "", row.get("phenotype_id") or ""))
@@ -806,6 +1169,13 @@ def main() -> int:
             "doc_count": len(catalog),
             "k1": sparse_index["k1"],
             "b": sparse_index["b"],
+        },
+        "keyword_derivation": {
+            "llm_enabled": bool(args.derive_keywords_llm),
+            "cache_path": keyword_cache_path,
+            "max_terms": args.keyword_max_terms,
+            "source_counts": keyword_source_counts,
+            "cache_entries": len(keyword_cache),
         },
         "embedding_model": os.getenv("EMBED_MODEL", "qwen3-embedding:4b"),
         "embedding_url": os.getenv("EMBED_URL", "http://localhost:3000/ollama/api/embed"),

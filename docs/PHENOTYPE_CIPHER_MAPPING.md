@@ -554,3 +554,56 @@ Minimal-disruption path:
 7. Keep vocabulary and PHOEBE enrichment lightweight during indexing and use deeper enrichment later during shortlist or acceptance.
 
 This keeps the current retrieval architecture intact while broadening the metadata foundation enough for mixed-source search, recommendation, and later cohort-translation workflows.
+
+## Next Sprint
+
+The current implementation now supports a mixed OHDSI + CIPHER catalog with shared `phenotype_id`-based rows, execution-readiness metadata, source-aware retrieval text, and lightweight CIPHER code-system normalization.
+
+The next sprint should focus on improving retrieval quality rather than expanding workflow scope.
+
+### Priorities
+
+1. Add derived retrieval keywords.
+- Keep raw tags and raw source keywords.
+- Add a new compact `retrieval_keywords` field produced from a constrained LLM extraction step.
+- Optimize for short clinically meaningful terms, phenotype method terms, population cues, and execution cues.
+- Avoid stop words, long narrative fragments, and generic filler.
+
+2. Add human-readable labels for coded evidence.
+- Preserve raw codes as canonical structured data.
+- Add concept or code labels wherever they can be resolved cheaply.
+- Include those labels in retrieval-oriented text fields so ANN and sparse matching benefit from human-readable clinical language.
+
+3. Add OHDSI concept-set evidence to the index.
+- Parse OHDSI cohort JSON concept sets during indexing.
+- Retain concept ids, vocabulary ids, concept names, and lightweight grouping information.
+- Represent OHDSI concept evidence in a normalized way parallel to CIPHER `code_systems` / `concept_evidence`.
+- Use this mainly for disambiguation and scope refinement, not just direct matching.
+
+4. Separate raw metadata from derived retrieval metadata.
+- Keep source-faithful fields such as raw tags, raw keywords, raw code systems, and provenance.
+- Add derived fields such as `retrieval_keywords`, `retrieval_concept_labels`, and `methodology_summary`.
+- Treat retrieval-facing derived fields as index optimization artifacts, not replacements for source metadata.
+
+5. Keep enrichment staged.
+- Stage 1: source parsing plus cheap label extraction.
+- Stage 2: offline LLM keyword derivation with caching.
+- Stage 3: optional deeper vocabulary and PHOEBE enrichment for shortlist or acceptance flows rather than bulk index-time expansion.
+
+### Design Guidance
+
+- Do not let concept-level detail overwhelm phenotype-level meaning.
+- Do not depend on full OMOP mapping completeness before adding label enrichment.
+- Prefer compact derived features over verbose copied prose.
+- Preserve enough structure so a future cohort-translation ACP flow can reuse the same indexed evidence.
+
+### Suggested Evaluation
+
+Before another major schema revision, assemble a small set of representative phenotype recommendation queries and compare:
+
+- current mixed-source index
+- index plus derived retrieval keywords
+- index plus concept-label enrichment
+- index plus both
+
+Use that comparison to decide how much weight should come from narrative similarity versus concept evidence versus execution readiness.

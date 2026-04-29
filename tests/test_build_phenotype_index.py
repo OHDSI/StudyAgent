@@ -1,0 +1,176 @@
+import importlib.util
+import json
+from pathlib import Path
+
+
+MODULE_PATH = Path(__file__).resolve().parents[1] / "mcp_server" / "scripts" / "build_phenotype_index.py"
+SPEC = importlib.util.spec_from_file_location("build_phenotype_index", MODULE_PATH)
+assert SPEC and SPEC.loader
+builder = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(builder)
+
+
+def test_build_ohdsi_row_adds_concept_evidence_and_retrieval_fields() -> None:
+    definition_path = Path("data/cohorts/2.json")
+    definition = json.loads(definition_path.read_text(encoding="utf-8"))
+    meta = {
+        "cohortId": "2",
+        "cohortName": "COVID-19 positive test or diagnosis",
+        "logicDescription": "Persons with a COVID-19 condition or positive SARS-CoV-2 test.",
+        "notes": "Uses diagnosis or measurement entry criteria.",
+        "hashTag": "covid-19, infection",
+        "recommendedReferentConceptIds": "37311061;756055",
+        "numberOfInclusionRules": "0",
+        "numberOfConceptSets": "2",
+        "domainsInEntryEvents": "Condition;Measurement",
+        "status": "Published",
+        "demographicCriteriaGender": "Any",
+        "createdDate": "2020-01-01",
+        "modifiedDate": "2020-01-02",
+        "addedVersion": "v1",
+        "librarian": "Test Librarian",
+    }
+
+    row = builder._build_ohdsi_row(meta, definition)
+
+    assert row["raw_keywords"] == []
+    assert "native OHDSI cohort" in row["retrieval_keywords"]
+    assert "COVID-19" in row["retrieval_concept_labels"]
+    assert "HCPCS" in row["retrieval_concept_labels"]
+    assert row["methodology_summary"] == "Native OHDSI cohort with 2 concept sets and 0 inclusion rules."
+    assert row["concept_evidence"]["coverage_summary"] == {
+        "has_codes": True,
+        "has_labels": True,
+        "has_omop_mapping": True,
+    }
+    vocab_names = {item["system_name"] for item in row["code_systems"]}
+    assert "SNOMED" in vocab_names
+    assert "HCPCS" in vocab_names
+    assert "HCPCS" in row["retrieval_text"]
+
+
+def test_build_cipher_row_preserves_raw_keywords_and_derived_labels() -> None:
+    cipher_path = Path("data/cipher-phenotypes/Abdominal aortic aneurysm (MAP).json")
+    enum_path = Path("data/cipher-phenotypes/enumType 1.json")
+    record = json.loads(cipher_path.read_text(encoding="utf-8"))
+    enum_map = builder._load_cipher_enum_map(str(enum_path))
+
+    row = builder._build_cipher_row(str(cipher_path), record, enum_map)
+
+    assert row["tags"] == ["General"]
+    assert row["raw_keywords"] == []
+    assert "ICD-9 Diagnostic Codes" in row["retrieval_concept_labels"]
+    assert "MAP" in row["retrieval_keywords"]
+    assert row["methodology_summary"].startswith("MAP is an unsupervised clustering algorithm")
+    assert row["concept_evidence"]["coverage_summary"]["has_codes"] is True
+    assert row["concept_evidence"]["coverage_summary"]["has_labels"] is True
+    assert any(item["system_name"] == "ICD-10 Diagnostic Codes" for item in row["code_systems"])
+
+
+def _sample_row() -> dict:
+    return {
+        "phenotype_id": "cipher:test-1",
+        "source_dataset": "va_cipher",
+        "name": "Post-traumatic stress disorder",
+        "short_description": "PTSD phenotype for veterans.",
+        "long_description": "Derived phenotype with ICD and narrative evidence.",
+        "tags": ["General"],
+        "raw_keywords": ["veteran"],
+        "retrieval_keywords": ["General", "veteran", "ICD-10 Diagnostic Codes", "PTSD"],
+        "retrieval_concept_labels": ["ICD-10 Diagnostic Codes", "PTSD"],
+        "methodology_summary": "Codes and narrative evidence for PTSD.",
+        "ontology_keys": [],
+        "signals": ["source:cipher", "execution:codes_only", "method_family:map"],
+        "executable_definition_status": "codes_only",
+        "adaptation_notes": "Requires translation to OHDSI logic.",
+    }
+
+
+def test_apply_llm_retrieval_keywords_uses_llm_and_cache(monkeypatch) -> None:
+    calls = []
+
+    def fake_call(prompt: str) -> dict:
+        calls.append(prompt)
+        return {
+            "status": "ok",
+            "parsed_content": {"retrieval_keywords": ["PTSD", "veteran cohort", "trauma", "ICD-10"]},
+        }
+
+    monkeypatch.setattr(builder, "_call_keyword_llm", fake_call)
+    cache = {}
+    row = _sample_row()
+
+    builder._apply_llm_retrieval_keywords(row, cache, enabled=True, max_terms=6)
+
+    assert row["retrieval_keywords_source"] == "llm"
+    assert row["retrieval_keywords"] == ["PTSD", "veteran cohort", "trauma", "ICD-10"]
+    assert len(cache) == 1
+    assert len(calls) == 1
+
+    monkeypatch.setattr(builder, "_call_keyword_llm", lambda prompt: (_ for _ in ()).throw(AssertionError("should use cache")))
+    cached_row = _sample_row()
+    builder._apply_llm_retrieval_keywords(cached_row, cache, enabled=True, max_terms=6)
+
+    assert cached_row["retrieval_keywords_source"] == "llm_cached"
+    assert cached_row["retrieval_keywords"] == ["PTSD", "veteran cohort", "trauma", "ICD-10"]
+
+
+
+def test_apply_llm_retrieval_keywords_falls_back_on_invalid_llm(monkeypatch) -> None:
+    monkeypatch.setattr(
+        builder,
+        "_call_keyword_llm",
+        lambda prompt: {"status": "schema_mismatch", "parsed_content": {}},
+    )
+    cache = {}
+    row = _sample_row()
+    fallback = list(row["retrieval_keywords"])
+
+    builder._apply_llm_retrieval_keywords(row, cache, enabled=True, max_terms=6)
+
+    assert row["retrieval_keywords_source"] == "heuristic"
+    assert row["retrieval_keywords"] == fallback
+    assert cache == {}
+
+
+def test_apply_llm_retrieval_keywords_returns_cache_entry(monkeypatch) -> None:
+    monkeypatch.setattr(
+        builder,
+        "_call_keyword_llm",
+        lambda prompt: {
+            "status": "ok",
+            "parsed_content": {"retrieval_keywords": ["PTSD", "trauma cohort"]},
+        },
+    )
+    cache = {}
+    row = _sample_row()
+
+    entry = builder._apply_llm_retrieval_keywords(row, cache, enabled=True, max_terms=6)
+
+    assert entry is not None
+    assert entry["phenotype_id"] == "cipher:test-1"
+    assert entry["cache_key"].startswith("cipher:test-1:")
+    assert entry["retrieval_keywords"] == ["PTSD", "trauma cohort"]
+
+
+
+def test_jsonl_cache_append_and_load_round_trip(tmp_path) -> None:
+    cache_path = tmp_path / "keyword_cache.jsonl"
+    entry_a = {
+        "cache_key": "cipher:test-1:abc",
+        "phenotype_id": "cipher:test-1",
+        "retrieval_keywords": ["PTSD", "trauma cohort"],
+    }
+    entry_b = {
+        "cache_key": "ohdsi:2:def",
+        "phenotype_id": "ohdsi:2",
+        "retrieval_keywords": ["COVID-19", "SARS-CoV-2"],
+    }
+
+    builder._append_jsonl_cache_entry(str(cache_path), entry_a)
+    builder._append_jsonl_cache_entry(str(cache_path), entry_b)
+
+    loaded = builder._load_jsonl_cache(str(cache_path))
+
+    assert loaded["cipher:test-1:abc"]["retrieval_keywords"] == ["PTSD", "trauma cohort"]
+    assert loaded["ohdsi:2:def"]["retrieval_keywords"] == ["COVID-19", "SARS-CoV-2"]
