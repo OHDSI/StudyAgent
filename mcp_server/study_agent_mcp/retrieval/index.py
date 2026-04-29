@@ -57,6 +57,12 @@ def _load_catalog(path: str) -> List[Dict[str, Any]]:
     return catalog
 
 
+def _definition_filename(phenotype_id: str) -> str:
+    safe = phenotype_id.replace(":", "__")
+    safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", safe)
+    return f"{safe}.json"
+
+
 @dataclass
 class EmbeddingClient:
     url: str
@@ -124,7 +130,7 @@ class PhenotypeIndex:
         self.allow_sparse = allow_sparse
 
         self._catalog: List[Dict[str, Any]] = []
-        self._catalog_by_id: Dict[int, Dict[str, Any]] = {}
+        self._catalog_by_id: Dict[str, Dict[str, Any]] = {}
         self._sparse: Optional[Dict[str, Any]] = None
         self._dense: Optional[Any] = None
         self._meta: Dict[str, Any] = {}
@@ -142,9 +148,9 @@ class PhenotypeIndex:
         self._catalog = _load_catalog(paths["catalog"])
         self._catalog_by_id = {}
         for row in self._catalog:
-            cid = row.get("cohortId")
-            if isinstance(cid, int):
-                self._catalog_by_id[cid] = row
+            phenotype_id = row.get("phenotype_id")
+            if isinstance(phenotype_id, str) and phenotype_id:
+                self._catalog_by_id[phenotype_id] = row
         if os.path.exists(paths["meta"]):
             with open(paths["meta"], "r", encoding="utf-8") as handle:
                 self._meta = json.load(handle)
@@ -160,19 +166,36 @@ class PhenotypeIndex:
                 self._dense = faiss.read_index(paths["dense"])
         return self
 
-    def fetch_summary(self, cohort_id: int) -> Optional[Dict[str, Any]]:
-        row = self._catalog_by_id.get(cohort_id)
+    def fetch_summary(self, phenotype_id: str) -> Optional[Dict[str, Any]]:
+        row = self._catalog_by_id.get(phenotype_id)
         if not row:
             return None
         return {
-            "cohortId": row.get("cohortId"),
+            "phenotype_id": row.get("phenotype_id"),
+            "source_dataset": row.get("source_dataset"),
+            "source_record_type": row.get("source_record_type"),
             "name": row.get("name"),
             "short_description": row.get("short_description"),
             "tags": row.get("tags") or [],
             "signals": row.get("signals") or [],
             "ontology_keys": row.get("ontology_keys") or [],
-            "logic_features": row.get("logic_features") or {},
+            "code_systems": row.get("code_systems") or [],
+            "executable_definition_status": row.get("executable_definition_status"),
+            "execution_readiness_score": row.get("execution_readiness_score"),
+            "adaptation_notes": row.get("adaptation_notes") or "",
         }
+
+    def fetch_definition(self, phenotype_id: str) -> Optional[Dict[str, Any]]:
+        row = self._catalog_by_id.get(phenotype_id)
+        if not row:
+            return None
+        definitions_dir = os.path.join(self.index_dir, "definitions")
+        ref = row.get("definition_ref") or _definition_filename(phenotype_id)
+        path = os.path.join(definitions_dir, ref)
+        if not os.path.exists(path):
+            return None
+        with open(path, "r", encoding="utf-8") as handle:
+            return json.load(handle)
 
     def search(
         self,
@@ -210,11 +233,14 @@ class PhenotypeIndex:
             row = self._catalog[doc_id]
             results.append(
                 {
-                    "cohortId": row.get("cohortId"),
+                    "phenotype_id": row.get("phenotype_id"),
+                    "source_dataset": row.get("source_dataset"),
                     "name": row.get("name"),
                     "short_description": row.get("short_description"),
                     "tags": row.get("tags") or [],
                     "signals": row.get("signals") or [],
+                    "executable_definition_status": row.get("executable_definition_status"),
+                    "execution_readiness_score": row.get("execution_readiness_score"),
                     "score": score,
                     "score_dense": dense_scores.get(doc_id),
                     "score_sparse": sparse_scores.get(doc_id),
@@ -222,15 +248,11 @@ class PhenotypeIndex:
             )
         return results
 
-    def list_similar(self, cohort_id: int, top_k: int = 10) -> List[Dict[str, Any]]:
+    def list_similar(self, phenotype_id: str, top_k: int = 10) -> List[Dict[str, Any]]:
         if self._dense is None:
             return []
-        doc_id = self._find_doc_id(cohort_id)
+        doc_id = self._find_doc_id(phenotype_id)
         if doc_id is None:
-            return []
-        try:
-            import faiss  # type: ignore
-        except ImportError:
             return []
         try:
             vector = self._dense.reconstruct(doc_id)
@@ -249,7 +271,8 @@ class PhenotypeIndex:
             row = self._catalog[idx]
             results.append(
                 {
-                    "cohortId": row.get("cohortId"),
+                    "phenotype_id": row.get("phenotype_id"),
+                    "source_dataset": row.get("source_dataset"),
                     "name": row.get("name"),
                     "short_description": row.get("short_description"),
                     "score": float(score),
@@ -259,9 +282,9 @@ class PhenotypeIndex:
                 break
         return results
 
-    def _find_doc_id(self, cohort_id: int) -> Optional[int]:
+    def _find_doc_id(self, phenotype_id: str) -> Optional[int]:
         for idx, row in enumerate(self._catalog):
-            if row.get("cohortId") == cohort_id:
+            if row.get("phenotype_id") == phenotype_id:
                 return idx
         return None
 
@@ -358,9 +381,7 @@ def get_default_index() -> PhenotypeIndex:
         catalog_info = status["files"].get("catalog") or {}
         if not catalog_info.get("exists"):
             raise RuntimeError(f"Phenotype catalog not found: {catalog_info.get('path')}")
-        embed_url = rewrite_container_host_url(
-            os.getenv("EMBED_URL", "http://localhost:3000/ollama/api/embed")
-            )
+        embed_url = rewrite_container_host_url(os.getenv("EMBED_URL", "http://localhost:3000/ollama/api/embed"))
         embed_model = os.getenv("EMBED_MODEL", "qwen3-embedding:4b")
         api_key = os.getenv("EMBED_API_KEY")
         embedding_client = EmbeddingClient(url=embed_url, model=embed_model, api_key=api_key)

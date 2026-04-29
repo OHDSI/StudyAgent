@@ -101,17 +101,17 @@ def _filter_catalog_recs(
     catalog_rows: List[Dict[str, Any]],
     max_results: int,
 ) -> List[Dict[str, Any]]:
-    allowed = {r.get("cohortId"): r for r in catalog_rows if r.get("cohortId") is not None}
+    allowed = {r.get("phenotype_id"): r for r in catalog_rows if r.get("phenotype_id")}
     cleaned = []
     for rec in recs or []:
-        cid = rec.get("cohortId")
-        if cid not in allowed:
+        phenotype_id = rec.get("phenotype_id")
+        if phenotype_id not in allowed:
             continue
-        info = allowed[cid]
+        info = allowed[phenotype_id]
         cleaned.append(
             {
-                "cohortId": cid,
-                "cohortName": rec.get("cohortName") or info.get("cohortName") or "",
+                "phenotype_id": phenotype_id,
+                "phenotype_name": rec.get("phenotype_name") or info.get("phenotype_name") or info.get("name") or "",
                 "justification": rec.get("justification") or "Model justification not provided.",
                 "confidence": rec.get("confidence"),
             }
@@ -306,22 +306,22 @@ def phenotype_recommendations(
         llm_result=llm_result,
     )
 
-    allowed_ids = [r.get("cohortId") for r in payload.catalog_rows if r.get("cohortId") is not None]
-    allowed_set = {cid for cid in allowed_ids}
+    allowed_ids = [r.get("phenotype_id") for r in payload.catalog_rows if r.get("phenotype_id")]
+    allowed_set = {pid for pid in allowed_ids}
     max_results = max(0, min(payload.max_results, len(allowed_ids)))
 
     plan = "Suggest relevant phenotypes from catalog for the study intent (stub if no LLM)."
     recs: List[Dict[str, Any]] = []
-    invalid_ids: List[int] = []
+    invalid_ids: List[str] = []
     mode = "llm"
 
     if payload.llm_result and isinstance(payload.llm_result.get("phenotype_recommendations"), list):
         raw_recs = payload.llm_result.get("phenotype_recommendations") or []
         invalid_ids = sorted(
             {
-                rec.get("cohortId")
+                rec.get("phenotype_id")
                 for rec in raw_recs
-                if rec.get("cohortId") not in allowed_set and rec.get("cohortId") is not None
+                if rec.get("phenotype_id") not in allowed_set and rec.get("phenotype_id") is not None
             }
         )
         recs = _filter_catalog_recs(raw_recs, payload.catalog_rows, max_results)
@@ -332,8 +332,8 @@ def phenotype_recommendations(
         for row in payload.catalog_rows[:max_results]:
             recs.append(
                 {
-                    "cohortId": row.get("cohortId"),
-                    "cohortName": row.get("cohortName") or row.get("name") or "",
+                    "phenotype_id": row.get("phenotype_id"),
+                    "phenotype_name": row.get("phenotype_name") or row.get("name") or "",
                     "justification": "Stub recommendation from deterministic fallback (no LLM).",
                     "confidence": None,
                 }

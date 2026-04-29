@@ -60,7 +60,7 @@ def build_prompt(
             "Return exactly ONE JSON object that matches the output schema.",
             "Do NOT wrap output in markdown, code fences, or prose.",
             "If uncertain, return required keys with empty arrays/strings.",
-            "Use ONLY cohortIds from the allowed list in candidates.",
+            "Use ONLY phenotype_ids from the allowed list in candidates.",
             "Keep output under 10 KB.",
         ]
     )

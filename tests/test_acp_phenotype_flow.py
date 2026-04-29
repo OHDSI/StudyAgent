@@ -17,8 +17,8 @@ class StubMCPClient:
         if name == "phenotype_search":
             return {
                 "results": [
-                    {"cohortId": 1, "name": "Alpha", "short_description": "A"},
-                    {"cohortId": 2, "name": "Beta", "short_description": "B"},
+                    {"phenotype_id": "ohdsi:1", "name": "Alpha", "short_description": "A"},
+                    {"phenotype_id": "cipher:2", "name": "Beta", "short_description": "B"},
                 ]
             }
         if name == "phenotype_prompt_bundle":
@@ -35,7 +35,7 @@ def test_acp_flow_candidate_limit(monkeypatch):
     def fake_llm(prompt):
         return {
             "phenotype_recommendations": [
-                {"cohortId": 1, "cohortName": "Alpha", "justification": "ok"}
+                {"phenotype_id": "ohdsi:1", "phenotype_name": "Alpha", "justification": "ok"}
             ]
         }
 

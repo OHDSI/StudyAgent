@@ -29,7 +29,7 @@ def test_call_llm_chat_completions_success(monkeypatch):
                     "content": json.dumps(
                         {
                             "plan": "ok",
-                            "phenotype_recommendations": [{"cohortId": 1}],
+                            "phenotype_recommendations": [{"phenotype_id": "ohdsi:1"}],
                         }
                     )
                 }

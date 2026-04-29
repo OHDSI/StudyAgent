@@ -367,8 +367,8 @@ class StudyAgent:
                 continue
             catalog_rows.append(
                 {
-                    "cohortId": row.get("cohortId"),
-                    "cohortName": row.get("name") or "",
+                    "phenotype_id": row.get("phenotype_id"),
+                    "phenotype_name": row.get("name") or "",
                     "short_description": row.get("short_description"),
                 }
             )

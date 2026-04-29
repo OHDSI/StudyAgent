@@ -453,10 +453,10 @@ class StudyAgentDemoShell:
         print(f"status: {result.get('status')}")
         print(f"recommendations: {len(recommendations)}")
         for idx, item in enumerate(recommendations, start=1):
-            cohort_id = item.get("cohortId", "")
-            cohort_name = item.get("cohortName") or item.get("name") or ""
-            reasoning = item.get("reason") or item.get("rationale") or ""
-            print(f"{idx}. cohortId={cohort_id} name={cohort_name}")
+            phenotype_id = item.get("phenotype_id", "")
+            phenotype_name = item.get("phenotype_name") or item.get("name") or ""
+            reasoning = item.get("reason") or item.get("rationale") or item.get("justification") or ""
+            print(f"{idx}. phenotype_id={phenotype_id} name={phenotype_name}")
             if reasoning:
                 print(f"   {reasoning}")
         self._print_llm_summary(result)

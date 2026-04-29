@@ -214,7 +214,7 @@ class PhenotypeRecommendationsOutput(BaseModel):
     phenotype_recommendations: List[Dict[str, Any]] = Field(default_factory=list)
     mode: str
     catalog_stats: Dict[str, Any] = Field(default_factory=dict)
-    invalid_ids_filtered: List[int] = Field(default_factory=list)
+    invalid_ids_filtered: List[str] = Field(default_factory=list)
 
 
 class PhenotypeImprovementsOutput(BaseModel):

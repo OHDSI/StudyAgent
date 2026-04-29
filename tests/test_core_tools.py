@@ -43,8 +43,8 @@ def test_cohort_lint_washout_and_inverted():
 @pytest.mark.core
 def test_phenotype_recommendations_stub():
     catalog = [
-        {"cohortId": 1, "cohortName": "Alpha"},
-        {"cohortId": 2, "cohortName": "Beta"},
+        {"phenotype_id": "ohdsi:1", "phenotype_name": "Alpha"},
+        {"phenotype_id": "cipher:2", "phenotype_name": "Beta"},
     ]
     result = phenotype_recommendations("protocol", catalog, max_results=1)
     assert result["mode"] == "stub"
@@ -54,17 +54,17 @@ def test_phenotype_recommendations_stub():
 @pytest.mark.core
 def test_phenotype_recommendations_llm_filters():
     catalog = [
-        {"cohortId": 1, "cohortName": "Alpha"},
-        {"cohortId": 2, "cohortName": "Beta"},
+        {"phenotype_id": "ohdsi:1", "phenotype_name": "Alpha"},
+        {"phenotype_id": "cipher:2", "phenotype_name": "Beta"},
     ]
     llm = {
         "phenotype_recommendations": [
-            {"cohortId": 1, "cohortName": "Alpha", "justification": "ok"},
-            {"cohortId": 999, "cohortName": "Nope"},
+            {"phenotype_id": "ohdsi:1", "phenotype_name": "Alpha", "justification": "ok"},
+            {"phenotype_id": "missing:999", "phenotype_name": "Nope"},
         ]
     }
     result = phenotype_recommendations("protocol", catalog, max_results=2, llm_result=llm)
-    assert result["invalid_ids_filtered"] == [999]
+    assert result["invalid_ids_filtered"] == ["missing:999"]
     assert len(result["phenotype_recommendations"]) == 1
 
 
