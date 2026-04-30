@@ -12,7 +12,7 @@ import re
 import shutil
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-from study_agent_mcp.retrieval.index import EmbeddingClient, _hash_text, _tokenize
+from study_agent_mcp.retrieval.index import EmbeddingClient, _hash_text, _load_catalog, _tokenize
 
 _SPLIT_RE = re.compile(r"[;,|]+")
 _METHOD_FAMILY_RULES = {
@@ -136,6 +136,37 @@ def _definition_filename(phenotype_id: str) -> str:
     safe = phenotype_id.replace(":", "__")
     safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", safe)
     return f"{safe}.json"
+
+
+_PROMPT_CACHE: Dict[str, Dict[str, Any]] = {}
+
+
+def _prompt_dir() -> str:
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "prompts", "phenotype"))
+
+
+def _load_text(path: str) -> str:
+    with open(path, "r", encoding="utf-8") as handle:
+        return handle.read().strip()
+
+
+def _load_json(path: str) -> Dict[str, Any]:
+    with open(path, "r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def _load_keyword_prompt_bundle() -> Dict[str, Any]:
+    cached = _PROMPT_CACHE.get("phenotype_index_keywords")
+    if cached is not None:
+        return cached
+    base = _prompt_dir()
+    payload = {
+        "overview": _load_text(os.path.join(base, "overview_phenotype_index_keywords.md")),
+        "spec": _load_text(os.path.join(base, "spec_phenotype_index_keywords.md")),
+        "output_schema": _load_json(os.path.join(base, "output_schema_phenotype_index_keywords.json")),
+    }
+    _PROMPT_CACHE["phenotype_index_keywords"] = payload
+    return payload
 
 
 def _load_metadata(csv_path: str) -> List[Dict[str, Any]]:
@@ -308,32 +339,26 @@ def _keyword_cache_key(payload: Dict[str, Any]) -> str:
 
 
 def _build_keyword_prompt(payload: Dict[str, Any], max_terms: int) -> str:
-    schema = {
-        "type": "object",
-        "properties": {
-            "retrieval_keywords": {
-                "type": "array",
-                "items": {"type": "string"},
-            }
-        },
-        "required": ["retrieval_keywords"],
-        "additionalProperties": False,
-    }
-    instructions = "\n".join([
-        "Task: derive compact phenotype retrieval keywords for indexing.",
-        f"Return 6 to {max_terms} short keyword phrases.",
-        "Prefer disease, syndrome, clinical focus, population, setting, code-family, and methodology cues.",
-        "Each keyword should usually be 1 to 4 words. Acronyms are allowed.",
-        "Avoid stop words, generic filler, and full-sentence fragments.",
-        "Do not invent unsupported facts. Stay grounded in the supplied phenotype metadata.",
-        "Return exactly one JSON object matching the schema.",
+    bundle = _load_keyword_prompt_bundle()
+    overview = bundle.get("overview", "")
+    spec = bundle.get("spec", "")
+    schema = bundle.get("output_schema", {})
+    dynamic = dict(payload)
+    dynamic["max_terms"] = max_terms
+    strict_rules = "\n\n".join([
+        "STRICT OUTPUT RULES:",
+        spec,
+        "Return exactly ONE JSON object that matches the output schema.",
+        "Do NOT wrap output in markdown, code fences, or prose.",
+        "If uncertain, return the required key with an empty array.",
     ])
     return "\n\n".join([
-        instructions,
+        overview,
         "OUTPUT SCHEMA (JSON):",
         json.dumps(schema, ensure_ascii=True),
         "DYNAMIC INPUT (JSON):",
-        json.dumps(payload, ensure_ascii=True),
+        json.dumps(dynamic, ensure_ascii=True),
+        strict_rules,
     ])
 
 
@@ -1014,6 +1039,13 @@ def _save_cache(path: str, cache: Dict[str, List[float]]) -> None:
         pickle.dump(cache, handle)
 
 
+def _load_existing_meta(path: str) -> Dict[str, Any]:
+    if not os.path.exists(path):
+        return {}
+    with open(path, "r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
 def _build_dense_index(
     catalog: List[Dict[str, Any]],
     output_path: str,
@@ -1080,17 +1112,54 @@ def main() -> int:
     parser.add_argument("--keyword-cache-path", help="Path to retrieval keyword cache JSONL. Defaults to <output-dir>/keyword_cache.jsonl.")
     parser.add_argument("--keyword-max-terms", type=int, default=12, help="Maximum derived retrieval keywords per phenotype.")
     parser.add_argument("--build-dense", action="store_true", help="Build dense FAISS index.")
+    parser.add_argument("--dense-only", action="store_true", help="Reuse existing catalog.jsonl in --output-dir and build only dense.index plus embedding cache/meta updates.")
     parser.add_argument("--require-dense", action="store_true", help="Fail if dense index cannot be built.")
     parser.add_argument("--batch-size", type=int, default=64, help="Embedding batch size.")
     args = parser.parse_args()
 
-    if not args.metadata_csv and not args.cipher_dir:
+    if args.dense_only and not args.build_dense:
+        raise SystemExit("--dense-only requires --build-dense")
+    if args.dense_only and (args.metadata_csv or args.cipher_dir):
+        raise SystemExit("--dense-only cannot be combined with --metadata-csv or --cipher-dir")
+    if not args.dense_only and not args.metadata_csv and not args.cipher_dir:
         raise SystemExit("At least one input source is required: --metadata-csv or --cipher-dir")
+
+    _ensure_dir(args.output_dir)
+    catalog_path = os.path.join(args.output_dir, "catalog.jsonl")
+    meta_path = os.path.join(args.output_dir, "meta.json")
+
+    if args.dense_only:
+        catalog = _load_catalog(catalog_path)
+        if not catalog:
+            raise SystemExit(f"No existing catalog found at {catalog_path}; cannot run --dense-only")
+        existing_meta = _load_existing_meta(meta_path)
+        dense_info = {"status": "skipped"}
+        embed_url = os.getenv("EMBED_URL", "http://localhost:3000/ollama/api/embed")
+        embed_model = os.getenv("EMBED_MODEL", "qwen3-embedding:4b")
+        api_key = os.getenv("EMBED_API_KEY")
+        client = EmbeddingClient(url=embed_url, model=embed_model, api_key=api_key)
+        dense_info = _build_dense_index(
+            catalog=catalog,
+            output_path=os.path.join(args.output_dir, "dense.index"),
+            embed_client=client,
+            cache_path=os.path.join(args.output_dir, "embedding_cache.pkl"),
+            batch_size=args.batch_size,
+            require_dense=args.require_dense,
+        )
+        _write_catalog(catalog_path, catalog)
+        meta = dict(existing_meta)
+        meta["built_at"] = dt.datetime.now(dt.UTC).isoformat().replace("+00:00", "Z")
+        meta["catalog_count"] = len(catalog)
+        meta["dense"] = dense_info
+        meta["embedding_model"] = os.getenv("EMBED_MODEL", "qwen3-embedding:4b")
+        meta["embedding_url"] = os.getenv("EMBED_URL", "http://localhost:3000/ollama/api/embed")
+        with open(meta_path, "w", encoding="utf-8") as handle:
+            json.dump(meta, handle, ensure_ascii=True, indent=2)
+        return 0
 
     definitions = _load_ohdsi_definitions(args.definitions_dir)
     enum_map = _load_cipher_enum_map(args.cipher_enum)
 
-    _ensure_dir(args.output_dir)
     keyword_cache_path = args.keyword_cache_path or os.path.join(args.output_dir, "keyword_cache.jsonl")
     keyword_cache = _load_jsonl_cache(keyword_cache_path)
     catalog: List[Dict[str, Any]] = []
@@ -1137,7 +1206,6 @@ def main() -> int:
 
     catalog.sort(key=lambda row: (row.get("source_dataset") or "", row.get("name") or "", row.get("phenotype_id") or ""))
 
-    catalog_path = os.path.join(args.output_dir, "catalog.jsonl")
     _write_catalog(catalog_path, catalog)
 
     sparse_index = _build_sparse_index(catalog)

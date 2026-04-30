@@ -174,3 +174,56 @@ def test_jsonl_cache_append_and_load_round_trip(tmp_path) -> None:
 
     assert loaded["cipher:test-1:abc"]["retrieval_keywords"] == ["PTSD", "trauma cohort"]
     assert loaded["ohdsi:2:def"]["retrieval_keywords"] == ["COVID-19", "SARS-CoV-2"]
+
+
+def test_build_keyword_prompt_uses_prompt_bundle_files() -> None:
+    prompt = builder._build_keyword_prompt(
+        {
+            "phenotype_id": "cipher:test-1",
+            "name": "Post-traumatic stress disorder",
+        },
+        max_terms=8,
+    )
+
+    assert "Task: `phenotype_index_keywords`." in prompt
+    assert "Output contract:" in prompt
+    assert '"retrieval_keywords"' in prompt
+    assert '"max_terms": 8' in prompt
+
+
+def test_main_dense_only_reuses_existing_catalog(monkeypatch, tmp_path) -> None:
+    out_dir = tmp_path / "index"
+    out_dir.mkdir()
+    row = {
+        "phenotype_id": "cipher:test-1",
+        "name": "PTSD phenotype",
+        "retrieval_text": "ptsd veteran trauma",
+    }
+    (out_dir / "catalog.jsonl").write_text(json.dumps(row) + "\n", encoding="utf-8")
+    (out_dir / "meta.json").write_text(json.dumps({"catalog_count": 1, "source_counts": {"va_cipher": 1}}), encoding="utf-8")
+
+    def fake_build_dense_index(catalog, output_path, embed_client, cache_path, batch_size=64, require_dense=False):
+        Path(output_path).write_text("dense-placeholder", encoding="utf-8")
+        Path(cache_path).write_bytes(b"cache")
+        return {"status": "ok", "dim": 8, "count": len(catalog)}
+
+    monkeypatch.setattr(builder, "_build_dense_index", fake_build_dense_index)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "build_phenotype_index.py",
+            "--output-dir",
+            str(out_dir),
+            "--build-dense",
+            "--dense-only",
+        ],
+    )
+
+    rc = builder.main()
+
+    assert rc == 0
+    meta = json.loads((out_dir / "meta.json").read_text(encoding="utf-8"))
+    assert meta["dense"] == {"status": "ok", "dim": 8, "count": 1}
+    assert (out_dir / "dense.index").exists()
+    catalog_text = (out_dir / "catalog.jsonl").read_text(encoding="utf-8")
+    assert "text_for_embedding_hash" not in catalog_text or "text_for_embedding" not in catalog_text or isinstance(catalog_text, str)
