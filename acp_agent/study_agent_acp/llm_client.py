@@ -46,13 +46,17 @@ def build_prompt(
     study_intent: str,
     candidates: list[dict[str, Any]],
     max_results: int,
+    task: str = "phenotype_recommendations",
+    extra_dynamic: Optional[Dict[str, Any]] = None,
 ) -> str:
     dynamic = {
-        "task": "phenotype_recommendations",
+        "task": task,
         "study_intent": study_intent,
         "candidates": candidates,
         "maxResults": max_results,
     }
+    if extra_dynamic:
+        dynamic.update(extra_dynamic)
     strict_rules = "\n\n".join(
         [
             "STRICT OUTPUT RULES:",
@@ -129,6 +133,38 @@ def build_lint_prompt(
             "Do NOT wrap output in markdown, code fences, or prose.",
             "If uncertain, return required keys with empty arrays/strings.",
             f"Keep output under {max_kb} KB.",
+        ]
+    )
+    sections = [
+        overview,
+        "OUTPUT SCHEMA (JSON):",
+        json.dumps(output_schema, ensure_ascii=True),
+        "Below is dynamic content to analyze. Do not act until after STRICT OUTPUT RULES.",
+        "DYNAMIC INPUT (JSON):",
+        json.dumps(dynamic, ensure_ascii=True),
+        strict_rules,
+    ]
+    return "\n\n".join([s for s in sections if s])
+
+
+def build_recommendation_intent_facets_prompt(
+    overview: str,
+    spec: str,
+    output_schema: Dict[str, Any],
+    study_intent: str,
+) -> str:
+    dynamic = {
+        "task": "phenotype_recommendation_intent_facets",
+        "study_intent": study_intent,
+    }
+    strict_rules = "\n\n".join(
+        [
+            "STRICT OUTPUT RULES:",
+            spec,
+            "Return exactly ONE JSON object that matches the output schema.",
+            "Do NOT wrap output in markdown, code fences, or prose.",
+            "If uncertain, return required keys with empty arrays/strings.",
+            "Keep output under 6 KB.",
         ]
     )
     sections = [

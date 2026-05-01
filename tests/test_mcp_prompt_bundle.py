@@ -16,6 +16,30 @@ class DummyMCP:
 
 
 @pytest.mark.mcp
+def test_prompt_bundle_intent_facets_schema() -> None:
+    mcp = DummyMCP()
+    phenotype_prompt_bundle.register(mcp)
+    fn = mcp.tools["phenotype_prompt_bundle"]
+    payload = fn("phenotype_recommendation_intent_facets")
+    assert "overview" in payload
+    assert "spec" in payload
+    assert "output_schema" in payload
+    assert payload["output_schema"]["title"] == "phenotype_recommendation_intent_facets_output"
+
+
+@pytest.mark.mcp
+def test_prompt_bundle_plan_schema() -> None:
+    mcp = DummyMCP()
+    phenotype_prompt_bundle.register(mcp)
+    fn = mcp.tools["phenotype_prompt_bundle"]
+    payload = fn("phenotype_recommendation_plan")
+    assert "overview" in payload
+    assert "spec" in payload
+    assert "output_schema" in payload
+    assert payload["output_schema"]["title"] == "phenotype_recommendation_plan_output"
+
+
+@pytest.mark.mcp
 def test_prompt_bundle_tool_returns_schema() -> None:
     mcp = DummyMCP()
     phenotype_prompt_bundle.register(mcp)

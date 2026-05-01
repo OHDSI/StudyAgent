@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import time
@@ -11,6 +12,7 @@ from study_agent_core.models import (
     PhenotypeIntentSplitInput,
     PhenotypeImprovementsInput,
     PhenotypeRecommendationAdviceInput,
+    PhenotypeRecommendationPlanInput,
     PhenotypeRecommendationsInput,
 )
 from study_agent_core.tools import (
@@ -18,12 +20,14 @@ from study_agent_core.tools import (
     phenotype_intent_split,
     phenotype_improvements,
     phenotype_recommendation_advice,
+    phenotype_recommendation_plan,
     phenotype_recommendations,
     propose_concept_set_diff,
 )
 from .llm_client import (
     LLMCallResult,
     build_intent_split_prompt,
+    build_recommendation_intent_facets_prompt,
     build_advice_prompt,
     build_keeper_concept_set_prompt,
     build_improvements_prompt,
@@ -60,6 +64,7 @@ class StudyAgent:
         self._core_tools = {
             "propose_concept_set_diff": propose_concept_set_diff,
             "cohort_lint": cohort_lint,
+            "phenotype_recommendation_plan": phenotype_recommendation_plan,
             "phenotype_recommendations": phenotype_recommendations,
             "phenotype_recommendation_advice": phenotype_recommendation_advice,
             "phenotype_improvements": phenotype_improvements,
@@ -69,6 +74,7 @@ class StudyAgent:
         self._schemas = {
             "propose_concept_set_diff": ConceptSetDiffInput.model_json_schema(),
             "cohort_lint": CohortLintInput.model_json_schema(),
+            "phenotype_recommendation_plan": PhenotypeRecommendationPlanInput.model_json_schema(),
             "phenotype_recommendations": PhenotypeRecommendationsInput.model_json_schema(),
             "phenotype_recommendation_advice": PhenotypeRecommendationAdviceInput.model_json_schema(),
             "phenotype_improvements": PhenotypeImprovementsInput.model_json_schema(),
@@ -208,6 +214,75 @@ class StudyAgent:
         except TypeError:
             return coerce_llm_call_result(call_llm(prompt))
 
+    def _hydrate_phenotype_summaries(
+        self,
+        phenotype_ids: List[str],
+        thin_candidates: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        thin_by_id = {row.get("phenotype_id"): row for row in thin_candidates if row.get("phenotype_id")}
+        hydrated: List[Dict[str, Any]] = []
+        for phenotype_id in phenotype_ids:
+            thin = dict(thin_by_id.get(phenotype_id) or {})
+            summary_result = self.call_tool(
+                name="phenotype_fetch_summary",
+                arguments={"phenotype_id": phenotype_id},
+            )
+            full = summary_result.get("full_result") or {}
+            if summary_result.get("status") == "ok" and not full.get("error") and full.get("content"):
+                row = dict(thin)
+                row.update(full.get("content") or {})
+                if not row.get("name"):
+                    row["name"] = row.get("phenotype_name") or ""
+                hydrated.append(row)
+                continue
+            if thin:
+                hydrated.append(thin)
+        return hydrated
+
+    def _compact_text_value(self, value: Any, limit: int = 180) -> str:
+        if value in (None, ""):
+            return ""
+        if isinstance(value, list):
+            text = ", ".join(str(item) for item in value if item not in (None, ""))
+        elif isinstance(value, dict):
+            try:
+                text = json.dumps(value, ensure_ascii=True, sort_keys=True)
+            except TypeError:
+                text = str(value)
+        else:
+            text = str(value)
+        if len(text) > limit:
+            return text[:limit] + f"... [truncated {len(text) - limit} chars]"
+        return text
+
+    def _build_compact_planning_candidates(self, candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        compact_rows: List[Dict[str, Any]] = []
+        for row in candidates:
+            if not isinstance(row, dict):
+                continue
+            compact_rows.append(
+                {
+                    "phenotype_id": row.get("phenotype_id"),
+                    "source_dataset": row.get("source_dataset") or "",
+                    "name": row.get("name") or row.get("phenotype_name") or "",
+                    "short_description": self._compact_text_value(row.get("short_description"), limit=180),
+                    "primary_clinical_topic": self._compact_text_value(row.get("primary_clinical_topic"), limit=120),
+                    "phenotype_role": self._compact_text_value(row.get("phenotype_role"), limit=48),
+                    "care_setting_scope": self._compact_text_value(row.get("care_setting_scope"), limit=64),
+                    "population_scope": self._compact_text_value(row.get("population_scope"), limit=120),
+                    "target_vs_context_conditions": self._compact_text_value(row.get("target_vs_context_conditions"), limit=220),
+                    "exclude_from_primary_topic_match": self._compact_text_value(row.get("exclude_from_primary_topic_match"), limit=180),
+                    "recommendation_summary": self._compact_text_value(row.get("recommendation_summary"), limit=220),
+                    "retrieval_keywords": (row.get("retrieval_keywords") or [])[:6],
+                    "executable_definition_status": row.get("executable_definition_status") or "",
+                    "execution_readiness_score": row.get("execution_readiness_score"),
+                    "score": row.get("score"),
+                    "score_dense": row.get("score_dense"),
+                    "score_sparse": row.get("score_sparse"),
+                }
+            )
+        return compact_rows
+
     def list_tools(self) -> List[Dict[str, Any]]:
         if self._mcp_client is not None:
             return self._mcp_client.list_tools()
@@ -319,24 +394,138 @@ class StudyAgent:
                 "error": "phenotype_search_failed",
                 "details": full,
             }
+
         all_candidates = full.get("results") or []
         if candidate_limit is None:
             candidate_limit = int(os.getenv("LLM_CANDIDATE_LIMIT", "5"))
+        candidate_limit = max(0, int(candidate_limit))
         pre_truncation_count = len(all_candidates)
-        candidates = all_candidates
-        if candidate_limit > 0:
-            candidates = candidates[:candidate_limit]
         self._log_debug(
-            "phenotype_recommendation: candidate counts "
-            f"before={pre_truncation_count} after={len(candidates)} limit={candidate_limit}"
+            "phenotype_recommendation: search candidate counts "
+            f"before={pre_truncation_count} shortlist_limit={candidate_limit}"
         )
 
-        self._log_debug("phenotype_recommendation: prompt bundle fetch start")
+        self._log_debug("phenotype_recommendation: intent prompt bundle fetch start")
+        intent_prompt_bundle = self.call_tool(
+            name="phenotype_prompt_bundle",
+            arguments={"task": "phenotype_recommendation_intent_facets"},
+        )
+        self._log_debug(
+            f"phenotype_recommendation: intent prompt bundle fetch end status={intent_prompt_bundle.get('status')}"
+        )
+        intent_prompt_full = intent_prompt_bundle.get("full_result") or {}
+        if intent_prompt_bundle.get("status") != "ok" or intent_prompt_full.get("error"):
+            return {
+                "status": "error",
+                "error": "phenotype_prompt_bundle_failed",
+                "details": intent_prompt_bundle,
+            }
+
+        intent_prompt = build_recommendation_intent_facets_prompt(
+            overview=intent_prompt_full.get("overview", ""),
+            spec=intent_prompt_full.get("spec", ""),
+            output_schema=intent_prompt_full.get("output_schema", {}),
+            study_intent=study_intent,
+        )
+        self._log_debug(f"phenotype_recommendation: intent llm start prompt_chars={len(intent_prompt)}")
+        intent_llm_result = self._call_llm(
+            intent_prompt,
+            required_keys=["plan", "intent_facets", "reasoning_notes"],
+        )
+        self._log_debug(
+            "phenotype_recommendation: intent llm end "
+            f"status={intent_llm_result.status} seconds={intent_llm_result.duration_seconds:.2f} parse_stage={intent_llm_result.parse_stage}"
+        )
+        intent_payload = llm_result_payload(intent_llm_result) or {}
+        raw_intent_facets = intent_payload.get("intent_facets")
+        intent_facets = raw_intent_facets if isinstance(raw_intent_facets, dict) else {}
+        raw_intent_notes = intent_payload.get("reasoning_notes")
+        if isinstance(raw_intent_notes, list):
+            intent_reasoning_notes = [str(note) for note in raw_intent_notes if note not in (None, "")]
+        elif isinstance(raw_intent_notes, str) and raw_intent_notes.strip():
+            intent_reasoning_notes = [raw_intent_notes.strip()]
+        else:
+            intent_reasoning_notes = []
+        intent_result = {
+            "plan": str(intent_payload.get("plan") or "Extract recommendation intent facets from the study intent."),
+            "intent_facets": intent_facets,
+            "reasoning_notes": intent_reasoning_notes,
+            "mode": "llm" if intent_payload else "stub",
+        }
+
+        self._log_debug("phenotype_recommendation: plan prompt bundle fetch start")
+        plan_prompt_bundle = self.call_tool(
+            name="phenotype_prompt_bundle",
+            arguments={"task": "phenotype_recommendation_plan"},
+        )
+        self._log_debug(
+            f"phenotype_recommendation: plan prompt bundle fetch end status={plan_prompt_bundle.get('status')}"
+        )
+        plan_prompt_full = plan_prompt_bundle.get("full_result") or {}
+        if plan_prompt_bundle.get("status") != "ok" or plan_prompt_full.get("error"):
+            return {
+                "status": "error",
+                "error": "phenotype_prompt_bundle_failed",
+                "details": plan_prompt_bundle,
+            }
+
+        planning_window = int(os.getenv("LLM_PLANNING_CANDIDATE_LIMIT", str(max(candidate_limit, 12))))
+        planning_window = max(candidate_limit, planning_window)
+        planning_window = min(max(0, planning_window), len(all_candidates))
+        planning_seed_candidates = all_candidates[:planning_window]
+        planning_candidate_ids = [row.get("phenotype_id") for row in planning_seed_candidates if row.get("phenotype_id")]
+        planning_hydrated = self._hydrate_phenotype_summaries(planning_candidate_ids, planning_seed_candidates)
+        planning_candidates = self._build_compact_planning_candidates(planning_hydrated)
+        self._log_debug(
+            "phenotype_recommendation: planning hydration "
+            f"candidates={len(planning_candidate_ids)} hydrated={len(planning_candidates)}"
+        )
+
+        plan_prompt = build_prompt(
+            overview=plan_prompt_full.get("overview", ""),
+            spec=plan_prompt_full.get("spec", ""),
+            output_schema=plan_prompt_full.get("output_schema", {}),
+            study_intent=study_intent,
+            candidates=planning_candidates,
+            max_results=max_results,
+            task="phenotype_recommendation_plan",
+            extra_dynamic={
+                "maxShortlist": candidate_limit,
+                "intent_facets": intent_facets,
+            },
+        )
+        self._log_debug(
+            f"phenotype_recommendation: plan llm start prompt_chars={len(plan_prompt)} candidate_count={len(planning_candidates)}"
+        )
+        plan_llm_result = self._call_llm(
+            plan_prompt,
+            required_keys=["plan", "intent_facets", "shortlist_ids", "needs_more_search", "reasoning_notes"],
+        )
+        self._log_debug(
+            "phenotype_recommendation: plan llm end "
+            f"status={plan_llm_result.status} seconds={plan_llm_result.duration_seconds:.2f} parse_stage={plan_llm_result.parse_stage}"
+        )
+        plan_llm_payload = llm_result_payload(plan_llm_result)
+        planning = phenotype_recommendation_plan(
+            study_intent=study_intent,
+            catalog_rows=planning_candidates,
+            max_shortlist=candidate_limit,
+            llm_result=plan_llm_payload,
+        )
+
+        shortlist_ids = planning.get("shortlist_ids") or []
+        hydrated_candidates = self._hydrate_phenotype_summaries(shortlist_ids, all_candidates)
+        self._log_debug(
+            "phenotype_recommendation: candidate hydration "
+            f"shortlist={len(shortlist_ids)} hydrated={len(hydrated_candidates)}"
+        )
+
+        self._log_debug("phenotype_recommendation: final prompt bundle fetch start")
         prompt_bundle = self.call_tool(
             name="phenotype_prompt_bundle",
             arguments={"task": "phenotype_recommendations"},
         )
-        self._log_debug(f"phenotype_recommendation: prompt bundle fetch end status={prompt_bundle.get('status')}")
+        self._log_debug(f"phenotype_recommendation: final prompt bundle fetch end status={prompt_bundle.get('status')}")
         prompt_full = prompt_bundle.get("full_result") or {}
         if prompt_bundle.get("status") != "ok" or prompt_full.get("error"):
             return {
@@ -345,30 +534,34 @@ class StudyAgent:
                 "details": prompt_bundle,
             }
 
-        prompt = build_prompt(
+        final_prompt = build_prompt(
             overview=prompt_full.get("overview", ""),
             spec=prompt_full.get("spec", ""),
             output_schema=prompt_full.get("output_schema", {}),
             study_intent=study_intent,
-            candidates=candidates,
+            candidates=hydrated_candidates,
             max_results=max_results,
+            task="phenotype_recommendations",
+            extra_dynamic={"intent_facets": intent_facets},
         )
         self._log_debug(
-            f"phenotype_recommendation: llm start prompt_chars={len(prompt)} candidate_count={len(candidates)}"
+            f"phenotype_recommendation: final llm start prompt_chars={len(final_prompt)} candidate_count={len(hydrated_candidates)}"
         )
-        llm_result = self._call_llm(prompt, required_keys=["plan", "phenotype_recommendations"])
+        llm_result = self._call_llm(final_prompt, required_keys=["plan", "phenotype_recommendations"])
         self._log_debug(
-            "phenotype_recommendation: llm end "
+            "phenotype_recommendation: final llm end "
             f"status={llm_result.status} seconds={llm_result.duration_seconds:.2f} parse_stage={llm_result.parse_stage}"
         )
+
         catalog_rows = []
-        for row in candidates:
+        for row in hydrated_candidates:
             if not isinstance(row, dict):
                 continue
             catalog_rows.append(
                 {
                     "phenotype_id": row.get("phenotype_id"),
-                    "phenotype_name": row.get("name") or "",
+                    "phenotype_name": row.get("name") or row.get("phenotype_name") or "",
+                    "name": row.get("name") or row.get("phenotype_name") or "",
                     "short_description": row.get("short_description"),
                 }
             )
@@ -386,20 +579,31 @@ class StudyAgent:
         if fallback_reason:
             self._log_debug(f"phenotype_recommendation: fallback chosen reason={fallback_reason} mode={fallback_mode}")
 
+        final_diagnostics = self._llm_diagnostics(llm_result)
+        planning_diagnostics = self._llm_diagnostics(plan_llm_result)
+        intent_diagnostics = self._llm_diagnostics(intent_llm_result)
+        diagnostics = dict(final_diagnostics)
+        diagnostics["intent_facets"] = intent_diagnostics
+        diagnostics["planning"] = planning_diagnostics
+        diagnostics["final"] = final_diagnostics
+
         return {
             "status": "ok",
             "search": full,
+            "intent_facets": intent_result,
+            "planning": planning,
             "llm_used": llm_used,
             "llm_status": llm_result.status,
             "fallback_reason": fallback_reason,
             "fallback_mode": fallback_mode,
             "candidate_limit": candidate_limit,
             "candidate_offset": candidate_offset or 0,
-            "candidate_count": len(candidates),
+            "candidate_count": len(hydrated_candidates),
             "candidate_count_before_truncation": pre_truncation_count,
-            "prompt_length_chars": len(prompt),
+            "plan_prompt_length_chars": len(plan_prompt),
+            "prompt_length_chars": len(final_prompt),
             "recommendations": core_result,
-            "diagnostics": self._llm_diagnostics(llm_result),
+            "diagnostics": diagnostics,
         }
 
     def run_phenotype_recommendation_advice_flow(

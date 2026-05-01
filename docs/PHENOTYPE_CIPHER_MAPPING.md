@@ -607,3 +607,320 @@ Before another major schema revision, assemble a small set of representative phe
 - index plus both
 
 Use that comparison to decide how much weight should come from narrative similarity versus concept evidence versus execution readiness.
+
+## Recommendation Flow Refactor: Bounded Agentic Retrieval
+
+The current `phenotype_recommendation` flow is a one-shot reranker:
+
+- run `phenotype_search`
+- truncate to a small candidate list
+- send thin candidate rows to the LLM
+- ask for final recommendations in one pass
+
+This is not a good fit for a small local chat-completion model. With `candidate_limit` kept low for latency and context reasons, the model often does not see the best executable OHDSI candidates. If `candidate_limit` is raised, the model receives more noise but not enough structured evidence to discriminate among phenotype types.
+
+### Current Limitation
+
+The recommendation LLM currently sees only the thin search payload:
+
+- `phenotype_id`
+- `source_dataset`
+- `name`
+- `short_description`
+- `tags`
+- `signals`
+- `executable_definition_status`
+- `execution_readiness_score`
+- search scores
+
+It does **not** see the richer indexed evidence already available in the catalog and definitions:
+
+- `retrieval_keywords`
+- `retrieval_concept_labels`
+- `methodology_summary`
+- `code_systems`
+- `concept_evidence`
+- `adaptation_notes`
+- full definition payloads under `definitions/`
+
+This causes several failure patterns:
+
+- complication or severity phenotypes can outrank diagnosis phenotypes for disease-identification intents
+- repair/procedure phenotypes can outrank diagnosis phenotypes
+- HDR UK / Read-code-centric phenotypes can outrank more locally useful OHDSI or VA-compatible alternatives
+- medication-based intents are poorly separated from diagnosis-code phenotypes
+- execution readiness is present but under-informed because the model lacks the phenotype details needed for discrimination
+
+### Design Goal
+
+Refactor recommendation into a **bounded agentic retrieval flow** that lets a small model request more evidence only for promising candidates.
+
+This should remain tightly controlled:
+
+- no open-ended tool loop
+- bounded number of tool calls
+- bounded prompt sizes
+- explicit intermediate JSON schemas
+- deterministic fallbacks still available
+
+### Recommended Flow
+
+#### Stage 1: Intent Facet Extraction
+
+Use a small LLM or deterministic parser to extract compact facets from the study intent.
+
+Suggested facets:
+
+- condition or topic
+- phenotype role: diagnosis, outcome, screening, severity, procedure, medication-based, risk score
+- care setting: outpatient, inpatient, ED, any
+- population cue: VA, veteran, older adults, pediatric, etc.
+- validation preference
+- OHDSI executability preference
+- geography or coding preference if inferable: US/OMOP vs UK/Read-code
+
+This output should be small and cheap.
+
+#### Stage 2: Broad Recall Search
+
+Run `phenotype_search` as a recall step, not the final ranking step.
+
+Recommended changes:
+
+- use a larger search window than the final LLM shortlist, for example `top_k=20..40`
+- keep the returned search rows compact
+- allow optional search-time boosts or filters later based on extracted facets
+
+The goal here is to avoid losing the best OHDSI candidate before the model can inspect it.
+
+#### Stage 3: LLM Shortlist Decision
+
+Ask the LLM to select a small shortlist of phenotype ids for deeper inspection, not final recommendations yet.
+
+Output should include:
+
+- inferred facet summary
+- shortlist phenotype ids
+- optional reasons each candidate needs more evidence
+- optional indication that another search page or reformulated query is needed
+
+This first reasoning step should operate over compact rows only.
+
+#### Stage 4: Targeted Evidence Hydration
+
+For the shortlisted ids, fetch richer evidence using existing MCP tools:
+
+- `phenotype_fetch_summary`
+- `phenotype_fetch_definition` for only the most ambiguous finalists
+
+Recommended fetch policy:
+
+- summary fetches: up to 6 to 8 candidates
+- definition fetches: up to 2 to 3 candidates
+- at most 2 search rounds total
+
+The summary payload is likely sufficient for most decisions if it includes:
+
+- `retrieval_keywords`
+- `retrieval_concept_labels`
+- `methodology_summary`
+- `signals`
+- `code_systems`
+- `executable_definition_status`
+- `execution_readiness_score`
+- `adaptation_notes`
+
+Definition fetches should be reserved for cases such as:
+
+- OHDSI candidates with similar names but different inclusion logic
+- CIPHER candidates whose methodology or scope is ambiguous
+- medication-based or multi-domain intents where code evidence matters
+
+#### Stage 5: Final Recommendation Synthesis
+
+Ask the LLM for the final recommendation only after evidence hydration.
+
+Final output should still remain compact:
+
+- up to `max_results`
+- concise justification
+- optional confidence
+- ideally an indication of whether the phenotype is immediately executable or requires translation
+
+### Suggested Tool / Flow Changes
+
+This does not require inventing an unrestricted autonomous agent. It requires a controlled multi-step ACP flow.
+
+#### Keep Existing Tools
+
+- `phenotype_search`
+- `phenotype_fetch_summary`
+- `phenotype_fetch_definition`
+- `phenotype_prompt_bundle`
+
+#### Add or Refactor ACP Stages
+
+Add a new intermediate ACP planning task for phenotype recommendation, for example:
+
+- `phenotype_recommendation_plan`
+
+Possible output shape:
+
+- `intent_facets`
+- `shortlist_ids`
+- `needs_more_search`
+- `reasoning_notes`
+
+Then keep the current final task, but rename conceptually to:
+
+- `phenotype_recommendations_finalize`
+
+Its input should be hydrated candidate summaries rather than thin search rows.
+
+### Why This Is Better for a 4B Model
+
+A small model is more reliable when it must:
+
+- compare a modest number of compact candidates
+- request richer evidence selectively
+- reason over a short hydrated shortlist
+
+A small model is less reliable when it must:
+
+- rerank a large noisy list in one pass
+- infer phenotype type from minimal text
+- compensate for missing structured evidence
+
+The bounded agentic design shifts difficulty away from long-context semantic reranking and toward staged discrimination, which is a better fit for air-gapped small-model deployment.
+
+### Immediate Implementation Priority
+
+The next implementation step should be a **two-pass ACP refactor**, not a full free-form loop.
+
+Recommended first increment:
+
+1. add an intermediate planning schema for shortlist selection
+2. run `phenotype_search` with broader recall
+3. fetch summaries for shortlisted ids
+4. run a second LLM call for final recommendation
+
+This is simpler than a full agent loop and should address the main current failure modes without materially increasing model size requirements.
+
+## Offline Recommendation Metadata Extraction
+
+The next indexing revision should add a second compact offline LLM extraction pass focused specifically on phenotype recommendation quality.
+
+This is different from the existing `retrieval_keywords` pass:
+
+- `retrieval_keywords` improves lexical and embedding retrieval surfaces
+- recommendation metadata should improve semantic discrimination between primary phenotype topic, phenotype role, care setting, and misleading study-context mentions
+
+### Design Rationale
+
+The current recommendation failures are not only caused by retrieval weights. They are caused by the index still mixing:
+
+- phenotypes that are primarily about a disease or diagnosis
+- phenotypes that are primarily about a complication, severity index, or downstream outcome
+- phenotypes that are primarily baseline covariates or comorbidities used in a study about another condition
+- phenotypes whose source narrative mentions a disease only as study context rather than as the target phenotype topic
+
+A brittle rule-based classifier is not the preferred fix. The better approach is to use an offline constrained LLM extraction step during indexing, similar in spirit to the current keyword derivation pass, and then store compact structured fields that can be used deterministically at recommendation time.
+
+### Proposed Extracted Fields
+
+Recommended recommendation-oriented fields:
+
+- `primary_clinical_topic`
+- `secondary_topics`
+- `phenotype_role`
+- `care_setting_scope`
+- `population_scope`
+- `topic_mentions.primary_topics`
+- `topic_mentions.context_only_topics`
+- `topic_mentions.downstream_or_related_topics`
+- `target_vs_context_conditions.target_conditions`
+- `target_vs_context_conditions.context_conditions`
+- `exclude_from_primary_topic_match`
+- `recommendation_summary`
+
+Recommended meanings:
+
+- `primary_clinical_topic`: the narrow main phenotype topic the definition is intended to identify or characterize
+- `secondary_topics`: clinically relevant related topics that are not the main phenotype topic
+- `phenotype_role`: one of `diagnosis`, `outcome`, `complication`, `severity`, `screening`, `procedure`, `medication_based`, `risk_score`, `comorbidity_covariate`, `mixed`, or `unknown`
+- `care_setting_scope`: `outpatient`, `inpatient`, `ed`, `mixed`, or `unspecified`
+- `population_scope`: compact population cue if explicit, such as veterans or older adults
+- `topic_mentions.primary_topics`: topics that are genuinely central to the phenotype itself
+- `topic_mentions.context_only_topics`: topics mentioned only because of study context or deployment context
+- `topic_mentions.downstream_or_related_topics`: complications, sequelae, outcomes, or closely related topics that should not be confused with the primary topic
+- `target_vs_context_conditions.target_conditions`: conditions the phenotype is actually targeting
+- `target_vs_context_conditions.context_conditions`: conditions present only as study background, index disease context, or downstream follow-up context
+- `exclude_from_primary_topic_match`: short phrases useful for down-weighting misleading topic matches at recommendation time
+- `recommendation_summary`: a compact recommendation-oriented statement of the phenotype's real focus
+
+### Expected Input To The Extraction Prompt
+
+The offline extraction step should be grounded in compact source-aware evidence already available in the index build:
+
+- `name`
+- `short_description`
+- `methodology_summary`
+- `retrieval_keywords`
+- `retrieval_concept_labels`
+- `signals`
+- `executable_definition_status`
+- `execution_readiness_score`
+- optionally a compact `long_description` excerpt if short description is sparse
+
+It should not require the full raw source JSON for every pass unless later evaluation shows that more context is necessary.
+
+### Expected Runtime Use
+
+These extracted fields should support recommendation in three ways:
+
+1. candidate display and summary hydration
+- expose them through `phenotype_fetch_summary`
+- use them in the hydrated candidate payload sent to the final recommendation step
+
+2. planner grounding
+- the recommendation planning prompt should rely on these fields instead of inferring everything from noisy source narratives
+- the planner should be able to distinguish primary topic from study context without having to reconstruct that distinction itself
+
+3. retrieval text and ranking
+- selected fields such as `primary_clinical_topic`, `secondary_topics`, `phenotype_role`, and `recommendation_summary` should contribute to `retrieval_text`
+- `context_only_topics` and `exclude_from_primary_topic_match` should not be treated as positive primary-topic evidence
+
+### Example Failure This Should Fix
+
+For a phenotype like `Hypertension (VA CAUSAL Methods)` that was used in a COVID-19 vaccine effectiveness study, the extracted metadata should look conceptually like:
+
+- `primary_clinical_topic`: hypertension
+- `phenotype_role`: comorbidity_covariate
+- `topic_mentions.context_only_topics`: COVID-19
+- `target_vs_context_conditions.target_conditions`: hypertension
+- `target_vs_context_conditions.context_conditions`: COVID-19
+- `exclude_from_primary_topic_match`: used in COVID-19 outcomes study; baseline covariate phenotype
+
+That would let the recommendation stack avoid treating it as a COVID-19 diagnosis phenotype.
+
+For a phenotype like `Long COVID-19 (LATCH)`, the extracted metadata should preserve that it is a COVID-related phenotype while distinguishing it from incident acute COVID-19 diagnosis.
+
+### Prompt Artifacts
+
+The design prompt bundle for this extraction lives under:
+
+- `mcp_server/prompts/phenotype/overview_phenotype_index_recommendation_metadata.md`
+- `mcp_server/prompts/phenotype/spec_phenotype_index_recommendation_metadata.md`
+- `mcp_server/prompts/phenotype/output_schema_phenotype_index_recommendation_metadata.json`
+
+### Recommended Next Implementation Step
+
+Implement this as a second offline cached LLM pass in `build_phenotype_index.py`, parallel to the current keyword derivation flow:
+
+- build a compact source-aware prompt payload per phenotype
+- cache results by phenotype id plus source hash
+- write normalized fields into each catalog row
+- expose them in `phenotype_fetch_summary`
+- update the two-pass recommendation flow to use these fields during planning and final recommendation
+
+This should be attempted before adding brittle deterministic phenotype-role heuristics.

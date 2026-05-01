@@ -21,6 +21,13 @@ class PhenotypeRecommendationsInput(BaseModel):
     llm_result: Optional[Dict[str, Any]] = None
 
 
+class PhenotypeRecommendationPlanInput(BaseModel):
+    study_intent: str
+    catalog_rows: List[Dict[str, Any]]
+    max_shortlist: int = 5
+    llm_result: Optional[Dict[str, Any]] = None
+
+
 class PhenotypeImprovementsInput(BaseModel):
     protocol_text: str
     cohorts: List[Dict[str, Any]]
@@ -214,6 +221,16 @@ class PhenotypeRecommendationsOutput(BaseModel):
     phenotype_recommendations: List[Dict[str, Any]] = Field(default_factory=list)
     mode: str
     catalog_stats: Dict[str, Any] = Field(default_factory=dict)
+    invalid_ids_filtered: List[str] = Field(default_factory=list)
+
+
+class PhenotypeRecommendationPlanOutput(BaseModel):
+    plan: str
+    intent_facets: Dict[str, Any] = Field(default_factory=dict)
+    shortlist_ids: List[str] = Field(default_factory=list)
+    needs_more_search: bool = False
+    reasoning_notes: List[str] = Field(default_factory=list)
+    mode: str
     invalid_ids_filtered: List[str] = Field(default_factory=list)
 
 

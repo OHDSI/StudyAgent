@@ -4,6 +4,7 @@ from study_agent_core.tools import (
     cohort_lint,
     phenotype_intent_split,
     phenotype_improvements,
+    phenotype_recommendation_plan,
     phenotype_recommendations,
     phenotype_validation_review,
     propose_concept_set_diff,
@@ -41,6 +42,70 @@ def test_cohort_lint_washout_and_inverted():
 
 
 @pytest.mark.core
+def test_phenotype_recommendation_plan_stub():
+    catalog = [
+        {"phenotype_id": "ohdsi:1", "phenotype_name": "Alpha"},
+        {"phenotype_id": "cipher:2", "phenotype_name": "Beta"},
+    ]
+    result = phenotype_recommendation_plan("protocol", catalog, max_shortlist=1)
+    assert result["mode"] == "stub"
+    assert result["shortlist_ids"] == ["ohdsi:1"]
+
+
+@pytest.mark.core
+def test_phenotype_recommendation_plan_llm_filters():
+    catalog = [
+        {"phenotype_id": "ohdsi:1", "phenotype_name": "Alpha"},
+        {"phenotype_id": "cipher:2", "phenotype_name": "Beta"},
+    ]
+    llm = {
+        "plan": "plan",
+        "intent_facets": {"phenotype_role": "diagnosis"},
+        "shortlist_ids": ["cipher:2", "missing:999", "ohdsi:1"],
+        "needs_more_search": False,
+        "reasoning_notes": ["note"],
+    }
+    result = phenotype_recommendation_plan("protocol", catalog, max_shortlist=2, llm_result=llm)
+    assert result["invalid_ids_filtered"] == ["missing:999"]
+    assert result["shortlist_ids"] == ["cipher:2", "ohdsi:1"]
+
+
+@pytest.mark.core
+def test_phenotype_recommendation_plan_maps_bare_ids_and_falls_back():
+    catalog = [
+        {"phenotype_id": "ohdsi:170", "phenotype_name": "Alpha"},
+        {"phenotype_id": "cipher:17590", "phenotype_name": "Beta"},
+    ]
+    llm = {
+        "plan": "plan",
+        "intent_facets": {"phenotype_role": "diagnosis"},
+        "shortlist_ids": ["17590", "missing:999"],
+        "needs_more_search": False,
+        "reasoning_notes": ["note"],
+    }
+    result = phenotype_recommendation_plan("protocol", catalog, max_shortlist=2, llm_result=llm)
+    assert result["shortlist_ids"] == ["cipher:17590"]
+    assert result["invalid_ids_filtered"] == ["missing:999"]
+
+
+@pytest.mark.core
+def test_phenotype_recommendation_plan_coerces_string_reasoning_notes():
+    catalog = [
+        {"phenotype_id": "ohdsi:1", "phenotype_name": "Alpha"},
+    ]
+    llm = {
+        "plan": "plan",
+        "intent_facets": "not a dict",
+        "shortlist_ids": ["ohdsi:1"],
+        "needs_more_search": False,
+        "reasoning_notes": "single note",
+    }
+    result = phenotype_recommendation_plan("protocol", catalog, max_shortlist=1, llm_result=llm)
+    assert result["intent_facets"] == {}
+    assert result["reasoning_notes"] == ["single note"]
+
+
+@pytest.mark.core
 def test_phenotype_recommendations_stub():
     catalog = [
         {"phenotype_id": "ohdsi:1", "phenotype_name": "Alpha"},
@@ -66,6 +131,24 @@ def test_phenotype_recommendations_llm_filters():
     result = phenotype_recommendations("protocol", catalog, max_results=2, llm_result=llm)
     assert result["invalid_ids_filtered"] == ["missing:999"]
     assert len(result["phenotype_recommendations"]) == 1
+
+
+@pytest.mark.core
+def test_phenotype_recommendations_maps_bare_ids_and_falls_back():
+    catalog = [
+        {"phenotype_id": "ohdsi:181", "phenotype_name": "Alpha"},
+        {"phenotype_id": "cipher:17590", "phenotype_name": "Beta"},
+    ]
+    llm = {
+        "plan": "plan",
+        "phenotype_recommendations": [
+            {"phenotype_id": "17590", "phenotype_name": "Beta", "justification": "ok"},
+            {"phenotype_id": "missing:999", "phenotype_name": "Nope"},
+        ]
+    }
+    result = phenotype_recommendations("protocol", catalog, max_results=2, llm_result=llm)
+    assert result["phenotype_recommendations"][0]["phenotype_id"] == "cipher:17590"
+    assert result["invalid_ids_filtered"] == ["missing:999"]
 
 
 @pytest.mark.core

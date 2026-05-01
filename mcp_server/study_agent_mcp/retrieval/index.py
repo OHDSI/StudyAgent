@@ -182,6 +182,16 @@ class PhenotypeIndex:
             "retrieval_keywords_source": row.get("retrieval_keywords_source") or "heuristic",
             "retrieval_concept_labels": row.get("retrieval_concept_labels") or [],
             "methodology_summary": row.get("methodology_summary") or "",
+            "primary_clinical_topic": row.get("primary_clinical_topic") or "",
+            "secondary_topics": row.get("secondary_topics") or [],
+            "phenotype_role": row.get("phenotype_role") or "unknown",
+            "care_setting_scope": row.get("care_setting_scope") or "unspecified",
+            "population_scope": row.get("population_scope") or "",
+            "topic_mentions": row.get("topic_mentions") or {},
+            "target_vs_context_conditions": row.get("target_vs_context_conditions") or {},
+            "exclude_from_primary_topic_match": row.get("exclude_from_primary_topic_match") or [],
+            "recommendation_summary": row.get("recommendation_summary") or "",
+            "recommendation_metadata_source": row.get("recommendation_metadata_source") or "heuristic",
             "signals": row.get("signals") or [],
             "ontology_keys": row.get("ontology_keys") or [],
             "code_systems": row.get("code_systems") or [],
@@ -209,8 +219,8 @@ class PhenotypeIndex:
         offset: int = 0,
         dense_k: int = 100,
         sparse_k: int = 100,
-        dense_weight: float = 0.9,
-        sparse_weight: float = 0.1,
+        dense_weight: float = 0.6,
+        sparse_weight: float = 0.4,
     ) -> List[Dict[str, Any]]:
         if not query:
             return []

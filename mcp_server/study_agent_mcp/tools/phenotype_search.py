@@ -21,8 +21,8 @@ def register(mcp: object) -> None:
         dense_weight: Optional[float] = None,
         sparse_weight: Optional[float] = None,
     ) -> Dict[str, Any]:
-        default_dense_weight = float(os.getenv("PHENOTYPE_DENSE_WEIGHT", "0.9"))
-        default_sparse_weight = float(os.getenv("PHENOTYPE_SPARSE_WEIGHT", "0.1"))
+        default_dense_weight = float(os.getenv("PHENOTYPE_DENSE_WEIGHT", "0.8"))
+        default_sparse_weight = float(os.getenv("PHENOTYPE_SPARSE_WEIGHT", "0.2"))
         if dense_weight is None:
             dense_weight = default_dense_weight
         if sparse_weight is None:

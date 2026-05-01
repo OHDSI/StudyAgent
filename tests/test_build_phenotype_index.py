@@ -83,6 +83,16 @@ def _sample_row() -> dict:
         "signals": ["source:cipher", "execution:codes_only", "method_family:map"],
         "executable_definition_status": "codes_only",
         "adaptation_notes": "Requires translation to OHDSI logic.",
+        "primary_clinical_topic": "Post-traumatic stress disorder",
+        "secondary_topics": [],
+        "phenotype_role": "unknown",
+        "care_setting_scope": "unspecified",
+        "population_scope": "",
+        "topic_mentions": {"primary_topics": ["Post-traumatic stress disorder"], "context_only_topics": [], "downstream_or_related_topics": []},
+        "target_vs_context_conditions": {"target_conditions": ["Post-traumatic stress disorder"], "context_conditions": []},
+        "exclude_from_primary_topic_match": [],
+        "recommendation_summary": "PTSD phenotype for veterans.",
+        "recommendation_metadata_source": "heuristic",
     }
 
 
@@ -152,6 +162,57 @@ def test_apply_llm_retrieval_keywords_returns_cache_entry(monkeypatch) -> None:
     assert entry["cache_key"].startswith("cipher:test-1:")
     assert entry["retrieval_keywords"] == ["PTSD", "trauma cohort"]
 
+
+
+def test_apply_llm_recommendation_metadata_uses_llm_and_cache(monkeypatch) -> None:
+    calls = []
+
+    def fake_call(prompt: str) -> dict:
+        calls.append(prompt)
+        return {
+            "status": "ok",
+            "parsed_content": {
+                "primary_clinical_topic": "Post-traumatic stress disorder",
+                "secondary_topics": ["trauma"],
+                "phenotype_role": "diagnosis",
+                "care_setting_scope": "outpatient",
+                "population_scope": "veterans",
+                "topic_mentions": {
+                    "primary_topics": ["post-traumatic stress disorder"],
+                    "context_only_topics": [],
+                    "downstream_or_related_topics": ["trauma"],
+                },
+                "target_vs_context_conditions": {
+                    "target_conditions": ["post-traumatic stress disorder"],
+                    "context_conditions": [],
+                },
+                "exclude_from_primary_topic_match": ["trauma study context"],
+                "recommendation_summary": "PTSD diagnosis phenotype for veterans.",
+            },
+        }
+
+    monkeypatch.setattr(builder, "_call_recommendation_metadata_llm", fake_call)
+    cache = {}
+    row = _sample_row()
+
+    entry = builder._apply_llm_recommendation_metadata(row, cache, enabled=True)
+
+    assert row["recommendation_metadata_source"] == "llm"
+    assert row["phenotype_role"] == "diagnosis"
+    assert row["care_setting_scope"] == "outpatient"
+    assert row["primary_clinical_topic"] == "Post-traumatic stress disorder"
+    assert row["recommendation_summary"] == "PTSD diagnosis phenotype for veterans."
+    assert entry is not None
+    assert entry["cache_key"].startswith("recommendation:cipher:test-1:")
+    assert len(calls) == 1
+
+    monkeypatch.setattr(builder, "_call_recommendation_metadata_llm", lambda prompt: (_ for _ in ()).throw(AssertionError("should use cache")))
+    cached_row = _sample_row()
+    builder._apply_llm_recommendation_metadata(cached_row, cache, enabled=True)
+
+    assert cached_row["recommendation_metadata_source"] == "llm_cached"
+    assert cached_row["phenotype_role"] == "diagnosis"
+    assert cached_row["care_setting_scope"] == "outpatient"
 
 
 def test_jsonl_cache_append_and_load_round_trip(tmp_path) -> None:

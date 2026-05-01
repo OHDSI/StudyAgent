@@ -169,6 +169,20 @@ def _load_keyword_prompt_bundle() -> Dict[str, Any]:
     return payload
 
 
+def _load_recommendation_metadata_prompt_bundle() -> Dict[str, Any]:
+    cached = _PROMPT_CACHE.get("phenotype_index_recommendation_metadata")
+    if cached is not None:
+        return cached
+    base = _prompt_dir()
+    payload = {
+        "overview": _load_text(os.path.join(base, "overview_phenotype_index_recommendation_metadata.md")),
+        "spec": _load_text(os.path.join(base, "spec_phenotype_index_recommendation_metadata.md")),
+        "output_schema": _load_json(os.path.join(base, "output_schema_phenotype_index_recommendation_metadata.json")),
+    }
+    _PROMPT_CACHE["phenotype_index_recommendation_metadata"] = payload
+    return payload
+
+
 def _load_metadata(csv_path: str) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
     with open(csv_path, "r", encoding="utf-8-sig", newline="") as handle:
@@ -292,6 +306,8 @@ def _extract_methodology_summary(text: str) -> str:
 
 
 def _compose_retrieval_text(row: Dict[str, Any]) -> str:
+    topic_mentions = row.get("topic_mentions") or {}
+    target_vs_context = row.get("target_vs_context_conditions") or {}
     parts = [
         row.get("name"),
         row.get("short_description"),
@@ -304,8 +320,122 @@ def _compose_retrieval_text(row: Dict[str, Any]) -> str:
         " ".join(row.get("signals") or []),
         row.get("methodology_summary"),
         row.get("adaptation_notes"),
+        row.get("primary_clinical_topic"),
+        " ".join(row.get("secondary_topics") or []),
+        row.get("phenotype_role"),
+        row.get("care_setting_scope"),
+        row.get("population_scope"),
+        " ".join(topic_mentions.get("primary_topics") or []),
+        " ".join(topic_mentions.get("downstream_or_related_topics") or []),
+        " ".join(target_vs_context.get("target_conditions") or []),
+        row.get("recommendation_summary"),
     ]
     return "\n".join(_compact_text_parts(parts))
+
+
+def _clean_primary_topic_name(name: str) -> str:
+    text = re.sub(r"^(?:\[[^\]]+\]\s*)+", "", str(name or "")).strip()
+    return re.sub(r"\s+", " ", text)
+
+
+def _seed_recommendation_metadata(row: Dict[str, Any]) -> Dict[str, Any]:
+    primary = _clean_primary_topic_name(row.get("name") or "")
+    return {
+        "primary_clinical_topic": primary,
+        "secondary_topics": [],
+        "phenotype_role": "unknown",
+        "care_setting_scope": "unspecified",
+        "population_scope": "",
+        "topic_mentions": {
+            "primary_topics": [primary] if primary else [],
+            "context_only_topics": [],
+            "downstream_or_related_topics": [],
+        },
+        "target_vs_context_conditions": {
+            "target_conditions": [primary] if primary else [],
+            "context_conditions": [],
+        },
+        "exclude_from_primary_topic_match": [],
+        "recommendation_summary": row.get("short_description") or primary or "",
+        "recommendation_metadata_source": "heuristic",
+    }
+
+
+def _normalize_string_list(values: Any, max_items: int = 12) -> List[str]:
+    if isinstance(values, str):
+        values = [values]
+    if not isinstance(values, (list, tuple)):
+        return []
+    cleaned: List[str] = []
+    seen = set()
+    for value in values:
+        text = re.sub(r"\s+", " ", str(value or "").strip())
+        if not text:
+            continue
+        lowered = text.lower()
+        if lowered in seen:
+            continue
+        seen.add(lowered)
+        cleaned.append(text)
+        if len(cleaned) >= max_items:
+            break
+    return cleaned
+
+
+def _normalize_enum_string(value: Any, allowed: set[str], default: str) -> str:
+    text = str(value or "").strip().lower()
+    return text if text in allowed else default
+
+
+def _normalize_recommendation_metadata(parsed: Dict[str, Any], row: Dict[str, Any]) -> Dict[str, Any]:
+    seeded = _seed_recommendation_metadata(row)
+    topic_mentions = parsed.get("topic_mentions") if isinstance(parsed.get("topic_mentions"), dict) else {}
+    target_vs_context = parsed.get("target_vs_context_conditions") if isinstance(parsed.get("target_vs_context_conditions"), dict) else {}
+    primary = re.sub(r"\s+", " ", str(parsed.get("primary_clinical_topic") or seeded["primary_clinical_topic"]).strip())
+    if not primary:
+        primary = seeded["primary_clinical_topic"]
+    recommendation_summary = re.sub(r"\s+", " ", str(parsed.get("recommendation_summary") or "").strip())
+    if not recommendation_summary:
+        recommendation_summary = seeded["recommendation_summary"]
+    return {
+        "primary_clinical_topic": primary,
+        "secondary_topics": _normalize_string_list(parsed.get("secondary_topics"), max_items=8),
+        "phenotype_role": _normalize_enum_string(
+            parsed.get("phenotype_role"),
+            {
+                "diagnosis",
+                "outcome",
+                "complication",
+                "severity",
+                "screening",
+                "procedure",
+                "medication_based",
+                "risk_score",
+                "comorbidity_covariate",
+                "mixed",
+                "unknown",
+            },
+            seeded["phenotype_role"],
+        ),
+        "care_setting_scope": _normalize_enum_string(
+            parsed.get("care_setting_scope"),
+            {"outpatient", "inpatient", "ed", "mixed", "unspecified"},
+            seeded["care_setting_scope"],
+        ),
+        "population_scope": re.sub(r"\s+", " ", str(parsed.get("population_scope") or "").strip()),
+        "topic_mentions": {
+            "primary_topics": _normalize_string_list(topic_mentions.get("primary_topics"), max_items=8),
+            "context_only_topics": _normalize_string_list(topic_mentions.get("context_only_topics"), max_items=8),
+            "downstream_or_related_topics": _normalize_string_list(topic_mentions.get("downstream_or_related_topics"), max_items=8),
+        },
+        "target_vs_context_conditions": {
+            "target_conditions": _normalize_string_list(target_vs_context.get("target_conditions"), max_items=8),
+            "context_conditions": _normalize_string_list(target_vs_context.get("context_conditions"), max_items=8),
+        },
+        "exclude_from_primary_topic_match": _normalize_string_list(parsed.get("exclude_from_primary_topic_match"), max_items=8),
+        "recommendation_summary": recommendation_summary,
+        "recommendation_metadata_source": "llm",
+    }
 
 
 def _keyword_prompt_payload(row: Dict[str, Any]) -> Dict[str, Any]:
@@ -419,6 +549,116 @@ def _apply_llm_retrieval_keywords(
                 "phenotype_id": row.get("phenotype_id"),
                 "retrieval_keywords": llm_keywords,
             }
+    return None
+
+
+def _recommendation_metadata_prompt_payload(row: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "task": "phenotype_index_recommendation_metadata",
+        "phenotype_id": row.get("phenotype_id"),
+        "source_dataset": row.get("source_dataset"),
+        "name": row.get("name") or "",
+        "short_description": row.get("short_description") or "",
+        "long_description": _truncate_for_prompt(row.get("long_description") or "", 2400),
+        "retrieval_keywords": row.get("retrieval_keywords") or [],
+        "retrieval_concept_labels": (row.get("retrieval_concept_labels") or [])[:24],
+        "methodology_summary": row.get("methodology_summary") or "",
+        "signals": row.get("signals") or [],
+        "executable_definition_status": row.get("executable_definition_status") or "",
+        "execution_readiness_score": row.get("execution_readiness_score"),
+    }
+
+
+def _recommendation_metadata_cache_key(payload: Dict[str, Any]) -> str:
+    phenotype_id = str(payload.get("phenotype_id") or "unknown")
+    source_hash = _hash_text(json.dumps(payload, sort_keys=True, ensure_ascii=True))
+    return f"recommendation:{phenotype_id}:{source_hash}"
+
+
+def _build_recommendation_metadata_prompt(payload: Dict[str, Any]) -> str:
+    bundle = _load_recommendation_metadata_prompt_bundle()
+    overview = bundle.get("overview", "")
+    spec = bundle.get("spec", "")
+    schema = bundle.get("output_schema", {})
+    strict_rules = "\n\n".join([
+        "STRICT OUTPUT RULES:",
+        spec,
+        "Return exactly ONE JSON object that matches the output schema.",
+        "Do NOT wrap output in markdown, code fences, or prose.",
+        "If uncertain, return the required keys with empty strings/arrays and conservative enum defaults.",
+    ])
+    return "\n\n".join([
+        overview,
+        "OUTPUT SCHEMA (JSON):",
+        json.dumps(schema, ensure_ascii=True),
+        "DYNAMIC INPUT (JSON):",
+        json.dumps(payload, ensure_ascii=True),
+        strict_rules,
+    ])
+
+
+def _call_recommendation_metadata_llm(prompt: str) -> Dict[str, Any]:
+    try:
+        from study_agent_acp.llm_client import call_llm
+    except ImportError as exc:
+        return {"status": "disabled", "error": f"import_error:{exc}"}
+    result = call_llm(
+        prompt,
+        required_keys=[
+            "primary_clinical_topic",
+            "secondary_topics",
+            "phenotype_role",
+            "care_setting_scope",
+            "population_scope",
+            "topic_mentions",
+            "target_vs_context_conditions",
+            "exclude_from_primary_topic_match",
+            "recommendation_summary",
+        ],
+    )
+    return {
+        "status": result.status,
+        "error": result.error,
+        "parsed_content": result.parsed_content or {},
+        "schema_valid": result.schema_valid,
+    }
+
+
+def _apply_llm_recommendation_metadata(
+    row: Dict[str, Any],
+    recommendation_cache: Dict[str, Dict[str, Any]],
+    enabled: bool = False,
+) -> Optional[Dict[str, Any]]:
+    seeded = _seed_recommendation_metadata(row)
+    row.update(seeded)
+    row["retrieval_text"] = _compose_retrieval_text(row)
+    if not enabled:
+        return None
+
+    payload = _recommendation_metadata_prompt_payload(row)
+    cache_key = _recommendation_metadata_cache_key(payload)
+    cached = recommendation_cache.get(cache_key) or {}
+    cached_payload = cached.get("recommendation_metadata") if isinstance(cached.get("recommendation_metadata"), dict) else None
+    if cached_payload:
+        normalized = _normalize_recommendation_metadata(cached_payload, row)
+        normalized["recommendation_metadata_source"] = "llm_cached"
+        row.update(normalized)
+        row["retrieval_text"] = _compose_retrieval_text(row)
+        return None
+
+    result = _call_recommendation_metadata_llm(_build_recommendation_metadata_prompt(payload))
+    if result.get("status") == "ok":
+        parsed = result.get("parsed_content") or {}
+        normalized = _normalize_recommendation_metadata(parsed, row)
+        cache_entry = {
+            "cache_key": cache_key,
+            "phenotype_id": row.get("phenotype_id"),
+            "recommendation_metadata": normalized,
+        }
+        recommendation_cache[cache_key] = cache_entry
+        row.update(normalized)
+        row["retrieval_text"] = _compose_retrieval_text(row)
+        return cache_entry
     return None
 
 
@@ -1111,6 +1351,8 @@ def main() -> int:
     parser.add_argument("--derive-keywords-llm", action="store_true", help="Use chat completion to derive retrieval keywords with caching.")
     parser.add_argument("--keyword-cache-path", help="Path to retrieval keyword cache JSONL. Defaults to <output-dir>/keyword_cache.jsonl.")
     parser.add_argument("--keyword-max-terms", type=int, default=12, help="Maximum derived retrieval keywords per phenotype.")
+    parser.add_argument("--derive-recommendation-metadata-llm", action="store_true", help="Use chat completion to derive recommendation-oriented phenotype metadata with caching.")
+    parser.add_argument("--recommendation-metadata-cache-path", help="Path to recommendation metadata cache JSONL. Defaults to <output-dir>/recommendation_metadata_cache.jsonl.")
     parser.add_argument("--build-dense", action="store_true", help="Build dense FAISS index.")
     parser.add_argument("--dense-only", action="store_true", help="Reuse existing catalog.jsonl in --output-dir and build only dense.index plus embedding cache/meta updates.")
     parser.add_argument("--require-dense", action="store_true", help="Fail if dense index cannot be built.")
@@ -1162,9 +1404,12 @@ def main() -> int:
 
     keyword_cache_path = args.keyword_cache_path or os.path.join(args.output_dir, "keyword_cache.jsonl")
     keyword_cache = _load_jsonl_cache(keyword_cache_path)
+    recommendation_metadata_cache_path = args.recommendation_metadata_cache_path or os.path.join(args.output_dir, "recommendation_metadata_cache.jsonl")
+    recommendation_metadata_cache = _load_jsonl_cache(recommendation_metadata_cache_path)
     catalog: List[Dict[str, Any]] = []
     source_counts: Dict[str, int] = {}
     keyword_source_counts: Dict[str, int] = {}
+    recommendation_metadata_source_counts: Dict[str, int] = {}
 
     if args.metadata_csv:
         metadata_rows = _load_metadata(args.metadata_csv)
@@ -1182,9 +1427,18 @@ def main() -> int:
             )
             if new_cache_entry is not None:
                 _append_jsonl_cache_entry(keyword_cache_path, new_cache_entry)
+            new_rec_entry = _apply_llm_recommendation_metadata(
+                built,
+                recommendation_cache=recommendation_metadata_cache,
+                enabled=args.derive_recommendation_metadata_llm,
+            )
+            if new_rec_entry is not None:
+                _append_jsonl_cache_entry(recommendation_metadata_cache_path, new_rec_entry)
             source_counts[built["source_dataset"]] = source_counts.get(built["source_dataset"], 0) + 1
             keyword_source = built.get("retrieval_keywords_source") or "heuristic"
             keyword_source_counts[keyword_source] = keyword_source_counts.get(keyword_source, 0) + 1
+            rec_source = built.get("recommendation_metadata_source") or "heuristic"
+            recommendation_metadata_source_counts[rec_source] = recommendation_metadata_source_counts.get(rec_source, 0) + 1
             catalog.append(built)
 
     if args.cipher_dir:
@@ -1199,9 +1453,18 @@ def main() -> int:
             )
             if new_cache_entry is not None:
                 _append_jsonl_cache_entry(keyword_cache_path, new_cache_entry)
+            new_rec_entry = _apply_llm_recommendation_metadata(
+                built,
+                recommendation_cache=recommendation_metadata_cache,
+                enabled=args.derive_recommendation_metadata_llm,
+            )
+            if new_rec_entry is not None:
+                _append_jsonl_cache_entry(recommendation_metadata_cache_path, new_rec_entry)
             source_counts[built["source_dataset"]] = source_counts.get(built["source_dataset"], 0) + 1
             keyword_source = built.get("retrieval_keywords_source") or "heuristic"
             keyword_source_counts[keyword_source] = keyword_source_counts.get(keyword_source, 0) + 1
+            rec_source = built.get("recommendation_metadata_source") or "heuristic"
+            recommendation_metadata_source_counts[rec_source] = recommendation_metadata_source_counts.get(rec_source, 0) + 1
             catalog.append(built)
 
     catalog.sort(key=lambda row: (row.get("source_dataset") or "", row.get("name") or "", row.get("phenotype_id") or ""))
@@ -1244,6 +1507,12 @@ def main() -> int:
             "max_terms": args.keyword_max_terms,
             "source_counts": keyword_source_counts,
             "cache_entries": len(keyword_cache),
+        },
+        "recommendation_metadata_derivation": {
+            "llm_enabled": bool(args.derive_recommendation_metadata_llm),
+            "cache_path": recommendation_metadata_cache_path,
+            "source_counts": recommendation_metadata_source_counts,
+            "cache_entries": len(recommendation_metadata_cache),
         },
         "embedding_model": os.getenv("EMBED_MODEL", "qwen3-embedding:4b"),
         "embedding_url": os.getenv("EMBED_URL", "http://localhost:3000/ollama/api/embed"),
