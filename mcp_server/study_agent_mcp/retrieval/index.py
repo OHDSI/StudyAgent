@@ -44,6 +44,18 @@ def _hash_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def _normalize_score_map(scores: Dict[int, float]) -> Dict[int, float]:
+    if not scores:
+        return {}
+    values = [float(score) for score in scores.values()]
+    min_score = min(values)
+    max_score = max(values)
+    if math.isclose(max_score, min_score):
+        return {doc_id: 1.0 for doc_id in scores}
+    scale = max_score - min_score
+    return {doc_id: (float(score) - min_score) / scale for doc_id, score in scores.items()}
+
+
 def _load_catalog(path: str) -> List[Dict[str, Any]]:
     catalog: List[Dict[str, Any]] = []
     if not os.path.exists(path):
@@ -224,13 +236,16 @@ class PhenotypeIndex:
     ) -> List[Dict[str, Any]]:
         if not query:
             return []
-        dense_scores: Dict[int, float] = {}
-        sparse_scores: Dict[int, float] = {}
+        dense_scores_raw: Dict[int, float] = {}
+        sparse_scores_raw: Dict[int, float] = {}
 
         if self._dense is not None and self.embedding_client is not None:
-            dense_scores = self._dense_search(query, dense_k)
+            dense_scores_raw = self._dense_search(query, dense_k)
         if self._sparse is not None:
-            sparse_scores = self._sparse_search(query, sparse_k)
+            sparse_scores_raw = self._sparse_search(query, sparse_k)
+
+        dense_scores = _normalize_score_map(dense_scores_raw)
+        sparse_scores = _normalize_score_map(sparse_scores_raw)
 
         merged: Dict[int, float] = {}
         for doc_id, score in dense_scores.items():
@@ -259,6 +274,8 @@ class PhenotypeIndex:
                     "score": score,
                     "score_dense": dense_scores.get(doc_id),
                     "score_sparse": sparse_scores.get(doc_id),
+                    "score_dense_raw": dense_scores_raw.get(doc_id),
+                    "score_sparse_raw": sparse_scores_raw.get(doc_id),
                 }
             )
         return results

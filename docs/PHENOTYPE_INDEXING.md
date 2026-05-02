@@ -185,6 +185,42 @@ print(meta.get("dense"))
 PY
 ```
 
+*Metadata indexing check*
+
+```
+/bin/sh -lc "python - <<'PY'
+import json
+from pathlib import Path
+wanted = {
+    'ohdsi:482','ohdsi:794','ohdsi:299','ohdsi:417','ohdsi:77','ohdsi:888',
+    'ohdsi:979','ohdsi:1303','ohdsi:938','ohdsi:577','ohdsi:1347',
+    'cipher:16285','cipher:4032','cipher:3962','cipher:16273','cipher:16291'
+}
+path = Path('data/phenotype_index/catalog.jsonl')
+rows = {}
+for line in path.read_text().splitlines():
+    if not line.strip():
+        continue
+    row = json.loads(line)
+    pid = row.get('phenotype_id')
+    if pid in wanted:
+        rows[pid] = {
+            'phenotype_id': pid,
+            'name': row.get('name'),
+            'recommendation_metadata_source': row.get('recommendation_metadata_source'),
+            'primary_clinical_topic': row.get('primary_clinical_topic'),
+            'phenotype_role': row.get('phenotype_role'),
+            'care_setting_scope': row.get('care_setting_scope'),
+            'population_scope': row.get('population_scope'),
+            'target_vs_context_conditions': row.get('target_vs_context_conditions'),
+            'exclude_from_primary_topic_match': row.get('exclude_from_primary_topic_match'),
+            'recommendation_summary': row.get('recommendation_summary'),
+        }
+print(json.dumps(rows, indent=2, sort_keys=True))
+PY"
+```
+
+
 **Operational Notes**
 1. For large builds, a practical workflow is:
 - build catalog plus sparse index first

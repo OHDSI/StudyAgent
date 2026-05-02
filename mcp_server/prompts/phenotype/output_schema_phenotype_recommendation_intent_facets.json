@@ -3,25 +3,65 @@
   "title": "phenotype_recommendation_intent_facets_output",
   "type": "object",
   "properties": {
-    "plan": { "type": "string" },
+    "plan": {
+      "type": "string"
+    },
     "intent_facets": {
       "type": "object",
       "properties": {
-        "condition_or_topic": { "type": "string" },
-        "phenotype_role": { "type": "string" },
-        "care_setting": { "type": "string" },
-        "population_cue": { "type": "string" },
-        "validation_preference": { "type": "string" },
-        "executability_preference": { "type": "string" },
-        "geography_coding_preference": { "type": "string" }
+        "condition_or_topic": {
+          "type": "string"
+        },
+        "phenotype_role": {
+          "type": "string"
+        },
+        "care_setting": {
+          "type": "string"
+        },
+        "population_cue": {
+          "type": "string"
+        },
+        "validation_preference": {
+          "type": "string"
+        },
+        "executability_preference": {
+          "type": "string"
+        },
+        "geography_coding_preference": {
+          "type": "string"
+        },
+        "role_cues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "care_setting_cues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "population_cues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       },
       "additionalProperties": true
     },
     "reasoning_notes": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     }
   },
-  "required": ["plan", "intent_facets", "reasoning_notes"],
+  "required": [
+    "plan",
+    "intent_facets",
+    "reasoning_notes"
+  ],
   "additionalProperties": false
 }
