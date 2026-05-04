@@ -322,6 +322,46 @@ class StudyAgent:
         precision = len(overlap) / max(1, len(candidate_tokens))
         return (coverage * 2.0) + precision
 
+    def _normalize_clinical_topic_aliases(self, study_intent: str, aliases: Any) -> List[str]:
+        if not isinstance(aliases, list):
+            return []
+        original_text = self._flatten_text(study_intent)
+        original_tokens = self._topic_tokens(study_intent)
+        normalized: List[str] = []
+        seen: set[str] = set()
+        for value in aliases:
+            alias = self._flatten_text(value)
+            if not alias or alias in seen or alias == original_text:
+                continue
+            alias_tokens = self._topic_tokens(alias)
+            if len(alias_tokens) < 1 or len(alias_tokens) > 8:
+                continue
+            if alias in {"disease", "condition", "diagnosis", "bleeding", "infection", "disorder", "event"}:
+                continue
+            if len(alias) > 80:
+                continue
+            if original_tokens and alias_tokens and alias_tokens == original_tokens:
+                continue
+            normalized.append(alias)
+            seen.add(alias)
+            if len(normalized) >= 5:
+                break
+        return normalized
+
+    def _best_alias_overlap(
+        self,
+        alias_tokens_list: List[tuple[str, set[str]]],
+        candidate_tokens: set[str],
+    ) -> tuple[float, str]:
+        best_score = 0.0
+        best_alias = ""
+        for alias, alias_tokens in alias_tokens_list:
+            score = self._topic_overlap_score(alias_tokens, candidate_tokens)
+            if score > best_score:
+                best_score = score
+                best_alias = alias
+        return best_score, best_alias
+
     def _effective_intent_facets(self, study_intent: str, intent_facets: Dict[str, Any]) -> Dict[str, Any]:
         effective = dict(intent_facets or {})
         text = self._flatten_text(study_intent)
@@ -367,6 +407,17 @@ class StudyAgent:
             effective["population_cue"] = (effective.get("population_cue") or "").strip() + ("; va" if effective.get("population_cue") else "va")
         if any(token in self._flatten_text(effective.get("population_cue")) for token in ("veteran", "va")):
             effective["geography_coding_preference"] = effective.get("geography_coding_preference") or "va"
+
+        raw_aliases = (
+            effective.get("clinical_topic_aliases")
+            or effective.get("condition_aliases")
+            or effective.get("topic_aliases")
+            or []
+        )
+        effective["clinical_topic_aliases"] = self._normalize_clinical_topic_aliases(
+            study_intent=study_intent,
+            aliases=raw_aliases,
+        )
 
         return effective
 
@@ -424,6 +475,60 @@ class StudyAgent:
             return topic_text
         return name_text
 
+    def _is_diagnosis_class_candidate(self, row: Dict[str, Any]) -> bool:
+        role = self._flatten_text(row.get("phenotype_role"))
+        if "diagnos" in role or role in {"condition", "case"}:
+            return True
+        if any(token in role for token in ("outcome", "complication", "severity", "screen", "risk_score", "visit")):
+            return False
+        if any(token in role for token in ("covariate", "comorbid")):
+            return True
+        return False
+
+    def _allow_plain_diagnosis_fill(
+        self,
+        row: Dict[str, Any],
+        intent_facets: Dict[str, Any],
+        study_intent: str,
+        current_count: int,
+    ) -> bool:
+        intent_role = self._flatten_text(intent_facets.get("phenotype_role"))
+        if intent_role != "diagnosis":
+            return True
+        if self._is_explicit_hospitalization_intent(study_intent=study_intent, intent_facets=intent_facets):
+            return True
+        if self._is_explicit_procedure_intent(study_intent=study_intent, intent_facets=intent_facets):
+            return True
+        if current_count < 2:
+            return True
+        return self._is_diagnosis_class_candidate(row)
+
+    def _candidate_has_defensible_topic_match(self, row: Dict[str, Any], intent_facets: Dict[str, Any], study_intent: str) -> bool:
+        priority = self._candidate_metadata_priority(
+            row=row,
+            intent_facets=intent_facets,
+            search_rank=0,
+            study_intent=study_intent,
+        )
+        kinds = {reason.get("kind") for reason in (priority.get("reasons") or []) if isinstance(reason, dict)}
+        has_primary = "topic_primary" in kinds or "dynamic_clinical_alias_match" in kinds
+        has_context_only = "context_without_primary" in kinds and not has_primary
+        has_mismatch_only = "topic_mismatch" in kinds and not has_primary
+        return not (has_context_only or has_mismatch_only)
+
+    def _allow_quality_threshold_fill(
+        self,
+        row: Dict[str, Any],
+        intent_facets: Dict[str, Any],
+        study_intent: str,
+        current_count: int,
+    ) -> bool:
+        if current_count < 1:
+            return True
+        if self._candidate_has_defensible_topic_match(row=row, intent_facets=intent_facets, study_intent=study_intent):
+            return True
+        return False
+
     def _should_dedupe_shortlist(self, intent_facets: Dict[str, Any], study_intent: str) -> bool:
         intent_role = self._flatten_text(intent_facets.get("phenotype_role"))
         if intent_role != "diagnosis":
@@ -457,7 +562,7 @@ class StudyAgent:
                 seen_signatures.add(signature)
 
         backfilled_ids: List[str] = []
-        if len(deduped) < target_count:
+        if duplicate_topic_ids and len(deduped) < target_count:
             for phenotype_id in backfill_ids:
                 phenotype_id = str(phenotype_id)
                 if phenotype_id in seen_ids:
@@ -556,6 +661,8 @@ class StudyAgent:
         filtered_shortlist: List[str] = []
         dropped_ids: List[str] = []
         replaced_ids: List[str] = []
+        plain_diagnosis_fill_skipped_ids: List[str] = []
+        quality_threshold_skipped_ids: List[str] = []
         seen: set[str] = set()
         for phenotype_id in shortlist_ids or []:
             phenotype_id = str(phenotype_id)
@@ -572,22 +679,53 @@ class StudyAgent:
 
         final_shortlist: List[str] = []
         for phenotype_id in preferred_pool_ids:
-            if phenotype_id in filtered_shortlist and phenotype_id not in final_shortlist:
-                final_shortlist.append(phenotype_id)
+            if phenotype_id not in filtered_shortlist or phenotype_id in final_shortlist:
+                continue
+            row = strict_pool_by_id.get(str(phenotype_id)) or {}
+            if not self._allow_plain_diagnosis_fill(
+                row=row,
+                intent_facets=intent_facets,
+                study_intent=study_intent,
+                current_count=len(final_shortlist),
+            ):
+                plain_diagnosis_fill_skipped_ids.append(str(phenotype_id))
+                continue
+            if not self._allow_quality_threshold_fill(
+                row=row,
+                intent_facets=intent_facets,
+                study_intent=study_intent,
+                current_count=len(final_shortlist),
+            ):
+                quality_threshold_skipped_ids.append(str(phenotype_id))
+                continue
+            final_shortlist.append(phenotype_id)
         for phenotype_id in preferred_pool_ids:
-            if phenotype_id not in final_shortlist:
-                final_shortlist.append(phenotype_id)
+            if phenotype_id in final_shortlist:
+                continue
+            row = strict_pool_by_id.get(str(phenotype_id)) or {}
+            if not self._allow_plain_diagnosis_fill(
+                row=row,
+                intent_facets=intent_facets,
+                study_intent=study_intent,
+                current_count=len(final_shortlist),
+            ):
+                if str(phenotype_id) not in plain_diagnosis_fill_skipped_ids:
+                    plain_diagnosis_fill_skipped_ids.append(str(phenotype_id))
+                continue
+            if not self._allow_quality_threshold_fill(
+                row=row,
+                intent_facets=intent_facets,
+                study_intent=study_intent,
+                current_count=len(final_shortlist),
+            ):
+                if str(phenotype_id) not in quality_threshold_skipped_ids:
+                    quality_threshold_skipped_ids.append(str(phenotype_id))
+                continue
+            final_shortlist.append(phenotype_id)
             if len(final_shortlist) >= target_count:
                 break
-        if len(final_shortlist) < target_count:
-            for phenotype_id in blocked_pool_ids:
-                if phenotype_id not in final_shortlist:
-                    final_shortlist.append(phenotype_id)
-                if len(final_shortlist) >= target_count:
-                    break
-
         if not final_shortlist:
-            final_shortlist = preferred_pool_ids[:target_count] or strict_pool_ids[:target_count]
+            final_shortlist = preferred_pool_ids[:target_count]
 
         dedupe_diagnostics = {
             "duplicate_topic_ids": [],
@@ -611,6 +749,8 @@ class StudyAgent:
             "blocked_pool_ids": blocked_pool_ids,
             "blocked_candidate_reasons": blocked_candidate_reasons,
             "preferred_pool_ids": preferred_pool_ids,
+            "plain_diagnosis_fill_skipped_ids": plain_diagnosis_fill_skipped_ids,
+            "quality_threshold_skipped_ids": quality_threshold_skipped_ids,
             "duplicate_topic_ids": dedupe_diagnostics.get("duplicate_topic_ids") or [],
             "dedupe_backfilled_ids": dedupe_diagnostics.get("backfilled_ids") or [],
             "dedupe_applied": bool(dedupe_diagnostics.get("applied")),
@@ -627,6 +767,11 @@ class StudyAgent:
         study_intent: str = "",
     ) -> Dict[str, Any]:
         topic_tokens = self._topic_tokens(intent_facets.get("condition_or_topic"))
+        alias_tokens_list = [
+            (alias, self._topic_tokens(alias))
+            for alias in (intent_facets.get("clinical_topic_aliases") or [])
+            if alias not in (None, "")
+        ]
         role = self._flatten_text(row.get("phenotype_role"))
         care_setting = self._flatten_text(intent_facets.get("care_setting"))
         candidate_care_setting = self._flatten_text(row.get("care_setting_scope"))
@@ -666,12 +811,34 @@ class StudyAgent:
             delta = context_score * 2.5
             score += delta
             reasons.append({"kind": "topic_context", "delta": round(delta, 4), "detail": self._compact_text_value(row.get("target_vs_context_conditions"), limit=120)})
-        if topic_tokens and topic_score <= 0.0 and context_score > 0.0:
+
+        alias_primary_score, matched_primary_alias = self._best_alias_overlap(alias_tokens_list, primary_topic_tokens)
+        if alias_primary_score > topic_score and matched_primary_alias:
+            delta = alias_primary_score * 7.0
+            score += delta
+            reasons.append({
+                "kind": "dynamic_clinical_alias_match",
+                "delta": round(delta, 4),
+                "detail": {"alias": matched_primary_alias, "field": "primary_clinical_topic", "topic": row.get("primary_clinical_topic") or ""},
+            })
+        alias_context_score, matched_context_alias = self._best_alias_overlap(alias_tokens_list, context_tokens)
+        if alias_context_score > context_score and matched_context_alias:
+            delta = alias_context_score * 2.0
+            score += delta
+            reasons.append({
+                "kind": "dynamic_clinical_alias_context",
+                "delta": round(delta, 4),
+                "detail": {"alias": matched_context_alias, "field": "target_vs_context_conditions"},
+            })
+
+        best_topic_score = max(topic_score, alias_primary_score)
+        best_context_score = max(context_score, alias_context_score)
+        if topic_tokens and best_topic_score <= 0.0 and best_context_score > 0.0:
             score -= 3.0
             reasons.append({"kind": "context_without_primary", "delta": -3.0, "detail": "topic only matched context fields"})
 
         intent_role = self._flatten_text(intent_facets.get("phenotype_role"))
-        if topic_tokens and topic_score <= 0.0 and context_score <= 0.0:
+        if topic_tokens and best_topic_score <= 0.0 and best_context_score <= 0.0:
             score -= 8.0
             reasons.append({"kind": "topic_mismatch", "delta": -8.0, "detail": row.get("primary_clinical_topic") or ""})
         if intent_role == "diagnosis":
