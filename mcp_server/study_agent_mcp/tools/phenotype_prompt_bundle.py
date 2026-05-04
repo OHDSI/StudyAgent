@@ -42,12 +42,13 @@ def _load_bundle(task: str) -> Dict[str, Any]:
         overview = _load_text(os.path.join(os.path.dirname(base), "lint", "overview_lint.md"))
         spec = _load_text(os.path.join(os.path.dirname(base), "lint", "spec_cohort_critique.md"))
         schema = _load_json(os.path.join(os.path.dirname(base), "lint", "output_schema_cohort_critique_general_design.json"))
-    else:
-        overview = _load_text(os.path.join(base, "overview_phenotype.md"))
-    if task == "phenotype_recommendation_intent_facets":
+    elif task == "phenotype_recommendation_intent_facets":
+        overview = _load_text(os.path.join(base, "overview_phenotype_recommendation_intent_facets.md"))
         spec = _load_text(os.path.join(base, "spec_phenotype_recommendation_intent_facets.md"))
         schema = _load_json(os.path.join(base, "output_schema_phenotype_recommendation_intent_facets.json"))
-    elif task == "phenotype_recommendation_plan":
+    else:
+        overview = _load_text(os.path.join(base, "overview_phenotype.md"))
+    if task == "phenotype_recommendation_plan":
         spec = _load_text(os.path.join(base, "spec_phenotype_recommendation_plan.md"))
         schema = _load_json(os.path.join(base, "output_schema_phenotype_recommendation_plan.json"))
     elif task == "phenotype_improvements":

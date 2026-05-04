@@ -5,6 +5,8 @@ import re
 import time
 from typing import Any, Dict, List, Optional, Protocol
 
+from .phenotype_recommendation_utils import PhenotypeRecommendationMixin
+
 from study_agent_core.models import (
     CohortLintInput,
     ConceptSetDiffInput,
@@ -41,10 +43,214 @@ from .llm_client import (
 )
 
 logger = logging.getLogger("study_agent.acp.agent")
+
 _TOPIC_TOKEN_RE = re.compile(r"[a-z0-9]+")
 
 
 class MCPClient(Protocol):
+    def list_tools(self) -> List[Dict[str, Any]]:
+        ...
+
+    def call_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        ...
+
+
+class StudyAgent(PhenotypeRecommendationMixin):
+    def __init__(
+        self,
+        mcp_client: Optional[MCPClient] = None,
+        allow_core_fallback: bool = True,
+        confirmation_required_tools: Optional[List[str]] = None,
+    ) -> None:
+        self._mcp_client = mcp_client
+        self._allow_core_fallback = allow_core_fallback
+        self._confirmation_required = set(confirmation_required_tools or [])
+
+        self._core_tools = {
+            "propose_concept_set_diff": propose_concept_set_diff,
+            "cohort_lint": cohort_lint,
+            "phenotype_recommendation_plan": phenotype_recommendation_plan,
+            "phenotype_recommendations": phenotype_recommendations,
+            "phenotype_recommendation_advice": phenotype_recommendation_advice,
+            "phenotype_improvements": phenotype_improvements,
+            "phenotype_intent_split": phenotype_intent_split,
+        }
+
+        self._schemas = {
+            "propose_concept_set_diff": ConceptSetDiffInput.model_json_schema(),
+            "cohort_lint": CohortLintInput.model_json_schema(),
+            "phenotype_recommendation_plan": PhenotypeRecommendationPlanInput.model_json_schema(),
+            "phenotype_recommendations": PhenotypeRecommendationsInput.model_json_schema(),
+            "phenotype_recommendation_advice": PhenotypeRecommendationAdviceInput.model_json_schema(),
+            "phenotype_improvements": PhenotypeImprovementsInput.model_json_schema(),
+            "phenotype_intent_split": PhenotypeIntentSplitInput.model_json_schema(),
+            "keeper_concept_sets_generate": KeeperConceptSetsGenerateInput.model_json_schema(),
+            "keeper_profiles_generate": KeeperProfilesGenerateInput.model_json_schema(),
+        }
+
+    def _debug_enabled(self) -> bool:
+        return os.getenv("STUDY_AGENT_DEBUG", "0") == "1"
+
+    def _log_debug(self, message: str) -> None:
+        if self._debug_enabled():
+            logger.debug(message)
+
+    def _llm_diagnostics(self, result: Optional[LLMCallResult]) -> Dict[str, Any]:
+        if result is None:
+            return {
+                "llm_status": "disabled",
+                "llm_duration_seconds": 0.0,
+                "llm_error": "llm_result_missing",
+                "llm_parse_stage": None,
+                "llm_schema_valid": False,
+            }
+        diagnostics = {
+            "llm_status": result.status,
+            "llm_duration_seconds": result.duration_seconds,
+            "llm_error": result.error,
+            "llm_parse_stage": result.parse_stage,
+            "llm_schema_valid": bool(result.schema_valid) if result.schema_valid is not None else result.status == "ok",
+            "llm_request_mode": result.request_mode,
+        }
+        if result.missing_keys:
+            diagnostics["llm_missing_keys"] = result.missing_keys
+        if os.getenv("LLM_LOG_RESPONSE", "0") == "1":
+            diagnostics["llm_raw_response"] = result.raw_response
+            diagnostics["llm_content_text"] = result.content_text
+        return diagnostics
+
+    def _timed_tool_call(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        started = time.perf_counter()
+        result = self.call_tool(name=name, arguments=arguments)
+        duration = time.perf_counter() - started
+        full_result = result.get("full_result") or {}
+        count = full_result.get("count")
+        if count is None and isinstance(full_result.get("concepts"), list):
+            count = len(full_result.get("concepts") or [])
+        logger.debug(
+            "keeper tool_call name=%s seconds=%.2f status=%s result_error=%s count=%s",
+            name,
+            duration,
+            result.get("status"),
+            full_result.get("error"),
+            count,
+        )
+        return result
+
+    def _fallback_reason_for_llm(self, result: Optional[LLMCallResult]) -> str:
+        if result is None:
+            return "llm_empty_result"
+        mapping = {
+            "timeout": "llm_timeout",
+            "http_error": "llm_http_error",
+            "transport_error": "llm_transport_error",
+            "json_parse_failed": "llm_json_parse_failed",
+            "schema_mismatch": "llm_schema_mismatch",
+            "disabled": "llm_disabled",
+        }
+        return mapping.get(result.status, "llm_empty_result")
+
+    def _dedupe_concepts(self, concepts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        deduped: List[Dict[str, Any]] = []
+        seen: set[Any] = set()
+        for concept in concepts or []:
+            concept_id = concept.get("conceptId")
+            if concept_id in (None, ""):
+                continue
+            if concept_id in seen:
+                continue
+            seen.add(concept_id)
+            deduped.append(concept)
+        return deduped
+
+    def _extract_keeper_concept_ids(self, result: Optional[LLMCallResult]) -> tuple[list[int], Optional[str]]:
+        if result is None:
+            return [], None
+        parsed_any = result.parsed_content
+        if isinstance(parsed_any, list):
+            extracted = []
+            for concept in parsed_any:
+                if not isinstance(concept, dict):
+                    continue
+                value = concept.get("conceptId", concept.get("concept_id"))
+                try:
+                    extracted.append(int(value))
+                except (TypeError, ValueError):
+                    continue
+            if extracted:
+                return extracted, "top_level_array"
+            return [], None
+        if not isinstance(parsed_any, dict):
+            return [], None
+        parsed = parsed_any
+        ids = parsed.get("conceptId")
+        if ids not in (None, "") and not isinstance(ids, list):
+            try:
+                return [int(ids)], "scalar_conceptId"
+            except (TypeError, ValueError):
+                return [], None
+        if isinstance(ids, list):
+            extracted: list[int] = []
+            for value in ids:
+                try:
+                    extracted.append(int(value))
+                except (TypeError, ValueError):
+                    continue
+            return extracted, None
+
+        concepts = parsed.get("concepts")
+        if isinstance(concepts, list):
+            extracted = []
+            for concept in concepts:
+                if not isinstance(concept, dict):
+                    continue
+                value = concept.get("conceptId", concept.get("concept_id"))
+                try:
+                    extracted.append(int(value))
+                except (TypeError, ValueError):
+                    continue
+            if extracted:
+                return extracted, "concepts_array"
+        return [], None
+
+    def _call_llm(self, prompt: str, required_keys: Optional[List[str]] = None) -> LLMCallResult:
+        try:
+            return coerce_llm_call_result(call_llm(prompt, required_keys=required_keys))
+        except TypeError:
+            return coerce_llm_call_result(call_llm(prompt))
+
+    def _hydrate_phenotype_summaries(
+        self,
+        phenotype_ids: List[str],
+        thin_candidates: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        thin_by_id = {row.get("phenotype_id"): row for row in thin_candidates if row.get("phenotype_id")}
+        hydrated: List[Dict[str, Any]] = []
+        for phenotype_id in phenotype_ids:
+            thin = dict(thin_by_id.get(phenotype_id) or {})
+            summary_result = self.call_tool(
+                name="phenotype_fetch_summary",
+                arguments={"phenotype_id": phenotype_id},
+            )
+            full = summary_result.get("full_result") or {}
+            summary_payload: Dict[str, Any] = {}
+            if isinstance(full.get("summary"), dict):
+                summary_payload = dict(full.get("summary") or {})
+            elif isinstance(full.get("content"), dict):
+                summary_payload = dict(full.get("content") or {})
+            elif isinstance(full, dict) and full.get("phenotype_id") == phenotype_id:
+                summary_payload = dict(full)
+            if summary_result.get("status") == "ok" and not full.get("error") and summary_payload:
+                row = dict(thin)
+                row.update(summary_payload)
+                if not row.get("name"):
+                    row["name"] = row.get("phenotype_name") or ""
+                hydrated.append(row)
+                continue
+            if thin:
+                hydrated.append(thin)
+        return hydrated
+
     def list_tools(self) -> List[Dict[str, Any]]:
         ...
 

@@ -4,6 +4,7 @@ Output contract:
   "plan": "string <=300 chars",
   "intent_facets": {
     "condition_or_topic": "string",
+    "clinical_topic_aliases": ["string <=60 chars"],
     "phenotype_role": "diagnosis|outcome|screening|severity|procedure|medication_based|risk_score|mixed|unknown",
     "care_setting": "outpatient|inpatient|ed|any|unknown",
     "population_cue": "string",
@@ -27,6 +28,12 @@ For `phenotype_recommendation_intent_facets`
 - Examples: insulin, metformin, GLP-1 agonist, sulfonylurea -> medication/drug cue; clinic, office, ambulatory -> outpatient cue; CABG, repair, postoperative -> procedure cue.
 - Populate `role_cues`, `care_setting_cues`, and `population_cues` with short normalized cue labels that explain why the canonical facet was chosen.
 - Prefer broad semantic cue labels over copying raw surface forms verbatim.
+- Inside `intent_facets`, include optional `clinical_topic_aliases` when the study intent uses an abbreviation, acronym, shorthand, colloquial clinical phrase, or alternate wording that could map to a more standard disease/topic name.
+- `clinical_topic_aliases` must be a short array of strings with at most 5 items.
+- Include only exact abbreviation expansions or near-synonymous phrasings of the same main condition/topic.
+- Do not include broader diseases, narrower complications, procedures, treatments, biomarkers, or speculative related concepts in `clinical_topic_aliases`.
+- If the topic is already standard and unambiguous, `clinical_topic_aliases` may be empty.
+- Good examples: ADRD -> Alzheimer's disease, Dementia; GI bleed -> Gastrointestinal bleeding, Gastrointestinal hemorrhage; COPD -> Chronic obstructive pulmonary disease.
 - Use `unknown` or `not_specified` when the intent does not support a stronger claim.
 - Keep reasoning sparse and grounded in the wording of the user intent.
 

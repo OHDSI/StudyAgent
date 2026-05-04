@@ -47,6 +47,12 @@
           "items": {
             "type": "string"
           }
+        },
+        "clinical_topic_aliases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "additionalProperties": true

@@ -1,0 +1,1773 @@
+INFO: creating output file  /tmp/phenotype_recommendation_tests.json
+INFO: Cardiac defibrillator in situ (MAP)
+INFO: Fasciitis (gwPheWAS)
+INFO: Acute prostatitis (MAP)
+INFO: [P] Esophagectomy
+INFO: [P][R] Peripheral neuritis
+INFO: [P] Concomitant TNF - alpha Inhibitors and IL12_23 Inhibitors - GE 30D overlap
+INFO: [P][R] Allergic rhinitis
+INFO: Ischemic Heart Disease (Sandhu)
+INFO: Early or Threatened Labor Hemorrhage in Early Pregnancy (Phecode)
+INFO: [P] Lung Resection
+INFO: [P] Laryngitis
+INFO: Regional Enteritis (Phecode)
+INFO: Renal Sclerosis NOS (VADC)
+INFO: Other cardiomyopathy (MAP)
+INFO: [P] Posterior reversible encephalopathy syndrome PRES
+INFO: [P] Anorexia Nervosa
+INFO: [P] Dizziness or giddiness including motion sickness and vertigo
+INFO: Polymyalgia Rheumatica (VADC)
+INFO: Adrenal Cortical Steroids Causing Adverse Effects in Therapeutic Use (Phecode)
+INFO: [P][R] Low blood pressure
+INFO: [P] Encephalopathy
+INFO: [P] Birdshot chorioretinitis
+INFO: Macular Degeneration (Senile) of Retina Nos (Phecode)
+INFO: Autoimmune Hemolytic Anemias (VADC)
+INFO: [P] Primary adenocarcinoma of rectum MSI-L
+INFO: Blister (gwPheWAS)
+INFO: Stomatitis and mucositis (gwPheWAS)
+INFO: Neurofibromatosis type 1 (FP)
+INFO: Keloid scar (gwPheWAS)
+INFO: [P] acetaminophen exposure 10
+INFO: [P] Antibiotics Rifamycins 10
+INFO: Joint/ligament sprain (gwPheWAS)
+INFO: Miscarriage; stillbirth (MAP)
+INFO: Arterial embolism and thrombosis of lower extremity artery (MAP)
+INFO: [P] New users of Cephalosporin systemetic nested in Urinary Tract Infection
+INFO: [P] Hospitalization with preinfarction syndrome
+INFO: Personal history of diseases of blood and blood-forming organs (MAP)
+INFO: Other Benign Pancreatic Conditions (Nguyen)
+INFO: Osteoarthrosis Localized Primary (Phecode)
+INFO: [P] New users of dihydropyridine calcium channel blockers
+INFO: Renal Sclerosis NOS (VADC)
+INFO: Polymyalgia Rheumatica (VADC)
+INFO: Autoimmune Hemolytic Anemias (VADC)
+INFO: Cardiac Complications Not Elsewhere Classified (VADC)
+INFO: Fasciitis (gwPheWAS)
+INFO: Stomatitis and mucositis (gwPheWAS)
+INFO: Barrett's esophagus (gwPheWAS)
+INFO: Regional Enteritis (Phecode)
+INFO: Osteoarthrosis Localized Primary (Phecode)
+INFO: Aortic Valve Disease (Phecode)
+INFO: Chronic Periodontitis (Phecode)
+INFO: Hypertensive chronic kidney disease (MAP)
+INFO: Other cardiomyopathy (MAP)
+INFO: Scleritis and episcleritis (MAP)
+INFO: Tests completed. File written.
+RESULTS SUMMARY:
+count 54
+CASE 1: Patients with an implanted cardiac defibrillator
+  shortlist: ['cipher:15146', 'cipher:2288', 'cipher:13288']
+  rec_ids: ['cipher:15146', 'cipher:2288', 'cipher:13288']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:15146', 'cipher:2288', 'cipher:13288']
+  final_deterministic: {'selected_ids': ['cipher:15146', 'cipher:2288', 'cipher:13288'], 'matched_llm_ids': ['cipher:15146', 'cipher:2288', 'cipher:13288'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 2: Patients diagnosed with fasciitis
+  shortlist: ['cipher:15684', 'cipher:2703', 'cipher:14029']
+  rec_ids: ['cipher:15684', 'cipher:2703', 'cipher:14029']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:15684', 'cipher:2703', 'cipher:14029']
+  final_deterministic: {'selected_ids': ['cipher:15684', 'cipher:2703', 'cipher:14029'], 'matched_llm_ids': ['cipher:15684', 'cipher:2703', 'cipher:14029'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 3: Patients with acute prostatitis
+  shortlist: ['ohdsi:283', 'cipher:13720', 'cipher:3500']
+  rec_ids: ['ohdsi:283', 'cipher:13720', 'cipher:3500']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['ohdsi:283', 'cipher:13720', 'cipher:3500']
+  final_deterministic: {'selected_ids': ['ohdsi:283', 'cipher:13720', 'cipher:3500'], 'matched_llm_ids': ['ohdsi:283', 'cipher:13720', 'cipher:3500'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 4: Patients who underwent esophagectomy
+  shortlist: ['ohdsi:1097', 'ohdsi:1294', 'ohdsi:1309', 'ohdsi:870']
+  rec_ids: ['ohdsi:1097', 'ohdsi:1294', 'ohdsi:1309']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['ohdsi:1097', 'ohdsi:1294', 'ohdsi:1309', 'ohdsi:870']
+  final_deterministic: {'selected_ids': ['ohdsi:1097', 'ohdsi:1294', 'ohdsi:1309'], 'matched_llm_ids': ['ohdsi:1097', 'ohdsi:1294', 'ohdsi:1309'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 5: Patients diagnosed with peripheral neuritis
+  shortlist: ['ohdsi:388', 'ohdsi:389', 'ohdsi:238']
+  rec_ids: ['ohdsi:388', 'ohdsi:389', 'ohdsi:238']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: ['ohdsi:540']
+  dedupe_backfilled_ids: []
+  dedupe_applied: True
+  enforced_shortlist_ids: ['ohdsi:388', 'ohdsi:389', 'ohdsi:238']
+  final_deterministic: {'selected_ids': ['ohdsi:388', 'ohdsi:389', 'ohdsi:238'], 'matched_llm_ids': ['ohdsi:388', 'ohdsi:389', 'ohdsi:238'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 6: Patients with concomitant TNF-alpha inhibitor and IL-12/23 inhibitor exposure for at least 30 days
+  shortlist: ['ohdsi:760', 'ohdsi:1042', 'ohdsi:759', 'ohdsi:1040']
+  rec_ids: ['ohdsi:760', 'ohdsi:1042', 'ohdsi:759']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['ohdsi:760', 'ohdsi:1042', 'ohdsi:759', 'ohdsi:1040']
+  final_deterministic: {'selected_ids': ['ohdsi:760', 'ohdsi:1042', 'ohdsi:759'], 'matched_llm_ids': ['ohdsi:760', 'ohdsi:1042', 'ohdsi:759'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 7: Patients with allergic rhinitis
+  shortlist: ['ohdsi:508', 'ohdsi:367', 'cipher:2081', 'cipher:30258']
+  rec_ids: ['ohdsi:508', 'ohdsi:367', 'cipher:2081']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['ohdsi:508', 'ohdsi:367', 'cipher:2081', 'cipher:30258']
+  final_deterministic: {'selected_ids': ['ohdsi:508', 'ohdsi:367', 'cipher:2081'], 'matched_llm_ids': ['ohdsi:508', 'ohdsi:367'], 'defaulted_ids': ['cipher:2081'], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 2, 'used_default_justification_count': 1}
+
+CASE 8: Patients with ischemic heart disease
+  shortlist: ['ohdsi:654', 'cipher:16261', 'cipher:29560', 'cipher:29218']
+  rec_ids: ['ohdsi:654', 'cipher:16261', 'cipher:29560']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['ohdsi:654', 'cipher:16261', 'cipher:29560', 'cipher:29218']
+  final_deterministic: {'selected_ids': ['ohdsi:654', 'cipher:16261', 'cipher:29560'], 'matched_llm_ids': ['ohdsi:654', 'cipher:16261', 'cipher:29560'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 9: Pregnant patients with hemorrhage in early pregnancy or threatened labor
+  shortlist: ['cipher:2643', 'cipher:17376', 'cipher:2798']
+  rec_ids: ['cipher:2643', 'cipher:17376', 'cipher:2798']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:2643', 'cipher:17376', 'cipher:2798']
+  final_deterministic: {'selected_ids': ['cipher:2643', 'cipher:17376', 'cipher:2798'], 'matched_llm_ids': ['cipher:2643', 'cipher:17376'], 'defaulted_ids': ['cipher:2798'], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 2, 'used_default_justification_count': 1}
+
+CASE 10: Patients who underwent lung resection
+  shortlist: ['ohdsi:1268', 'ohdsi:1308', 'ohdsi:869']
+  rec_ids: ['ohdsi:1268', 'ohdsi:1308', 'ohdsi:869']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['ohdsi:1268', 'ohdsi:1308', 'ohdsi:869']
+  final_deterministic: {'selected_ids': ['ohdsi:1268', 'ohdsi:1308', 'ohdsi:869'], 'matched_llm_ids': ['ohdsi:1268', 'ohdsi:1308', 'ohdsi:869'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 11: Patients with laryngitis
+  shortlist: ['ohdsi:355', 'cipher:15233', 'cipher:2046', 'cipher:2360']
+  rec_ids: ['ohdsi:355', 'cipher:15233', 'cipher:2046']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['ohdsi:355', 'cipher:15233', 'cipher:2046', 'cipher:2360']
+  final_deterministic: {'selected_ids': ['ohdsi:355', 'cipher:15233', 'cipher:2046'], 'matched_llm_ids': ['ohdsi:355', 'cipher:15233', 'cipher:2046'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 12: Patients with regional enteritis
+  shortlist: ['cipher:13571', 'cipher:3534']
+  rec_ids: ['cipher:13571', 'cipher:3534']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:13571', 'cipher:3534']
+  final_deterministic: {'selected_ids': ['cipher:13571', 'cipher:3534'], 'matched_llm_ids': ['cipher:13571', 'cipher:3534'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 2, 'used_default_justification_count': 0}
+
+CASE 13: Patients with renal sclerosis
+  shortlist: ['cipher:13646', 'cipher:13656', 'cipher:3541', 'cipher:17322']
+  rec_ids: ['cipher:13646', 'cipher:13656', 'cipher:3541']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:13646', 'cipher:13656', 'cipher:3541', 'cipher:17322']
+  final_deterministic: {'selected_ids': ['cipher:13646', 'cipher:13656', 'cipher:3541'], 'matched_llm_ids': ['cipher:13646', 'cipher:13656', 'cipher:3541'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 14: Patients with cardiomyopathy
+  shortlist: ['cipher:30192', 'cipher:31252', 'ohdsi:679', 'cipher:30174']
+  rec_ids: ['cipher:30192', 'cipher:31252', 'ohdsi:679']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:30192', 'cipher:31252', 'ohdsi:679', 'cipher:30174']
+  final_deterministic: {'selected_ids': ['cipher:30192', 'cipher:31252', 'ohdsi:679'], 'matched_llm_ids': ['cipher:30192', 'cipher:31252', 'ohdsi:679'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 15: Patients with a diagnosis of PRES
+  shortlist: ['ohdsi:223']
+  rec_ids: ['ohdsi:223']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['ohdsi:223']
+  final_deterministic: {'selected_ids': ['ohdsi:223'], 'matched_llm_ids': ['ohdsi:223'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 1, 'used_default_justification_count': 0}
+
+CASE 16: Patients with anorexia nervosa
+  shortlist: ['ohdsi:1340', 'cipher:17187', 'cipher:2117']
+  rec_ids: ['ohdsi:1340', 'cipher:17187', 'cipher:2117']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['ohdsi:1340', 'cipher:17187', 'cipher:2117']
+  final_deterministic: {'selected_ids': ['ohdsi:1340', 'cipher:17187', 'cipher:2117'], 'matched_llm_ids': ['ohdsi:1340'], 'defaulted_ids': ['cipher:17187', 'cipher:2117'], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 1, 'used_default_justification_count': 2}
+
+CASE 17: Patients with dizziness, vertigo, or motion sickness
+  shortlist: ['ohdsi:893', 'ohdsi:244', 'cipher:3402']
+  rec_ids: ['ohdsi:893', 'ohdsi:244', 'cipher:3402']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['ohdsi:893', 'ohdsi:244', 'cipher:3402']
+  final_deterministic: {'selected_ids': ['ohdsi:893', 'ohdsi:244', 'cipher:3402'], 'matched_llm_ids': ['ohdsi:893', 'ohdsi:244'], 'defaulted_ids': ['cipher:3402'], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 2, 'used_default_justification_count': 1}
+
+CASE 18: Patients with polymyalgia rheumatica
+  shortlist: ['cipher:30277', 'cipher:13992', 'cipher:3460']
+  rec_ids: ['cipher:30277', 'cipher:13992', 'cipher:3460']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:30277', 'cipher:13992', 'cipher:3460']
+  final_deterministic: {'selected_ids': ['cipher:30277', 'cipher:13992', 'cipher:3460'], 'matched_llm_ids': ['cipher:30277', 'cipher:13992'], 'defaulted_ids': ['cipher:3460'], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 2, 'used_default_justification_count': 1}
+
+CASE 19: Patients with adverse effects from therapeutic corticosteroid use
+  shortlist: ['cipher:2064', 'cipher:2123', 'cipher:3573', 'cipher:2915']
+  rec_ids: ['cipher:2064', 'cipher:2123', 'cipher:3573']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:2064', 'cipher:2123', 'cipher:3573', 'cipher:2915']
+  final_deterministic: {'selected_ids': ['cipher:2064', 'cipher:2123', 'cipher:3573'], 'matched_llm_ids': ['cipher:2064', 'cipher:3573'], 'defaulted_ids': ['cipher:2123'], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 2, 'used_default_justification_count': 1}
+
+CASE 20: Patients with low blood pressure
+  shortlist: ['ohdsi:339', 'ohdsi:890', 'cipher:13390']
+  rec_ids: ['ohdsi:339', 'ohdsi:890', 'cipher:13390']
+  replaced_ids: []
+  blocked_pool_ids: ['ohdsi:997']
+  blocked_candidate_reasons: {'ohdsi:997': 'withdrawn'}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['ohdsi:339', 'ohdsi:890', 'cipher:13390']
+  final_deterministic: {'selected_ids': ['ohdsi:339', 'ohdsi:890', 'cipher:13390'], 'matched_llm_ids': ['ohdsi:339', 'ohdsi:890'], 'defaulted_ids': ['cipher:13390'], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 2, 'used_default_justification_count': 1}
+
+CASE 21: Patients with encephalopathy
+  shortlist: ['ohdsi:194', 'cipher:2664', 'ohdsi:331', 'ohdsi:223']
+  rec_ids: ['ohdsi:194', 'cipher:2664', 'ohdsi:331']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['ohdsi:194', 'cipher:2664', 'ohdsi:331', 'ohdsi:223']
+  final_deterministic: {'selected_ids': ['ohdsi:194', 'cipher:2664', 'ohdsi:331'], 'matched_llm_ids': ['ohdsi:194', 'ohdsi:331'], 'defaulted_ids': ['cipher:2664'], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 2, 'used_default_justification_count': 1}
+
+CASE 22: Patients with birdshot chorioretinitis
+  shortlist: ['ohdsi:1223']
+  rec_ids: ['ohdsi:1223']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['ohdsi:1223']
+  final_deterministic: {'selected_ids': ['ohdsi:1223'], 'matched_llm_ids': ['ohdsi:1223'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 1, 'used_default_justification_count': 0}
+
+CASE 23: Older adults with macular degeneration
+  shortlist: ['cipher:30295', 'cipher:3006', 'cipher:3005', 'cipher:2505']
+  rec_ids: ['cipher:30295', 'cipher:3006', 'cipher:3005']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:30295', 'cipher:3006', 'cipher:3005', 'cipher:2505']
+  final_deterministic: {'selected_ids': ['cipher:30295', 'cipher:3006', 'cipher:3005'], 'matched_llm_ids': ['cipher:30295', 'cipher:3006', 'cipher:3005'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 24: Patients with autoimmune hemolytic anemia
+  shortlist: ['ohdsi:1018', 'ohdsi:738', 'cipher:18441']
+  rec_ids: ['ohdsi:1018', 'ohdsi:738', 'cipher:18441']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['ohdsi:1018', 'ohdsi:738', 'cipher:18441']
+  final_deterministic: {'selected_ids': ['ohdsi:1018', 'ohdsi:738', 'cipher:18441'], 'matched_llm_ids': ['ohdsi:1018', 'ohdsi:738', 'cipher:18441'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 25: Patients with MSI-low rectal adenocarcinoma
+  shortlist: ['ohdsi:836', 'ohdsi:823', 'ohdsi:819']
+  rec_ids: ['ohdsi:836', 'ohdsi:823', 'ohdsi:819']
+  replaced_ids: ['ohdsi:836', 'ohdsi:823', 'ohdsi:819']
+  blocked_pool_ids: ['ohdsi:836', 'ohdsi:823', 'ohdsi:819', 'ohdsi:831', 'ohdsi:843']
+  blocked_candidate_reasons: {'ohdsi:836': 'procedure_for_diagnosis_intent', 'ohdsi:823': 'procedure_for_diagnosis_intent', 'ohdsi:819': 'procedure_for_diagnosis_intent', 'ohdsi:831': 'procedure_for_diagnosis_intent', 'ohdsi:843': 'procedure_for_diagnosis_intent'}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['ohdsi:836', 'ohdsi:823', 'ohdsi:819']
+  final_deterministic: {'selected_ids': ['ohdsi:836', 'ohdsi:823', 'ohdsi:819'], 'matched_llm_ids': ['ohdsi:836', 'ohdsi:823', 'ohdsi:819'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 26: Patients with blistering skin lesions
+  shortlist: ['ohdsi:652', 'ohdsi:376']
+  rec_ids: ['ohdsi:652', 'ohdsi:376']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['ohdsi:652', 'ohdsi:376']
+  final_deterministic: {'selected_ids': ['ohdsi:652', 'ohdsi:376'], 'matched_llm_ids': ['ohdsi:652', 'ohdsi:376'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 2, 'used_default_justification_count': 0}
+
+CASE 27: Patients with stomatitis or mucositis
+  shortlist: ['cipher:17298', 'cipher:15333', 'cipher:13516', 'cipher:3657']
+  rec_ids: ['cipher:17298', 'cipher:15333', 'cipher:13516']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:17298', 'cipher:15333', 'cipher:13516', 'cipher:3657']
+  final_deterministic: {'selected_ids': ['cipher:17298', 'cipher:15333', 'cipher:13516'], 'matched_llm_ids': ['cipher:17298', 'cipher:15333', 'cipher:13516'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 28: Patients with neurofibromatosis type 1
+  shortlist: ['ohdsi:697', 'ohdsi:304', 'ohdsi:305', 'ohdsi:696']
+  rec_ids: ['ohdsi:697', 'ohdsi:304', 'ohdsi:305']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['ohdsi:697', 'ohdsi:304', 'ohdsi:305', 'ohdsi:696']
+  final_deterministic: {'selected_ids': ['ohdsi:697', 'ohdsi:304', 'ohdsi:305'], 'matched_llm_ids': ['ohdsi:697', 'ohdsi:304', 'ohdsi:305'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 29: Patients with keloid scars
+  shortlist: ['cipher:13930', 'cipher:15610', 'cipher:2950']
+  rec_ids: ['cipher:13930', 'cipher:15610', 'cipher:2950']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:13930', 'cipher:15610', 'cipher:2950']
+  final_deterministic: {'selected_ids': ['cipher:13930', 'cipher:15610', 'cipher:2950'], 'matched_llm_ids': ['cipher:13930', 'cipher:15610', 'cipher:2950'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 30: Patients with acetaminophen exposure
+  shortlist: ['ohdsi:1187', 'ohdsi:1427', 'ohdsi:1428', 'ohdsi:1158']
+  rec_ids: ['ohdsi:1187', 'ohdsi:1427', 'ohdsi:1428']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['ohdsi:1187', 'ohdsi:1427', 'ohdsi:1428', 'ohdsi:1158']
+  final_deterministic: {'selected_ids': ['ohdsi:1187', 'ohdsi:1427', 'ohdsi:1428'], 'matched_llm_ids': ['ohdsi:1187'], 'defaulted_ids': ['ohdsi:1427', 'ohdsi:1428'], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 1, 'used_default_justification_count': 2}
+
+CASE 31: Patients exposed to rifamycin antibiotics
+  shortlist: ['ohdsi:1211', 'ohdsi:1206']
+  rec_ids: ['ohdsi:1211', 'ohdsi:1206']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['ohdsi:1211', 'ohdsi:1206']
+  final_deterministic: {'selected_ids': ['ohdsi:1211', 'ohdsi:1206'], 'matched_llm_ids': ['ohdsi:1211'], 'defaulted_ids': ['ohdsi:1206'], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 1, 'used_default_justification_count': 1}
+
+CASE 32: Patients with a joint or ligament sprain
+  shortlist: ['cipher:14236', 'cipher:3569', 'cipher:2944', 'cipher:15814']
+  rec_ids: ['cipher:14236', 'cipher:3569', 'cipher:2944']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:14236', 'cipher:3569', 'cipher:2944', 'cipher:15814']
+  final_deterministic: {'selected_ids': ['cipher:14236', 'cipher:3569', 'cipher:2944'], 'matched_llm_ids': ['cipher:14236'], 'defaulted_ids': ['cipher:3569', 'cipher:2944'], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 1, 'used_default_justification_count': 2}
+
+CASE 33: Pregnant patients with miscarriage or stillbirth
+  shortlist: ['ohdsi:627', 'cipher:3056', 'cipher:15565', 'cipher:13818']
+  rec_ids: ['ohdsi:627', 'cipher:3056', 'cipher:15565']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['ohdsi:627', 'cipher:3056', 'cipher:15565', 'cipher:13818']
+  final_deterministic: {'selected_ids': ['ohdsi:627', 'cipher:3056', 'cipher:15565'], 'matched_llm_ids': ['ohdsi:627'], 'defaulted_ids': ['cipher:3056', 'cipher:15565'], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 1, 'used_default_justification_count': 2}
+
+CASE 34: Patients with arterial embolism or thrombosis of a lower extremity artery
+  shortlist: ['cipher:13354', 'cipher:2142']
+  rec_ids: ['cipher:13354', 'cipher:2142']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:13354', 'cipher:2142']
+  final_deterministic: {'selected_ids': ['cipher:13354', 'cipher:2142'], 'matched_llm_ids': ['cipher:13354', 'cipher:2142'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 2, 'used_default_justification_count': 0}
+
+CASE 35: Patients with a urinary tract infection who are new users of cephalosporins
+  shortlist: ['ohdsi:1301', 'ohdsi:1186', 'ohdsi:410', 'cipher:31223']
+  rec_ids: ['ohdsi:1301', 'ohdsi:1186', 'ohdsi:410']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['ohdsi:1301', 'ohdsi:1186', 'ohdsi:410', 'cipher:31223']
+  final_deterministic: {'selected_ids': ['ohdsi:1301', 'ohdsi:1186', 'ohdsi:410'], 'matched_llm_ids': ['ohdsi:1301', 'ohdsi:410'], 'defaulted_ids': ['ohdsi:1186'], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 2, 'used_default_justification_count': 1}
+
+CASE 36: Patients hospitalized with preinfarction syndrome
+  shortlist: ['ohdsi:1081']
+  rec_ids: ['ohdsi:1081']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['ohdsi:1081']
+  final_deterministic: {'selected_ids': ['ohdsi:1081'], 'matched_llm_ids': ['ohdsi:1081'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 1, 'used_default_justification_count': 0}
+
+CASE 37: Patients with a personal history of blood or blood-forming organ disease
+  shortlist: ['cipher:17130', 'cipher:3412']
+  rec_ids: ['cipher:17130', 'cipher:3412']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:17130', 'cipher:3412']
+  final_deterministic: {'selected_ids': ['cipher:17130', 'cipher:3412'], 'matched_llm_ids': ['cipher:17130', 'cipher:3412'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 2, 'used_default_justification_count': 0}
+
+CASE 38: Patients with benign pancreatic conditions
+  shortlist: ['cipher:16954', 'cipher:16952', 'cipher:16953', 'cipher:16955']
+  rec_ids: ['cipher:16954', 'cipher:16952', 'cipher:16953']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:16954', 'cipher:16952', 'cipher:16953', 'cipher:16955']
+  final_deterministic: {'selected_ids': ['cipher:16954', 'cipher:16952', 'cipher:16953'], 'matched_llm_ids': ['cipher:16952', 'cipher:16953'], 'defaulted_ids': ['cipher:16954'], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 2, 'used_default_justification_count': 1}
+
+CASE 39: Patients with primary localized osteoarthritis
+  shortlist: ['cipher:3192', 'cipher:4029', 'cipher:3190', 'cipher:4399']
+  rec_ids: ['cipher:3192', 'cipher:4029', 'cipher:3190']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:3192', 'cipher:4029', 'cipher:3190', 'cipher:4399']
+  final_deterministic: {'selected_ids': ['cipher:3192', 'cipher:4029', 'cipher:3190'], 'matched_llm_ids': ['cipher:3192', 'cipher:4029', 'cipher:3190'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 40: New users of dihydropyridine calcium channel blockers
+  shortlist: ['ohdsi:1047', 'ohdsi:1048', 'ohdsi:1052', 'ohdsi:1036']
+  rec_ids: ['ohdsi:1047', 'ohdsi:1048', 'ohdsi:1052']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['ohdsi:1047', 'ohdsi:1048', 'ohdsi:1052', 'ohdsi:1036']
+  final_deterministic: {'selected_ids': ['ohdsi:1047', 'ohdsi:1048', 'ohdsi:1052'], 'matched_llm_ids': ['ohdsi:1047', 'ohdsi:1048'], 'defaulted_ids': ['ohdsi:1052'], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 2, 'used_default_justification_count': 1}
+
+CASE 41: Veteran patients with renal sclerosis
+  shortlist: ['cipher:13646', 'cipher:13656', 'cipher:17322', 'cipher:15442']
+  rec_ids: ['cipher:13646', 'cipher:13656', 'cipher:17322']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:13646', 'cipher:13656', 'cipher:17322', 'cipher:15442']
+  final_deterministic: {'selected_ids': ['cipher:13646', 'cipher:13656', 'cipher:17322'], 'matched_llm_ids': ['cipher:13646', 'cipher:13656', 'cipher:17322'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 42: Veteran patients with polymyalgia rheumatica
+  shortlist: ['cipher:30277', 'cipher:13992', 'cipher:17453', 'cipher:3460']
+  rec_ids: ['cipher:30277', 'cipher:13992', 'cipher:17453']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:30277', 'cipher:13992', 'cipher:17453', 'cipher:3460']
+  final_deterministic: {'selected_ids': ['cipher:30277', 'cipher:13992', 'cipher:17453'], 'matched_llm_ids': ['cipher:30277', 'cipher:13992', 'cipher:17453'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 43: Veteran patients with autoimmune hemolytic anemia
+  shortlist: ['cipher:12888', 'ohdsi:1018', 'ohdsi:738', 'cipher:18441']
+  rec_ids: ['cipher:12888', 'ohdsi:1018', 'ohdsi:738']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:12888', 'ohdsi:1018', 'ohdsi:738', 'cipher:18441']
+  final_deterministic: {'selected_ids': ['cipher:12888', 'ohdsi:1018', 'ohdsi:738'], 'matched_llm_ids': ['cipher:12888', 'ohdsi:1018', 'ohdsi:738'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 44: Veteran patients with cardiac complications
+  shortlist: ['cipher:15819', 'cipher:17258']
+  rec_ids: ['cipher:15819', 'cipher:17258']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:15819', 'cipher:17258']
+  final_deterministic: {'selected_ids': ['cipher:15819', 'cipher:17258'], 'matched_llm_ids': ['cipher:15819', 'cipher:17258'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 2, 'used_default_justification_count': 0}
+
+CASE 45: Patients diagnosed with fasciitis
+  shortlist: ['cipher:14029', 'cipher:15684', 'cipher:2703']
+  rec_ids: ['cipher:14029', 'cipher:15684', 'cipher:2703']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:14029', 'cipher:15684', 'cipher:2703']
+  final_deterministic: {'selected_ids': ['cipher:14029', 'cipher:15684', 'cipher:2703'], 'matched_llm_ids': ['cipher:14029', 'cipher:15684', 'cipher:2703'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 46: Patients with stomatitis or mucositis
+  shortlist: ['cipher:17298', 'cipher:15333', 'cipher:3657']
+  rec_ids: ['cipher:17298', 'cipher:15333', 'cipher:3657']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:17298', 'cipher:15333', 'cipher:3657']
+  final_deterministic: {'selected_ids': ['cipher:17298', 'cipher:15333', 'cipher:3657'], 'matched_llm_ids': ['cipher:17298', 'cipher:15333'], 'defaulted_ids': ['cipher:3657'], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 2, 'used_default_justification_count': 1}
+
+CASE 47: Patients with Barretts esophagus
+  shortlist: ['cipher:13531', 'cipher:2187', 'cipher:15342', 'cipher:30228']
+  rec_ids: ['cipher:13531', 'cipher:2187', 'cipher:15342']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:13531', 'cipher:2187', 'cipher:15342', 'cipher:30228']
+  final_deterministic: {'selected_ids': ['cipher:13531', 'cipher:2187', 'cipher:15342'], 'matched_llm_ids': ['cipher:13531', 'cipher:2187', 'cipher:15342'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 48: Patients with regional enteritis
+  shortlist: ['cipher:13571', 'cipher:3534']
+  rec_ids: ['cipher:13571', 'cipher:3534']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:13571', 'cipher:3534']
+  final_deterministic: {'selected_ids': ['cipher:13571', 'cipher:3534'], 'matched_llm_ids': ['cipher:13571', 'cipher:3534'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 2, 'used_default_justification_count': 0}
+
+CASE 49: Patients with primary localized osteoarthritis
+  shortlist: ['cipher:3192', 'cipher:4399', 'cipher:4029', 'cipher:3190']
+  rec_ids: ['cipher:3192', 'cipher:4399', 'cipher:4029']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:3192', 'cipher:4399', 'cipher:4029', 'cipher:3190']
+  final_deterministic: {'selected_ids': ['cipher:3192', 'cipher:4399', 'cipher:4029'], 'matched_llm_ids': ['cipher:3192', 'cipher:4399', 'cipher:4029'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 50: Patients with aortic valve disease
+  shortlist: ['cipher:13226', 'cipher:13231', 'cipher:30301', 'cipher:17250']
+  rec_ids: ['cipher:13226', 'cipher:13231', 'cipher:30301']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:13226', 'cipher:13231', 'cipher:30301', 'cipher:17250']
+  final_deterministic: {'selected_ids': ['cipher:13226', 'cipher:13231', 'cipher:30301'], 'matched_llm_ids': ['cipher:13226', 'cipher:13231', 'cipher:30301'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 51: Patients with chronic periodontitis
+  shortlist: ['cipher:13494', 'cipher:3397', 'cipher:15317', 'cipher:2371']
+  rec_ids: ['cipher:13494', 'cipher:3397', 'cipher:15317']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:13494', 'cipher:3397', 'cipher:15317', 'cipher:2371']
+  final_deterministic: {'selected_ids': ['cipher:13494', 'cipher:3397', 'cipher:15317'], 'matched_llm_ids': ['cipher:13494', 'cipher:15317'], 'defaulted_ids': ['cipher:3397'], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 2, 'used_default_justification_count': 1}
+
+CASE 52: Patients with hypertensive chronic kidney disease
+  shortlist: ['ohdsi:923', 'cipher:2846', 'ohdsi:1191', 'cipher:13240']
+  rec_ids: ['ohdsi:923', 'cipher:2846', 'ohdsi:1191']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['ohdsi:923', 'cipher:2846', 'ohdsi:1191', 'cipher:13240']
+  final_deterministic: {'selected_ids': ['ohdsi:923', 'cipher:2846', 'ohdsi:1191'], 'matched_llm_ids': ['ohdsi:923', 'cipher:2846', 'ohdsi:1191'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 53: Patients with cardiomyopathy
+  shortlist: ['cipher:31252', 'ohdsi:679', 'cipher:30174', 'cipher:30192']
+  rec_ids: ['cipher:31252', 'ohdsi:679', 'cipher:30174']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:31252', 'ohdsi:679', 'cipher:30174', 'cipher:30192']
+  final_deterministic: {'selected_ids': ['cipher:31252', 'ohdsi:679', 'cipher:30174'], 'matched_llm_ids': ['cipher:31252', 'ohdsi:679', 'cipher:30174'], 'defaulted_ids': [], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 3, 'used_default_justification_count': 0}
+
+CASE 54: Patients with scleritis or episcleritis
+  shortlist: ['cipher:30069', 'cipher:3581', 'cipher:13186']
+  rec_ids: ['cipher:30069', 'cipher:3581', 'cipher:13186']
+  replaced_ids: []
+  blocked_pool_ids: []
+  blocked_candidate_reasons: {}
+  duplicate_topic_ids: []
+  dedupe_backfilled_ids: []
+  dedupe_applied: False
+  enforced_shortlist_ids: ['cipher:30069', 'cipher:3581', 'cipher:13186']
+  final_deterministic: {'selected_ids': ['cipher:30069', 'cipher:3581', 'cipher:13186'], 'matched_llm_ids': ['cipher:30069', 'cipher:13186'], 'defaulted_ids': ['cipher:3581'], 'invalid_llm_ids': [], 'duplicate_llm_ids': [], 'used_llm_justification_count': 2, 'used_default_justification_count': 1}
+
+CASE 1: Patients with an implanted cardiac defibrillator
+  intent_facets_raw: {'condition_or_topic': 'Implanted cardiac defibrillator', 'phenotype_role': 'procedure', 'care_setting': 'inpatient', 'population_cue': 'Cardiac device users', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['Implanted cardiac defibrillator is a device'], 'care_setting_cues': ['Inpatient care is typical for device management'], 'population_cues': ['Patients with cardiac devices']}
+  intent_facets_effective: {'condition_or_topic': 'Implanted cardiac defibrillator', 'phenotype_role': 'procedure', 'care_setting': 'inpatient', 'population_cue': 'Cardiac device users', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['Implanted cardiac defibrillator is a device'], 'care_setting_cues': ['Inpatient care is typical for device management'], 'population_cues': ['Patients with cardiac devices'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:15146', 'cipher:2288', 'cipher:13288']
+  planning_reasoning: ['Selected shortlisted candidates align with Implanted cardiac defibrillator as a procedure-oriented study intent.', 'Included Cardiac defibrillator in situ (gwPheWAS) as a medication based candidate focused on Cardiac Defibrillator.', 'Included Cardiac defibrillator in situ (MAP) as a outcome candidate focused on Cardiac defibrillator in situ.', 'Included Cardiac Defibrillator in Situ (Phecode) as a comorbidity covariate candidate focused on Cardiac Defibrillator in Situ.']
+  recommendations:
+    cipher:15146 | Cardiac defibrillator in situ (gwPheWAS) | This phenotype directly addresses the study intent of patients with implanted cardiac defibrillators, utilizing the Million Veteran Program data.
+    cipher:2288 | Cardiac defibrillator in situ (MAP) | This phenotype identifies patients based on a machine learning model (MAP) predicting the presence of a cardiac defibrillator, aligning with the study's focus.
+    cipher:13288 | Cardiac Defibrillator in Situ (Phecode) | This phenotype, derived from the Phecode mapping, represents a clinically relevant definition of a cardiac defibrillator, suitable for analysis given the study's focus.
+
+CASE 2: Patients diagnosed with fasciitis
+  intent_facets_raw: {'condition_or_topic': 'fasciitis', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'not_specified', 'role_cues': ['diagnosis'], 'care_setting_cues': ['any'], 'population_cues': ['patients']}
+  intent_facets_effective: {'condition_or_topic': 'fasciitis', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'not_specified', 'role_cues': ['diagnosis'], 'care_setting_cues': ['any'], 'population_cues': ['patients'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:15684', 'cipher:2703', 'cipher:14029']
+  planning_reasoning: ['Selected shortlisted candidates align with fasciitis as a diagnosis-oriented study intent.', 'Included Fasciitis (gwPheWAS) as a diagnosis candidate focused on Fasciitis.', 'Included Fasciitis (MAP) as a diagnosis candidate focused on Fasciitis.', 'Included Fasciitis (Phecode) as a diagnosis candidate focused on Fasciitis.']
+  recommendations:
+    cipher:15684 | Fasciitis (gwPheWAS) | This phenotype definition represents a diagnosis of Fasciitis, based on ICD codes used in the Million Veteran Program (MVP) phenome-wide GWAS. It directly aligns with the study intent of patients diag
+    cipher:2703 | Fasciitis (MAP) | This phenotype identifies patients with Fasciitis based on a MAP probability score exceeding a defined threshold.  While the MAP algorithm is unsupervised, it provides a probability-based approach rel
+    cipher:14029 | Fasciitis (Phecode) | This phenotype represents a diagnosis of Fasciitis based on ICD-9 and ICD-10 codes. It is defined by the Phecode mapping system, providing a standard clinical definition.
+
+CASE 3: Patients with acute prostatitis
+  intent_facets_raw: {'condition_or_topic': 'Prostatitis', 'phenotype_role': 'diagnosis', 'care_setting': 'inpatient|ed|any', 'population_cue': 'Acute', 'validation_preference': 'required', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'us_omop', 'role_cues': ['Diagnosis of prostatitis'], 'care_setting_cues': ['Inpatient care', 'Emergency Department', 'Any care setting'], 'population_cues': ['Acute prostatitis']}
+  intent_facets_effective: {'condition_or_topic': 'Prostatitis', 'phenotype_role': 'diagnosis', 'care_setting': 'inpatient|ed|any', 'population_cue': 'Acute', 'validation_preference': 'required', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'us_omop', 'role_cues': ['Diagnosis of prostatitis'], 'care_setting_cues': ['Inpatient care', 'Emergency Department', 'Any care setting'], 'population_cues': ['Acute prostatitis'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['ohdsi:283', 'cipher:13720', 'cipher:3500']
+  planning_reasoning: ['Selected shortlisted candidates align with Prostatitis as a diagnosis-oriented study intent.', 'Included [P] Prostatitis as a diagnosis candidate focused on Prostatitis.', 'Included Acute Prostatitis (Phecode) as a diagnosis candidate focused on Acute Prostatitis.', 'Included Prostatitis (MAP) as a diagnosis candidate focused on Prostatitis.']
+  recommendations:
+    ohdsi:283 | [P] Prostatitis | This phenotype directly reflects the study intent of patients with acute prostatitis, specifically capturing both chronic and acute prostatitis.
+    cipher:13720 | Acute Prostatitis (Phecode) | This phenotype aligns with the study intent of 'acute prostatitis' based on ICD-9 and ICD-10 codes. Provides a defined diagnosis based on existing coding systems.
+    cipher:3500 | Prostatitis (MAP) | This phenotype represents a diagnosis for acute prostatitis based on a MAP algorithm, offering a probabilistic approach and a defined threshold for classification. Useful for exploring diverse patient
+
+CASE 4: Patients who underwent esophagectomy
+  intent_facets_raw: {'condition_or_topic': 'Esophagectomy', 'phenotype_role': 'procedure', 'care_setting': 'inpatient', 'population_cue': 'surgical patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['Surgical procedure'], 'care_setting_cues': ['Hospital inpatient care'], 'population_cues': ['Patients undergoing surgery']}
+  intent_facets_effective: {'condition_or_topic': 'Esophagectomy', 'phenotype_role': 'procedure', 'care_setting': 'inpatient', 'population_cue': 'surgical patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['Surgical procedure'], 'care_setting_cues': ['Hospital inpatient care'], 'population_cues': ['Patients undergoing surgery'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['ohdsi:1097', 'ohdsi:1294', 'ohdsi:1309', 'ohdsi:870']
+  planning_reasoning: ['Selected shortlisted candidates align with Esophagectomy as a procedure-oriented study intent.', 'Included [P] Esophagectomy, adults, inpt stay, no ED, post op new Afib as a procedure candidate focused on Esophagectomy.', 'Included [P] Esophagectomy, adults as a procedure candidate focused on Esophagectomy.', 'Included [P] Esophagectomy, adults, post op new Afib as a procedure candidate focused on Esophagectomy.']
+  recommendations:
+    ohdsi:1097 | [P] Esophagectomy, adults, inpt stay, no ED, post op new Afib | This phenotype directly aligns with the study intent of patients who underwent esophagectomy and developing postoperative atrial fibrillation.
+    ohdsi:1294 | [P] Esophagectomy, adults | This phenotype represents surgical procedures involving the creation of an esophageal bypass, which is relevant to the study intent.
+    ohdsi:1309 | [P] Esophagectomy, adults, post op new Afib | This phenotype represents the procedure of esophagectomy, primarily used for characterizing patients undergoing surgical intervention and postoperative atrial fibrillation.
+
+CASE 5: Patients diagnosed with peripheral neuritis
+  intent_facets_raw: {'condition_or_topic': 'peripheral neuritis', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['diagnosis'], 'care_setting_cues': ['any'], 'population_cues': ['patients']}
+  intent_facets_effective: {'condition_or_topic': 'peripheral neuritis', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['diagnosis'], 'care_setting_cues': ['any'], 'population_cues': ['patients'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['ohdsi:388', 'ohdsi:389', 'ohdsi:238']
+  planning_reasoning: ['Selected shortlisted candidates align with peripheral neuritis as a diagnosis-oriented study intent.', 'Included [P][R] Peripheral neuritis  as a diagnosis candidate focused on Peripheral neuritis.', 'Included [P] Peripheral Neuropathy or Neuritits as a diagnosis candidate focused on Peripheral Neuropathy.', 'Included [P][R] Optic neuritis  as a diagnosis candidate focused on Optic neuritis.', 'Near-duplicate topical variants were removed to preserve distinct recommendation coverage: ohdsi:540.']
+  recommendations:
+    ohdsi:388 | [P][R] Peripheral neuritis  | This phenotype directly represents the diagnosis of peripheral neuritis, aligning with the study intent.
+    ohdsi:389 | [P] Peripheral Neuropathy or Neuritits | This phenotype identifies the first occurrence of peripheral neuropathy or neuritis, a relevant condition given the study intent.
+    ohdsi:238 | [P][R] Optic neuritis  | This phenotype represents optic neuritis, which can be related to peripheral nerve involvement and aligns with the study intent.
+
+CASE 6: Patients with concomitant TNF-alpha inhibitor and IL-12/23 inhibitor exposure for at least 30 days
+  intent_facets_raw: {'condition_or_topic': 'TNF-alpha inhibitors and IL-12/23 inhibitors', 'phenotype_role': 'medication_based', 'care_setting': 'any', 'population_cue': 'concomitant exposure', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['TNF-alpha inhibitors', 'IL-12/23 inhibitors'], 'care_setting_cues': ['any'], 'population_cues': ['concomitant exposure']}
+  intent_facets_effective: {'condition_or_topic': 'TNF-alpha inhibitors and IL-12/23 inhibitors', 'phenotype_role': 'medication_based', 'care_setting': 'any', 'population_cue': 'concomitant exposure', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['TNF-alpha inhibitors', 'IL-12/23 inhibitors'], 'care_setting_cues': ['any'], 'population_cues': ['concomitant exposure'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['ohdsi:760', 'ohdsi:1042', 'ohdsi:759', 'ohdsi:1040']
+  planning_reasoning: ['Selected shortlisted candidates align with TNF-alpha inhibitors and IL-12/23 inhibitors as a medication based-oriented study intent.', 'Included [P] Concomitant IL 23 Inhibitors and IL12_23 Inhibitors - GE 30D overlap as a medication based candidate focused on IL-23 Inhibitors.', 'Included [P] New users of IL-23 inhibitors as a medication based candidate focused on IL-23 inhibitors.', 'Included [P] Concomitant TNF - alpha Inhibitors and IL12_23 Inhibitors - GE 30D overlap as a medication based candidate focused on TNF-alpha Inhibitors, IL23 Inhibitors.']
+  recommendations:
+    ohdsi:760 | [P] Concomitant IL 23 Inhibitors and IL12_23 Inhibitors - GE 30D overlap | This phenotype represents concomitant use of IL-23 and IL-12_23 inhibitors, directly addressing the study's focus on inhibitor exposure.
+    ohdsi:1042 | [P] New users of IL-23 inhibitors | Captures the initiation of IL-23 inhibitor use, providing context for the concurrent exposure period.
+    ohdsi:759 | [P] Concomitant TNF - alpha Inhibitors and IL12_23 Inhibitors - GE 30D overlap | This phenotype identifies concomitant use of TNF-alpha and IL23 inhibitors, aligning with the study intent of assessing drug combinations.
+
+CASE 7: Patients with allergic rhinitis
+  intent_facets_raw: {'condition_or_topic': 'allergic rhinitis', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'not_specified', 'role_cues': ['diagnosis'], 'care_setting_cues': ['any'], 'population_cues': ['patients']}
+  intent_facets_effective: {'condition_or_topic': 'allergic rhinitis', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'not_specified', 'role_cues': ['diagnosis'], 'care_setting_cues': ['any'], 'population_cues': ['patients'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['ohdsi:508', 'ohdsi:367', 'cipher:2081', 'cipher:30258']
+  planning_reasoning: ['Selected shortlisted candidates align with allergic rhinitis as a diagnosis-oriented study intent.', 'Included [P][R] Allergic rhinitis as a diagnosis candidate focused on Allergic rhinitis.', 'Included [P] Allergic Rhinitis as a diagnosis candidate focused on Allergic Rhinitis.', 'Included Allergic rhinitis (MAP) as a diagnosis candidate focused on Allergic Rhinitis.']
+  recommendations:
+    ohdsi:508 | [P][R] Allergic rhinitis | This phenotype represents the diagnosis of Allergic rhinitis, primarily used for cohort definition and aligns with the study intent.
+    ohdsi:367 | [P] Allergic Rhinitis | This phenotype represents events of Allergic Rhinitis. Primarily intended for diagnosing this condition.
+    cipher:2081 | Allergic rhinitis (MAP) | Selected from the top reranked shortlisted candidates as a clinically aligned diagnosis match.
+
+CASE 8: Patients with ischemic heart disease
+  intent_facets_raw: {'condition_or_topic': 'Ischemic heart disease', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Adult patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['Diagnosis of heart disease'], 'care_setting_cues': ['All care settings'], 'population_cues': ['Adults']}
+  intent_facets_effective: {'condition_or_topic': 'Ischemic heart disease', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Adult patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['Diagnosis of heart disease'], 'care_setting_cues': ['All care settings'], 'population_cues': ['Adults'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['ohdsi:654', 'cipher:16261', 'cipher:29560', 'cipher:29218']
+  planning_reasoning: ['Selected shortlisted candidates align with Ischemic heart disease as a diagnosis-oriented study intent.', 'Included [P][R] Ischemic heart disease as a diagnosis candidate focused on Ischemic heart disease.', 'Included Ischemic Heart Disease (Sandhu) as a diagnosis candidate focused on Ischemic Heart Disease.', 'Included Ischemic Heart Disease (HDR UK) as a diagnosis candidate focused on Ischemic Heart Disease.']
+  recommendations:
+    ohdsi:654 | [P][R] Ischemic heart disease | This phenotype represents the diagnosis of Ischemic heart disease, aligning directly with the study intent of patients with ischemic heart disease.
+    cipher:16261 | Ischemic Heart Disease (Sandhu) | This phenotype identifies patients with Ischemic Heart Disease based on ICD-10 diagnostic codes, a relevant definition for the study intent.
+    cipher:29560 | Ischemic Heart Disease (HDR UK) | This phenotype identifies patients diagnosed with Ischemic Heart Disease, a leading cause of morbidity and mortality.
+
+CASE 9: Pregnant patients with hemorrhage in early pregnancy or threatened labor
+  intent_facets_raw: {'condition_or_topic': 'Hemorrhage, Threatened labor', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Pregnant patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['Hemorrhage', 'Threatened labor'], 'care_setting_cues': ['any'], 'population_cues': ['Pregnant patients']}
+  intent_facets_effective: {'condition_or_topic': 'Hemorrhage, Threatened labor', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Pregnant patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['Hemorrhage', 'Threatened labor'], 'care_setting_cues': ['any'], 'population_cues': ['Pregnant patients'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:2643', 'cipher:17376', 'cipher:2798']
+  planning_reasoning: ['Selected shortlisted candidates align with Hemorrhage, Threatened labor as a diagnosis-oriented study intent.', 'Included Early or threatened labor; hemorrhage in early pregnancy (MAP) as a complication candidate focused on Early or threatened labor; hemorrhage in early pregnancy.', 'Included Hemorrhage in Early Pregnancy (VADC) as a outcome candidate focused on Hemorrhage.', 'Included Hemorrhage in early pregnancy (MAP) as a diagnosis candidate focused on Hemorrhage in early pregnancy.']
+  recommendations:
+    cipher:2643 | Early or threatened labor; hemorrhage in early pregnancy (MAP) | This phenotype directly addresses the study intent of 'Pregnant patients with hemorrhage in early pregnancy or threatened labor' by identifying a complication of early pregnancy hemorrhage.
+    cipher:17376 | Hemorrhage in Early Pregnancy (VADC) | This phenotype captures the broader concept of hemorrhage in early pregnancy, complementing the MAP phenotype and providing a broader understanding of the condition.
+    cipher:2798 | Hemorrhage in early pregnancy (MAP) | Selected from the top reranked shortlisted candidates as a clinically aligned diagnosis match.
+
+CASE 10: Patients who underwent lung resection
+  intent_facets_raw: {'condition_or_topic': 'Lung Resection', 'phenotype_role': 'procedure', 'care_setting': 'inpatient|any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['surgical procedure'], 'care_setting_cues': ['hospital inpatient'], 'population_cues': ['patients undergoing surgery']}
+  intent_facets_effective: {'condition_or_topic': 'Lung Resection', 'phenotype_role': 'procedure', 'care_setting': 'inpatient|any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['surgical procedure'], 'care_setting_cues': ['hospital inpatient'], 'population_cues': ['patients undergoing surgery'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['ohdsi:1268', 'ohdsi:1308', 'ohdsi:869']
+  planning_reasoning: ['Selected shortlisted candidates align with Lung Resection as a procedure-oriented study intent.', 'Included [P] Lung Resection, adults, inpt stay, no ED, post op new Afib as a procedure candidate focused on Lung Resection.', 'Included [P] Lung Resection, adults, post op new Afib as a procedure candidate focused on Lung Resection.', 'Included [P] Lung Resection, adults, inpt stay, no ED as a procedure candidate focused on Lung Resection.']
+  recommendations:
+    ohdsi:1268 | [P] Lung Resection, adults, inpt stay, no ED, post op new Afib | This phenotype directly addresses the study intent of patients who underwent lung resection and developed post-operative atrial fibrillation.
+    ohdsi:1308 | [P] Lung Resection, adults, post op new Afib | This phenotype aligns with the study intent, focusing on lung resection and the occurrence of post-operative atrial fibrillation.
+    ohdsi:869 | [P] Lung Resection, adults, inpt stay, no ED | This phenotype represents lung resection as a surgical procedure, relevant to the study's focus on patients undergoing surgical intervention.
+
+CASE 11: Patients with laryngitis
+  intent_facets_raw: {'condition_or_topic': 'Laryngitis', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'not_specified', 'role_cues': ['diagnosis of laryngitis'], 'care_setting_cues': ['any care setting'], 'population_cues': ['patients with laryngitis']}
+  intent_facets_effective: {'condition_or_topic': 'Laryngitis', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'not_specified', 'role_cues': ['diagnosis of laryngitis'], 'care_setting_cues': ['any care setting'], 'population_cues': ['patients with laryngitis'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['ohdsi:355', 'cipher:15233', 'cipher:2046', 'cipher:2360']
+  planning_reasoning: ['Selected shortlisted candidates align with Laryngitis as a diagnosis-oriented study intent.', 'Included [P] Laryngitis as a diagnosis candidate focused on Laryngitis.', 'Included Acute laryngitis and tracheitis (gwPheWAS) as a diagnosis candidate focused on Acute laryngitis and tracheitis.', 'Included Acute laryngitis and tracheitis (MAP) as a diagnosis candidate focused on Acute laryngitis and tracheitis.']
+  recommendations:
+    ohdsi:355 | [P] Laryngitis | This phenotype directly represents the diagnosis of Laryngitis, aligning with the study intent of patients with laryngitis.
+    cipher:15233 | Acute laryngitis and tracheitis (gwPheWAS) | This phenotype represents a coded definition of Acute laryngitis and tracheitis, a related condition to laryngitis, used in the Million Veteran Program, which can be relevant to the study intent.
+    cipher:2046 | Acute laryngitis and tracheitis (MAP) | This phenotype represents a MAP-identified diagnosis of Acute laryngitis and tracheitis, based on probability thresholds. Given the study intent, it is a relevant consideration.
+
+CASE 12: Patients with regional enteritis
+  intent_facets_raw: {'condition_or_topic': 'Regional enteritis', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Patients', 'validation_preference': 'required', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'us_omop', 'role_cues': ['Diagnosis of a gastrointestinal condition'], 'care_setting_cues': ['All care settings'], 'population_cues': ['Patients with inflammatory bowel disease']}
+  intent_facets_effective: {'condition_or_topic': 'Regional enteritis', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Patients', 'validation_preference': 'required', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'us_omop', 'role_cues': ['Diagnosis of a gastrointestinal condition'], 'care_setting_cues': ['All care settings'], 'population_cues': ['Patients with inflammatory bowel disease'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:13571', 'cipher:3534']
+  planning_reasoning: ['Selected shortlisted candidates align with Regional enteritis as a diagnosis-oriented study intent.', 'Included Regional Enteritis (Phecode) as a diagnosis candidate focused on Regional Enteritis.', 'Included Regional enteritis (MAP) as a diagnosis candidate focused on Regional enteritis.']
+  recommendations:
+    cipher:13571 | Regional Enteritis (Phecode) | The Phecode grouping for Regional Enteritis, based on ICD-9 and ICD-10 codes, directly aligns with the study intent of identifying patients with regional enteritis.
+    cipher:3534 | Regional enteritis (MAP) | The MAP algorithm identifies patients with regional enteritis based on a probability cutoff, representing a robust approach to diagnosis using unsupervised clustering.
+
+CASE 13: Patients with renal sclerosis
+  intent_facets_raw: {'condition_or_topic': 'renal sclerosis', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'not_specified', 'role_cues': [], 'care_setting_cues': [], 'population_cues': []}
+  intent_facets_effective: {'condition_or_topic': 'renal sclerosis', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'not_specified', 'role_cues': [], 'care_setting_cues': [], 'population_cues': [], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:13646', 'cipher:13656', 'cipher:3541', 'cipher:17322']
+  planning_reasoning: ['Selected shortlisted candidates align with renal sclerosis as a diagnosis-oriented study intent.', 'Included Nephritis Nephrosis Renal Sclerosis (Phecode) as a diagnosis candidate focused on Nephritis Nephrosis Renal Sclerosis.', 'Included Renal Sclerosis NOS (Phecode) as a diagnosis candidate focused on Renal Sclerosis.', 'Included Renal sclerosis, NOS (MAP) as a comorbidity covariate candidate focused on Renal Sclerosis.']
+  recommendations:
+    cipher:13646 | Nephritis Nephrosis Renal Sclerosis (Phecode) | This Phecode definition directly addresses renal sclerosis and provides ICD-9 and ICD-10 codes for diagnosis.
+    cipher:13656 | Renal Sclerosis NOS (Phecode) | Another Phecode definition specifically for renal sclerosis, offering ICD-9 and ICD-10 codes.
+    cipher:3541 | Renal sclerosis, NOS (MAP) | MAP phenotype derived from ICD-9 and ICD-10 codes with a probability cutoff, representing renal sclerosis based on MAP algorithm output.
+
+CASE 14: Patients with cardiomyopathy
+  intent_facets_raw: {'condition_or_topic': 'cardiomyopathy', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['diagnosis'], 'care_setting_cues': ['any'], 'population_cues': ['patients']}
+  intent_facets_effective: {'condition_or_topic': 'cardiomyopathy', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['diagnosis'], 'care_setting_cues': ['any'], 'population_cues': ['patients'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:30192', 'cipher:31252', 'ohdsi:679', 'cipher:30174']
+  planning_reasoning: ['Selected shortlisted candidates align with cardiomyopathy as a diagnosis-oriented study intent.', 'Included Other Cardiomyopathy (HDR UK) as a diagnosis candidate focused on Cardiomyopathy.', 'Included Cardiomyopathy (Knight) as a diagnosis candidate focused on Cardiomyopathy.', 'Included [P][R] Takotsubo cardiomyopathy as a diagnosis candidate focused on Takotsubo cardiomyopathy.']
+  recommendations:
+    cipher:30192 | Other Cardiomyopathy (HDR UK) | This phenotype directly addresses the study intent of patients with cardiomyopathy, identified through ICD10 codes and hospitalizations.
+    cipher:31252 | Cardiomyopathy (Knight) | This phenotype also identifies patients with cardiomyopathy based on ICD-10, SNOMED CT and Read Codes v2, aligning with the study intent.
+    ohdsi:679 | [P][R] Takotsubo cardiomyopathy | This phenotype identifies patients with Takotsubo cardiomyopathy, a recognized type of cardiomyopathy, relevant to the study intent.
+
+CASE 15: Patients with a diagnosis of PRES
+  intent_facets_raw: {'condition_or_topic': 'PRES', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'not_specified', 'role_cues': ['diagnosis of PRES'], 'care_setting_cues': ['any care setting'], 'population_cues': ['patients with PRES']}
+  intent_facets_effective: {'condition_or_topic': 'PRES', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'not_specified', 'role_cues': ['diagnosis of PRES'], 'care_setting_cues': ['any care setting'], 'population_cues': ['patients with PRES'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['ohdsi:223']
+  planning_reasoning: ['Selected shortlisted candidates align with PRES as a diagnosis-oriented study intent.', 'Included [P] Posterior reversible encephalopathy syndrome PRES as a diagnosis candidate focused on Posterior reversible encephalopathy syndrome (PRES).']
+  recommendations:
+    ohdsi:223 | [P] Posterior reversible encephalopathy syndrome PRES | The study intent is PRES, and this phenotype directly represents the diagnosis of PRES as defined in the OHDSI Phenotype Library.
+
+CASE 16: Patients with anorexia nervosa
+  intent_facets_raw: {'condition_or_topic': 'anorexia nervosa', 'phenotype_role': 'diagnosis', 'care_setting': 'outpatient', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['diagnosis of anorexia nervosa'], 'care_setting_cues': ['outpatient care'], 'population_cues': ['patients with anorexia nervosa']}
+  intent_facets_effective: {'condition_or_topic': 'anorexia nervosa', 'phenotype_role': 'diagnosis', 'care_setting': 'outpatient', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['diagnosis of anorexia nervosa'], 'care_setting_cues': ['outpatient care'], 'population_cues': ['patients with anorexia nervosa'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['ohdsi:1340', 'cipher:17187', 'cipher:2117']
+  planning_reasoning: ['Selected shortlisted candidates align with anorexia nervosa as a diagnosis-oriented study intent.', 'Included [P] Anorexia Nervosa as a diagnosis candidate focused on Anorexia Nervosa.', 'Included Anorexia Nervosa (VADC) as a diagnosis candidate focused on Anorexia Nervosa.', 'Included Anorexia nervosa (MAP) as a diagnosis candidate focused on Anorexia Nervosa.']
+  recommendations:
+    ohdsi:1340 | [P] Anorexia Nervosa | This phenotype represents the diagnosis of Anorexia Nervosa, defined as events lasting 30 days, collapsed within 1 year, aligning with the study intent.
+    cipher:17187 | Anorexia Nervosa (VADC) | Selected from the top reranked shortlisted candidates as a clinically aligned diagnosis match.
+    cipher:2117 | Anorexia nervosa (MAP) | Selected from the top reranked shortlisted candidates as a clinically aligned diagnosis match.
+
+CASE 17: Patients with dizziness, vertigo, or motion sickness
+  intent_facets_raw: {'condition_or_topic': 'dizziness vertigo motion sickness', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'us_omop', 'role_cues': ['dizziness', 'vertigo', 'motion sickness'], 'care_setting_cues': ['any'], 'population_cues': ['patients']}
+  intent_facets_effective: {'condition_or_topic': 'dizziness vertigo motion sickness', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'us_omop', 'role_cues': ['dizziness', 'vertigo', 'motion sickness'], 'care_setting_cues': ['any'], 'population_cues': ['patients'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['ohdsi:893', 'ohdsi:244', 'cipher:3402']
+  planning_reasoning: ['Selected shortlisted candidates align with dizziness vertigo motion sickness as a diagnosis-oriented study intent.', 'Included [P] Vertigo as a diagnosis candidate focused on Vertigo.', 'Included [P] Dizziness or giddiness including motion sickness and vertigo as a unknown candidate focused on Dizziness.', 'Included Peripheral or central vertigo (MAP) as a diagnosis candidate focused on Vertigo.']
+  recommendations:
+    ohdsi:893 | [P] Vertigo | The phenotype is specifically defined as vertigo, a key component of the study intent.
+    ohdsi:244 | [P] Dizziness or giddiness including motion sickness and vertigo | This phenotype directly represents symptoms of dizziness, including motion sickness and vertigo, aligning with the study intent.
+    cipher:3402 | Peripheral or central vertigo (MAP) | Selected from the top reranked shortlisted candidates as a clinically aligned diagnosis match.
+
+CASE 18: Patients with polymyalgia rheumatica
+  intent_facets_raw: {'condition_or_topic': 'Polymyalgia Rheumatica', 'phenotype_role': 'diagnosis', 'care_setting': 'outpatient', 'population_cue': 'elderly adults', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['Diagnosis of a rheumatological condition'], 'care_setting_cues': ['Outpatient care'], 'population_cues': ['Elderly adults']}
+  intent_facets_effective: {'condition_or_topic': 'Polymyalgia Rheumatica', 'phenotype_role': 'diagnosis', 'care_setting': 'outpatient', 'population_cue': 'elderly adults', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['Diagnosis of a rheumatological condition'], 'care_setting_cues': ['Outpatient care'], 'population_cues': ['Elderly adults'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:30277', 'cipher:13992', 'cipher:3460']
+  planning_reasoning: ['Selected shortlisted candidates align with Polymyalgia Rheumatica as a diagnosis-oriented study intent.', 'Included Polymyalgia Rheumatica (HDR UK) as a diagnosis candidate focused on Polymyalgia Rheumatica.', 'Included Polymyalgia Rheumatica (Phecode) as a diagnosis candidate focused on Polymyalgia Rheumatica.', 'Included Polymyalgia Rheumatica (MAP) as a comorbidity covariate candidate focused on Polymyalgia Rheumatica.']
+  recommendations:
+    cipher:30277 | Polymyalgia Rheumatica (HDR UK) | This phenotype is based on ICD-10 codes, Med Codes, and Read codes v2, directly aligning with the study intent of identifying patients with Polymyalgia Rheumatica.
+    cipher:13992 | Polymyalgia Rheumatica (Phecode) | This phenotype uses Phecode, a mapping of ICD codes to clinically relevant phenotypes, suitable for diagnosis of Polymyalgia Rheumatica.
+    cipher:3460 | Polymyalgia Rheumatica (MAP) | Selected from the top reranked shortlisted candidates as a clinically aligned comorbidity covariate match.
+
+CASE 19: Patients with adverse effects from therapeutic corticosteroid use
+  intent_facets_raw: {'condition_or_topic': 'corticosteroid adverse effects', 'phenotype_role': 'outcome', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': [], 'care_setting_cues': [], 'population_cues': []}
+  intent_facets_effective: {'condition_or_topic': 'corticosteroid adverse effects', 'phenotype_role': 'outcome', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': [], 'care_setting_cues': [], 'population_cues': [], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:2064', 'cipher:2123', 'cipher:3573', 'cipher:2915']
+  planning_reasoning: ['Selected shortlisted candidates align with corticosteroid adverse effects as a outcome-oriented study intent.', 'Included Adrenal cortical steroids causing adverse effects in therapeutic use (MAP) as a complication candidate focused on Adrenal Cortical Steroids Adverse Effects.', 'Included Antilipemic and antiarteriosclerotic drugs causing adverse effects in therapeutic use (MAP) as a complication candidate focused on Lipid-Lowering Drug Adverse Effects.', 'Included Salicylates causing adverse effects in therapeutic use (MAP) as a complication candidate focused on Salicylates adverse effects.']
+  recommendations:
+    cipher:2064 | Adrenal cortical steroids causing adverse effects in therapeutic use (MAP) | This phenotype directly addresses the study intent of identifying patients with adverse effects from therapeutic corticosteroid use, based on a MAP clustering algorithm.
+    cipher:2123 | Antilipemic and antiarteriosclerotic drugs causing adverse effects in therapeutic use (MAP) | Selected from the top reranked shortlisted candidates as a clinically aligned complication match.
+    cipher:3573 | Salicylates causing adverse effects in therapeutic use (MAP) | Salicylates are a type of corticosteroid, and this phenotype identifies patients experiencing adverse effects from their use, aligning with the study intent through a MAP clustering approach.
+
+CASE 20: Patients with low blood pressure
+  intent_facets_raw: {'condition_or_topic': 'Hypotension', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'adult', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'not_specified', 'role_cues': ['Blood pressure diagnosis'], 'care_setting_cues': ['any clinical setting'], 'population_cues': ['adult patients']}
+  intent_facets_effective: {'condition_or_topic': 'Hypotension', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'adult', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'not_specified', 'role_cues': ['Blood pressure diagnosis'], 'care_setting_cues': ['any clinical setting'], 'population_cues': ['adult patients'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['ohdsi:339', 'ohdsi:890', 'cipher:13390']
+  planning_reasoning: ['Selected shortlisted candidates align with Hypotension as a diagnosis-oriented study intent.', 'Included [P][R] Low blood pressure  as a severity candidate focused on Hypotension.', 'Included [P] Hypotension as a severity candidate focused on Hypotension.', 'Included Hypotension Nos (Phecode) as a diagnosis candidate focused on Hypotension.']
+  recommendations:
+    ohdsi:339 | [P][R] Low blood pressure  | This phenotype directly addresses the study intent of patients with low blood pressure, measuring severity.
+    ohdsi:890 | [P] Hypotension | This phenotype is a measure of hypotension, which is closely related to low blood pressure and could be a relevant covariate.
+    cipher:13390 | Hypotension Nos (Phecode) | Selected from the top reranked shortlisted candidates as a clinically aligned diagnosis match.
+
+CASE 21: Patients with encephalopathy
+  intent_facets_raw: {'condition_or_topic': 'Encephalopathy', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'not_specified', 'role_cues': ['Diagnosis of encephalopathy'], 'care_setting_cues': ['All care settings'], 'population_cues': ['Patients with encephalopathy']}
+  intent_facets_effective: {'condition_or_topic': 'Encephalopathy', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'not_specified', 'role_cues': ['Diagnosis of encephalopathy'], 'care_setting_cues': ['All care settings'], 'population_cues': ['Patients with encephalopathy'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['ohdsi:194', 'cipher:2664', 'ohdsi:331', 'ohdsi:223']
+  planning_reasoning: ['Selected shortlisted candidates align with Encephalopathy as a diagnosis-oriented study intent.', 'Included [P] Encephalopathy or its presentations as a diagnosis candidate focused on Encephalopathy.', 'Included Encephalopathy, not elsewhere classified (MAP) as a diagnosis candidate focused on Encephalopathy.', 'Included [P] Encephalopathy as a diagnosis candidate focused on Encephalopathy.']
+  recommendations:
+    ohdsi:194 | [P] Encephalopathy or its presentations | This phenotype directly addresses the study intent of patients with encephalopathy, representing the clinical identification of the condition.
+    cipher:2664 | Encephalopathy, not elsewhere classified (MAP) | Selected from the top reranked shortlisted candidates as a clinically aligned diagnosis match.
+    ohdsi:331 | [P] Encephalopathy | This phenotype represents the clinical diagnosis of Encephalopathy, aligning with the study intent and offering a standard definition of the condition.
+
+CASE 22: Patients with birdshot chorioretinitis
+  intent_facets_raw: {'condition_or_topic': 'Birdshot chorioretinitis', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Patients', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'us_omop', 'role_cues': ['Diagnosis of a retinal condition'], 'care_setting_cues': ['All care settings'], 'population_cues': ['Patients with retinal disease']}
+  intent_facets_effective: {'condition_or_topic': 'Birdshot chorioretinitis', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Patients', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'us_omop', 'role_cues': ['Diagnosis of a retinal condition'], 'care_setting_cues': ['All care settings'], 'population_cues': ['Patients with retinal disease'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['ohdsi:1223']
+  planning_reasoning: ['Selected shortlisted candidates align with Birdshot chorioretinitis as a diagnosis-oriented study intent.', 'Included [P] Birdshot chorioretinitis as a diagnosis candidate focused on Uveitis.']
+  recommendations:
+    ohdsi:1223 | [P] Birdshot chorioretinitis | This phenotype directly addresses the study intent of 'Patients with birdshot chorioretinitis' as a diagnosis of a retinal condition related to uveitis.
+
+CASE 23: Older adults with macular degeneration
+  intent_facets_raw: {'condition_or_topic': 'macular degeneration', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'older adults', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'us_omop', 'role_cues': ['diagnosis of macular degeneration'], 'care_setting_cues': ['any care setting'], 'population_cues': ['older adults']}
+  intent_facets_effective: {'condition_or_topic': 'macular degeneration', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'older adults', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'us_omop', 'role_cues': ['diagnosis of macular degeneration'], 'care_setting_cues': ['any care setting'], 'population_cues': ['older adults'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:30295', 'cipher:3006', 'cipher:3005', 'cipher:2505']
+  planning_reasoning: ['Selected shortlisted candidates align with macular degeneration as a diagnosis-oriented study intent.', 'Included Macular Degeneration (HDR UK) as a diagnosis candidate focused on Macular Degeneration.', 'Included Macular degeneration (senile) of retina NOS (MAP) as a diagnosis candidate focused on Macular Degeneration.', 'Included Macular degeneration, dry (MAP) as a diagnosis candidate focused on Macular Degeneration.']
+  recommendations:
+    cipher:30295 | Macular Degeneration (HDR UK) | This phenotype directly addresses the study intent of older adults with macular degeneration based on HDR UK criteria.
+    cipher:3006 | Macular degeneration (senile) of retina NOS (MAP) | This phenotype identifies patients with macular degeneration based on a MAP phenotype, which aligns with the study's focus on older adults and the diagnosis of this condition.
+    cipher:3005 | Macular degeneration, dry (MAP) | This phenotype identifies patients with dry macular degeneration based on a MAP probability score, fitting the study's description of older adults and the diagnosis of this condition.
+
+CASE 24: Patients with autoimmune hemolytic anemia
+  intent_facets_raw: {'condition_or_topic': 'Autoimmune hemolytic anemia', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'not_specified', 'role_cues': [], 'care_setting_cues': [], 'population_cues': []}
+  intent_facets_effective: {'condition_or_topic': 'Autoimmune hemolytic anemia', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'not_specified', 'role_cues': [], 'care_setting_cues': [], 'population_cues': [], 'clinical_topic_aliases': []}
+  planning_shortlist: ['ohdsi:1018', 'ohdsi:738', 'cipher:18441']
+  planning_reasoning: ['Selected shortlisted candidates align with Autoimmune hemolytic anemia as a diagnosis-oriented study intent.', 'Included [P] Earliest event of Warm Autoimmune Hemolytic Anemia (wAIHA) as a diagnosis candidate focused on Autoimmune Hemolytic Anemia.', 'Included [D] Autoimmune hemolytic anemia as a diagnosis candidate focused on Autoimmune hemolytic anemia.', 'Included Autoimmune hemolytic anemia (OHDSI) as a diagnosis candidate focused on Autoimmune hemolytic anemia.']
+  recommendations:
+    ohdsi:1018 | [P] Earliest event of Warm Autoimmune Hemolytic Anemia (wAIHA) | Captures the earliest diagnosis of Warm Autoimmune Hemolytic Anemia, aligning with the study's focus.
+    ohdsi:738 | [D] Autoimmune hemolytic anemia | This phenotype directly addresses the study intent of identifying patients with autoimmune hemolytic anemia.
+    cipher:18441 | Autoimmune hemolytic anemia (OHDSI) | Provides an alternative OHDSI phenotype for autoimmune hemolytic anemia.
+
+CASE 25: Patients with MSI-low rectal adenocarcinoma
+  intent_facets_raw: {'condition_or_topic': 'colorectal cancer', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'cancer patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['Rectal adenocarcinoma'], 'care_setting_cues': ['any clinical setting'], 'population_cues': ['patients with colorectal cancer']}
+  intent_facets_effective: {'condition_or_topic': 'colorectal cancer', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'cancer patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['Rectal adenocarcinoma'], 'care_setting_cues': ['any clinical setting'], 'population_cues': ['patients with colorectal cancer'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['ohdsi:836', 'ohdsi:823', 'ohdsi:819']
+  planning_reasoning: ['Selected shortlisted candidates align with colorectal cancer as a diagnosis-oriented study intent.', 'Included [P] Primary adenocarcinoma of colon MSI-H or dMMR, no surgery or oncological treatment as a diagnosis candidate focused on colorectal cancer.', 'Included [P] Primary adenocarcinoma of colon or rectum, MSI-H or dMMR, oncological treatment no surgery as a diagnosis candidate focused on Colorectal Cancer.', 'Included [P] Primary adenocarcinoma of the colon or rectum, MSI-L, MSI-indeterminate, MSS or pMMR, treated with curative intended surgery as a diagnosis candidate focused on Colorectal Cancer.', 'Shortlist replaced lower-quality candidates after rerank enforcement: ohdsi:836, ohdsi:823, ohdsi:819.']
+  recommendations:
+    ohdsi:836 | [P] Primary adenocarcinoma of colon MSI-H or dMMR, no surgery or oncological treatment | This phenotype directly addresses the study intent of patients with MSI-low rectal adenocarcinoma by capturing the primary diagnosis with the specified MSI-H/dMMR status and excluding curative surgery
+    ohdsi:823 | [P] Primary adenocarcinoma of colon or rectum, MSI-H or dMMR, oncological treatment no surgery | This phenotype represents another relevant diagnosis of colorectal cancer with MSI-H or dMMR status, incorporating oncological treatment but excluding surgery, aligning with the study's focus.
+    ohdsi:819 | [P] Primary adenocarcinoma of the colon or rectum, MSI-L, MSI-indeterminate, MSS or pMMR, treated with curative intended surgery | While focused on surgery, this phenotype captures patients with MSI-L or MSS status, which are relevant variations within the broader colorectal cancer spectrum, providing an additional layer of chara
+
+CASE 26: Patients with blistering skin lesions
+  intent_facets_raw: {'condition_or_topic': 'Blistering skin lesions', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'unknown', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'not_specified', 'role_cues': ['Blistering skin lesions - Primary diagnosis'], 'care_setting_cues': ['any - Broad care setting'], 'population_cues': ['unknown - No specific population defined']}
+  intent_facets_effective: {'condition_or_topic': 'Blistering skin lesions', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'unknown', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'not_specified', 'role_cues': ['Blistering skin lesions - Primary diagnosis'], 'care_setting_cues': ['any - Broad care setting'], 'population_cues': ['unknown - No specific population defined'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['ohdsi:652', 'ohdsi:376']
+  planning_reasoning: ['Selected shortlisted candidates align with Blistering skin lesions as a diagnosis-oriented study intent.', 'Included [P][R] Vasculitis of the skin as a diagnosis candidate focused on Vasculitis of the skin.', 'Included [P][R] Bleeding skin  as a outcome candidate focused on Bleeding Skin.']
+  recommendations:
+    ohdsi:652 | [P][R] Vasculitis of the skin | This phenotype represents events of Vasculitis of the skin, which aligns with the study intent of 'Patients with blistering skin lesions'.
+    ohdsi:376 | [P][R] Bleeding skin  | This phenotype represents events of Bleeding Skin, a relevant outcome related to blistering skin lesions.
+
+CASE 27: Patients with stomatitis or mucositis
+  intent_facets_raw: {'condition_or_topic': 'Stomatitis', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'not_specified', 'role_cues': [], 'care_setting_cues': [], 'population_cues': []}
+  intent_facets_effective: {'condition_or_topic': 'Stomatitis', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'not_specified', 'role_cues': [], 'care_setting_cues': [], 'population_cues': [], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:17298', 'cipher:15333', 'cipher:13516', 'cipher:3657']
+  planning_reasoning: ['Selected shortlisted candidates align with Stomatitis as a diagnosis-oriented study intent.', 'Included Stomatitis and Mucositis (Ulcerative) (VADC) as a complication candidate focused on Stomatitis and Mucositis.', 'Included Stomatitis and mucositis (gwPheWAS) as a complication candidate focused on Stomatitis and mucositis.', 'Included Stomatitis and Mucositis (Ulcerative) (Phecode) as a comorbidity covariate candidate focused on Stomatitis and Mucositis.']
+  recommendations:
+    cipher:17298 | Stomatitis and Mucositis (Ulcerative) (VADC) | This phenotype directly addresses the study intent of patients with stomatitis or mucositis, as defined in the VA Data Commons.
+    cipher:15333 | Stomatitis and mucositis (gwPheWAS) | This phenotype also relates to stomatitis and mucositis and aligns with the study intent.
+    cipher:13516 | Stomatitis and Mucositis (Ulcerative) (Phecode) | This phenotype represents Stomatitis and Mucositis and aligns with the study intent of identifying patients with this condition.
+
+CASE 28: Patients with neurofibromatosis type 1
+  intent_facets_raw: {'condition_or_topic': 'Neurofibromatosis type 1', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['Diagnosis of a specific condition'], 'care_setting_cues': ['General patient population'], 'population_cues': ['Patients with Neurofibromatosis type 1']}
+  intent_facets_effective: {'condition_or_topic': 'Neurofibromatosis type 1', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['Diagnosis of a specific condition'], 'care_setting_cues': ['General patient population'], 'population_cues': ['Patients with Neurofibromatosis type 1'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['ohdsi:697', 'ohdsi:304', 'ohdsi:305', 'ohdsi:696']
+  planning_reasoning: ['Selected shortlisted candidates align with Neurofibromatosis type 1 as a diagnosis-oriented study intent.', 'Included [P][R] Neurofibromatosis type 1 as a diagnosis candidate focused on Neurofibromatosis type 1.', 'Included Neurofibromatosis type 1 (FP) as a diagnosis candidate focused on Neurofibromatosis type 1.', 'Included Neurofibromatosis type 1 without Type 2 (FP) as a diagnosis candidate focused on Neurofibromatosis type 1.']
+  recommendations:
+    ohdsi:697 | [P][R] Neurofibromatosis type 1 | This phenotype represents the diagnosis of Neurofibromatosis type 1 (NF1), aligning directly with the study intent of patients with Neurofibromatosis type 1.
+    ohdsi:304 | Neurofibromatosis type 1 (FP) | This phenotype represents the diagnosis of Neurofibromatosis type 1 (NF1), a relevant and frequently used diagnosis in this patient population.
+    ohdsi:305 | Neurofibromatosis type 1 without Type 2 (FP) | This phenotype identifies individuals with Neurofibromatosis type 1, excluding those with NF2 or related auditory complications, providing a refined selection for this specific patient cohort.
+
+CASE 29: Patients with keloid scars
+  intent_facets_raw: {'condition_or_topic': 'Keloid scars', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Patients with keloid scars', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'not_specified', 'role_cues': ['Scar tissue'], 'care_setting_cues': ['General healthcare'], 'population_cues': ['Patients']}
+  intent_facets_effective: {'condition_or_topic': 'Keloid scars', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Patients with keloid scars', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'not_specified', 'role_cues': ['Scar tissue'], 'care_setting_cues': ['General healthcare'], 'population_cues': ['Patients'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:13930', 'cipher:15610', 'cipher:2950']
+  planning_reasoning: ['Selected shortlisted candidates align with Keloid scars as a diagnosis-oriented study intent.', 'Included Keloid Scar (Phecode) as a diagnosis candidate focused on Keloid Scar.', 'Included Keloid scar (gwPheWAS) as a comorbidity covariate candidate focused on Keloid Scar.', 'Included Keloid scar (MAP) as a comorbidity covariate candidate focused on Keloid Scar.']
+  recommendations:
+    cipher:13930 | Keloid Scar (Phecode) | Directly reflects the study intent of patients with keloid scars, based on the Phecode definition using ICD-9 and ICD-10 codes.
+    cipher:15610 | Keloid scar (gwPheWAS) | Represents a comorbidity/covariate related to Keloid Scar, utilized in the Million Veteran Program GWAS study.
+    cipher:2950 | Keloid scar (MAP) | Identifies patients with Keloid Scar based on a MAP algorithm and probability cutoff, suitable for comorbidity covariate analysis.
+
+CASE 30: Patients with acetaminophen exposure
+  intent_facets_raw: {'condition_or_topic': 'acetaminophen exposure', 'phenotype_role': 'medication_based', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['medication'], 'care_setting_cues': ['any'], 'population_cues': ['patients']}
+  intent_facets_effective: {'condition_or_topic': 'acetaminophen exposure', 'phenotype_role': 'medication_based', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['medication'], 'care_setting_cues': ['any'], 'population_cues': ['patients'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['ohdsi:1187', 'ohdsi:1427', 'ohdsi:1428', 'ohdsi:1158']
+  planning_reasoning: ['Selected shortlisted candidates align with acetaminophen exposure as a medication based-oriented study intent.', 'Included [P] acetaminophen exposure 10 as a medication based candidate focused on acetaminophen exposure.', 'Included [P] Acamprosate, all exposures as a medication based candidate focused on Acamprosate Exposure.', 'Included [P] Disulfiram, all exposures as a medication based candidate focused on Disulfiram Exposure.']
+  recommendations:
+    ohdsi:1187 | [P] acetaminophen exposure 10 | This phenotype directly reflects the study intent of examining acetaminophen exposure, including a 30-day persistence window.
+    ohdsi:1427 | [P] Acamprosate, all exposures | Selected from the top reranked shortlisted candidates as a clinically aligned medication based match.
+    ohdsi:1428 | [P] Disulfiram, all exposures | Selected from the top reranked shortlisted candidates as a clinically aligned medication based match.
+
+CASE 31: Patients exposed to rifamycin antibiotics
+  intent_facets_raw: {'condition_or_topic': 'Rifamycin antibiotic exposure', 'phenotype_role': 'medication_based', 'care_setting': 'any', 'population_cue': 'Patients', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'not_specified', 'role_cues': ['Medication'], 'care_setting_cues': ['Any clinical setting'], 'population_cues': ['Patients']}
+  intent_facets_effective: {'condition_or_topic': 'Rifamycin antibiotic exposure', 'phenotype_role': 'medication_based', 'care_setting': 'any', 'population_cue': 'Patients', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'not_specified', 'role_cues': ['Medication'], 'care_setting_cues': ['Any clinical setting'], 'population_cues': ['Patients'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['ohdsi:1211', 'ohdsi:1206']
+  planning_reasoning: ['Selected shortlisted candidates align with Rifamycin antibiotic exposure as a medication based-oriented study intent.', 'Included [P] Antibiotics Rifamycins 10 as a medication based candidate focused on Rifamycins.', 'Included [P] Antibiotics Macrolides 10 as a medication based candidate focused on Macrolide Drug Exposure.']
+  recommendations:
+    ohdsi:1211 | [P] Antibiotics Rifamycins 10 | This phenotype directly represents exposure to rifamycin antibiotics, aligning with the study intent of patients exposed to these medications.
+    ohdsi:1206 | [P] Antibiotics Macrolides 10 | Selected from the top reranked shortlisted candidates as a clinically aligned medication based match.
+
+CASE 32: Patients with a joint or ligament sprain
+  intent_facets_raw: {'condition_or_topic': 'Sprain', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'us_omop', 'role_cues': ['Sprain represents the primary condition of interest.'], 'care_setting_cues': ['any - reflects the broad scope of patient care settings'], 'population_cues': ['patients - defines the target population for the study']}
+  intent_facets_effective: {'condition_or_topic': 'Sprain', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'us_omop', 'role_cues': ['Sprain represents the primary condition of interest.'], 'care_setting_cues': ['any - reflects the broad scope of patient care settings'], 'population_cues': ['patients - defines the target population for the study'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:14236', 'cipher:3569', 'cipher:2944', 'cipher:15814']
+  planning_reasoning: ['Selected shortlisted candidates align with Sprain as a diagnosis-oriented study intent.', 'Included Joint Ligament Sprain (Phecode) as a diagnosis candidate focused on Joint Ligament Sprain.', 'Included Rotator cuff (capsule) sprain (MAP) as a diagnosis candidate focused on Rotator cuff (capsule) sprain.', 'Included Joint-ligament sprain (MAP) as a comorbidity covariate candidate focused on Ligament sprain.']
+  recommendations:
+    cipher:14236 | Joint Ligament Sprain (Phecode) | Directly represents 'Joint or ligament sprain' as defined by the Phecode mapping, a clinically relevant diagnosis based on ICD codes.
+    cipher:3569 | Rotator cuff (capsule) sprain (MAP) | Selected from the top reranked shortlisted candidates as a clinically aligned diagnosis match.
+    cipher:2944 | Joint-ligament sprain (MAP) | Selected from the top reranked shortlisted candidates as a clinically aligned comorbidity covariate match.
+
+CASE 33: Pregnant patients with miscarriage or stillbirth
+  intent_facets_raw: {'condition_or_topic': 'Miscarriage', 'phenotype_role': 'outcome', 'care_setting': 'any', 'population_cue': 'Pregnant patients', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'us_omop', 'role_cues': [], 'care_setting_cues': [], 'population_cues': ['Pregnant women']}
+  intent_facets_effective: {'condition_or_topic': 'Miscarriage', 'phenotype_role': 'outcome', 'care_setting': 'any', 'population_cue': 'Pregnant patients', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'us_omop', 'role_cues': [], 'care_setting_cues': [], 'population_cues': ['Pregnant women'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['ohdsi:627', 'cipher:3056', 'cipher:15565', 'cipher:13818']
+  planning_reasoning: ['Selected shortlisted candidates align with Miscarriage as a outcome-oriented study intent.', 'Included [P][R] Miscarriage as a outcome candidate focused on Miscarriage.', 'Included Miscarriage; stillbirth (MAP) as a outcome candidate focused on Miscarriage; Stillbirth.', 'Included Miscarriage; stillbirth (gwPheWAS) as a outcome candidate focused on Miscarriage, Stillbirth.']
+  recommendations:
+    ohdsi:627 | [P][R] Miscarriage | This phenotype directly represents the event of miscarriage, aligning with the study intent of pregnant patients with miscarriage or stillbirth.
+    cipher:3056 | Miscarriage; stillbirth (MAP) | Selected from the top reranked shortlisted candidates as a clinically aligned outcome match.
+    cipher:15565 | Miscarriage; stillbirth (gwPheWAS) | Selected from the top reranked shortlisted candidates as a clinically aligned outcome match.
+
+CASE 34: Patients with arterial embolism or thrombosis of a lower extremity artery
+  intent_facets_raw: {'condition_or_topic': 'Arterial embolism or thrombosis', 'phenotype_role': 'diagnosis', 'care_setting': 'inpatient|ed|any', 'population_cue': 'Lower extremity', 'validation_preference': 'required', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'us_omop', 'role_cues': ['Lower extremity arterial event'], 'care_setting_cues': ['Hospitalized patient', 'Emergency department'], 'population_cues': ['Lower limb', 'Peripheral vasculature']}
+  intent_facets_effective: {'condition_or_topic': 'Arterial embolism or thrombosis', 'phenotype_role': 'diagnosis', 'care_setting': 'inpatient|ed|any', 'population_cue': 'Lower extremity', 'validation_preference': 'required', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'us_omop', 'role_cues': ['Lower extremity arterial event'], 'care_setting_cues': ['Hospitalized patient', 'Emergency department'], 'population_cues': ['Lower limb', 'Peripheral vasculature'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:13354', 'cipher:2142']
+  planning_reasoning: ['Selected shortlisted candidates align with Arterial embolism or thrombosis as a diagnosis-oriented study intent.', 'Included Arterial Embolism and Thrombosis of Lower Extremity Artery (Phecode) as a complication candidate focused on Arterial Embolism and Thrombosis.', 'Included Arterial embolism and thrombosis of lower extremity artery (MAP) as a complication candidate focused on Arterial Embolism and Thrombosis.']
+  recommendations:
+    cipher:13354 | Arterial Embolism and Thrombosis of Lower Extremity Artery (Phecode) | Directly maps to the study intent: Patients with arterial embolism or thrombosis of a lower extremity artery.
+    cipher:2142 | Arterial embolism and thrombosis of lower extremity artery (MAP) | Represents arterial embolism or thrombosis of the lower extremity artery as defined by the MAP algorithm, providing a probability-based assessment.
+
+CASE 35: Patients with a urinary tract infection who are new users of cephalosporins
+  intent_facets_raw: {'condition_or_topic': 'Urinary Tract Infection', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'new users of cephalosporins', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'not_specified', 'role_cues': ['diagnosis'], 'care_setting_cues': ['any'], 'population_cues': ['new medication use']}
+  intent_facets_effective: {'condition_or_topic': 'Urinary Tract Infection', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'new users of cephalosporins', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'not_specified', 'role_cues': ['diagnosis'], 'care_setting_cues': ['any'], 'population_cues': ['new medication use'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['ohdsi:1301', 'ohdsi:1186', 'ohdsi:410', 'cipher:31223']
+  planning_reasoning: ['Selected shortlisted candidates align with Urinary Tract Infection as a diagnosis-oriented study intent.', 'Included [P] Acute Urinary tract infections UTI events as a diagnosis candidate focused on Urinary Tract Infection.', 'Included [P] Urinary tract infectious 10 as a diagnosis candidate focused on Urinary Tract Infection.', 'Included [P] Acute Urinary tract infections UTI as a diagnosis candidate focused on Urinary Tract Infection.']
+  recommendations:
+    ohdsi:1301 | [P] Acute Urinary tract infections UTI events | This phenotype directly addresses the study intent of patients with urinary tract infections and new cephalosporin use.
+    ohdsi:1186 | [P] Urinary tract infectious 10 | Selected from the top reranked shortlisted candidates as a clinically aligned diagnosis match.
+    ohdsi:410 | [P] Acute Urinary tract infections UTI | This phenotype is a broader capture of UTI diagnoses, which is relevant to the study intent.
+
+CASE 36: Patients hospitalized with preinfarction syndrome
+  intent_facets_raw: {'condition_or_topic': 'Preinfarction syndrome', 'phenotype_role': 'diagnosis', 'care_setting': 'inpatient', 'population_cue': 'Hospitalized patients', 'validation_preference': 'required', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'not_specified', 'role_cues': ['Diagnosis of preinfarction syndrome'], 'care_setting_cues': ['Inpatient setting'], 'population_cues': ['Patients in hospitals']}
+  intent_facets_effective: {'condition_or_topic': 'Preinfarction syndrome', 'phenotype_role': 'diagnosis', 'care_setting': 'inpatient', 'population_cue': 'Hospitalized patients', 'validation_preference': 'required', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'not_specified', 'role_cues': ['Diagnosis of preinfarction syndrome'], 'care_setting_cues': ['Inpatient setting'], 'population_cues': ['Patients in hospitals'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['ohdsi:1081']
+  planning_reasoning: ['Selected shortlisted candidates align with Preinfarction syndrome as a diagnosis-oriented study intent.', 'Included [P] FDA AESI Acute Myocardial Infarction or its complications as a diagnosis candidate focused on Acute Myocardial Infarction.']
+  recommendations:
+    ohdsi:1081 | [P] FDA AESI Acute Myocardial Infarction or its complications | This phenotype directly addresses Acute Myocardial Infarction, a key component of the study intent (preinfarction syndrome).
+
+CASE 37: Patients with a personal history of blood or blood-forming organ disease
+  intent_facets_raw: {'condition_or_topic': 'Blood or blood-forming organ disease', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Patients with personal history', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'us_omop', 'role_cues': ['Diagnosis of blood or blood-forming organ disease'], 'care_setting_cues': ['Any clinical setting'], 'population_cues': ['Patients with documented personal history']}
+  intent_facets_effective: {'condition_or_topic': 'Blood or blood-forming organ disease', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Patients with personal history', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'us_omop', 'role_cues': ['Diagnosis of blood or blood-forming organ disease'], 'care_setting_cues': ['Any clinical setting'], 'population_cues': ['Patients with documented personal history'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:17130', 'cipher:3412']
+  planning_reasoning: ['Selected shortlisted candidates align with Blood or blood-forming organ disease as a diagnosis-oriented study intent.', 'Included Personal History of Diseases of Blood and Bloodforming Organs (VADC) as a comorbidity covariate candidate focused on Personal History of Blood and Bloodforming Organ Diseases.', 'Included Personal history of diseases of blood and blood-forming organs (MAP) as a comorbidity covariate candidate focused on Personal history of diseases of blood and blood-forming organs.']
+  recommendations:
+    cipher:17130 | Personal History of Diseases of Blood and Bloodforming Organs (VADC) | This phenotype directly addresses the study intent of patients with a personal history of blood or blood-forming organ disease.
+    cipher:3412 | Personal history of diseases of blood and blood-forming organs (MAP) | The MAP phenotype identifies patients based on ICD codes indicative of a personal history of blood disorders, aligning with the study intent.
+
+CASE 38: Patients with benign pancreatic conditions
+  intent_facets_raw: {'condition_or_topic': 'pancreatic conditions', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': [], 'care_setting_cues': [], 'population_cues': []}
+  intent_facets_effective: {'condition_or_topic': 'pancreatic conditions', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': [], 'care_setting_cues': [], 'population_cues': [], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:16954', 'cipher:16952', 'cipher:16953', 'cipher:16955']
+  planning_reasoning: ['Selected shortlisted candidates align with pancreatic conditions as a diagnosis-oriented study intent.', 'Included Pancreas Transplant Recipient (Nguyen) as a comorbidity covariate candidate focused on Pancreatic Conditions.', 'Included Extrahepatic Cholangiocarcinoma (Nguyen) as a diagnosis candidate focused on Pancreatic Cancer.', 'Included Chronic Pancreatitis (Nguyen) as a comorbidity covariate candidate focused on Pancreatic Inflammation.']
+  recommendations:
+    cipher:16954 | Pancreas Transplant Recipient (Nguyen) | Selected from the top reranked shortlisted candidates as a clinically aligned comorbidity covariate match.
+    cipher:16952 | Extrahepatic Cholangiocarcinoma (Nguyen) | This phenotype identifies patients with pancreatic cancer based on ICD-10 codes, aligning with the study intent of investigating prevalence among veterans.
+    cipher:16953 | Chronic Pancreatitis (Nguyen) | Identifies veterans with pancreatic inflammation, which is relevant as a covariate for studying pancreatic cancer prevalence.
+
+CASE 39: Patients with primary localized osteoarthritis
+  intent_facets_raw: {'condition_or_topic': 'osteoarthritis', 'phenotype_role': 'diagnosis', 'care_setting': 'outpatient|any', 'population_cue': 'localized', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'us_omop', 'role_cues': ['diagnosis'], 'care_setting_cues': ['outpatient', 'any'], 'population_cues': ['localized']}
+  intent_facets_effective: {'condition_or_topic': 'osteoarthritis', 'phenotype_role': 'diagnosis', 'care_setting': 'outpatient|any', 'population_cue': 'localized', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'us_omop', 'role_cues': ['diagnosis'], 'care_setting_cues': ['outpatient', 'any'], 'population_cues': ['localized'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:3192', 'cipher:4029', 'cipher:3190', 'cipher:4399']
+  planning_reasoning: ['Selected shortlisted candidates align with osteoarthritis as a diagnosis-oriented study intent.', 'Included Osteoarthrosis, localized, primary (MAP) as a diagnosis candidate focused on Osteoarthritis.', 'Included Thumb Osteoarthritis (MVP) as a diagnosis candidate focused on Osteoarthritis.', 'Included Osteoarthritis; localized (MAP) as a diagnosis candidate focused on Osteoarthritis localized.']
+  recommendations:
+    cipher:3192 | Osteoarthrosis, localized, primary (MAP) | This phenotype identifies patients with osteoarthritis based on a MAP algorithm probability cutoff, aligning directly with the study intent of primary localized osteoarthritis.
+    cipher:4029 | Thumb Osteoarthritis (MVP) | Identifies patients with primary osteoarthritis of the thumb, which may be relevant to understanding osteoarthritis progression, and aligns with the study’s focus on localized osteoarthritis.
+    cipher:3190 | Osteoarthritis; localized (MAP) | Represents localized osteoarthritis based on MAP unsupervised clustering of ICD codes, primarily used for diagnosis, fitting the study intent.
+
+CASE 40: New users of dihydropyridine calcium channel blockers
+  intent_facets_raw: {'condition_or_topic': 'Calcium channel blockers', 'phenotype_role': 'medication_based', 'care_setting': 'any', 'population_cue': 'new users', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['Medication use'], 'care_setting_cues': ['Any clinical setting'], 'population_cues': ['New patients']}
+  intent_facets_effective: {'condition_or_topic': 'Calcium channel blockers', 'phenotype_role': 'medication_based', 'care_setting': 'any', 'population_cue': 'new users', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['Medication use'], 'care_setting_cues': ['Any clinical setting'], 'population_cues': ['New patients'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['ohdsi:1047', 'ohdsi:1048', 'ohdsi:1052', 'ohdsi:1036']
+  planning_reasoning: ['Selected shortlisted candidates align with Calcium channel blockers as a medication based-oriented study intent.', 'Included [P] New users of dihydropyridine calcium channel blockers nested in essential hypertension as a medication based candidate focused on dihydropyridine calcium channel blockers.', 'Included [P] New users of dihydropyridine calcium channel blockers as a medication based candidate focused on dihydropyridine calcium channel blockers.', 'Included [P] New users of Beta blockers nested in Acute Myocardial Infarction as a medication based candidate focused on Beta Blockers.']
+  recommendations:
+    ohdsi:1047 | [P] New users of dihydropyridine calcium channel blockers nested in essential hypertension | This phenotype directly addresses the study intent of identifying patients newly prescribed dihydropyridine calcium channel blockers for hypertension management.
+    ohdsi:1048 | [P] New users of dihydropyridine calcium channel blockers | This phenotype captures the core concept of new users of dihydropyridine calcium channel blockers.
+    ohdsi:1052 | [P] New users of Beta blockers nested in Acute Myocardial Infarction | Selected from the top reranked shortlisted candidates as a clinically aligned medication based match.
+
+CASE 41: Veteran patients with renal sclerosis
+  intent_facets_raw: {'condition_or_topic': 'renal sclerosis', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'veteran patients', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'va', 'role_cues': ['diagnosis'], 'care_setting_cues': ['any'], 'population_cues': ['veteran patients']}
+  intent_facets_effective: {'condition_or_topic': 'renal sclerosis', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'veteran patients', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'va', 'role_cues': ['diagnosis'], 'care_setting_cues': ['any'], 'population_cues': ['veteran patients'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:13646', 'cipher:13656', 'cipher:17322', 'cipher:15442']
+  planning_reasoning: ['Selected shortlisted candidates align with renal sclerosis as a diagnosis-oriented study intent.', 'Included Nephritis Nephrosis Renal Sclerosis (Phecode) as a diagnosis candidate focused on Nephritis Nephrosis Renal Sclerosis.', 'Included Renal Sclerosis NOS (Phecode) as a diagnosis candidate focused on Renal Sclerosis.', 'Included Renal Sclerosis NOS (VADC) as a comorbidity covariate candidate focused on Renal Sclerosis.']
+  recommendations:
+    cipher:13646 | Nephritis Nephrosis Renal Sclerosis (Phecode) | This Phecode definition directly addresses renal sclerosis and utilizes ICD-9 and ICD-10 codes, aligning with the study intent of identifying veteran patients with this condition.
+    cipher:13656 | Renal Sclerosis NOS (Phecode) | Another Phecode definition focused on renal sclerosis, providing an alternative representation of the condition using ICD-9 and ICD-10 codes.
+    cipher:17322 | Renal Sclerosis NOS (VADC) | This phenotype definition, derived from the VA Data Commons, specifically identifies renal sclerosis as a comorbidity covariate using ICD-9 and ICD-10 codes, relevant to the study population.
+
+CASE 42: Veteran patients with polymyalgia rheumatica
+  intent_facets_raw: {'condition_or_topic': 'Polymyalgia rheumatica', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Veteran patients', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'va', 'role_cues': ['Diagnosis of Polymyalgia Rheumatica'], 'care_setting_cues': ['Any Care Setting'], 'population_cues': ['Veterans']}
+  intent_facets_effective: {'condition_or_topic': 'Polymyalgia rheumatica', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Veteran patients', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'va', 'role_cues': ['Diagnosis of Polymyalgia Rheumatica'], 'care_setting_cues': ['Any Care Setting'], 'population_cues': ['Veterans'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:30277', 'cipher:13992', 'cipher:17453', 'cipher:3460']
+  planning_reasoning: ['Selected shortlisted candidates align with Polymyalgia rheumatica as a diagnosis-oriented study intent.', 'Included Polymyalgia Rheumatica (HDR UK) as a diagnosis candidate focused on Polymyalgia Rheumatica.', 'Included Polymyalgia Rheumatica (Phecode) as a diagnosis candidate focused on Polymyalgia Rheumatica.', 'Included Polymyalgia Rheumatica (VADC) as a comorbidity covariate candidate focused on Polymyalgia Rheumatica.']
+  recommendations:
+    cipher:30277 | Polymyalgia Rheumatica (HDR UK) | This phenotype is based on ICD-10 codes, which aligns with the study intent of identifying patients with Polymyalgia Rheumatica.
+    cipher:13992 | Polymyalgia Rheumatica (Phecode) | The Phecode phenotype definition using ICD-9 and ICD-10 codes is relevant for identifying patients with Polymyalgia Rheumatica.
+    cipher:17453 | Polymyalgia Rheumatica (VADC) | This phenotype, derived from the VA Data Commons, represents a comorbidity/covariate defined by ICD codes, suitable for studying Polymyalgia Rheumatica within the Million Veteran Program.
+
+CASE 43: Veteran patients with autoimmune hemolytic anemia
+  intent_facets_raw: {'condition_or_topic': 'Autoimmune hemolytic anemia', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Veteran patients', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'va', 'role_cues': ['Diagnosis of a specific blood disorder'], 'care_setting_cues': ['General medical care'], 'population_cues': ['Veterans']}
+  intent_facets_effective: {'condition_or_topic': 'Autoimmune hemolytic anemia', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Veteran patients', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'va', 'role_cues': ['Diagnosis of a specific blood disorder'], 'care_setting_cues': ['General medical care'], 'population_cues': ['Veterans'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:12888', 'ohdsi:1018', 'ohdsi:738', 'cipher:18441']
+  planning_reasoning: ['Selected shortlisted candidates align with Autoimmune hemolytic anemia as a diagnosis-oriented study intent.', 'Included Autoimmune Hemolytic Anemias (Phecode) as a diagnosis candidate focused on Autoimmune Hemolytic Anemia.', 'Included [P] Earliest event of Warm Autoimmune Hemolytic Anemia (wAIHA) as a diagnosis candidate focused on Autoimmune Hemolytic Anemia.', 'Included [D] Autoimmune hemolytic anemia as a diagnosis candidate focused on Autoimmune hemolytic anemia.']
+  recommendations:
+    cipher:12888 | Autoimmune Hemolytic Anemias (Phecode) | This Phecode specifically defines Autoimmune Hemolytic Anemia based on ICD codes, aligning with the study's focus and use of PheWAS.
+    ohdsi:1018 | [P] Earliest event of Warm Autoimmune Hemolytic Anemia (wAIHA) | This phenotype identifies the earliest diagnosis of Warm Autoimmune Hemolytic Anemia (wAIHA), directly addressing the study intent of Veteran patients with this condition.
+    ohdsi:738 | [D] Autoimmune hemolytic anemia | This phenotype identifies patients with Autoimmune hemolytic anemia, a closely related condition and relevant to the study intent.
+
+CASE 44: Veteran patients with cardiac complications
+  intent_facets_raw: {'condition_or_topic': 'cardiac complications', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Veteran patients', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'va', 'role_cues': ['diagnosis'], 'care_setting_cues': ['any'], 'population_cues': ['Veteran patients']}
+  intent_facets_effective: {'condition_or_topic': 'cardiac complications', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Veteran patients', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'va', 'role_cues': ['diagnosis'], 'care_setting_cues': ['any'], 'population_cues': ['Veteran patients'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:15819', 'cipher:17258']
+  planning_reasoning: ['Selected shortlisted candidates align with cardiac complications as a diagnosis-oriented study intent.', 'Included Complications of cardiac/vascular device, implant, and graft (gwPheWAS) as a complication candidate focused on Cardiac/Vascular Device Complications.', 'Included Cardiac Complications Not Elsewhere Classified (VADC) as a complication candidate focused on Cardiac Complications.']
+  recommendations:
+    cipher:15819 | Complications of cardiac/vascular device, implant, and graft (gwPheWAS) | This phenotype directly addresses cardiac complications, aligning with the study intent of veteran patients with cardiac complications.
+    cipher:17258 | Cardiac Complications Not Elsewhere Classified (VADC) | This phenotype captures a broad range of cardiac complications, providing a comprehensive view of the patient’s condition, relevant to the study intent.
+
+CASE 45: Patients diagnosed with fasciitis
+  intent_facets_raw: {'condition_or_topic': 'fasciitis', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['diagnosis of fasciitis'], 'care_setting_cues': ['any care setting'], 'population_cues': ['patients with fasciitis']}
+  intent_facets_effective: {'condition_or_topic': 'fasciitis', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['diagnosis of fasciitis'], 'care_setting_cues': ['any care setting'], 'population_cues': ['patients with fasciitis'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:14029', 'cipher:15684', 'cipher:2703']
+  planning_reasoning: ['Selected shortlisted candidates align with fasciitis as a diagnosis-oriented study intent.', 'Included Fasciitis (Phecode) as a diagnosis candidate focused on Fasciitis.', 'Included Fasciitis (gwPheWAS) as a diagnosis candidate focused on Fasciitis.', 'Included Fasciitis (MAP) as a diagnosis candidate focused on Fasciitis.']
+  recommendations:
+    cipher:14029 | Fasciitis (Phecode) | This phenotype is defined using the Phecode mapping system, which maps ICD codes to clinically relevant diagnoses of Fasciitis.
+    cipher:15684 | Fasciitis (gwPheWAS) | This phenotype definition represents a diagnosis of Fasciitis based on ICD codes used in the Million Veteran Program (MVP) phenome-wide GWAS.
+    cipher:2703 | Fasciitis (MAP) | This phenotype identifies patients with Fasciitis based on a MAP probability score exceeding a defined threshold.  It is based on unsupervised clustering and may require caution.
+
+CASE 46: Patients with stomatitis or mucositis
+  intent_facets_raw: {'condition_or_topic': 'Stomatitis', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'not_specified', 'role_cues': [], 'care_setting_cues': [], 'population_cues': []}
+  intent_facets_effective: {'condition_or_topic': 'Stomatitis', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'not_specified', 'role_cues': [], 'care_setting_cues': [], 'population_cues': [], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:17298', 'cipher:15333', 'cipher:3657']
+  planning_reasoning: ['Selected shortlisted candidates align with Stomatitis as a diagnosis-oriented study intent.', 'Included Stomatitis and Mucositis (Ulcerative) (VADC) as a complication candidate focused on Stomatitis and Mucositis.', 'Included Stomatitis and mucositis (gwPheWAS) as a complication candidate focused on Stomatitis and mucositis.', 'Included Stomatitis and mucositis (ulcerative) (MAP) as a diagnosis candidate focused on Stomatitis and mucositis (ulcerative).']
+  recommendations:
+    cipher:17298 | Stomatitis and Mucositis (Ulcerative) (VADC) | This phenotype directly addresses the study intent of patients with stomatitis or mucositis.
+    cipher:15333 | Stomatitis and mucositis (gwPheWAS) | This phenotype also represents stomatitis and mucositis, a relevant complication, aligning with the study intent.
+    cipher:3657 | Stomatitis and mucositis (ulcerative) (MAP) | Selected from the top reranked shortlisted candidates as a clinically aligned diagnosis match.
+
+CASE 47: Patients with Barretts esophagus
+  intent_facets_raw: {'condition_or_topic': "Barrett's esophagus", 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'not_specified', 'role_cues': ["diagnosis of Barrett's esophagus"], 'care_setting_cues': ['any clinical setting'], 'population_cues': ["patients with Barrett's esophagus"]}
+  intent_facets_effective: {'condition_or_topic': "Barrett's esophagus", 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'not_specified', 'role_cues': ["diagnosis of Barrett's esophagus"], 'care_setting_cues': ['any clinical setting'], 'population_cues': ["patients with Barrett's esophagus"], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:13531', 'cipher:2187', 'cipher:15342', 'cipher:30228']
+  planning_reasoning: ["Selected shortlisted candidates align with Barrett's esophagus as a diagnosis-oriented study intent.", "Included Barretts Esophagus (Phecode) as a diagnosis candidate focused on Barrett's Esophagus.", "Included Barrett's esophagus (MAP) as a diagnosis candidate focused on Barrett's esophagus.", "Included Barrett's esophagus (gwPheWAS) as a diagnosis candidate focused on Barrett's esophagus."]
+  recommendations:
+    cipher:13531 | Barretts Esophagus (Phecode) | This phenotype represents Barrett's Esophagus based on ICD-9 and ICD-10 codes, aligning directly with the study intent and is a primary diagnosis phenotype.
+    cipher:2187 | Barrett's esophagus (MAP) | This phenotype identifies Barrett's esophagus using a MAP algorithm based on ICD codes and healthcare utilization, suitable for classification based on probability thresholds.
+    cipher:15342 | Barrett's esophagus (gwPheWAS) | This phenotype is defined using ICD codes from the Million Veteran Program phenome-wide GWAS, representing a clinically relevant phenotype for Barrett's Esophagus.
+
+CASE 48: Patients with regional enteritis
+  intent_facets_raw: {'condition_or_topic': 'Regional enteritis', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Inflammatory Bowel Disease', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': [], 'care_setting_cues': [], 'population_cues': []}
+  intent_facets_effective: {'condition_or_topic': 'Regional enteritis', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'Inflammatory Bowel Disease', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': [], 'care_setting_cues': [], 'population_cues': [], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:13571', 'cipher:3534']
+  planning_reasoning: ['Selected shortlisted candidates align with Regional enteritis as a diagnosis-oriented study intent.', 'Included Regional Enteritis (Phecode) as a diagnosis candidate focused on Regional Enteritis.', 'Included Regional enteritis (MAP) as a diagnosis candidate focused on Regional enteritis.']
+  recommendations:
+    cipher:13571 | Regional Enteritis (Phecode) | This phenotype aligns directly with the study intent of patients with regional enteritis, utilizing the Phecode grouping for ICD-9 and ICD-10 codes.
+    cipher:3534 | Regional enteritis (MAP) | This phenotype identifies patients with regional enteritis based on a MAP algorithm probability cutoff, providing an alternative approach to diagnosis.
+
+CASE 49: Patients with primary localized osteoarthritis
+  intent_facets_raw: {'condition_or_topic': 'osteoarthritis', 'phenotype_role': 'diagnosis', 'care_setting': 'outpatient|any', 'population_cue': 'localized', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'us_omop', 'role_cues': ['diagnosis of osteoarthritis'], 'care_setting_cues': ['outpatient care'], 'population_cues': ['localized osteoarthritis']}
+  intent_facets_effective: {'condition_or_topic': 'osteoarthritis', 'phenotype_role': 'diagnosis', 'care_setting': 'outpatient|any', 'population_cue': 'localized', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'us_omop', 'role_cues': ['diagnosis of osteoarthritis'], 'care_setting_cues': ['outpatient care'], 'population_cues': ['localized osteoarthritis'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:3192', 'cipher:4399', 'cipher:4029', 'cipher:3190']
+  planning_reasoning: ['Selected shortlisted candidates align with osteoarthritis as a diagnosis-oriented study intent.', 'Included Osteoarthrosis, localized, primary (MAP) as a diagnosis candidate focused on Osteoarthritis.', 'Included Finger Osteoarthritis (MVP) as a diagnosis candidate focused on Osteoarthritis.', 'Included Thumb Osteoarthritis (MVP) as a diagnosis candidate focused on Osteoarthritis.']
+  recommendations:
+    cipher:3192 | Osteoarthrosis, localized, primary (MAP) | This phenotype identifies patients with osteoarthritis based on a MAP algorithm probability cutoff of 0.41, aligning directly with the study intent of patients with primary localized osteoarthritis.
+    cipher:4399 | Finger Osteoarthritis (MVP) | This phenotype identifies patients with primary osteoarthritis, specifically focusing on finger OA, which is relevant to localized osteoarthritis and the specified study intent.
+    cipher:4029 | Thumb Osteoarthritis (MVP) | This phenotype identifies patients with primary osteoarthritis of the thumb, which is relevant to localized osteoarthritis and the specified study intent.
+
+CASE 50: Patients with aortic valve disease
+  intent_facets_raw: {'condition_or_topic': 'aortic valve disease', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': [], 'care_setting_cues': [], 'population_cues': []}
+  intent_facets_effective: {'condition_or_topic': 'aortic valve disease', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': [], 'care_setting_cues': [], 'population_cues': [], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:13226', 'cipher:13231', 'cipher:30301', 'cipher:17250']
+  planning_reasoning: ['Selected shortlisted candidates align with aortic valve disease as a diagnosis-oriented study intent.', 'Included Aortic Valve Disease (Phecode) as a diagnosis candidate focused on Aortic Valve Disease.', 'Included Nonrheumatic Aortic Valve Disorders (Phecode) as a diagnosis candidate focused on Aortic Valve Disorders.', 'Included Nonrheumatic Aortic Valve Disorders (HDR UK) as a diagnosis candidate focused on Aortic Valve Disorders.']
+  recommendations:
+    cipher:13226 | Aortic Valve Disease (Phecode) | This phenotype directly addresses the study intent of patients with aortic valve disease, based on ICD codes.
+    cipher:13231 | Nonrheumatic Aortic Valve Disorders (Phecode) | This phenotype aligns with the study intent, focusing on nonrheumatic aortic valve disorders.
+    cipher:30301 | Nonrheumatic Aortic Valve Disorders (HDR UK) | This phenotype identifies patients with nonrheumatic aortic valve disorders using HDR UK criteria and ICD-10 codes, relevant to the study's focus.
+
+CASE 51: Patients with chronic periodontitis
+  intent_facets_raw: {'condition_or_topic': 'Chronic periodontitis', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients with periodontal disease', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['Diagnosis of periodontal disease'], 'care_setting_cues': ['any clinical setting'], 'population_cues': ['patients affected by gum disease']}
+  intent_facets_effective: {'condition_or_topic': 'Chronic periodontitis', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'patients with periodontal disease', 'validation_preference': 'preferred', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['Diagnosis of periodontal disease'], 'care_setting_cues': ['any clinical setting'], 'population_cues': ['patients affected by gum disease'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:13494', 'cipher:3397', 'cipher:15317', 'cipher:2371']
+  planning_reasoning: ['Selected shortlisted candidates align with Chronic periodontitis as a diagnosis-oriented study intent.', 'Included Chronic Periodontitis (Phecode) as a diagnosis candidate focused on Chronic Periodontitis.', 'Included Periodontitis (acute or chronic) (MAP) as a diagnosis candidate focused on Periodontitis.', 'Included Chronic periodontitis (gwPheWAS) as a comorbidity covariate candidate focused on Chronic Periodontitis.']
+  recommendations:
+    cipher:13494 | Chronic Periodontitis (Phecode) | This phenotype directly aligns with the study intent of 'Patients with chronic periodontitis' as defined using ICD codes.
+    cipher:3397 | Periodontitis (acute or chronic) (MAP) | Selected from the top reranked shortlisted candidates as a clinically aligned diagnosis match.
+    cipher:15317 | Chronic periodontitis (gwPheWAS) | This phenotype is a well-established definition of Chronic Periodontitis utilizing ICD codes and was used in a large-scale GWAS, making it relevant to the study intent.
+
+CASE 52: Patients with hypertensive chronic kidney disease
+  intent_facets_raw: {'condition_or_topic': 'Hypertensive chronic kidney disease', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'adult', 'validation_preference': 'required', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['Diagnosis of chronic kidney disease'], 'care_setting_cues': ['Any clinical setting'], 'population_cues': ['Adult patients']}
+  intent_facets_effective: {'condition_or_topic': 'Hypertensive chronic kidney disease', 'phenotype_role': 'diagnosis', 'care_setting': 'any', 'population_cue': 'adult', 'validation_preference': 'required', 'executability_preference': 'allow_translation', 'geography_coding_preference': 'us_omop', 'role_cues': ['Diagnosis of chronic kidney disease'], 'care_setting_cues': ['Any clinical setting'], 'population_cues': ['Adult patients'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['ohdsi:923', 'cipher:2846', 'ohdsi:1191', 'cipher:13240']
+  planning_reasoning: ['Selected shortlisted candidates align with Hypertensive chronic kidney disease as a diagnosis-oriented study intent.', 'Included [P] Kidney disease as a diagnosis candidate focused on Chronic Kidney Disease.', 'Included Hypertensive chronic kidney disease (MAP) as a comorbidity covariate candidate focused on Hypertensive Chronic Kidney Disease.', 'Included [P] Chronic kidney disease or end stage renal disease 10 as a comorbidity covariate candidate focused on Chronic Kidney Disease.']
+  recommendations:
+    ohdsi:923 | [P] Kidney disease | This phenotype represents the initial record of Chronic Kidney Disease, aligning with the study intent of patients with hypertensive chronic kidney disease.
+    cipher:2846 | Hypertensive chronic kidney disease (MAP) | This phenotype identifies patients classified as having Hypertensive Chronic Kidney Disease based on a MAP algorithm, which is relevant to the study intent.
+    ohdsi:1191 | [P] Chronic kidney disease or end stage renal disease 10 | This phenotype captures Chronic Kidney Disease as a covariate for predicting outcomes, aligning with the study intent.
+
+CASE 53: Patients with cardiomyopathy
+  intent_facets_raw: {'condition_or_topic': 'cardiomyopathy', 'phenotype_role': 'diagnosis', 'care_setting': 'inpatient|outpatient', 'population_cue': 'adult', 'validation_preference': 'required', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'us_omop', 'role_cues': ['Diagnosis of a structural heart condition'], 'care_setting_cues': ['Hospital', 'Clinic'], 'population_cues': ['Adult Patients']}
+  intent_facets_effective: {'condition_or_topic': 'cardiomyopathy', 'phenotype_role': 'diagnosis', 'care_setting': 'inpatient|outpatient', 'population_cue': 'adult', 'validation_preference': 'required', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'us_omop', 'role_cues': ['Diagnosis of a structural heart condition'], 'care_setting_cues': ['Hospital', 'Clinic'], 'population_cues': ['Adult Patients'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:31252', 'ohdsi:679', 'cipher:30174', 'cipher:30192']
+  planning_reasoning: ['Selected shortlisted candidates align with cardiomyopathy as a diagnosis-oriented study intent.', 'Included Cardiomyopathy (Knight) as a diagnosis candidate focused on Cardiomyopathy.', 'Included [P][R] Takotsubo cardiomyopathy as a diagnosis candidate focused on Takotsubo cardiomyopathy.', 'Included Dilated Cardiomyopathy (HDR UK) as a diagnosis candidate focused on Dilated Cardiomyopathy.']
+  recommendations:
+    cipher:31252 | Cardiomyopathy (Knight) | This phenotype identifies patients with Cardiomyopathy based on ICD-10, SNOMED CT and Read Codes v2, aligning with the study intent.
+    ohdsi:679 | [P][R] Takotsubo cardiomyopathy | This phenotype directly addresses Takotsubo cardiomyopathy, a recognized type of cardiomyopathy.
+    cipher:30174 | Dilated Cardiomyopathy (HDR UK) | This phenotype identifies patients with Dilated Cardiomyopathy based on ICD-10 diagnoses or hospitalizations, representing a core clinical condition related to the study intent.
+
+CASE 54: Patients with scleritis or episcleritis
+  intent_facets_raw: {'condition_or_topic': 'Scleritis', 'phenotype_role': 'diagnosis', 'care_setting': 'outpatient', 'population_cue': 'Adult patients', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'us_omop', 'role_cues': ['Scleritis is a diagnosis'], 'care_setting_cues': ['Outpatient care setting'], 'population_cues': ['Adult patients']}
+  intent_facets_effective: {'condition_or_topic': 'Scleritis', 'phenotype_role': 'diagnosis', 'care_setting': 'outpatient', 'population_cue': 'Adult patients', 'validation_preference': 'preferred', 'executability_preference': 'prefer_native_ohdsi', 'geography_coding_preference': 'us_omop', 'role_cues': ['Scleritis is a diagnosis'], 'care_setting_cues': ['Outpatient care setting'], 'population_cues': ['Adult patients'], 'clinical_topic_aliases': []}
+  planning_shortlist: ['cipher:30069', 'cipher:3581', 'cipher:13186']
+  planning_reasoning: ['Selected shortlisted candidates align with Scleritis as a diagnosis-oriented study intent.', 'Included Scleritis and Episcleritis (HDR UK) as a diagnosis candidate focused on Scleritis and Episcleritis.', 'Included Scleritis and episcleritis (MAP) as a diagnosis candidate focused on Scleritis and episcleritis.', 'Included Scleritis and Episcleritis (Phecode) as a diagnosis candidate focused on Scleritis and Episcleritis.']
+  recommendations:
+    cipher:30069 | Scleritis and Episcleritis (HDR UK) | This phenotype directly aligns with the study intent of patients with scleritis or episcleritis, utilizing the HDR UK criteria.
+    cipher:3581 | Scleritis and episcleritis (MAP) | Selected from the top reranked shortlisted candidates as a clinically aligned diagnosis match.
+    cipher:13186 | Scleritis and Episcleritis (Phecode) | This phenotype utilizes the Phecode mapping, based on ICD codes, which is consistent with the study's focus on scleritis and episcleritis diagnosis.
+
+CASE 1: Patients with an implanted cardiac defibrillator
+   cipher:15146 | 20.7792 | [('topic_primary', 'Cardiac Defibrillator')]
+   cipher:2288 | 13.3392 | [('topic_primary', 'Cardiac defibrillator in situ')]
+   cipher:13288 | 13.2992 | [('topic_primary', 'Cardiac Defibrillator in Situ')]
+   ohdsi:1102 | -5.65 | [('topic_mismatch', 'Coronary Artery Bypass Graft Surgery')]
+   ohdsi:1314 | -5.67 | [('topic_mismatch', 'Coronary Artery Bypass Graft')]
+   ohdsi:875 | -5.71 | [('topic_mismatch', 'Coronary Artery Bypass Graft')]
+   cipher:16289 | -5.8875 | [('topic_mismatch', 'Bleeding')]
+   cipher:30773 | -5.8875 | [('topic_mismatch', 'Trifascicular Block')]
+
+CASE 2: Patients diagnosed with fasciitis
+   cipher:15684 | 35.6925 | [('topic_primary', 'Fasciitis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Fasciitis"]}')]
+   cipher:2703 | 35.6525 | [('topic_primary', 'Fasciitis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Fasciitis"]}')]
+   cipher:14029 | 28.1125 | [('topic_primary', 'Fasciitis')]
+   ohdsi:1075 | -3.69 | [('topic_mismatch', 'Narcolepsy')]
+   ohdsi:454 | -3.75 | [('topic_mismatch', 'Dermatomyositis')]
+   ohdsi:479 | -3.75 | [('topic_mismatch', 'Chilblains')]
+   ohdsi:363 | -3.75 | [('topic_mismatch', 'Joint stiffness')]
+   cipher:30159 | -3.7875 | [('topic_mismatch', 'Enthesopathies and Synovial Disorders')]
+
+CASE 3: Patients with acute prostatitis
+   ohdsi:283 | 34.35 | [('topic_primary', 'Prostatitis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Prostatitis"]}')]
+   cipher:3500 | 34.1125 | [('topic_primary', 'Prostatitis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Prostatitis"]}')]
+   cipher:15498 | 34.1125 | [('topic_primary', 'Prostatitis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Prostatitis"]}')]
+   cipher:13720 | 28.9425 | [('topic_primary', 'Acute Prostatitis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Acute Prostatitis"]}')]
+   cipher:2054 | 28.9025 | [('topic_primary', 'Acute Prostatitis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Acute Prostatitis"]}')]
+   cipher:15499 | 15.1725 | [('topic_primary', 'Acute Prostatitis')]
+   cipher:18650 | 13.7554 | [('topic_primary', 'Chronic Prostatitis or Chronic Pelvic Pain Syndrome (MVP)')]
+   ohdsi:1301 | -5.23 | [('topic_mismatch', 'Urinary Tract Infection')]
+
+CASE 4: Patients who underwent esophagectomy
+   ohdsi:1097 | 32.1233 | [('topic_primary', 'Esophagectomy'), ('topic_context', '{"context_conditions": ["Atrial Fibrillation"], "target_conditions": ["Esophagectomy"]}')]
+   ohdsi:1294 | 26.33 | [('topic_primary', 'Esophagectomy')]
+   ohdsi:870 | 26.31 | [('topic_primary', 'Esophagectomy')]
+   ohdsi:1309 | 22.35 | [('topic_primary', 'Esophagectomy')]
+   ohdsi:877 | -5.75 | [('topic_mismatch', 'Postoperative Cardiac Complications')]
+   ohdsi:1289 | -9.25 | [('topic_mismatch', 'Surgery')]
+   ohdsi:865 | -9.25 | [('topic_mismatch', 'Surgery')]
+   cipher:30087 | -9.3875 | [('topic_mismatch', 'Primary Malignancy, Oesophageal')]
+
+CASE 5: Patients diagnosed with peripheral neuritis
+   ohdsi:388 | 35.85 | [('topic_primary', 'Peripheral neuritis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Peripheral neuritis"]}')]
+   ohdsi:389 | 20.08 | [('topic_primary', 'Peripheral Neuropathy'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Peripheral Neuropathy"]}')]
+   ohdsi:238 | 20.0 | [('topic_primary', 'Optic neuritis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Optic neuritis"]}')]
+   ohdsi:540 | 20.0 | [('topic_primary', 'Optic neuritis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Optic neuritis"]}')]
+   cipher:30768 | 19.8825 | [('topic_primary', 'Peripheral Neuropathies'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Peripheral Neuropathies"]}')]
+   ohdsi:236 | 19.6233 | [('topic_primary', 'Peripheral Neuropathy'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Idiopathic Peripheral Neuropathy"]}')]
+   cipher:2808 | 19.1125 | [('topic_primary', 'Peripheral neuropathy'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Hereditary and idiopathic peripheral neuropathy"]}')]
+   ohdsi:541 | 18.31 | [('topic_primary', 'Idiopathic peripheral neuropathy'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Idiopathic peripheral neuropathy"]}')]
+
+CASE 6: Patients with concomitant TNF-alpha inhibitor and IL-12/23 inhibitor exposure for at least 30 days
+   ohdsi:760 | 27.7071 | [('topic_primary', 'IL-23 Inhibitors')]
+   ohdsi:1042 | 27.6271 | [('topic_primary', 'IL-23 inhibitors')]
+   ohdsi:1040 | 27.6071 | [('topic_primary', 'TNF alpha inhibitors')]
+   ohdsi:1069 | 25.5 | [('topic_primary', 'TNF inhibitors'), ('topic_context', '{"context_conditions": ["Crohns disease"], "target_conditions": ["TNF inhibitors"]}')]
+   ohdsi:759 | 23.6671 | [('topic_primary', 'TNF-alpha Inhibitors, IL23 Inhibitors')]
+   ohdsi:1057 | 20.3614 | [('topic_primary', 'IL-23 inhibitors'), ('topic_context', '{"context_conditions": ["Plaque psoriasis", "Psoriasis vulgaris"], "target_conditions": ["IL23 inhibitors"]}')]
+   ohdsi:1066 | 19.9881 | [('topic_primary', 'Tumor Necrosis Factor alpha (TNFa) inhibitors')]
+   ohdsi:1068 | 19.75 | [('topic_primary', 'Tumor Necrosis Factor alpha (TNFa) inhibitors'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Tumor Necrosis Factor alpha (TNFa) inhibitors"]}')]
+
+CASE 7: Patients with allergic rhinitis
+   ohdsi:508 | 35.85 | [('topic_primary', 'Allergic rhinitis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Allergic rhinitis"]}')]
+   ohdsi:367 | 35.83 | [('topic_primary', 'Allergic Rhinitis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Allergic Rhinitis"]}')]
+   cipher:2081 | 35.6125 | [('topic_primary', 'Allergic Rhinitis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Allergic Rhinitis"]}')]
+   cipher:30258 | 30.1725 | [('topic_primary', 'Allergic and Chronic Rhinitis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Allergic and chronic rhinitis diagnosis"]}')]
+   cipher:13411 | 28.1125 | [('topic_primary', 'Allergic Rhinitis')]
+   ohdsi:12 | 23.2067 | [('topic_primary', 'Rhinitis'), ('topic_context', '{"context_conditions": ["Common cold", "Sinusitis", "Respiratory Symptoms"], "target_conditions": ["Rhinitis"]}')]
+   cipher:15246 | 20.6125 | [('topic_primary', 'Allergic Rhinitis')]
+   ohdsi:370 | 16.25 | [('topic_primary', 'Allergic Disorder')]
+
+CASE 8: Patients with ischemic heart disease
+   ohdsi:654 | 35.85 | [('topic_primary', 'Ischemic heart disease'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Ischemic heart disease"]}')]
+   cipher:16261 | 35.6525 | [('topic_primary', 'Ischemic Heart Disease'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Ischemic Heart Disease"]}')]
+   cipher:29560 | 35.5375 | [('topic_primary', 'Ischemic Heart Disease'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Ischemic Heart Disease"]}')]
+   cipher:29218 | 25.1325 | [('topic_primary', 'Coronary Heart Disease'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Coronary Heart Disease"]}')]
+   cipher:30610 | 25.1125 | [('topic_primary', 'Ischaemic Heart Disease'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Ischaemic Heart Disease"]}')]
+   cipher:29772 | 25.1125 | [('topic_primary', 'Coronary Heart Disease'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Coronary Heart Disease"]}')]
+   cipher:30617 | 12.6725 | [('topic_primary', 'Coronary Heart Disease')]
+   cipher:31868 | 11.2792 | [('topic_primary', 'Chronic Ischaemic Heart Disease')]
+
+CASE 9: Pregnant patients with hemorrhage in early pregnancy or threatened labor
+   cipher:13824 | 18.1925 | [('topic_primary', 'Early Labor Hemorrhage'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Early Labor Hemorrhage"]}')]
+   cipher:2643 | 16.6411 | [('topic_primary', 'Early or threatened labor; hemorrhage in early pregnancy')]
+   cipher:2798 | 13.7375 | [('topic_primary', 'Hemorrhage in early pregnancy'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Hemorrhage in early pregnancy"]}')]
+   cipher:17376 | 10.4458 | [('topic_primary', 'Hemorrhage')]
+   cipher:15566 | 9.3625 | [('topic_primary', 'Pregnancy Hemorrhage'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Pregnancy Hemorrhage"]}')]
+   cipher:13827 | 4.4458 | [('topic_primary', 'Hemorrhage in Early Pregnancy')]
+   ohdsi:677 | 4.375 | [('topic_primary', 'Preterm labor with preterm delivery'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Preterm labor with preterm delivery"]}')]
+   ohdsi:1434 | -10.69 | [('topic_mismatch', 'Pregnancy Loss')]
+
+CASE 10: Patients who underwent lung resection
+   ohdsi:1268 | 28.6833 | [('topic_primary', 'Lung Resection'), ('topic_context', '{"context_conditions": ["Atrial Fibrillation", "Postoperative Afib"], "target_conditions": ["Lung Resection"]}')]
+   ohdsi:1308 | 24.5833 | [('topic_primary', 'Lung Resection'), ('topic_context', '{"context_conditions": ["Atrial Fibrillation", "Postoperative AFib"], "target_conditions": ["Lung Resection"]}')]
+   ohdsi:869 | 22.81 | [('topic_primary', 'Lung Resection')]
+   ohdsi:1293 | 22.79 | [('topic_primary', 'Lung Resection')]
+   ohdsi:1289 | -9.25 | [('topic_mismatch', 'Surgery')]
+   ohdsi:865 | -9.25 | [('topic_mismatch', 'Surgery')]
+   ohdsi:877 | -9.25 | [('topic_mismatch', 'Postoperative Cardiac Complications')]
+   ohdsi:1106 | -9.25 | [('topic_mismatch', 'Surgery')]
+
+CASE 11: Patients with laryngitis
+   ohdsi:355 | 35.85 | [('topic_primary', 'Laryngitis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Laryngitis"]}')]
+   cipher:2360 | 30.3625 | [('topic_primary', 'Chronic laryngitis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Chronic laryngitis"]}')]
+   cipher:15233 | 27.9458 | [('topic_primary', 'Acute laryngitis and tracheitis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Acute laryngitis", "Tracheitis"]}')]
+   cipher:13398 | 27.7375 | [('topic_primary', 'Acute Laryngitis and Tracheitis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Acute Laryngitis and Tracheitis"]}')]
+   cipher:2046 | 22.1125 | [('topic_primary', 'Acute laryngitis and tracheitis')]
+   ohdsi:327 | -3.69 | [('topic_mismatch', 'Pharyngitis')]
+   ohdsi:9 | -3.71 | [('topic_mismatch', 'Sore throat')]
+   cipher:29206 | -3.8075 | [('topic_mismatch', 'Peritonsillar Abscess')]
+
+CASE 12: Patients with regional enteritis
+   cipher:3534 | 35.6925 | [('topic_primary', 'Regional enteritis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Regional enteritis"]}')]
+   cipher:13571 | 28.1125 | [('topic_primary', 'Regional Enteritis')]
+   cipher:15376 | 21.1125 | [('topic_primary', 'Regional Enteritis')]
+   ohdsi:884 | -3.75 | [('topic_mismatch', 'Diarrhea')]
+   ohdsi:775 | -3.75 | [('topic_mismatch', 'Inflammatory Bowel Disease')]
+   cipher:30115 | -3.8875 | [('topic_mismatch', "Crohn's Disease")]
+   cipher:30160 | -3.8875 | [('topic_mismatch', 'Enteropathic Arthropathy')]
+   ohdsi:330 | -7.75 | [('topic_mismatch', 'Abdominal bloating')]
+
+CASE 13: Patients with renal sclerosis
+   cipher:13646 | 30.4625 | [('topic_primary', 'Nephritis Nephrosis Renal Sclerosis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Nephritis Nephrosis Renal Sclerosis"]}')]
+   cipher:13656 | 28.1925 | [('topic_primary', 'Renal Sclerosis')]
+   cipher:17322 | 20.6325 | [('topic_primary', 'Renal Sclerosis')]
+   cipher:3541 | 20.6125 | [('topic_primary', 'Renal Sclerosis')]
+   ohdsi:1003 | 20.0 | [('topic_primary', 'Renal cancer'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Renal cancer"]}')]
+   ohdsi:481 | 18.25 | [('topic_primary', 'Renal failure syndrome'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Renal failure syndrome"]}')]
+   ohdsi:467 | 8.75 | [('topic_primary', 'Systemic sclerosis')]
+   cipher:31257 | 8.6125 | [('topic_primary', 'Renal disease')]
+
+CASE 14: Patients with cardiomyopathy
+   cipher:30192 | 34.4625 | [('topic_primary', 'Cardiomyopathy'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Other Cardiomyopathy"]}')]
+   cipher:31252 | 34.0058 | [('topic_primary', 'Cardiomyopathy'), ('topic_context', '{"context_conditions": ["Heart Failure"], "target_conditions": ["Cardiomyopathy"]}')]
+   ohdsi:679 | 30.58 | [('topic_primary', 'Takotsubo cardiomyopathy'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Takotsubo cardiomyopathy"]}')]
+   cipher:30174 | 30.4025 | [('topic_primary', 'Dilated Cardiomyopathy'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Dilated Cardiomyopathy"]}')]
+   cipher:30155 | 29.0292 | [('topic_primary', 'Hypertrophic Cardiomyopathy (HCM)'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Hypertrophic Cardiomyopathy"]}')]
+   cipher:31636 | 20.6325 | [('topic_primary', 'Cardiomyopathy')]
+   cipher:31587 | 20.6125 | [('topic_primary', 'Cardiomyopathy')]
+   cipher:31280 | 20.6125 | [('topic_primary', 'Cardiomyopathy')]
+
+CASE 15: Patients with a diagnosis of PRES
+   ohdsi:223 | 21.95 | [('topic_primary', 'Posterior reversible encephalopathy syndrome (PRES)')]
+   ohdsi:1075 | -3.67 | [('topic_mismatch', 'Narcolepsy')]
+   ohdsi:1317 | -3.69 | [('topic_mismatch', 'Reye’s syndrome')]
+   ohdsi:516 | -3.71 | [('topic_mismatch', 'Thrombotic microangiopathy')]
+   ohdsi:248 | -3.75 | [('topic_mismatch', 'Disseminated Intravascular Coagulation (DIC)')]
+   ohdsi:520 | -3.75 | [('topic_mismatch', 'Hypertensive disorder')]
+   ohdsi:229 | -3.75 | [('topic_mismatch', 'Progressive Multifocal Leukoencephalopathy (PML)')]
+   ohdsi:1084 | -3.75 | [('topic_mismatch', 'Disseminated Intravascular Coagulation (DIC)')]
+
+CASE 16: Patients with anorexia nervosa
+   ohdsi:1340 | 34.29 | [('topic_primary', 'Anorexia Nervosa'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Anorexia Nervosa"]}')]
+   cipher:17187 | 34.1125 | [('topic_primary', 'Anorexia Nervosa'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Anorexia Nervosa"]}')]
+   cipher:2117 | 34.1125 | [('topic_primary', 'Anorexia Nervosa'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Anorexia Nervosa"]}')]
+   cipher:12990 | 26.6125 | [('topic_primary', 'Anorexia Nervosa')]
+   ohdsi:1339 | 18.5 | [('topic_primary', 'Bulimia Nervosa'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Bulimia Nervosa"]}')]
+   cipher:30163 | 5.9425 | [('topic_context', '{"context_conditions": [], "target_conditions": ["Anorexia and Bulimia Nervosa"]}'), ('context_without_primary', 'topic only matched context fields')]
+   ohdsi:1341 | -5.25 | [('topic_mismatch', 'Eating Disorders')]
+   ohdsi:1075 | -5.25 | [('topic_mismatch', 'Narcolepsy')]
+
+CASE 17: Patients with dizziness, vertigo, or motion sickness
+   cipher:3402 | 19.8625 | [('topic_primary', 'Vertigo'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Vertigo"]}')]
+   cipher:13215 | 18.8125 | [('topic_primary', 'Dizziness and Giddiness (Lightheadedness and Vertigo)'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Dizziness and Giddiness (Lightheadedness and Vertigo)"]}')]
+   ohdsi:893 | 16.29 | [('topic_primary', 'Vertigo')]
+   cipher:2623 | 14.7792 | [('topic_primary', 'Dizziness and giddiness (Light-headedness and vertigo)')]
+   ohdsi:244 | 12.35 | [('topic_primary', 'Dizziness')]
+   cipher:15084 | 6.7792 | [('topic_primary', 'Dizziness and giddiness')]
+   cipher:4387 | -3.8675 | [('topic_mismatch', 'Vestibular Disorders')]
+   ohdsi:891 | -7.69 | [('topic_mismatch', 'Nausea')]
+
+CASE 18: Patients with polymyalgia rheumatica
+   cipher:30277 | 34.2125 | [('topic_primary', 'Polymyalgia Rheumatica'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Polymyalgia Rheumatica"]}')]
+   cipher:13992 | 26.6725 | [('topic_primary', 'Polymyalgia Rheumatica')]
+   cipher:3460 | 19.1925 | [('topic_primary', 'Polymyalgia Rheumatica')]
+   cipher:17453 | 19.1525 | [('topic_primary', 'Polymyalgia Rheumatica')]
+   ohdsi:670 | -5.25 | [('topic_mismatch', 'Temporal arteritis')]
+   ohdsi:1075 | -5.25 | [('topic_mismatch', 'Narcolepsy')]
+   ohdsi:363 | -5.25 | [('topic_mismatch', 'Joint stiffness')]
+   ohdsi:605 | -12.25 | [('topic_mismatch', 'Muscle pain')]
+
+CASE 19: Patients with adverse effects from therapeutic corticosteroid use
+   cipher:2915 | 21.1125 | [('topic_primary', 'Insulin Adverse Effects'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Insulin Adverse Effects"]}')]
+   cipher:2064 | 18.4125 | [('topic_primary', 'Adrenal Cortical Steroids Adverse Effects'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Adrenal Cortical Steroids Adverse Effects"]}')]
+   cipher:2123 | 18.3125 | [('topic_primary', 'Lipid-Lowering Drug Adverse Effects'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Lipid-Lowering Drug Adverse Effects"]}')]
+   cipher:3573 | 16.1125 | [('topic_primary', 'Salicylates adverse effects')]
+   cipher:2125 | 16.1125 | [('topic_primary', 'Antirheumatics adverse effects')]
+   cipher:14303 | 14.8392 | [('topic_primary', 'Adrenal Steroid Adverse Effects')]
+   cipher:17565 | 14.0192 | [('topic_primary', 'Adverse Effects of Adrenal Steroids')]
+   cipher:3180 | 13.9792 | [('topic_primary', 'Opiate Use and Adverse Effects')]
+
+CASE 20: Patients with low blood pressure
+   cipher:13390 | 35.6125 | [('topic_primary', 'Hypotension'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Hypotension"]}')]
+   ohdsi:339 | 21.33 | [('topic_primary', 'Hypotension')]
+   ohdsi:890 | 21.31 | [('topic_primary', 'Hypotension')]
+   ohdsi:526 | 17.25 | [('topic_primary', 'Orthostatic hypotension')]
+   ohdsi:997 | 9.35 | [('topic_primary', 'Hypotension')]
+   ohdsi:954 | -3.75 | [('topic_mismatch', 'Syncope')]
+   cipher:4093 | -3.8875 | [('topic_mismatch', 'Peripheral Vascular Disease')]
+   ohdsi:445 | -10.75 | [('topic_mismatch', 'Hypoglycemia')]
+
+CASE 21: Patients with encephalopathy
+   ohdsi:194 | 35.83 | [('topic_primary', 'Encephalopathy'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Encephalopathy"]}')]
+   cipher:2664 | 35.6125 | [('topic_primary', 'Encephalopathy'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Encephalopathy"]}')]
+   ohdsi:331 | 33.81 | [('topic_primary', 'Encephalopathy'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Encephalopathy"]}')]
+   ohdsi:223 | 27.2867 | [('topic_primary', 'Posterior reversible encephalopathy syndrome (PRES)'), ('topic_context', '{"context_conditions": ["Eclampsia", "Hypertensive encephalopathy"], "target_conditions": ["Posterior reversible encepha... [truncated 19 chars]')]
+   ohdsi:936 | -0.8929 | [('topic_context', '{"context_conditions": ["Hepatic necrosis", "Hepatic coma", "Hepatic encephalopathy", "Liver failure", "Liver injury"], ... [truncated 41 chars]'), ('context_without_primary', 'topic only matched context fields')]
+   ohdsi:1333 | -3.71 | [('topic_mismatch', 'Advanced Liver Disease')]
+   ohdsi:544 | -3.75 | [('topic_mismatch', 'Encephalitis')]
+   ohdsi:1075 | -3.75 | [('topic_mismatch', 'Narcolepsy')]
+
+CASE 22: Patients with birdshot chorioretinitis
+   ohdsi:1223 | 8.0167 | [('topic_context', '{"context_conditions": ["Uveitis"], "target_conditions": ["Birdshot chorioretinitis"]}'), ('context_without_primary', 'topic only matched context fields')]
+   ohdsi:1226 | -3.73 | [('topic_mismatch', 'Uveitis')]
+   ohdsi:1229 | -3.75 | [('topic_mismatch', "Behcet's Uveitis")]
+   ohdsi:755 | -3.75 | [('topic_mismatch', 'Uveitis')]
+   cipher:30185 | -3.8875 | [('topic_mismatch', 'Posterior Uveitis')]
+   cipher:13118 | -3.8875 | [('topic_mismatch', 'Chorioretinal Inflammations Scars')]
+   cipher:2341 | -3.8875 | [('topic_mismatch', 'Chorioretinal inflammations, scars, and other disorders of choroid')]
+   ohdsi:1225 | -10.69 | [('topic_mismatch', 'Uveitis')]
+
+CASE 23: Older adults with macular degeneration
+   cipher:30295 | 35.6725 | [('topic_primary', 'Macular Degeneration'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Macular Degeneration"]}')]
+   cipher:3006 | 35.6325 | [('topic_primary', 'Macular Degeneration'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Macular Degeneration"]}')]
+   cipher:3005 | 35.6125 | [('topic_primary', 'Macular Degeneration'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Macular Degeneration"]}')]
+   cipher:2505 | 35.6125 | [('topic_primary', 'Macular Degeneration'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Macular Degeneration"]}')]
+   cipher:16256 | 35.6125 | [('topic_primary', 'Macular Degeneration'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Macular Degeneration"]}')]
+   cipher:14995 | 35.6125 | [('topic_primary', 'Macular Degeneration'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Macular Degeneration"]}')]
+   cipher:3007 | 32.1125 | [('topic_primary', 'Macular Degeneration, Wet'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Macular Degeneration, Wet"]}')]
+   ohdsi:536 | 30.6 | [('topic_primary', 'Age related macular degeneration'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Age related macular degeneration"]}')]
+
+CASE 24: Patients with autoimmune hemolytic anemia
+   cipher:18441 | 35.6925 | [('topic_primary', 'Autoimmune hemolytic anemia'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Autoimmune hemolytic anemia"]}')]
+   cipher:12888 | 35.6125 | [('topic_primary', 'Autoimmune Hemolytic Anemia'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Autoimmune Hemolytic Anemia"]}')]
+   ohdsi:1018 | 35.165 | [('topic_primary', 'Autoimmune Hemolytic Anemia'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Warm Autoimmune Hemolytic Anemia"]}')]
+   ohdsi:738 | 34.85 | [('topic_primary', 'Autoimmune hemolytic anemia'), ('topic_context', '{"context_conditions": ["Evans syndrome"], "target_conditions": ["Autoimmune hemolytic anemia"]}')]
+   ohdsi:728 | 27.81 | [('topic_primary', 'Autoimmune hemolytic anemia'), ('topic_context', '{"context_conditions": ["Evans syndrome"], "target_conditions": ["Autoimmune hemolytic anemia"]}')]
+   ohdsi:901 | 21.75 | [('topic_primary', 'Anemia'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Anemia"]}')]
+   cipher:17112 | 17.6125 | [('topic_primary', 'Autoimmune Hemolytic Anemias')]
+   ohdsi:210 | 15.4167 | [('topic_primary', 'Hemolytic Anemia')]
+
+CASE 25: Patients with MSI-low rectal adenocarcinoma
+   ohdsi:836 | 27.75 | [('topic_primary', 'colorectal cancer'), ('topic_context', '{"context_conditions": [], "target_conditions": ["colorectal cancer"]}')]
+   ohdsi:823 | 27.75 | [('topic_primary', 'Colorectal Cancer'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Colorectal Cancer"]}')]
+   ohdsi:819 | 22.0833 | [('topic_primary', 'Colorectal Cancer'), ('topic_context', '{"context_conditions": ["MSI-L", "MSI-indeterminate", "MSS", "pMMR"], "target_conditions": ["Colorectal Cancer"]}')]
+   ohdsi:831 | 21.0833 | [('topic_primary', 'Colorectal Cancer Treatment'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Colorectal Cancer"]}')]
+   ohdsi:843 | 20.35 | [('topic_primary', 'colorectal cancer')]
+   ohdsi:821 | 20.29 | [('topic_primary', 'Colorectal Cancer')]
+   ohdsi:812 | 20.27 | [('topic_primary', 'Colorectal Cancer')]
+   ohdsi:840 | 13.5833 | [('topic_primary', 'colorectal cancer treatment')]
+
+CASE 26: Patients with blistering skin lesions
+   ohdsi:652 | 13.875 | [('topic_primary', 'Vasculitis of the skin'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Vasculitis of the skin"]}')]
+   ohdsi:376 | 6.6433 | [('topic_primary', 'Bleeding Skin')]
+   ohdsi:1168 | 5.54 | [('topic_primary', 'Skin Ulcer'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Skin Ulcer"]}')]
+   ohdsi:414 | 5.25 | [('topic_primary', 'Skin Eruption Symptoms')]
+   ohdsi:948 | -3.73 | [('topic_mismatch', 'Rash')]
+   ohdsi:461 | -3.75 | [('topic_mismatch', 'Erythema multiforme')]
+   ohdsi:462 | -3.75 | [('topic_mismatch', 'Lichen planus')]
+   cipher:4016 | -3.8875 | [('topic_mismatch', 'Desquamative Rash')]
+
+CASE 27: Patients with stomatitis or mucositis
+   cipher:3657 | 27.7575 | [('topic_primary', 'Stomatitis and mucositis (ulcerative)'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Stomatitis and mucositis (ulcerative)"]}')]
+   cipher:17298 | 15.8792 | [('topic_primary', 'Stomatitis and Mucositis')]
+   cipher:15333 | 15.8392 | [('topic_primary', 'Stomatitis and mucositis')]
+   cipher:13516 | 15.3592 | [('topic_primary', 'Stomatitis and Mucositis')]
+   cipher:13515 | 15.3192 | [('topic_primary', 'Stomatitis and Mucositis')]
+   cipher:3656 | 15.2792 | [('topic_primary', 'Stomatitis and mucositis')]
+   cipher:30086 | -3.8875 | [('topic_mismatch', 'Oropharyngeal Malignancy')]
+   cipher:17544 | -10.8875 | [('topic_mismatch', 'Open Wound')]
+
+CASE 28: Patients with neurofibromatosis type 1
+   ohdsi:697 | 35.85 | [('topic_primary', 'Neurofibromatosis type 1'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Neurofibromatosis type 1"]}')]
+   ohdsi:304 | 35.83 | [('topic_primary', 'Neurofibromatosis type 1'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Neurofibromatosis type 1"]}')]
+   ohdsi:305 | 35.77 | [('topic_primary', 'Neurofibromatosis type 1'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Neurofibromatosis type 1"]}')]
+   ohdsi:696 | 20.81 | [('topic_primary', 'Neurofibromatosis type 2')]
+   cipher:12649 | 20.1125 | [('topic_primary', 'Neurofibromatosis')]
+   ohdsi:698 | 20.04 | [('topic_primary', 'Neurofibromatosis syndrome'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Neurofibromatosis syndrome"]}')]
+   ohdsi:308 | 15.6667 | [('topic_primary', 'Neurofibromatosis'), ('topic_context', '{"context_conditions": ["MRI of Brain", "Ophthalmology Visits"], "target_conditions": ["Neurofibromatosis"]}')]
+   ohdsi:306 | 13.85 | [('topic_primary', 'Optic Pathway Glioma and Neurofibromatosis')]
+
+CASE 29: Patients with keloid scars
+   cipher:13930 | 16.1125 | [('topic_primary', 'Keloid Scar')]
+   cipher:15610 | 8.7125 | [('topic_primary', 'Keloid Scar')]
+   cipher:2950 | 8.6525 | [('topic_primary', 'Keloid Scar')]
+   cipher:18443 | -10.8875 | [('topic_mismatch', 'Severe Cutaneous Adverse Reaction (SCAR)')]
+   cipher:30650 | -11.3875 | [('topic_mismatch', 'Smoking Status')]
+   ohdsi:1168 | -14.69 | [('topic_mismatch', 'Skin Ulcer')]
+   ohdsi:1215 | -14.73 | [('topic_mismatch', 'Cancer')]
+   ohdsi:1102 | -20.25 | [('topic_mismatch', 'Coronary Artery Bypass Graft Surgery')]
+
+CASE 30: Patients with acetaminophen exposure
+   ohdsi:1187 | 32.85 | [('topic_primary', 'acetaminophen exposure')]
+   ohdsi:1427 | 28.5 | [('topic_primary', 'Acamprosate Exposure'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Acamprosate Exposure"]}')]
+   ohdsi:1428 | 24.75 | [('topic_primary', 'Disulfiram Exposure')]
+   ohdsi:1158 | 20.83 | [('topic_primary', 'Aspirin Exposure')]
+   cipher:31254 | -15.3875 | [('topic_mismatch', 'Liver Disease')]
+   cipher:30616 | -15.3875 | [('topic_mismatch', 'Substance Misuse')]
+   ohdsi:1423 | -17.73 | [('topic_mismatch', 'Acute Intoxication')]
+   ohdsi:735 | -17.75 | [('topic_mismatch', 'Acute Liver Injury')]
+
+CASE 31: Patients exposed to rifamycin antibiotics
+   ohdsi:1206 | 16.81 | [('topic_primary', 'Macrolide Drug Exposure')]
+   ohdsi:1211 | 0.85 | [('topic_mismatch', 'Rifamycins')]
+   ohdsi:1213 | 0.83 | [('topic_mismatch', 'Streptogramins')]
+   ohdsi:1202 | 0.77 | [('topic_mismatch', 'Carbapenems')]
+   ohdsi:1212 | 0.75 | [('topic_mismatch', 'Sulfonamides')]
+   ohdsi:1209 | 0.75 | [('topic_mismatch', 'Penicillins')]
+   ohdsi:1208 | 0.75 | [('topic_mismatch', 'Oxazolidinones')]
+   ohdsi:1207 | 0.75 | [('topic_mismatch', 'Antibiotics - Monobactams')]
+
+CASE 32: Patients with a joint or ligament sprain
+   cipher:14236 | 28.6925 | [('topic_primary', 'Joint Ligament Sprain'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Joint Ligament Sprain"]}')]
+   cipher:3569 | 27.7375 | [('topic_primary', 'Rotator cuff (capsule) sprain'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Rotator cuff (capsule) sprain"]}')]
+   cipher:2944 | 16.7125 | [('topic_primary', 'Ligament sprain')]
+   cipher:15814 | 15.3392 | [('topic_primary', 'Joint Ligament Sprain')]
+   cipher:3072 | 15.2792 | [('topic_primary', 'Muscle-tendon sprain')]
+   cipher:15813 | 14.6125 | [('topic_primary', 'Rotator cuff (capsule) sprain')]
+   ohdsi:363 | -3.73 | [('topic_mismatch', 'Joint stiffness')]
+   cipher:29559 | -7.8475 | [('topic_mismatch', 'Musculoskeletal Pain and Injury')]
+
+CASE 33: Pregnant patients with miscarriage or stillbirth
+   ohdsi:627 | 31.83 | [('topic_primary', 'Miscarriage'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Miscarriage"]}')]
+   cipher:3056 | 26.4025 | [('topic_primary', 'Miscarriage; Stillbirth'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Miscarriage", "Stillbirth"]}')]
+   cipher:15565 | 26.3625 | [('topic_primary', 'Miscarriage, Stillbirth'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Miscarriage", "Stillbirth"]}')]
+   cipher:13818 | 26.3625 | [('topic_primary', 'Miscarriage, Stillbirth'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Miscarriage", "Stillbirth"]}')]
+   ohdsi:1434 | -7.65 | [('topic_mismatch', 'Pregnancy Loss')]
+   ohdsi:1432 | -7.69 | [('topic_mismatch', 'Stillbirth')]
+   ohdsi:1431 | -7.73 | [('topic_mismatch', 'Ectopic Pregnancy')]
+   ohdsi:606 | -7.75 | [('topic_mismatch', 'Stillbirth')]
+
+CASE 34: Patients with arterial embolism or thrombosis of a lower extremity artery
+   cipher:13354 | 19.2775 | [('topic_primary', 'Arterial Embolism and Thrombosis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Arterial Embolism and Thrombosis"]}')]
+   cipher:2142 | 19.2375 | [('topic_primary', 'Arterial Embolism and Thrombosis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Arterial Embolism and Thrombosis"]}')]
+   cipher:31817 | 15.6125 | [('topic_primary', 'Embolism or Thrombosis')]
+   cipher:15204 | 13.6125 | [('topic_primary', 'Arterial Embolism and Thrombosis')]
+   cipher:31293 | 13.6125 | [('topic_primary', 'Arterial Embolism and Thrombosis')]
+   cipher:31819 | 12.6925 | [('topic_primary', 'Arterial Embolism, Upper Extremity'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Arterial Embolism"]}')]
+   ohdsi:1090 | 6.25 | [('topic_primary', 'Pulmonary Embolism'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Pulmonary Embolism"]}')]
+   cipher:31820 | -12.7875 | [('topic_mismatch', 'Lower Extremity Vascular Disease')]
+
+CASE 35: Patients with a urinary tract infection who are new users of cephalosporins
+   cipher:31223 | 35.6125 | [('topic_primary', 'Urinary Tract Infection'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Urinary Tract Infection"]}')]
+   cipher:30639 | 35.6125 | [('topic_primary', 'Urinary Tract Infection'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Urinary Tract Infection"]}')]
+   ohdsi:1301 | 32.1389 | [('topic_primary', 'Urinary Tract Infection'), ('topic_context', '{"context_conditions": ["Cystitis", "Asymptomatic bacteriuria"], "target_conditions": ["Acute Urinary tract infections U... [truncated 12 chars]')]
+   ohdsi:1186 | 31.81 | [('topic_primary', 'Urinary Tract Infection'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Urinary Tract Infection"]}')]
+   ohdsi:410 | 28.25 | [('topic_primary', 'Urinary Tract Infection')]
+   ohdsi:861 | 22.5 | [('topic_primary', 'Urinary Tract Infection'), ('topic_context', '{"context_conditions": ["Pyuria", "Bacteriuria", "Cystitis"], "target_conditions": ["Urinary Tract Infection"]}')]
+   ohdsi:1061 | -7.65 | [('topic_mismatch', 'Cephalosporin Exposure')]
+   ohdsi:1060 | -7.67 | [('topic_mismatch', 'Fluoroquinolone Use')]
+
+CASE 36: Patients hospitalized with preinfarction syndrome
+   ohdsi:939 | -1.4357 | [('topic_context', '{"context_conditions": ["Preinfarction Syndrome", "Emergency Room Visit", "Inpatient Visit"], "target_conditions": ["Hos... [truncated 15 chars]'), ('context_without_primary', 'topic only matched context fields')]
+   ohdsi:1081 | -1.73 | [('topic_mismatch', 'Acute Myocardial Infarction')]
+   cipher:30728 | -1.8875 | [('topic_mismatch', 'Unstable Angina')]
+   cipher:29772 | -5.3875 | [('topic_mismatch', 'Coronary Heart Disease')]
+   cipher:30101 | -5.3875 | [('topic_mismatch', 'Myocardial Infarction')]
+   ohdsi:263 | -8.75 | [('topic_mismatch', 'Unstable Angina and NSTEMI')]
+   ohdsi:262 | -8.75 | [('topic_mismatch', 'Unstable Angina')]
+   cipher:30617 | -12.8275 | [('topic_mismatch', 'Coronary Heart Disease')]
+
+CASE 37: Patients with a personal history of blood or blood-forming organ disease
+   cipher:3412 | 5.0925 | [('topic_primary', 'Personal history of diseases of blood and blood-forming organs')]
+   cipher:17130 | 5.0125 | [('topic_primary', 'Personal History of Blood and Bloodforming Organ Diseases')]
+   cipher:18428 | -3.8675 | [('topic_mismatch', 'Pancytopenia')]
+   cipher:30246 | -3.8875 | [('topic_mismatch', 'Aplastic Anaemias')]
+   cipher:30138 | -3.8875 | [('topic_mismatch', 'Hyposplenism')]
+   cipher:30287 | -3.8875 | [('topic_mismatch', 'Myelodysplastic Syndromes')]
+   cipher:29220 | -3.8875 | [('topic_mismatch', 'Anemias, Other')]
+   cipher:30672 | -3.8875 | [('topic_mismatch', 'Thalassaemia Trait')]
+
+CASE 38: Patients with benign pancreatic conditions
+   cipher:16955 | 20.7125 | [('topic_primary', 'Pancreatic Conditions')]
+   cipher:16954 | 20.6725 | [('topic_primary', 'Pancreatic Conditions')]
+   cipher:16947 | 20.6325 | [('topic_primary', 'Pancreatic Conditions')]
+   cipher:16952 | 19.2775 | [('topic_primary', 'Pancreatic Cancer'), ('topic_context', '{"context_conditions": ["PSC", "IBD"], "target_conditions": ["Pancreatic Cancer"]}')]
+   cipher:16953 | 8.6125 | [('topic_primary', 'Pancreatic Inflammation')]
+   ohdsi:496 | -3.75 | [('topic_mismatch', 'Abdominal Pain')]
+   cipher:30223 | -3.8875 | [('topic_mismatch', 'Benign Neoplasm of Stomach and Duodenum')]
+   cipher:30238 | -3.8875 | [('topic_mismatch', 'Pancreatitis')]
+
+CASE 39: Patients with primary localized osteoarthritis
+   cipher:3192 | 34.1725 | [('topic_primary', 'Osteoarthritis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Osteoarthritis"]}')]
+   cipher:4399 | 34.1125 | [('topic_primary', 'Osteoarthritis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Osteoarthritis"]}')]
+   cipher:4029 | 32.8625 | [('topic_primary', 'Osteoarthritis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Thumb Osteoarthritis"]}')]
+   cipher:3190 | 28.9425 | [('topic_primary', 'Osteoarthritis localized'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Osteoarthritis localized"]}')]
+   cipher:16011 | 28.8625 | [('topic_primary', 'Knee Osteoarthritis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Knee Osteoarthritis"]}')]
+   cipher:15900 | 28.1125 | [('topic_primary', 'Hip Osteoarthritis'), ('topic_context', '{"context_conditions": ["Degenerative Joint Disease"], "target_conditions": ["Hip Osteoarthritis"]}')]
+   cipher:30133 | 27.1325 | [('topic_primary', 'Osteoarthritis (Excl Spine)'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Osteoarthritis (Excl Spine)"]}')]
+   ohdsi:396 | 26.75 | [('topic_primary', 'Osteoarthritis')]
+
+CASE 40: New users of dihydropyridine calcium channel blockers
+   ohdsi:1047 | 41.705 | [('topic_primary', 'dihydropyridine calcium channel blockers'), ('topic_context', '{"context_conditions": [], "target_conditions": ["dihydropyridine calcium channel blockers"]}')]
+   ohdsi:1048 | 34.85 | [('topic_primary', 'dihydropyridine calcium channel blockers')]
+   ohdsi:1036 | 25.06 | [('topic_primary', 'Beta Blockers'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Beta Blockers"]}')]
+   ohdsi:1049 | 24.395 | [('topic_primary', 'Beta Blockers'), ('topic_context', '{"context_conditions": ["Hypertension", "Essential Hypertension"], "target_conditions": ["Beta Blockers"]}')]
+   ohdsi:1052 | 24.29 | [('topic_primary', 'Beta Blockers'), ('topic_context', '{"context_conditions": ["Acute Myocardial Infarction"], "target_conditions": ["Beta Blockers"]}')]
+   ohdsi:1046 | 4.75 | [('topic_mismatch', 'Thiazide diuretics')]
+   ohdsi:1035 | 2.75 | [('topic_mismatch', 'Thiazide diuretics')]
+   cipher:30608 | -11.8875 | [('topic_mismatch', 'Cardiovascular Risk Score')]
+
+CASE 41: Veteran patients with renal sclerosis
+   cipher:13646 | 30.3625 | [('topic_primary', 'Nephritis Nephrosis Renal Sclerosis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Nephritis Nephrosis Renal Sclerosis"]}')]
+   cipher:13656 | 28.1725 | [('topic_primary', 'Renal Sclerosis')]
+   cipher:17322 | 21.7125 | [('topic_primary', 'Renal Sclerosis')]
+   cipher:15442 | 17.6125 | [('topic_primary', 'Nephritis, Nephrosis, Renal Sclerosis')]
+   cipher:18902 | 9.6125 | [('topic_primary', 'Renal Failure')]
+   cipher:31257 | 8.6125 | [('topic_primary', 'Renal disease')]
+   cipher:16003 | -3.8875 | [('topic_mismatch', 'Chronic Kidney Disease')]
+   ohdsi:964 | -11.17 | [('topic_mismatch', 'Chronic Kidney Disease')]
+
+CASE 42: Veteran patients with polymyalgia rheumatica
+   cipher:30277 | 35.7125 | [('topic_primary', 'Polymyalgia Rheumatica'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Polymyalgia Rheumatica"]}')]
+   cipher:13992 | 28.1525 | [('topic_primary', 'Polymyalgia Rheumatica')]
+   cipher:17453 | 21.6925 | [('topic_primary', 'Polymyalgia Rheumatica')]
+   cipher:3460 | 20.6725 | [('topic_primary', 'Polymyalgia Rheumatica')]
+   ohdsi:670 | -3.75 | [('topic_mismatch', 'Temporal arteritis')]
+   ohdsi:1075 | -3.75 | [('topic_mismatch', 'Narcolepsy')]
+   ohdsi:363 | -3.75 | [('topic_mismatch', 'Joint stiffness')]
+   cipher:30630 | -11.3875 | [('topic_mismatch', 'Rheumatoid Arthritis')]
+
+CASE 43: Veteran patients with autoimmune hemolytic anemia
+   cipher:18441 | 35.6725 | [('topic_primary', 'Autoimmune hemolytic anemia'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Autoimmune hemolytic anemia"]}')]
+   cipher:12888 | 35.6125 | [('topic_primary', 'Autoimmune Hemolytic Anemia'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Autoimmune Hemolytic Anemia"]}')]
+   ohdsi:1018 | 35.165 | [('topic_primary', 'Autoimmune Hemolytic Anemia'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Warm Autoimmune Hemolytic Anemia"]}')]
+   ohdsi:738 | 34.85 | [('topic_primary', 'Autoimmune hemolytic anemia'), ('topic_context', '{"context_conditions": ["Evans syndrome"], "target_conditions": ["Autoimmune hemolytic anemia"]}')]
+   ohdsi:728 | 27.83 | [('topic_primary', 'Autoimmune hemolytic anemia'), ('topic_context', '{"context_conditions": ["Evans syndrome"], "target_conditions": ["Autoimmune hemolytic anemia"]}')]
+   cipher:17112 | 18.6325 | [('topic_primary', 'Autoimmune Hemolytic Anemias')]
+   cipher:2178 | 14.7792 | [('topic_primary', 'Autoimmune hemolytic anemias (MAP)')]
+   cipher:3120 | 11.2792 | [('topic_primary', 'Non-autoimmune hemolytic anemias')]
+
+CASE 44: Veteran patients with cardiac complications
+   cipher:17258 | 22.1125 | [('topic_primary', 'Cardiac Complications')]
+   cipher:15819 | 18.1125 | [('topic_primary', 'Cardiac/Vascular Device Complications')]
+   ohdsi:1081 | -3.67 | [('topic_mismatch', 'Acute Myocardial Infarction')]
+   cipher:30192 | -3.8875 | [('topic_mismatch', 'Cardiomyopathy')]
+   cipher:29218 | -3.8875 | [('topic_mismatch', 'Coronary Heart Disease')]
+   cipher:16294 | -9.8875 | [('topic_mismatch', 'Cardiovascular Disease Mortality')]
+   cipher:16278 | -11.3475 | [('topic_mismatch', 'VA Administrative Data')]
+   cipher:30617 | -11.3875 | [('topic_mismatch', 'Coronary Heart Disease')]
+
+CASE 45: Patients diagnosed with fasciitis
+   cipher:15684 | 35.6925 | [('topic_primary', 'Fasciitis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Fasciitis"]}')]
+   cipher:2703 | 35.6525 | [('topic_primary', 'Fasciitis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Fasciitis"]}')]
+   cipher:14029 | 28.1125 | [('topic_primary', 'Fasciitis')]
+   ohdsi:1075 | -3.69 | [('topic_mismatch', 'Narcolepsy')]
+   ohdsi:454 | -3.75 | [('topic_mismatch', 'Dermatomyositis')]
+   ohdsi:479 | -3.75 | [('topic_mismatch', 'Chilblains')]
+   ohdsi:363 | -3.75 | [('topic_mismatch', 'Joint stiffness')]
+   cipher:30159 | -3.7875 | [('topic_mismatch', 'Enthesopathies and Synovial Disorders')]
+
+CASE 46: Patients with stomatitis or mucositis
+   cipher:3657 | 27.7575 | [('topic_primary', 'Stomatitis and mucositis (ulcerative)'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Stomatitis and mucositis (ulcerative)"]}')]
+   cipher:17298 | 15.8792 | [('topic_primary', 'Stomatitis and Mucositis')]
+   cipher:15333 | 15.8392 | [('topic_primary', 'Stomatitis and mucositis')]
+   cipher:13516 | 15.3592 | [('topic_primary', 'Stomatitis and Mucositis')]
+   cipher:13515 | 15.3192 | [('topic_primary', 'Stomatitis and Mucositis')]
+   cipher:3656 | 15.2792 | [('topic_primary', 'Stomatitis and mucositis')]
+   cipher:30086 | -3.8875 | [('topic_mismatch', 'Oropharyngeal Malignancy')]
+   cipher:17544 | -10.8875 | [('topic_mismatch', 'Open Wound')]
+
+CASE 47: Patients with Barretts esophagus
+   cipher:13531 | 35.6925 | [('topic_primary', "Barrett's Esophagus"), ('topic_context', '{"context_conditions": [], "target_conditions": ["Barrett\'s Esophagus"]}')]
+   cipher:2187 | 35.6725 | [('topic_primary', "Barrett's esophagus"), ('topic_context', '{"context_conditions": [], "target_conditions": ["Barrett\'s esophagus"]}')]
+   cipher:15342 | 35.6125 | [('topic_primary', "Barrett's esophagus"), ('topic_context', '{"context_conditions": [], "target_conditions": ["Barrett\'s esophagus"]}')]
+   cipher:30228 | 19.9625 | [('topic_primary', "Barrett's Oesophagus"), ('topic_context', '{"context_conditions": [], "target_conditions": ["Barrett\'s Oesophagus"]}')]
+   ohdsi:447 | -3.73 | [('topic_mismatch', 'Esophagitis')]
+   ohdsi:525 | -3.75 | [('topic_mismatch', 'Gastroesophageal Reflux Disease')]
+   ohdsi:446 | -3.75 | [('topic_mismatch', 'Eosinophilic esophagitis')]
+   cipher:30087 | -3.8875 | [('topic_mismatch', 'Primary Malignancy, Oesophageal')]
+
+CASE 48: Patients with regional enteritis
+   cipher:3534 | 35.6925 | [('topic_primary', 'Regional enteritis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Regional enteritis"]}')]
+   cipher:13571 | 28.1125 | [('topic_primary', 'Regional Enteritis')]
+   cipher:15376 | 21.1125 | [('topic_primary', 'Regional Enteritis')]
+   ohdsi:884 | -3.75 | [('topic_mismatch', 'Diarrhea')]
+   ohdsi:775 | -3.75 | [('topic_mismatch', 'Inflammatory Bowel Disease')]
+   cipher:30115 | -3.8875 | [('topic_mismatch', "Crohn's Disease")]
+   cipher:30160 | -3.8875 | [('topic_mismatch', 'Enteropathic Arthropathy')]
+   ohdsi:330 | -7.75 | [('topic_mismatch', 'Abdominal bloating')]
+
+CASE 49: Patients with primary localized osteoarthritis
+   cipher:3192 | 34.1725 | [('topic_primary', 'Osteoarthritis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Osteoarthritis"]}')]
+   cipher:4399 | 34.1125 | [('topic_primary', 'Osteoarthritis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Osteoarthritis"]}')]
+   cipher:4029 | 32.8625 | [('topic_primary', 'Osteoarthritis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Thumb Osteoarthritis"]}')]
+   cipher:3190 | 28.9425 | [('topic_primary', 'Osteoarthritis localized'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Osteoarthritis localized"]}')]
+   cipher:16011 | 28.8625 | [('topic_primary', 'Knee Osteoarthritis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Knee Osteoarthritis"]}')]
+   cipher:15900 | 28.1125 | [('topic_primary', 'Hip Osteoarthritis'), ('topic_context', '{"context_conditions": ["Degenerative Joint Disease"], "target_conditions": ["Hip Osteoarthritis"]}')]
+   cipher:30133 | 27.1325 | [('topic_primary', 'Osteoarthritis (Excl Spine)'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Osteoarthritis (Excl Spine)"]}')]
+   ohdsi:396 | 26.75 | [('topic_primary', 'Osteoarthritis')]
+
+CASE 50: Patients with aortic valve disease
+   cipher:13226 | 28.1125 | [('topic_primary', 'Aortic Valve Disease')]
+   cipher:13231 | 25.1125 | [('topic_primary', 'Aortic Valve Disorders'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Aortic Valve Disorders"]}')]
+   cipher:30301 | 24.6958 | [('topic_primary', 'Aortic Valve Disorders'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Nonrheumatic aortic valve disorders"]}')]
+   cipher:17250 | 20.6125 | [('topic_primary', 'Aortic Valve Disease')]
+   cipher:2131 | 20.6125 | [('topic_primary', 'Aortic valve disease')]
+   ohdsi:1172 | 0.79 | [('topic_primary', 'Heart valve disorder')]
+   ohdsi:1103 | -0.9833 | [('topic_primary', 'Cardiac Valve Surgery'), ('topic_context', '{"context_conditions": ["Atrial Fibrillation"], "target_conditions": ["Cardiac Valve Surgery"]}')]
+   ohdsi:876 | -4.17 | [('topic_primary', 'Cardiac Valve Surgery')]
+
+CASE 51: Patients with chronic periodontitis
+   cipher:2371 | 28.1725 | [('topic_primary', 'Chronic Periodontitis')]
+   cipher:13494 | 28.1125 | [('topic_primary', 'Chronic Periodontitis')]
+   cipher:3397 | 25.2125 | [('topic_primary', 'Periodontitis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Periodontitis"]}')]
+   cipher:15317 | 20.6325 | [('topic_primary', 'Chronic Periodontitis')]
+   cipher:13492 | 20.1925 | [('topic_primary', 'Periodontitis')]
+   cipher:13493 | 16.1125 | [('topic_primary', 'Acute Periodontitis')]
+   cipher:15315 | 12.6125 | [('topic_primary', 'Periodontitis')]
+   cipher:29206 | -3.8875 | [('topic_mismatch', 'Peritonsillar Abscess')]
+
+CASE 52: Patients with hypertensive chronic kidney disease
+   ohdsi:923 | 30.5 | [('topic_primary', 'Chronic Kidney Disease'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Chronic Kidney Disease"]}')]
+   cipher:2846 | 28.1125 | [('topic_primary', 'Hypertensive Chronic Kidney Disease'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Hypertensive Chronic Kidney Disease"]}')]
+   cipher:13240 | 20.6125 | [('topic_primary', 'Hypertensive Chronic Kidney Disease')]
+   ohdsi:1191 | 19.08 | [('topic_primary', 'Chronic Kidney Disease'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Chronic Kidney Disease"]}')]
+   ohdsi:964 | 16.85 | [('topic_primary', 'Chronic Kidney Disease')]
+   cipher:31686 | 16.6525 | [('topic_primary', 'Chronic Kidney Disease')]
+   cipher:31287 | 14.1325 | [('topic_primary', 'Chronic Kidney Disease')]
+   cipher:31697 | 7.8725 | [('topic_primary', 'Hypertensive Heart and Renal Disease')]
+
+CASE 53: Patients with cardiomyopathy
+   cipher:30192 | 32.9625 | [('topic_primary', 'Cardiomyopathy'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Other Cardiomyopathy"]}')]
+   cipher:31252 | 32.5058 | [('topic_primary', 'Cardiomyopathy'), ('topic_context', '{"context_conditions": ["Heart Failure"], "target_conditions": ["Cardiomyopathy"]}')]
+   ohdsi:679 | 29.08 | [('topic_primary', 'Takotsubo cardiomyopathy'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Takotsubo cardiomyopathy"]}')]
+   cipher:30174 | 28.9025 | [('topic_primary', 'Dilated Cardiomyopathy'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Dilated Cardiomyopathy"]}')]
+   cipher:30155 | 27.5292 | [('topic_primary', 'Hypertrophic Cardiomyopathy (HCM)'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Hypertrophic Cardiomyopathy"]}')]
+   cipher:31636 | 19.1325 | [('topic_primary', 'Cardiomyopathy')]
+   cipher:31587 | 19.1125 | [('topic_primary', 'Cardiomyopathy')]
+   cipher:31280 | 19.1125 | [('topic_primary', 'Cardiomyopathy')]
+
+CASE 54: Patients with scleritis or episcleritis
+   cipher:30069 | 27.2125 | [('topic_primary', 'Scleritis and Episcleritis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Scleritis and Episcleritis"]}')]
+   cipher:3581 | 27.1525 | [('topic_primary', 'Scleritis and episcleritis'), ('topic_context', '{"context_conditions": [], "target_conditions": ["Scleritis and episcleritis"]}')]
+   cipher:13186 | 21.2792 | [('topic_primary', 'Scleritis and Episcleritis')]
+   cipher:15063 | 14.2792 | [('topic_primary', 'Scleritis and Episcleritis')]
+   ohdsi:1226 | -5.23 | [('topic_mismatch', 'Uveitis')]
+   ohdsi:1229 | -5.25 | [('topic_mismatch', "Behcet's Uveitis")]
+   ohdsi:1223 | -5.25 | [('topic_mismatch', 'Uveitis')]
+   ohdsi:620 | -5.25 | [('topic_mismatch', 'Uveitis')]
+
