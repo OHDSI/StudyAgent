@@ -22,7 +22,9 @@ For the current sprint, the baseline weighting of dense/sparse `0.7 / 0.3` remai
 
 ### Next steps
 
-We have listed below a set of student intent statements that should be helpful for a first round human review. 
+We have listed below a set of student intent statements that should be helpful for a first round human review.
+
+(TODO: revise to ensure variability of incidence, diagnostic difficulty (e.g., length of differential diagnoses with less than negligable incidence), ...)  
 
 **Human test cases**
 1. `Veteran patients with renal sclerosis`

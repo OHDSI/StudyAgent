@@ -1743,6 +1743,73 @@ class StudyAgent:
             "diagnostics": diagnostics,
         }
 
+    def run_phenotype_definition_flow(
+        self,
+        phenotype_id: str,
+    ) -> Dict[str, Any]:
+        phenotype_id = str(phenotype_id or "").strip()
+        if not phenotype_id:
+            return {"status": "error", "error": "missing phenotype_id"}
+        if self._mcp_client is None:
+            return {"status": "error", "error": "MCP client unavailable"}
+
+        summary_result = self.call_tool(
+            name="phenotype_fetch_summary",
+            arguments={"phenotype_id": phenotype_id},
+        )
+        summary_full = summary_result.get("full_result") or {}
+        summary_payload: Dict[str, Any] = {}
+        if isinstance(summary_full.get("summary"), dict):
+            summary_payload = dict(summary_full.get("summary") or {})
+        elif isinstance(summary_full.get("content"), dict):
+            summary_payload = dict(summary_full.get("content") or {})
+        elif isinstance(summary_full, dict) and summary_full.get("phenotype_id") == phenotype_id:
+            summary_payload = dict(summary_full)
+
+        definition_result = self.call_tool(
+            name="phenotype_fetch_definition",
+            arguments={"phenotype_id": phenotype_id, "truncate": False},
+        )
+        definition_full = definition_result.get("full_result") or {}
+        definition_payload: Dict[str, Any] = {}
+        if isinstance(definition_full.get("definition"), dict):
+            definition_payload = dict(definition_full.get("definition") or {})
+        elif isinstance(definition_full.get("content"), dict):
+            definition_payload = dict(definition_full.get("content") or {})
+        elif isinstance(definition_full, dict) and definition_full:
+            definition_payload = dict(definition_full)
+
+        if definition_result.get("status") != "ok" or definition_full.get("error") or not definition_payload:
+            return {
+                "status": "error",
+                "error": "phenotype_definition_fetch_failed",
+                "details": definition_result,
+            }
+        if summary_result.get("status") != "ok" or summary_full.get("error"):
+            return {
+                "status": "error",
+                "error": "phenotype_summary_fetch_failed",
+                "details": summary_result,
+            }
+
+        document = {
+            "phenotype_id": phenotype_id,
+            "phenotype_name": summary_payload.get("name") or summary_payload.get("phenotype_name") or phenotype_id,
+            "source_dataset": summary_payload.get("source_dataset") or "",
+            "source_record_type": summary_payload.get("source_record_type") or "",
+            "catalog_metadata": summary_payload,
+            "definition": definition_payload,
+            "assembled_from": {
+                "catalog_metadata_source": "catalog.jsonl via phenotype_fetch_summary",
+                "definition_source": "definitions/ via phenotype_fetch_definition",
+            },
+        }
+        return {
+            "status": "ok",
+            "phenotype_id": phenotype_id,
+            "document": document,
+        }
+
     def run_phenotype_recommendation_advice_flow(
         self,
         study_intent: str,

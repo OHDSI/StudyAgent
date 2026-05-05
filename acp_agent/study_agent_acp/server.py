@@ -14,6 +14,7 @@ from .mcp_client import HttpMCPClient, HttpMCPClientConfig, StdioMCPClient, Stdi
 
 SERVICES = [
     {"name": "phenotype_recommendation", "endpoint": "/flows/phenotype_recommendation"},
+    {"name": "phenotype_definition", "endpoint": "/flows/phenotype_definition"},
     {"name": "phenotype_improvements", "endpoint": "/flows/phenotype_improvements"},
     {"name": "concept_sets_review", "endpoint": "/flows/concept_sets_review"},
     {"name": "cohort_critique_general_design", "endpoint": "/flows/cohort_critique_general_design"},
@@ -243,6 +244,24 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
                 if self.debug:
                     logger.exception("tool_call_failed name=%s", name)
                 _write_json(self, 500, {"error": "tool_call_failed", "detail": str(exc) if self.debug else None})
+                return
+            status = 200 if result.get("status") != "error" else 500
+            _write_json(self, status, result)
+            return
+
+        if self.path == "/flows/phenotype_definition":
+            try:
+                body = _read_json(self)
+            except Exception as exc:
+                _write_json(self, 400, {"error": f"invalid_json: {exc}"})
+                return
+            phenotype_id = body.get("phenotype_id") or ""
+            try:
+                result = self.agent.run_phenotype_definition_flow(phenotype_id=phenotype_id)
+            except Exception as exc:
+                if self.debug:
+                    logger.exception("flow_failed name=phenotype_definition")
+                _write_json(self, 500, {"error": "flow_failed", "detail": str(exc) if self.debug else None})
                 return
             status = 200 if result.get("status") != "error" else 500
             _write_json(self, status, result)
