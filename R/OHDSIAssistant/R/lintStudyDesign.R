@@ -26,22 +26,23 @@ lintStudyDesign <- function(
 
   if ("concept-sets-review" %in% lintTasks) {
     res <- if (use_acp) {
-      .acp_post("/tools/propose_concept_set_diff", list(
-        conceptSetRef = conceptSetRef,
-        studyIntent   = paste(readLines(studyProtocol, warn = FALSE), collapse=" ")
+.acp_post("/flows/concept_sets_review", list(
+        concept_set_path = conceptSetRef,
+        study_intent = paste(readLines(studyProtocol, warn = FALSE), collapse=" ")
       ))
     } else {
       local_concept_sets_review(conceptSetRef, studyIntent = paste(readLines(studyProtocol, warn = FALSE), collapse=" "))
     }
     res$artifact <- conceptSetRef
+    core <- res$full_result %||% res
     # optional actions handling
-    if (handleActions && use_acp && length(res$actions %||% list())) {
-      prev <- applyLLMActionsConceptSet(conceptSetRef, res$actions, preview = TRUE)
+    if (handleActions && use_acp && length(core$actions %||% list())) {
+      prev <- applyLLMActionsConceptSet(conceptSetRef, core$actions, preview = TRUE)
       res$action_preview <- prev
       if (applyActions) {
         res$action_apply <- applyLLMActionsConceptSet(
           conceptSetRef,
-          res$actions,
+          core$actions,
           preview = FALSE,
           overwrite = overwriteActions,
           backup = backupActions
@@ -51,8 +52,8 @@ lintStudyDesign <- function(
     if (interactive) {
       cat("\n== Concept Sets Review ==\n")
       cat(sprintf("File: %s\n", conceptSetRef))
-      cat(res$plan, "\n")
-      print_findings(res$findings)
+      cat(core$plan %||% "", "\n")
+      print_findings(core$findings)
       if (handleActions && !is.null(res$action_preview)) {
         cat(sprintf("Action preview: %s changes, %s ignored\n",
                     res$action_preview$counts$changed %||% 0,
@@ -67,16 +68,17 @@ lintStudyDesign <- function(
 
   if ("cohort-critique-general-design" %in% lintTasks) {
     res <- if (use_acp) {
-      .acp_post("/tools/cohort_lint", list(cohortRef = cohortRef))
+.acp_post("/flows/cohort_critique_general_design", list(cohort_path = cohortRef))
     } else {
       local_cohort_critique_general(cohortRef)
     }
     res$artifact <- cohortRef
+    core <- res$full_result %||% res
     if (interactive) {
       cat("\n== Cohort Critique: General Design ==\n")
       cat(sprintf("File: %s\n", cohortRef))
-      cat(res$plan, "\n")
-      print_findings(res$findings)
+      cat(core$plan %||% "", "\n")
+      print_findings(core$findings)
     }
     results$`cohort-critique-general-design` <- res
   }

@@ -7,8 +7,7 @@
 ### CLEAN UP FROM LAST RUN?
 # Uncomment to reset the state of the output folder 
 # Or add `reset = TRUE ` to the function call
-#unlink("OHDSI-Study-Agent/demo-strategus-cohort-incidence", recursive = TRUE, force = TRUE)
-
+unlink("OHDSI-Study-Agent/demo-strategus-cohort-incidence", recursive = TRUE, force = TRUE)
 
 # Import the R thin api to the ACP server/bridge
 Sys.setenv(ACP_TIMEOUT = "280")
@@ -19,18 +18,20 @@ OHDSIAssistant::acp_connect("http://127.0.0.1:8765")
 
 ## Run an interactive agent "shell"
 
-## First enter this study intent which does not really return relevant phenotype definitions:
+## (NO RELEVANT PHENOTYPE TEST) First enter this study intent which does not really return relevant phenotype definitions:
 ## "What is the risk of GI bleed in new users of Celecoxib compared to new users of Diclofenac?"
 OHDSIAssistant::runStrategusIncidenceShell(
     outputDir = "demo-strategus-cohort-incidence",
-    studyAgentBaseDir = "OHDSI-Study-Agent"
+    studyAgentBaseDir = "OHDSI-Study-Agent",
+    indexDir="data/phenotype_index_cipher_omop/"
     )
 
 
-## Rerun the study agent with a study intent that does have relevant phenotype definitions:
+## (RELEVANT PHENOTYPE TEST) Run the study agent with a study intent that does have relevant phenotype definitions:
 OHDSIAssistant::runStrategusIncidenceShell(
     outputDir = "demo-strategus-cohort-incidence",
     studyAgentBaseDir = "OHDSI-Study-Agent",
+    indexDir="data/phenotype_index_cipher_omop/",
     studyIntent = "What is the risk of GI bleed in new users of tofacitinib compared to new users of ruxolitinib?"
     )
 
@@ -42,5 +43,6 @@ OHDSIAssistant::runStrategusIncidenceShell(
     resume = TRUE,
     allowCache = TRUE,
     promptOnCache = FALSE,
-    interactive = FALSE
+    interactive = FALSE,
+    indexDir="data/phenotype_index_cipher_omop/"
   )

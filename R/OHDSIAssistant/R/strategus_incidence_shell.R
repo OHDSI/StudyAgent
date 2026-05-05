@@ -112,8 +112,29 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     path
   }
 
+  phenotype_definition_path <- function(phenotype_id, index_def_dir) {
+    file.path(index_def_dir, sprintf("%s.json", gsub(":", "__", phenotype_id, fixed = TRUE)))
+  }
+
+  stop_if_unsupported_selected <- function(phenotype_ids, role_label) {
+    unsupported <- phenotype_ids[!grepl("^ohdsi:", phenotype_ids %||% character(0))]
+    if (length(unsupported) > 0) {
+      stop(
+        sprintf(
+          paste0(
+            "Selected %s phenotype(s) include non-OHDSI ids (%s). ",
+            "This demo workflow does not yet support converting non-OHDSI phenotype definitions ",
+            "into computable OHDSI cohort definitions. Please re-run and choose an OHDSI phenotype."
+          ),
+          role_label,
+          paste(unique(unsupported), collapse = ", ")
+        )
+      )
+    }
+  }
+
   copy_cohort_json_multi <- function(source_id, dest_id, dest_dirs, index_def_dir) {
-    src <- file.path(index_def_dir, sprintf("%s.json", source_id))
+    src <- phenotype_definition_path(source_id, index_def_dir)
     if (!file.exists(src)) stop(sprintf("Cohort JSON not found: %s", src))
     dests <- character(0)
     for (dest_dir in dest_dirs) {
@@ -343,7 +364,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   cat("\n== Target Phenotype Recommendations ==\n")
   for (i in seq_along(recommendations_target)) {
     rec <- recommendations_target[[i]]
-    cat(sprintf("%d. %s (ID %s)\n", i, rec$cohortName %||% "<unknown>", rec$cohortId %||% "?"))
+    cat(sprintf("%d. %s (ID %s)\n", i, rec$phenotype_name %||% "<unknown>", rec$phenotype_id %||% "?"))
     if (!is.null(rec$justification)) cat(sprintf("   %s\n", rec$justification))
   }
 
@@ -370,7 +391,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
         cat("\n== Target Phenotype Recommendations (window 2) ==\n")
         for (i in seq_along(recommendations_target)) {
           rec <- recommendations_target[[i]]
-          cat(sprintf("%d. %s (ID %s)\n", i, rec$cohortName %||% "<unknown>", rec$cohortId %||% "?"))
+          cat(sprintf("%d. %s (ID %s)\n", i, rec$phenotype_name %||% "<unknown>", rec$phenotype_id %||% "?"))
           if (!is.null(rec$justification)) cat(sprintf("   %s\n", rec$justification))
         }
         ok_any <- prompt_yesno("Are any of these acceptable?", default = TRUE)
@@ -408,17 +429,17 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   if (interactive) {
     labels <- vapply(seq_along(recommendations_target), function(i) {
       rec <- recommendations_target[[i]]
-      sprintf("%s (ID %s)", rec$cohortName %||% "<unknown>", rec$cohortId %||% "?")
+      sprintf("%s (ID %s)", rec$phenotype_name %||% "<unknown>", rec$phenotype_id %||% "?")
     }, character(1))
     picks <- utils::select.list(labels, multiple = FALSE, title = "Select target phenotype")
     if (nzchar(picks)) {
       idx <- which(labels == picks)[1]
-      selected_ids_target <- recommendations_target[[idx]]$cohortId
+      selected_ids_target <- recommendations_target[[idx]]$phenotype_id
     }
   } else {
-    selected_ids_target <- recommendations_target[[1]]$cohortId
+    selected_ids_target <- recommendations_target[[1]]$phenotype_id
   }
-  selected_ids_target <- as.integer(selected_ids_target)
+  selected_ids_target <- as.character(selected_ids_target)
   if (length(selected_ids_target) == 0) stop("No target cohort selected.")
 
   use_mapping <- FALSE
@@ -443,6 +464,8 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     next_id <<- max(new) + 1
     new
   }
+
+  stop_if_unsupported_selected(selected_ids_target, "target")
 
   new_ids_target <- map_ids(selected_ids_target)
 
@@ -586,7 +609,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   cat("\n== Outcome Phenotype Recommendations ==\n")
   for (i in seq_along(recommendations_outcome)) {
     rec <- recommendations_outcome[[i]]
-    cat(sprintf("%d. %s (ID %s)\n", i, rec$cohortName %||% "<unknown>", rec$cohortId %||% "?"))
+    cat(sprintf("%d. %s (ID %s)\n", i, rec$phenotype_name %||% "<unknown>", rec$phenotype_id %||% "?"))
     if (!is.null(rec$justification)) cat(sprintf("   %s\n", rec$justification))
   }
 
@@ -613,7 +636,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
         cat("\n== Outcome Phenotype Recommendations (window 2) ==\n")
         for (i in seq_along(recommendations_outcome)) {
           rec <- recommendations_outcome[[i]]
-          cat(sprintf("%d. %s (ID %s)\n", i, rec$cohortName %||% "<unknown>", rec$cohortId %||% "?"))
+          cat(sprintf("%d. %s (ID %s)\n", i, rec$phenotype_name %||% "<unknown>", rec$phenotype_id %||% "?"))
           if (!is.null(rec$justification)) cat(sprintf("   %s\n", rec$justification))
         }
         ok_any <- prompt_yesno("Are any of these acceptable?", default = TRUE)
@@ -651,22 +674,24 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   if (interactive) {
     labels <- vapply(seq_along(recommendations_outcome), function(i) {
       rec <- recommendations_outcome[[i]]
-      sprintf("%s (ID %s)", rec$cohortName %||% "<unknown>", rec$cohortId %||% "?")
+      sprintf("%s (ID %s)", rec$phenotype_name %||% "<unknown>", rec$phenotype_id %||% "?")
     }, character(1))
     picks <- utils::select.list(labels, multiple = TRUE, title = "Select outcome phenotypes")
     selected_ids_outcome <- vapply(picks, function(label) {
       idx <- which(labels == label)[1]
-      recommendations_outcome[[idx]]$cohortId
-    }, numeric(1))
+      recommendations_outcome[[idx]]$phenotype_id %||% NA_character_
+    }, character(1))
   } else {
     if (length(recommendations_outcome) >= 2) {
-      selected_ids_outcome <- vapply(recommendations_outcome[-1], function(r) r$cohortId, numeric(1))
+      selected_ids_outcome <- vapply(recommendations_outcome[-1], function(r) r$phenotype_id %||% NA_character_, character(1))
     } else {
-      selected_ids_outcome <- vapply(recommendations_outcome, function(r) r$cohortId, numeric(1))
+      selected_ids_outcome <- vapply(recommendations_outcome, function(r) r$phenotype_id %||% NA_character_, character(1))
     }
   }
-  selected_ids_outcome <- as.integer(selected_ids_outcome)
+  selected_ids_outcome <- as.character(selected_ids_outcome)
   if (length(selected_ids_outcome) == 0) stop("No outcome cohorts selected.")
+
+  stop_if_unsupported_selected(selected_ids_outcome, "outcome")
 
   new_ids_outcome <- map_ids(selected_ids_outcome)
 
@@ -791,11 +816,11 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     for (i in seq_along(new_ids_target)) {
       cid <- selected_ids_target[[i]]
       new_id <- new_ids_target[[i]]
-      rec <- recommendations_target[[which(vapply(recommendations_target, function(r) r$cohortId == cid, logical(1)))]]
+      rec <- recommendations_target[[which(vapply(recommendations_target, function(r) r$phenotype_id == cid, logical(1)))]]
       cohort_rows[[length(cohort_rows) + 1]] <- data.frame(
         atlas_id = cid,
         cohort_id = new_id,
-        cohort_name = rec$cohortName %||% paste0("Cohort ", new_id),
+        cohort_name = rec$phenotype_name %||% paste0("Cohort ", new_id),
         logic_description = rec$justification %||% NA_character_,
         generate_stats = TRUE,
         stringsAsFactors = FALSE
@@ -806,11 +831,11 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     for (i in seq_along(new_ids_outcome)) {
       cid <- selected_ids_outcome[[i]]
       new_id <- new_ids_outcome[[i]]
-      rec <- recommendations_outcome[[which(vapply(recommendations_outcome, function(r) r$cohortId == cid, logical(1)))]]
+      rec <- recommendations_outcome[[which(vapply(recommendations_outcome, function(r) r$phenotype_id == cid, logical(1)))]]
       cohort_rows[[length(cohort_rows) + 1]] <- data.frame(
         atlas_id = cid,
         cohort_id = new_id,
-        cohort_name = rec$cohortName %||% paste0("Cohort ", new_id),
+        cohort_name = rec$phenotype_name %||% paste0("Cohort ", new_id),
         logic_description = rec$justification %||% NA_character_,
         generate_stats = TRUE,
         stringsAsFactors = FALSE
@@ -882,8 +907,15 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   script_01 <- c(
     script_header,
     "`%||%` <- function(x, y) if (is.null(x)) y else x",
+    "phenotype_definition_path <- function(phenotype_id, index_def_dir) {",
+    "  file.path(index_def_dir, sprintf('%s.json', gsub(':', '__', phenotype_id, fixed = TRUE)))",
+    "}",
+    "stop_if_unsupported_selected <- function(phenotype_ids, role_label) {",
+    "  unsupported <- phenotype_ids[!grepl('^ohdsi:', phenotype_ids %||% character(0))]",
+    "  if (length(unsupported) > 0) stop(sprintf('Selected %s phenotype(s) include non-OHDSI ids (%s). This demo workflow does not yet support converting non-OHDSI phenotype definitions into computable OHDSI cohort definitions. Please re-run and choose an OHDSI phenotype.', role_label, paste(unique(unsupported), collapse = ', ')))",
+    "}",
     "copy_cohort_json <- function(source_id, dest_id, dest_dirs, index_def_dir) {",
-    "  src <- file.path(index_def_dir, sprintf('%s.json', source_id))",
+    "  src <- phenotype_definition_path(source_id, index_def_dir)",
     "  if (!file.exists(src)) stop('Cohort JSON not found: ', src)",
     "  for (dest_dir in dest_dirs) {",
     "    dir.create(dest_dir, recursive = TRUE, showWarnings = FALSE)",
@@ -904,12 +936,12 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "recs_outcome <- jsonlite::fromJSON(file.path(output_dir, 'recommendations_outcome.json'), simplifyVector = FALSE)",
     "items_target <- (recs_target$recommendations %||% recs_target)$phenotype_recommendations %||% list()",
     "items_outcome <- (recs_outcome$recommendations %||% recs_outcome)$phenotype_recommendations %||% list()",
-    "labels_target <- vapply(seq_along(items_target), function(i) sprintf('%s (ID %s)', items_target[[i]]$cohortName %||% '<unknown>', items_target[[i]]$cohortId %||% '?'), character(1))",
-    "labels_outcome <- vapply(seq_along(items_outcome), function(i) sprintf('%s (ID %s)', items_outcome[[i]]$cohortName %||% '<unknown>', items_outcome[[i]]$cohortId %||% '?'), character(1))",
+    "labels_target <- vapply(seq_along(items_target), function(i) sprintf('%s (ID %s)', items_target[[i]]$phenotype_name %||% '<unknown>', items_target[[i]]$phenotype_id %||% '?'), character(1))",
+    "labels_outcome <- vapply(seq_along(items_outcome), function(i) sprintf('%s (ID %s)', items_outcome[[i]]$phenotype_name %||% '<unknown>', items_outcome[[i]]$phenotype_id %||% '?'), character(1))",
     "target_pick <- utils::select.list(labels_target, multiple = FALSE, title = 'Select target phenotype')",
-    "target_ids <- if (nzchar(target_pick)) items_target[[which(labels_target == target_pick)[1]]]$cohortId else integer(0)",
+    "target_ids <- if (nzchar(target_pick)) (items_target[[which(labels_target == target_pick)[1]]]$phenotype_id %||% '') else character(0)",
     "outcome_picks <- utils::select.list(labels_outcome, multiple = TRUE, title = 'Select outcome phenotypes')",
-    "outcome_ids <- vapply(outcome_picks, function(label) items_outcome[[which(labels_outcome == label)[1]]]$cohortId, numeric(1))",
+    "outcome_ids <- vapply(outcome_picks, function(label) items_outcome[[which(labels_outcome == label)[1]]]$phenotype_id %||% NA_character_, character(1))",
     "if (length(target_ids) == 0) stop('No target cohort selected.')",
     "if (length(outcome_ids) == 0) stop('No outcome cohorts selected.')",
     "resp <- tolower(trimws(readline('Map cohort IDs to a new range (avoid collisions)? [Y/n]: ')))",
@@ -928,7 +960,9 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "  next_id <<- max(new) + 1",
     "  new",
     "}",
+    "stop_if_unsupported_selected(target_ids, 'target')",
     "new_ids_target <- map_ids(target_ids)",
+    "stop_if_unsupported_selected(outcome_ids, 'outcome')",
     "new_ids_outcome <- map_ids(outcome_ids)",
     "for (i in seq_along(target_ids)) copy_cohort_json(target_ids[[i]], new_ids_target[[i]], c(selected_target_dir, selected_dir), index_def_dir)",
     "for (i in seq_along(outcome_ids)) copy_cohort_json(outcome_ids[[i]], new_ids_outcome[[i]], c(selected_outcome_dir, selected_dir), index_def_dir)",
@@ -944,14 +978,14 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "for (i in seq_along(new_ids_target)) {",
     "  cid <- target_ids[[i]]",
     "  new_id <- new_ids_target[[i]]",
-    "  rec <- items_target[[which(vapply(items_target, function(r) r$cohortId == cid, logical(1)))[1]]]",
-    "  cohort_rows[[length(cohort_rows) + 1]] <- data.frame(atlas_id = cid, cohort_id = new_id, cohort_name = rec$cohortName %||% paste0('Cohort ', new_id), logic_description = rec$justification %||% NA_character_, generate_stats = TRUE, stringsAsFactors = FALSE)",
+    "  rec <- items_target[[which(vapply(items_target, function(r) r$phenotype_id == cid, logical(1)))[1]]]",
+    "  cohort_rows[[length(cohort_rows) + 1]] <- data.frame(atlas_id = cid, cohort_id = new_id, cohort_name = rec$phenotype_name %||% paste0('Cohort ', new_id), logic_description = rec$justification %||% NA_character_, generate_stats = TRUE, stringsAsFactors = FALSE)",
     "}",
     "for (i in seq_along(new_ids_outcome)) {",
     "  cid <- outcome_ids[[i]]",
     "  new_id <- new_ids_outcome[[i]]",
-    "  rec <- items_outcome[[which(vapply(items_outcome, function(r) r$cohortId == cid, logical(1)))[1]]]",
-    "  cohort_rows[[length(cohort_rows) + 1]] <- data.frame(atlas_id = cid, cohort_id = new_id, cohort_name = rec$cohortName %||% paste0('Cohort ', new_id), logic_description = rec$justification %||% NA_character_, generate_stats = TRUE, stringsAsFactors = FALSE)",
+    "  rec <- items_outcome[[which(vapply(items_outcome, function(r) r$phenotype_id == cid, logical(1)))[1]]]",
+    "  cohort_rows[[length(cohort_rows) + 1]] <- data.frame(atlas_id = cid, cohort_id = new_id, cohort_name = rec$phenotype_name %||% paste0('Cohort ', new_id), logic_description = rec$justification %||% NA_character_, generate_stats = TRUE, stringsAsFactors = FALSE)",
     "}",
     "cohort_df <- do.call(rbind, cohort_rows)",
     "write.csv(cohort_df, file.path(selected_dir, 'Cohorts.csv'), row.names = FALSE)",
@@ -1387,8 +1421,8 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     ")",
     "",
     "roles <- jsonlite::fromJSON(file.path(output_dir, 'cohort_roles.json'), simplifyVector = TRUE)",
-    "target_ids <- as.integer(roles$targets %||% integer(0))",
-    "outcome_ids <- as.integer(roles$outcomes %||% integer(0))",
+    "target_ids <- as.character(roles$targets %||% character(0))",
+    "outcome_ids <- as.character(roles$outcomes %||% character(0))",
     "if (length(target_ids) == 0) stop('No target cohorts defined in cohort_roles.json')",
     "if (length(outcome_ids) == 0) stop('No outcome cohorts defined in cohort_roles.json')",
     "cgModule <- CohortGeneratorModule$new()",
@@ -1451,13 +1485,13 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     cat(sprintf("  %s\n", outcome_statement))
     cat("Target cohorts:\n")
     for (i in seq_along(new_ids_target)) {
-      rec <- recommendations_target[[which(vapply(recommendations_target, function(r) r$cohortId == selected_ids_target[[i]], logical(1)))]]
-      cat(sprintf("  - %s (atlas %s -> cohort %s)\n", rec$cohortName %||% "<unknown>", selected_ids_target[[i]], new_ids_target[[i]]))
+      rec <- recommendations_target[[which(vapply(recommendations_target, function(r) r$phenotype_id == selected_ids_target[[i]], logical(1)))]]
+      cat(sprintf("  - %s (atlas %s -> cohort %s)\n", rec$phenotype_name %||% "<unknown>", selected_ids_target[[i]], new_ids_target[[i]]))
     }
     cat("Outcome cohorts:\n")
     for (i in seq_along(new_ids_outcome)) {
-      rec <- recommendations_outcome[[which(vapply(recommendations_outcome, function(r) r$cohortId == selected_ids_outcome[[i]], logical(1)))]]
-      cat(sprintf("  - %s (atlas %s -> cohort %s)\n", rec$cohortName %||% "<unknown>", selected_ids_outcome[[i]], new_ids_outcome[[i]]))
+      rec <- recommendations_outcome[[which(vapply(recommendations_outcome, function(r) r$phenotype_id == selected_ids_outcome[[i]], logical(1)))]]
+      cat(sprintf("  - %s (atlas %s -> cohort %s)\n", rec$phenotype_name %||% "<unknown>", selected_ids_outcome[[i]], new_ids_outcome[[i]]))
     }
     cat("JSON outputs:\n")
     cat(sprintf("  - Selected target cohorts: %s\n", selected_target_dir))
