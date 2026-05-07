@@ -49,7 +49,7 @@ sequenceDiagram
 
     Note over G: Stage 5: Deterministic finalization
     G->>G: validate LLM payload against shortlist/catalog
-    G->>G: build deterministic final payload<br/>ids come from enforced shortlist; LLM supplies usable justifications
+    G->>G: build deterministic final payload<br/>ids come from enforced shortlist, LLM supplies usable justifications
     G->>C: phenotype_recommendations(...)
     C-->>G: final grounded response
 
