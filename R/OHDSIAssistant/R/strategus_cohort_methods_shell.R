@@ -2015,6 +2015,15 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     first_nonempty(rec$cohortName, rec$phenotype_name, rec$name, "<unknown>")
   }
 
+  recommendation_identifier <- function(rec) {
+    first_nonempty(
+      as.character(rec$cohortId %||% ""),
+      as.character(rec$phenotype_id %||% ""),
+      as.character(rec$id %||% ""),
+      ""
+    )
+  }
+
   recommendation_cohort_id <- function(rec) {
     direct <- suppressWarnings(as.integer(rec$cohortId %||% NA_integer_))
     if (!is.na(direct)) return(direct)
@@ -2023,6 +2032,36 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
       return(suppressWarnings(as.integer(sub("^ohdsi:", "", phenotype_id))))
     }
     suppressWarnings(as.integer(phenotype_id))
+  }
+
+  recommendation_is_ohdsi_computable <- function(rec) {
+    identifier <- recommendation_identifier(rec)
+    if (!nzchar(identifier)) return(FALSE)
+    if (grepl("^[0-9]+$", identifier)) return(TRUE)
+    grepl("^ohdsi:[0-9]+$", identifier)
+  }
+
+  recommendation_id_label <- function(rec) {
+    cohort_id <- recommendation_cohort_id(rec)
+    if (!is.na(cohort_id)) return(as.character(cohort_id))
+    identifier <- recommendation_identifier(rec)
+    if (nzchar(identifier)) return(identifier)
+    "?"
+  }
+
+  unsupported_recommendation_message <- function(rec, role_label) {
+    identifier <- recommendation_identifier(rec)
+    if (!nzchar(identifier)) identifier <- "unknown"
+    sprintf(
+      paste(
+        "Selected %s phenotype %s (%s), but this workflow can only continue with a computable OHDSI cohort definition.",
+        "Descriptive phenotypes such as CIPHER recommendations are not yet convertible to executable cohort JSON in the shell.",
+        "Choose an OHDSI-backed phenotype for now."
+      ),
+      tolower(role_label),
+      recommendation_name(rec),
+      identifier
+    )
   }
 
   lookup_catalog_value <- function(cohort_id, catalog_df, field = "name", fallback = NULL) {
@@ -2109,6 +2148,10 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   collect_recommendation_selection <- function(recommendations, role_label, allow_multiple = FALSE) {
     if (length(recommendations) == 0) return(integer(0))
     if (!isTRUE(interactive)) {
+      unsupported <- vapply(recommendations, function(rec) !isTRUE(recommendation_is_ohdsi_computable(rec)), logical(1))
+      if (any(unsupported)) {
+        stop(unsupported_recommendation_message(recommendations[[which(unsupported)[1]]], role_label))
+      }
       if (isTRUE(allow_multiple)) {
         return(as.integer(vapply(recommendations, recommendation_cohort_id, integer(1))))
       }
@@ -2117,9 +2160,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
 
     labels <- vapply(seq_along(recommendations), function(i) {
       rec <- recommendations[[i]]
-      cohort_id <- recommendation_cohort_id(rec)
-      cohort_id_label <- if (is.na(cohort_id)) "?" else as.character(cohort_id)
-      sprintf("%s (ID %s)", recommendation_name(rec), cohort_id_label)
+      sprintf("%s (ID %s)", recommendation_name(rec), recommendation_id_label(rec))
     }, character(1))
     picks <- utils::select.list(
       labels,
@@ -2127,6 +2168,14 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
       title = sprintf("Select %s phenotype%s", tolower(role_label), if (isTRUE(allow_multiple)) "s" else "")
     )
     if (!length(picks) || !any(nzchar(picks))) return(integer(0))
+    selected_recs <- lapply(picks, function(label) {
+      idx <- which(labels == label)[1]
+      recommendations[[idx]]
+    })
+    unsupported <- vapply(selected_recs, function(rec) !isTRUE(recommendation_is_ohdsi_computable(rec)), logical(1))
+    if (any(unsupported)) {
+      stop(unsupported_recommendation_message(selected_recs[[which(unsupported)[1]]], role_label))
+    }
     selected_ids <- vapply(picks, function(label) {
       idx <- which(labels == label)[1]
       recommendation_cohort_id(recommendations[[idx]])
@@ -2255,10 +2304,11 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
       cat(sprintf("\n== %s Phenotype Recommendations ==\n", role_label))
       for (i in seq_along(recommendations)) {
         rec <- recommendations[[i]]
-        cohort_id <- recommendation_cohort_id(rec)
-        cohort_id_label <- if (is.na(cohort_id)) "?" else as.character(cohort_id)
-        cat(sprintf("%d. %s (ID %s)\n", i, recommendation_name(rec), cohort_id_label))
+        cat(sprintf("%d. %s (ID %s)\n", i, recommendation_name(rec), recommendation_id_label(rec)))
         if (!is.null(rec$justification)) cat(sprintf("   %s\n", rec$justification))
+        if (!isTRUE(recommendation_is_ohdsi_computable(rec))) {
+          cat("   Not directly computable in this workflow; descriptive phenotype conversion is not yet implemented.\n")
+        }
       }
       ok_any <- prompt_yesno(sprintf("Are any of these acceptable for the %s?", role_key), default = TRUE)
       if (!ok_any && ensure_acp_ready(acpUrl)) {
@@ -2286,10 +2336,11 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
           cat(sprintf("\n== %s Phenotype Recommendations (window 2) ==\n", role_label))
           for (i in seq_along(recommendations)) {
             rec <- recommendations[[i]]
-            cohort_id <- recommendation_cohort_id(rec)
-            cohort_id_label <- if (is.na(cohort_id)) "?" else as.character(cohort_id)
-            cat(sprintf("%d. %s (ID %s)\n", i, recommendation_name(rec), cohort_id_label))
+            cat(sprintf("%d. %s (ID %s)\n", i, recommendation_name(rec), recommendation_id_label(rec)))
             if (!is.null(rec$justification)) cat(sprintf("   %s\n", rec$justification))
+            if (!isTRUE(recommendation_is_ohdsi_computable(rec))) {
+              cat("   Not directly computable in this workflow; descriptive phenotype conversion is not yet implemented.\n")
+            }
           }
           ok_any <- prompt_yesno(sprintf("Are any of these acceptable for the %s?", role_key), default = TRUE)
         }
