@@ -19,6 +19,7 @@ from study_agent_core.models import (
     PhenotypeRecommendationAdviceInput,
     PhenotypeRecommendationPlanInput,
     PhenotypeRecommendationsInput,
+    WorkflowContextDialogueInput,
 )
 from study_agent_core.tools import (
     cohort_methods_intent_split,
@@ -29,6 +30,7 @@ from study_agent_core.tools import (
     phenotype_recommendation_plan,
     phenotype_recommendations,
     propose_concept_set_diff,
+    workflow_context_dialogue,
 )
 from .llm_client import (
     LLMCallResult,
@@ -36,6 +38,7 @@ from .llm_client import (
     build_intent_split_prompt,
     build_recommendation_intent_facets_prompt,
     build_advice_prompt,
+    build_workflow_context_dialogue_prompt,
     build_keeper_concept_set_prompt,
     build_improvements_prompt,
     build_keeper_prompt,
@@ -79,6 +82,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
             "phenotype_improvements": phenotype_improvements,
             "phenotype_intent_split": phenotype_intent_split,
             "cohort_methods_intent_split": cohort_methods_intent_split,
+            "workflow_context_dialogue": workflow_context_dialogue,
         }
 
         self._schemas = {
@@ -90,6 +94,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
             "phenotype_improvements": PhenotypeImprovementsInput.model_json_schema(),
             "phenotype_intent_split": PhenotypeIntentSplitInput.model_json_schema(),
             "cohort_methods_intent_split": CohortMethodsIntentSplitInput.model_json_schema(),
+            "workflow_context_dialogue": WorkflowContextDialogueInput.model_json_schema(),
             "keeper_concept_sets_generate": KeeperConceptSetsGenerateInput.model_json_schema(),
             "keeper_profiles_generate": KeeperProfilesGenerateInput.model_json_schema(),
         }
@@ -2332,6 +2337,72 @@ class StudyAgent:
             "llm_used": True,
             "llm_status": llm_result.status,
             "intent_split": core_result,
+            "diagnostics": self._llm_diagnostics(llm_result),
+        }
+
+    def run_workflow_context_dialogue_flow(
+        self,
+        user_prompt: str,
+        study_intent: str = "",
+        workflow_type: str = "",
+        current_step: str = "",
+        current_role: str = "",
+        current_context: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        if not user_prompt:
+            return {"status": "error", "error": "missing user_prompt"}
+        if self._mcp_client is None:
+            return {"status": "error", "error": "MCP client unavailable"}
+        prompt_bundle = self.call_tool(
+            name="workflow_context_dialogue",
+            arguments={},
+        )
+        prompt_full = prompt_bundle.get("full_result") or {}
+        if prompt_bundle.get("status") != "ok" or prompt_full.get("error"):
+            return {
+                "status": "error",
+                "error": "workflow_context_dialogue_prompt_failed",
+                "details": prompt_bundle,
+            }
+
+        prompt = build_workflow_context_dialogue_prompt(
+            overview=prompt_full.get("overview", ""),
+            spec=prompt_full.get("spec", ""),
+            output_schema=prompt_full.get("output_schema", {}),
+            user_prompt=user_prompt,
+            study_intent=study_intent,
+            workflow_type=workflow_type,
+            current_step=current_step,
+            current_role=current_role,
+            current_context=current_context or {},
+        )
+        self._log_debug("workflow_context_dialogue: calling LLM")
+        llm_result = self._call_llm(
+            prompt,
+            required_keys=["answer", "current_step_guidance", "cautions", "suggested_next_actions"],
+        )
+        self._log_debug(
+            "workflow_context_dialogue: LLM returned "
+            f"status={llm_result.status} parse_stage={llm_result.parse_stage}"
+        )
+        llm_payload = llm_result_payload(llm_result)
+        core_result = workflow_context_dialogue(
+            user_prompt=user_prompt,
+            study_intent=study_intent,
+            workflow_type=workflow_type,
+            current_step=current_step,
+            current_role=current_role,
+            current_context=current_context or {},
+            llm_result=llm_payload,
+        )
+
+        return {
+            "status": "ok",
+            "llm_used": llm_payload is not None,
+            "llm_status": llm_result.status,
+            "fallback_reason": None if llm_payload is not None else self._fallback_reason_for_llm(llm_result),
+            "fallback_mode": None if llm_payload is not None else core_result.get("mode"),
+            "dialogue": core_result,
             "diagnostics": self._llm_diagnostics(llm_result),
         }
 

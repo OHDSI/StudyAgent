@@ -50,6 +50,16 @@ class CohortMethodsIntentSplitInput(BaseModel):
     llm_result: Optional[Dict[str, Any]] = None
 
 
+class WorkflowContextDialogueInput(BaseModel):
+    user_prompt: str
+    study_intent: str = ""
+    workflow_type: str = ""
+    current_step: str = ""
+    current_role: str = ""
+    current_context: Dict[str, Any] = Field(default_factory=dict)
+    llm_result: Optional[Dict[str, Any]] = None
+
+
 class PhenotypeValidationReviewInput(BaseModel):
     disease_name: str = ""
     keeper_row: Dict[str, Any] = Field(default_factory=dict)
@@ -273,6 +283,15 @@ class CohortMethodsIntentSplitOutput(BaseModel):
     outcome_statements: List[str] = Field(default_factory=list)
     rationale: str
     questions: List[str] = Field(default_factory=list)
+    mode: str
+
+
+class WorkflowContextDialogueOutput(BaseModel):
+    plan: str
+    answer: str
+    current_step_guidance: List[str] = Field(default_factory=list)
+    cautions: List[str] = Field(default_factory=list)
+    suggested_next_actions: List[str] = Field(default_factory=list)
     mode: str
 
 

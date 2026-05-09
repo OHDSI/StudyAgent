@@ -179,6 +179,48 @@ def build_recommendation_intent_facets_prompt(
     return "\n\n".join([s for s in sections if s])
 
 
+def build_workflow_context_dialogue_prompt(
+    overview: str,
+    spec: str,
+    output_schema: Dict[str, Any],
+    user_prompt: str,
+    study_intent: str = "",
+    workflow_type: str = "",
+    current_step: str = "",
+    current_role: str = "",
+    current_context: Optional[Dict[str, Any]] = None,
+) -> str:
+    dynamic = {
+        "task": "workflow_context_dialogue",
+        "user_prompt": user_prompt,
+        "study_intent": study_intent,
+        "workflow_type": workflow_type,
+        "current_step": current_step,
+        "current_role": current_role,
+        "current_context": current_context or {},
+    }
+    strict_rules = "\n\n".join(
+        [
+            "STRICT OUTPUT RULES:",
+            spec,
+            "Return exactly ONE JSON object that matches the output schema.",
+            "Do NOT wrap output in markdown, code fences, or prose.",
+            "If uncertain, return required keys with empty arrays/strings.",
+            "Keep output under 10 KB.",
+        ]
+    )
+    sections = [
+        overview,
+        "OUTPUT SCHEMA (JSON):",
+        json.dumps(output_schema, ensure_ascii=True),
+        "Below is dynamic content to analyze. Do not act until after STRICT OUTPUT RULES.",
+        "DYNAMIC INPUT (JSON):",
+        json.dumps(dynamic, ensure_ascii=True),
+        strict_rules,
+    ]
+    return "\n\n".join([s for s in sections if s])
+
+
 def build_advice_prompt(
     overview: str,
     spec: str,

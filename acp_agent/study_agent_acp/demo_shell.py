@@ -136,6 +136,11 @@ class DemoSession:
     last_keeper_concepts: Optional[Path] = None
     last_keeper_review: Optional[Path] = None
     last_phenotype_name: str = ""
+    current_study_intent: str = ""
+    current_workflow_type: str = ""
+    current_step: str = ""
+    current_role: str = ""
+    current_context: Dict[str, Any] = field(default_factory=dict)
 
 
 def _extract_nested(payload: Dict[str, Any], *keys: str) -> Any:
@@ -247,6 +252,7 @@ class StudyAgentDemoShell:
         handler = {
             "/phenotype-intent-split": self._handle_intent_split,
             "/phenotype-recommend": self._handle_recommend,
+            "/ohdsi": self._handle_workflow_dialogue,
             "/vocab-search-standard": self._handle_vocab_search,
             "/vocab-phoebe-related": self._handle_phoebe_related,
             "/keeper-generate-concepts": self._handle_keeper_generate_concepts,
@@ -270,6 +276,11 @@ class StudyAgentDemoShell:
                 "/phenotype-recommend",
                 "Recommend phenotype candidates for a study intent.",
                 self._configure_recommend_parser,
+            ),
+            "/ohdsi": _build_parser(
+                "/ohdsi",
+                "Ask a contextual workflow question using the current session state.",
+                lambda parser: parser.add_argument("text", nargs=argparse.REMAINDER),
             ),
             "/vocab-search-standard": _build_parser(
                 "/vocab-search-standard",
@@ -363,6 +374,7 @@ class StudyAgentDemoShell:
         print("Commands:")
         print("/phenotype-intent-split <study intent>")
         print("/phenotype-recommend [--top-k N] [--max-results N] [--candidate-limit N] <study intent>")
+        print("/ohdsi <question about the current workflow context>")
         print("/vocab-search-standard [--domains CSV] [--classes CSV] [--limit N] [--provider NAME] <term1 ; term2>")
         print("/vocab-phoebe-related [--relationships CSV] [--provider NAME] <concept_id1,concept_id2>")
         print("/keeper-generate-concepts [--domains CSV] [--candidate-limit N] [--min-record-count N] [--vocab-provider NAME] [--phoebe-provider NAME] [--output PATH] <phenotype>")
@@ -430,6 +442,14 @@ class StudyAgentDemoShell:
             print("questions:")
             for question in questions:
                 print(f"- {question}")
+        self.session.current_study_intent = study_intent
+        self.session.current_workflow_type = "phenotype"
+        self.session.current_step = "intent_split"
+        self.session.current_role = ""
+        self.session.current_context = {
+            "target_statement": split.get("target_statement", ""),
+            "outcome_statement": split.get("outcome_statement", ""),
+        }
         self._print_llm_summary(result)
         print(f"saved: {artifact}")
 
@@ -459,8 +479,45 @@ class StudyAgentDemoShell:
             print(f"{idx}. phenotype_id={phenotype_id} name={phenotype_name}")
             if reasoning:
                 print(f"   {reasoning}")
+        self.session.current_study_intent = study_intent
+        self.session.current_workflow_type = "phenotype"
+        self.session.current_step = "phenotype_recommendation"
+        self.session.current_role = ""
+        self.session.current_context = {
+            "top_k": args.top_k,
+            "max_results": args.max_results,
+            "candidate_limit": args.candidate_limit,
+            "recommendation_count": len(recommendations),
+        }
         self._print_llm_summary(result)
         print(f"saved: {artifact}")
+
+    def _handle_workflow_dialogue(self, argv: Sequence[str]) -> None:
+        args = self._parse("/ohdsi", argv)
+        user_prompt = " ".join(args.text).strip()
+        if not user_prompt:
+            raise ValueError("missing dialogue question")
+        payload = {
+            "user_prompt": user_prompt,
+            "study_intent": self.session.current_study_intent,
+            "workflow_type": self.session.current_workflow_type,
+            "current_step": self.session.current_step,
+            "current_role": self.session.current_role,
+            "current_context": self.session.current_context,
+        }
+        result = self._post_flow("/flows/workflow_context_dialogue", payload)
+        self._require_ok(result)
+        dialogue = result.get("dialogue") or {}
+        print(f"status: {result.get('status')}")
+        print(dialogue.get("answer", ""))
+        for label, key in (("current step guidance", "current_step_guidance"), ("cautions", "cautions"), ("suggested next actions", "suggested_next_actions")):
+            items = dialogue.get(key) or []
+            if not items:
+                continue
+            print(f"{label}:")
+            for item in items:
+                print(f"- {item}")
+        self._print_llm_summary(result)
 
     def _handle_vocab_search(self, argv: Sequence[str]) -> None:
         args = self._parse("/vocab-search-standard", argv)

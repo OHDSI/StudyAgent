@@ -205,3 +205,17 @@ def test_case_causal_review_build_prompt_contains_allowed_domains() -> None:
     assert '"adverse_event_name": "Hepatic failure"' in payload["prompt"]
     assert '"allowed_domains": [' in payload["prompt"]
     assert '"candidate_items": [' in payload["prompt"]
+
+
+@pytest.mark.mcp
+def test_workflow_context_dialogue_bundle_schema() -> None:
+    from study_agent_mcp.tools import workflow_context_dialogue
+
+    mcp = DummyMCP()
+    workflow_context_dialogue.register(mcp)
+    fn = mcp.tools["workflow_context_dialogue"]
+    payload = fn()
+    assert "overview" in payload
+    assert "spec" in payload
+    assert "output_schema" in payload
+    assert payload["output_schema"]["title"] == "workflow_context_dialogue_output"

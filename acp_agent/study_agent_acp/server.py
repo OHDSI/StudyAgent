@@ -26,6 +26,7 @@ SERVICES = [
     {"name": "phenotype_intent_split", "endpoint": "/flows/phenotype_intent_split"},
     {"name": "cohort_methods_intent_split", "endpoint": "/flows/cohort_methods_intent_split"},
     {"name": "cohort_methods_specifications_recommendation", "endpoint": "/flows/cohort_methods_specifications_recommendation"},
+    {"name": "workflow_context_dialogue", "endpoint": "/flows/workflow_context_dialogue"},
 ]
 SERVICE_REGISTRY_PATH = os.getenv("STUDY_AGENT_SERVICE_REGISTRY", "docs/SERVICE_REGISTRY.yaml")
 logger = logging.getLogger("study_agent.acp")
@@ -303,6 +304,38 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             except Exception as exc:
                 if self.debug:
                     logger.exception("flow_failed name=phenotype_recommendation")
+                _write_json(self, 500, {"error": "flow_failed", "detail": str(exc) if self.debug else None})
+                return
+            status = 200 if result.get("status") != "error" else 500
+            _write_json(self, status, result)
+            return
+
+        if self.path == "/flows/workflow_context_dialogue":
+            try:
+                body = _read_json(self)
+            except Exception as exc:
+                _write_json(self, 400, {"error": f"invalid_json: {exc}"})
+                return
+            user_prompt = str(body.get("user_prompt") or body.get("prompt") or "").strip()
+            study_intent = str(body.get("study_intent") or "").strip()
+            workflow_type = str(body.get("workflow_type") or "").strip()
+            current_step = str(body.get("current_step") or "").strip()
+            current_role = str(body.get("current_role") or "").strip()
+            current_context = body.get("current_context")
+            if not isinstance(current_context, dict):
+                current_context = {}
+            try:
+                result = self.agent.run_workflow_context_dialogue_flow(
+                    user_prompt=user_prompt,
+                    study_intent=study_intent,
+                    workflow_type=workflow_type,
+                    current_step=current_step,
+                    current_role=current_role,
+                    current_context=current_context,
+                )
+            except Exception as exc:
+                if self.debug:
+                    logger.exception("flow_failed name=workflow_context_dialogue")
                 _write_json(self, 500, {"error": "flow_failed", "detail": str(exc) if self.debug else None})
                 return
             status = 200 if result.get("status") != "error" else 500
