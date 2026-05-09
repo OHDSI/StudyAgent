@@ -1994,12 +1994,35 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
       ))
     }
     parsed <- lapply(lines, function(line) jsonlite::fromJSON(line, simplifyVector = TRUE))
+    parse_catalog_cohort_id <- function(x) {
+      direct <- suppressWarnings(as.integer(x$cohortId %||% NA_integer_))
+      if (!is.na(direct)) return(direct)
+      phenotype_id <- as.character(x$phenotype_id %||% "")
+      if (grepl("^ohdsi:[0-9]+$", phenotype_id)) {
+        return(suppressWarnings(as.integer(sub("^ohdsi:", "", phenotype_id))))
+      }
+      suppressWarnings(as.integer(phenotype_id))
+    }
     data.frame(
-      cohortId = vapply(parsed, function(x) as.integer(x$cohortId %||% NA_integer_), integer(1)),
-      name = vapply(parsed, function(x) x$name %||% "", character(1)),
+      cohortId = vapply(parsed, parse_catalog_cohort_id, integer(1)),
+      name = vapply(parsed, function(x) x$cohortName %||% x$phenotype_name %||% x$name %||% "", character(1)),
       short_description = vapply(parsed, function(x) x$short_description %||% "", character(1)),
       stringsAsFactors = FALSE
     )
+  }
+
+  recommendation_name <- function(rec) {
+    first_nonempty(rec$cohortName, rec$phenotype_name, rec$name, "<unknown>")
+  }
+
+  recommendation_cohort_id <- function(rec) {
+    direct <- suppressWarnings(as.integer(rec$cohortId %||% NA_integer_))
+    if (!is.na(direct)) return(direct)
+    phenotype_id <- as.character(rec$phenotype_id %||% "")
+    if (grepl("^ohdsi:[0-9]+$", phenotype_id)) {
+      return(suppressWarnings(as.integer(sub("^ohdsi:", "", phenotype_id))))
+    }
+    suppressWarnings(as.integer(phenotype_id))
   }
 
   lookup_catalog_value <- function(cohort_id, catalog_df, field = "name", fallback = NULL) {
@@ -2087,14 +2110,16 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     if (length(recommendations) == 0) return(integer(0))
     if (!isTRUE(interactive)) {
       if (isTRUE(allow_multiple)) {
-        return(as.integer(vapply(recommendations, function(rec) rec$cohortId %||% NA_integer_, integer(1))))
+        return(as.integer(vapply(recommendations, recommendation_cohort_id, integer(1))))
       }
-      return(as.integer(recommendations[[1]]$cohortId %||% NA_integer_))
+      return(as.integer(recommendation_cohort_id(recommendations[[1]])))
     }
 
     labels <- vapply(seq_along(recommendations), function(i) {
       rec <- recommendations[[i]]
-      sprintf("%s (ID %s)", rec$cohortName %||% "<unknown>", rec$cohortId %||% "?")
+      cohort_id <- recommendation_cohort_id(rec)
+      cohort_id_label <- if (is.na(cohort_id)) "?" else as.character(cohort_id)
+      sprintf("%s (ID %s)", recommendation_name(rec), cohort_id_label)
     }, character(1))
     picks <- utils::select.list(
       labels,
@@ -2104,7 +2129,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     if (!length(picks) || !any(nzchar(picks))) return(integer(0))
     selected_ids <- vapply(picks, function(label) {
       idx <- which(labels == label)[1]
-      recommendations[[idx]]$cohortId %||% NA_integer_
+      recommendation_cohort_id(recommendations[[idx]])
     }, numeric(1))
     as.integer(selected_ids[!is.na(selected_ids)])
   }
@@ -2230,7 +2255,9 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
       cat(sprintf("\n== %s Phenotype Recommendations ==\n", role_label))
       for (i in seq_along(recommendations)) {
         rec <- recommendations[[i]]
-        cat(sprintf("%d. %s (ID %s)\n", i, rec$cohortName %||% "<unknown>", rec$cohortId %||% "?"))
+        cohort_id <- recommendation_cohort_id(rec)
+        cohort_id_label <- if (is.na(cohort_id)) "?" else as.character(cohort_id)
+        cat(sprintf("%d. %s (ID %s)\n", i, recommendation_name(rec), cohort_id_label))
         if (!is.null(rec$justification)) cat(sprintf("   %s\n", rec$justification))
       }
       ok_any <- prompt_yesno(sprintf("Are any of these acceptable for the %s?", role_key), default = TRUE)
@@ -2259,7 +2286,9 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
           cat(sprintf("\n== %s Phenotype Recommendations (window 2) ==\n", role_label))
           for (i in seq_along(recommendations)) {
             rec <- recommendations[[i]]
-            cat(sprintf("%d. %s (ID %s)\n", i, rec$cohortName %||% "<unknown>", rec$cohortId %||% "?"))
+            cohort_id <- recommendation_cohort_id(rec)
+            cohort_id_label <- if (is.na(cohort_id)) "?" else as.character(cohort_id)
+            cat(sprintf("%d. %s (ID %s)\n", i, recommendation_name(rec), cohort_id_label))
             if (!is.null(rec$justification)) cat(sprintf("   %s\n", rec$justification))
           }
           ok_any <- prompt_yesno(sprintf("Are any of these acceptable for the %s?", role_key), default = TRUE)
