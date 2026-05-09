@@ -2396,9 +2396,32 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     )
   }
 
+  resolve_index_definition_path <- function(source_id, index_def_dir) {
+    source_text <- trimws(as.character(source_id %||% ""))
+    candidates <- character(0)
+    if (nzchar(source_text)) {
+      candidates <- c(candidates, file.path(index_def_dir, sprintf("%s.json", source_text)))
+      if (grepl("^[0-9]+$", source_text)) {
+        candidates <- c(candidates, file.path(index_def_dir, sprintf("ohdsi__%s.json", source_text)))
+      }
+      if (grepl("^[A-Za-z0-9_]+:[A-Za-z0-9_.-]+$", source_text)) {
+        candidates <- c(
+          candidates,
+          file.path(index_def_dir, sprintf("%s.json", gsub(":", "__", source_text, fixed = TRUE)))
+        )
+      }
+    }
+    candidates <- unique(candidates[nzchar(candidates)])
+    hit <- candidates[file.exists(candidates)][1]
+    if (length(hit) == 0 || is.na(hit) || !nzchar(hit)) return(NA_character_)
+    hit
+  }
+
   copy_cohort_json_multi <- function(source_id, dest_id, dest_dirs, index_def_dir) {
-    src <- file.path(index_def_dir, sprintf("%s.json", source_id))
-    if (!file.exists(src)) stop(sprintf("Cohort JSON not found: %s", src))
+    src <- resolve_index_definition_path(source_id, index_def_dir)
+    if (is.na(src) || !file.exists(src)) {
+      stop(sprintf("Cohort JSON not found for source %s in %s", source_id, index_def_dir))
+    }
     dests <- character(0)
     for (dest_dir in dest_dirs) {
       ensure_dir(dest_dir)
@@ -2682,16 +2705,16 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   }
 
   assert_cohort_json_exists <- function(source_id, index_def_dir, label) {
-    src <- file.path(index_def_dir, sprintf("%s.json", source_id))
-    if (!file.exists(src)) {
-      stop(sprintf("%s cohort JSON not found: %s", label, src))
+    src <- resolve_index_definition_path(source_id, index_def_dir)
+    if (is.na(src) || !file.exists(src)) {
+      stop(sprintf("%s cohort JSON not found for source %s in %s", label, source_id, index_def_dir))
     }
     invisible(src)
   }
 
   cohort_json_exists <- function(source_id, index_def_dir) {
-    src <- file.path(index_def_dir, sprintf("%s.json", source_id))
-    file.exists(src)
+    src <- resolve_index_definition_path(source_id, index_def_dir)
+    !is.na(src) && file.exists(src)
   }
 
   validate_positive_integer <- function(value, label) {
