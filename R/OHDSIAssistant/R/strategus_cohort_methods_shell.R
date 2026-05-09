@@ -1561,8 +1561,8 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
                                            outcomeCohortIds = NULL,
                                            comparisonLabel = NULL,
                                            topK = 20,
-                                           maxResults = 20,
-                                           candidateLimit = 20,
+                                           maxResults = 3,
+                                           candidateLimit = 10,
                                            indexDir = Sys.getenv("PHENOTYPE_INDEX_DIR", "data/phenotype_index"),
                                            negativeControlConceptSetId = NULL,
                                            includeCovariateConceptSetId = NULL,
@@ -1586,10 +1586,121 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     if (!dir.exists(path)) dir.create(path, recursive = TRUE, showWarnings = FALSE)
   }
 
+  compact_dialogue_context <- function(value) {
+    if (!is.list(value) || length(value) == 0) return(list())
+    keep <- lapply(value, function(item) {
+      if (is.null(item)) return(FALSE)
+      if (is.character(item) && length(item) == 1 && !nzchar(trimws(item))) return(FALSE)
+      if (is.atomic(item) && length(item) == 0) return(FALSE)
+      if (is.list(item) && length(item) == 0) return(FALSE)
+      TRUE
+    })
+    keep_idx <- which(vapply(keep, isTRUE, logical(1)))
+    if (length(keep_idx) == 0) return(list())
+    value[keep_idx]
+  }
+
+  dialogue_state <- new.env(parent = emptyenv())
+  dialogue_state$current_step <- ""
+  dialogue_state$current_role <- ""
+  dialogue_state$current_context <- list()
+
+  set_dialogue_context <- function(step = "", role = "", context = list()) {
+    dialogue_state$current_step <- as.character(step %||% "")
+    dialogue_state$current_role <- as.character(role %||% "")
+    dialogue_state$current_context <- compact_dialogue_context(context %||% list())
+    invisible(NULL)
+  }
+
+  render_workflow_dialogue <- function(response) {
+    core <- response$dialogue %||% response
+    cat("
+== OHDSI Guidance ==
+")
+    answer <- as.character(core$answer %||% "")
+    if (nzchar(trimws(answer))) {
+      cat(answer, "
+")
+    } else {
+      cat("No contextual guidance was returned.
+")
+    }
+    guidance <- core$current_step_guidance %||% list()
+    if (length(guidance) > 0) {
+      cat("Current step guidance:
+")
+      for (item in guidance) cat(sprintf("  - %s
+", item))
+    }
+    cautions <- core$cautions %||% list()
+    if (length(cautions) > 0) {
+      cat("Cautions:
+")
+      for (item in cautions) cat(sprintf("  - %s
+", item))
+    }
+    next_actions <- core$suggested_next_actions %||% list()
+    if (length(next_actions) > 0) {
+      cat("Suggested next actions:
+")
+      for (item in next_actions) cat(sprintf("  - %s
+", item))
+    }
+    cat("
+")
+  }
+
+  handle_workflow_dialogue_command <- function(entered) {
+    trimmed <- trimws(as.character(entered %||% ""))
+    if (!isTRUE(interactive) || !startsWith(trimmed, "/ohdsi")) {
+      return(list(handled = FALSE, value = entered))
+    }
+    question <- trimws(sub("^/ohdsi", "", trimmed))
+    if (!nzchar(question)) {
+      cat("Enter a question after /ohdsi. Example: /ohdsi why is washout important here?
+")
+      return(list(handled = TRUE, value = ""))
+    }
+    if (!ensure_acp_ready(acpUrl)) {
+      cat("ACP bridge unavailable. Connect ACP before using /ohdsi.
+")
+      return(list(handled = TRUE, value = ""))
+    }
+    body <- list(
+      user_prompt = question,
+      study_intent = as.character(studyIntent %||% ""),
+      workflow_type = "cohort_methods",
+      current_step = as.character(dialogue_state$current_step %||% ""),
+      current_role = as.character(dialogue_state$current_role %||% ""),
+      current_context = compact_dialogue_context(dialogue_state$current_context %||% list())
+    )
+    message("Calling ACP flow: workflow_context_dialogue")
+    response <- tryCatch(
+      .acp_post("/flows/workflow_context_dialogue", body),
+      error = function(e) list(status = "error", error = conditionMessage(e))
+    )
+    if (!identical(response$status %||% "", "ok")) {
+      cat(sprintf("OHDSI guidance failed: %s
+", as.character(response$error %||% "unknown error")))
+      return(list(handled = TRUE, value = ""))
+    }
+    render_workflow_dialogue(response)
+    list(handled = TRUE, value = "")
+  }
+
+  readline_with_dialogue <- function(prompt) {
+    repeat {
+      entered <- readline(prompt)
+      handled <- handle_workflow_dialogue_command(entered)
+      if (isTRUE(handled$handled)) next
+      return(handled$value)
+    }
+  }
+
   prompt_yesno <- function(prompt, default = TRUE) {
     if (!isTRUE(interactive)) return(default)
     suffix <- if (default) "[Y/n]" else "[y/N]"
-    resp <- tolower(trimws(readline(sprintf("%s %s ", prompt, suffix))))
+    resp <- tolower(trimws(readline_with_dialogue(sprintf("%s %s ", prompt, suffix))))
     if (resp == "") return(default)
     if (resp %in% c("y", "yes")) return(TRUE)
     if (resp %in% c("n", "no")) return(FALSE)
@@ -1636,7 +1747,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
           label
         )
       }
-      entered <- trimws(readline(prompt))
+      entered <- trimws(readline_with_dialogue(prompt))
       candidate <- if (nzchar(entered)) entered else if (nchar(current, type = "chars") <= max_chars) current else ""
       if (!nzchar(candidate)) {
         cat(sprintf("Analysis label must be %s characters or fewer. Please enter a shorter label.\n", max_chars))
@@ -1771,7 +1882,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     if (length(ids) > 1) stop(sprintf("%s must contain exactly one cohort ID.", label))
     if (length(ids) == 1) return(as.integer(ids[[1]]))
     if (!isTRUE(interactive)) stop(sprintf("Missing %s.", label))
-    entered <- trimws(readline(sprintf("%s cohort ID: ", label)))
+    entered <- trimws(readline_with_dialogue(sprintf("%s cohort ID: ", label)))
     ids <- parse_ids(entered)
     ids <- ids[!is.na(ids)]
     if (length(ids) != 1) stop(sprintf("%s must contain exactly one cohort ID.", label))
@@ -1783,7 +1894,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     ids <- unique(ids[!is.na(ids)])
     if (length(ids) > 0) return(as.integer(ids))
     if (!isTRUE(interactive)) stop(sprintf("Missing %s.", label))
-    entered <- trimws(readline(sprintf("%s cohort IDs (comma-separated): ", label)))
+    entered <- trimws(readline_with_dialogue(sprintf("%s cohort IDs (comma-separated): ", label)))
     ids <- parse_ids(entered)
     ids <- unique(ids[!is.na(ids)])
     if (length(ids) == 0) stop(sprintf("%s must include at least one cohort ID.", label))
@@ -1796,7 +1907,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     if (length(ids) > 1) stop(sprintf("%s must contain at most one ID.", label))
     if (length(ids) == 1) return(validate_positive_integer(ids[[1]], label))
     if (!isTRUE(interactive)) return(NULL)
-    entered <- trimws(readline(prompt %||% sprintf("%s ID [optional]: ", label)))
+    entered <- trimws(readline_with_dialogue(prompt %||% sprintf("%s ID [optional]: ", label)))
     if (!nzchar(entered)) return(NULL)
     ids <- parse_ids(entered)
     ids <- unique(ids[!is.na(ids)])
@@ -1815,7 +1926,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     repeat {
       prompt_text <- trimws(as.character(prompt %||% ""))
       rendered_prompt <- if (nzchar(prompt_text)) sprintf("%s %s ", prompt_text, suffix) else sprintf("%s ", suffix)
-      entered <- tolower(trimws(readline(rendered_prompt)))
+      entered <- tolower(trimws(readline_with_dialogue(rendered_prompt)))
       if (entered == "") return(default)
       if (entered %in% options$yes) return(TRUE)
       if (entered %in% options$no) return(FALSE)
@@ -1827,7 +1938,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     if (!isTRUE(interactive)) return(default)
     repeat {
       default_value <- if (is.null(default)) "" else as.character(default)
-      entered <- trimws(readline(sprintf("%s [%s]: ", prompt, default_value)))
+      entered <- trimws(readline_with_dialogue(sprintf("%s [%s]: ", prompt, default_value)))
       if (entered == "" && !is.null(default)) return(default)
       if (entered == "") {
         cat("A value is required.\n")
@@ -1851,7 +1962,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     repeat {
       prompt_text <- trimws(as.character(prompt %||% ""))
       rendered_prompt <- if (nzchar(prompt_text)) sprintf("%s%s: ", prompt_text, prompt_suffix) else sprintf("%s: ", prompt_suffix)
-      entered <- trimws(readline(rendered_prompt))
+      entered <- trimws(readline_with_dialogue(rendered_prompt))
       if (entered == "") {
         if (allow_null) return(NULL)
         if (is.null(default)) {
@@ -1886,7 +1997,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     repeat {
       prompt_text <- trimws(as.character(prompt %||% ""))
       rendered_prompt <- if (nzchar(prompt_text)) sprintf("%s%s: ", prompt_text, prompt_suffix) else sprintf("%s: ", prompt_suffix)
-      entered <- trimws(readline(rendered_prompt))
+      entered <- trimws(readline_with_dialogue(rendered_prompt))
       if (entered == "") {
         if (is.null(default)) {
           cat("A value is required.\n")
@@ -1928,7 +2039,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     repeat {
       prompt_text <- trimws(as.character(prompt %||% ""))
       rendered_prompt <- if (nzchar(prompt_text)) sprintf("%s [%s]: ", prompt_text, default) else sprintf("[%s]: ", default)
-      entered <- trimws(readline(rendered_prompt))
+      entered <- trimws(readline_with_dialogue(rendered_prompt))
       if (entered == "") {
         return(default)
       }
@@ -1950,7 +2061,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
 
     collected <- integer(0)
     repeat {
-      entered <- trimws(readline("Outcome cohort ID: "))
+      entered <- trimws(readline_with_dialogue("Outcome cohort ID: "))
       parsed <- parse_ids(entered)
       parsed <- parsed[!is.na(parsed)]
       if (length(parsed) != 1) {
@@ -2015,6 +2126,15 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     first_nonempty(rec$cohortName, rec$phenotype_name, rec$name, "<unknown>")
   }
 
+  recommendation_identifier <- function(rec) {
+    first_nonempty(
+      as.character(rec$cohortId %||% ""),
+      as.character(rec$phenotype_id %||% ""),
+      as.character(rec$id %||% ""),
+      ""
+    )
+  }
+
   recommendation_cohort_id <- function(rec) {
     direct <- suppressWarnings(as.integer(rec$cohortId %||% NA_integer_))
     if (!is.na(direct)) return(direct)
@@ -2023,6 +2143,36 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
       return(suppressWarnings(as.integer(sub("^ohdsi:", "", phenotype_id))))
     }
     suppressWarnings(as.integer(phenotype_id))
+  }
+
+  recommendation_is_ohdsi_computable <- function(rec) {
+    identifier <- recommendation_identifier(rec)
+    if (!nzchar(identifier)) return(FALSE)
+    if (grepl("^[0-9]+$", identifier)) return(TRUE)
+    grepl("^ohdsi:[0-9]+$", identifier)
+  }
+
+  recommendation_id_label <- function(rec) {
+    cohort_id <- recommendation_cohort_id(rec)
+    if (!is.na(cohort_id)) return(as.character(cohort_id))
+    identifier <- recommendation_identifier(rec)
+    if (nzchar(identifier)) return(identifier)
+    "?"
+  }
+
+  unsupported_recommendation_message <- function(rec, role_label) {
+    identifier <- recommendation_identifier(rec)
+    if (!nzchar(identifier)) identifier <- "unknown"
+    sprintf(
+      paste(
+        "Selected %s phenotype %s (%s), but this workflow can only continue with a computable OHDSI cohort definition.",
+        "Descriptive phenotypes such as CIPHER recommendations are not yet convertible to executable cohort JSON in the shell.",
+        "Choose an OHDSI-backed phenotype for now."
+      ),
+      tolower(role_label),
+      recommendation_name(rec),
+      identifier
+    )
   }
 
   lookup_catalog_value <- function(cohort_id, catalog_df, field = "name", fallback = NULL) {
@@ -2086,7 +2236,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   prompt_statement <- function(label, default = NULL) {
     if (!isTRUE(interactive)) return(default)
     default_value <- trimws(as.character(default %||% ""))
-    entered <- readline(sprintf("%s statement [%s]: ", label, default_value))
+    entered <- readline_with_dialogue(sprintf("%s statement [%s]: ", label, default_value))
     if (nzchar(trimws(entered))) trimws(entered) else default_value
   }
 
@@ -2109,6 +2259,10 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   collect_recommendation_selection <- function(recommendations, role_label, allow_multiple = FALSE) {
     if (length(recommendations) == 0) return(integer(0))
     if (!isTRUE(interactive)) {
+      unsupported <- vapply(recommendations, function(rec) !isTRUE(recommendation_is_ohdsi_computable(rec)), logical(1))
+      if (any(unsupported)) {
+        stop(unsupported_recommendation_message(recommendations[[which(unsupported)[1]]], role_label))
+      }
       if (isTRUE(allow_multiple)) {
         return(as.integer(vapply(recommendations, recommendation_cohort_id, integer(1))))
       }
@@ -2117,9 +2271,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
 
     labels <- vapply(seq_along(recommendations), function(i) {
       rec <- recommendations[[i]]
-      cohort_id <- recommendation_cohort_id(rec)
-      cohort_id_label <- if (is.na(cohort_id)) "?" else as.character(cohort_id)
-      sprintf("%s (ID %s)", recommendation_name(rec), cohort_id_label)
+      sprintf("%s (ID %s)", recommendation_name(rec), recommendation_id_label(rec))
     }, character(1))
     picks <- utils::select.list(
       labels,
@@ -2127,6 +2279,14 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
       title = sprintf("Select %s phenotype%s", tolower(role_label), if (isTRUE(allow_multiple)) "s" else "")
     )
     if (!length(picks) || !any(nzchar(picks))) return(integer(0))
+    selected_recs <- lapply(picks, function(label) {
+      idx <- which(labels == label)[1]
+      recommendations[[idx]]
+    })
+    unsupported <- vapply(selected_recs, function(rec) !isTRUE(recommendation_is_ohdsi_computable(rec)), logical(1))
+    if (any(unsupported)) {
+      stop(unsupported_recommendation_message(selected_recs[[which(unsupported)[1]]], role_label))
+    }
     selected_ids <- vapply(picks, function(label) {
       idx <- which(labels == label)[1]
       recommendation_cohort_id(recommendations[[idx]])
@@ -2147,8 +2307,12 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
                                       selected_cache_label = NULL,
                                       selected_cache_dir = NULL,
                                       cohort_method_cache = NULL,
-                                      incidence_cache = NULL) {
+                                      incidence_cache = NULL,
+                                      recommendation_role = NULL,
+                                      workflow_type = "cohort_methods",
+                                      exclude_metadata = NULL) {
     role_key <- tolower(role_label)
+    recommendation_role <- tolower(trimws(as.character(recommendation_role %||% role_key)))
     preferred_selected_ids <- normalize_selected_ids(
       preferred_selected_ids,
       sprintf("%s cohort ID%s", role_label, if (isTRUE(allow_multiple)) "s" else ""),
@@ -2222,6 +2386,19 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
       }
     }
 
+    set_dialogue_context(
+      paste0(role_key, "_recommendation"),
+      recommendation_role,
+      context = list(
+        statement = statement,
+        top_k = top_k,
+        max_results = max_results,
+        candidate_limit = candidate_limit,
+        workflow_type = workflow_type,
+        exclude_metadata = exclude_metadata
+      )
+    )
+
     recommendation_response <- NULL
     recommendation_path <- output_path
     used_cached_recommendation <- FALSE
@@ -2236,7 +2413,10 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
         study_intent = statement,
         top_k = top_k,
         max_results = max_results,
-        candidate_limit = candidate_limit
+        candidate_limit = candidate_limit,
+        recommendation_role = recommendation_role,
+        workflow_type = workflow_type,
+        exclude_metadata = exclude_metadata
       )
       message(sprintf("Calling ACP flow: phenotype_recommendation (%s)", role_key))
       recommendation_response <- tryCatch(
@@ -2250,15 +2430,39 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
 
     recommendations_core <- recommendation_response$recommendations %||% recommendation_response
     recommendations <- recommendations_core$phenotype_recommendations %||% list()
+    no_candidate_reason <- as.character(recommendation_response$fallback_reason %||% recommendations_core$fallback_reason %||% "")
+
+    if (isTRUE(interactive) && length(recommendations) == 0 && !is.null(recommendation_response)) {
+      cat(sprintf("
+== %s Phenotype Recommendations ==
+", role_label))
+      if (identical(no_candidate_reason, "no_direct_role_match")) {
+        cat("No sufficiently direct computable OHDSI phenotype match was found for this cohort statement.
+")
+        cat("Enter a cohort ID manually if you want to continue with a known cohort definition.
+")
+      } else if (identical(no_candidate_reason, "no_viable_candidates_after_rerank")) {
+        cat("No viable phenotype candidates were identified from the current search results.
+")
+        cat("Enter a cohort ID manually if you want to continue with a known cohort definition.
+")
+      } else {
+        cat("No phenotype recommendations were returned.
+")
+        cat("Enter a cohort ID manually if you want to continue with a known cohort definition.
+")
+      }
+    }
 
     if (isTRUE(interactive) && length(recommendations) > 0) {
       cat(sprintf("\n== %s Phenotype Recommendations ==\n", role_label))
       for (i in seq_along(recommendations)) {
         rec <- recommendations[[i]]
-        cohort_id <- recommendation_cohort_id(rec)
-        cohort_id_label <- if (is.na(cohort_id)) "?" else as.character(cohort_id)
-        cat(sprintf("%d. %s (ID %s)\n", i, recommendation_name(rec), cohort_id_label))
+        cat(sprintf("%d. %s (ID %s)\n", i, recommendation_name(rec), recommendation_id_label(rec)))
         if (!is.null(rec$justification)) cat(sprintf("   %s\n", rec$justification))
+        if (!isTRUE(recommendation_is_ohdsi_computable(rec))) {
+          cat("   Not directly computable in this workflow; descriptive phenotype conversion is not yet implemented.\n")
+        }
       }
       ok_any <- prompt_yesno(sprintf("Are any of these acceptable for the %s?", role_key), default = TRUE)
       if (!ok_any && ensure_acp_ready(acpUrl)) {
@@ -2271,7 +2475,10 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
             top_k = top_k,
             max_results = max_results,
             candidate_limit = candidate_limit,
-            candidate_offset = candidate_limit
+            candidate_offset = candidate_limit,
+            recommendation_role = recommendation_role,
+            workflow_type = workflow_type,
+            exclude_metadata = exclude_metadata
           )
           message(sprintf("Calling ACP flow: phenotype_recommendation (%s window 2)", role_key))
           recommendation_response <- tryCatch(
@@ -2286,10 +2493,11 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
           cat(sprintf("\n== %s Phenotype Recommendations (window 2) ==\n", role_label))
           for (i in seq_along(recommendations)) {
             rec <- recommendations[[i]]
-            cohort_id <- recommendation_cohort_id(rec)
-            cohort_id_label <- if (is.na(cohort_id)) "?" else as.character(cohort_id)
-            cat(sprintf("%d. %s (ID %s)\n", i, recommendation_name(rec), cohort_id_label))
+            cat(sprintf("%d. %s (ID %s)\n", i, recommendation_name(rec), recommendation_id_label(rec)))
             if (!is.null(rec$justification)) cat(sprintf("   %s\n", rec$justification))
+            if (!isTRUE(recommendation_is_ohdsi_computable(rec))) {
+              cat("   Not directly computable in this workflow; descriptive phenotype conversion is not yet implemented.\n")
+            }
           }
           ok_any <- prompt_yesno(sprintf("Are any of these acceptable for the %s?", role_key), default = TRUE)
         }
@@ -2345,9 +2553,32 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     )
   }
 
+  resolve_index_definition_path <- function(source_id, index_def_dir) {
+    source_text <- trimws(as.character(source_id %||% ""))
+    candidates <- character(0)
+    if (nzchar(source_text)) {
+      candidates <- c(candidates, file.path(index_def_dir, sprintf("%s.json", source_text)))
+      if (grepl("^[0-9]+$", source_text)) {
+        candidates <- c(candidates, file.path(index_def_dir, sprintf("ohdsi__%s.json", source_text)))
+      }
+      if (grepl("^[A-Za-z0-9_]+:[A-Za-z0-9_.-]+$", source_text)) {
+        candidates <- c(
+          candidates,
+          file.path(index_def_dir, sprintf("%s.json", gsub(":", "__", source_text, fixed = TRUE)))
+        )
+      }
+    }
+    candidates <- unique(candidates[nzchar(candidates)])
+    hit <- candidates[file.exists(candidates)][1]
+    if (length(hit) == 0 || is.na(hit) || !nzchar(hit)) return(NA_character_)
+    hit
+  }
+
   copy_cohort_json_multi <- function(source_id, dest_id, dest_dirs, index_def_dir) {
-    src <- file.path(index_def_dir, sprintf("%s.json", source_id))
-    if (!file.exists(src)) stop(sprintf("Cohort JSON not found: %s", src))
+    src <- resolve_index_definition_path(source_id, index_def_dir)
+    if (is.na(src) || !file.exists(src)) {
+      stop(sprintf("Cohort JSON not found for source %s in %s", source_id, index_def_dir))
+    }
     dests <- character(0)
     for (dest_dir in dest_dirs) {
       ensure_dir(dest_dir)
@@ -2457,6 +2688,15 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
 
     for (cid in names(response_by_id)) {
       if (identical(cid, "_meta")) next
+      set_dialogue_context(
+        paste0(role_key, "_improvements"),
+        role_key,
+        context = list(
+          role_statement = role_statement,
+          cohort_id = as.integer(cid),
+          study_intent = studyIntent
+        )
+      )
       resp <- response_by_id[[cid]]
       core <- resp$full_result %||% resp
       items <- core$phenotype_improvements %||% list()
@@ -2631,16 +2871,16 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   }
 
   assert_cohort_json_exists <- function(source_id, index_def_dir, label) {
-    src <- file.path(index_def_dir, sprintf("%s.json", source_id))
-    if (!file.exists(src)) {
-      stop(sprintf("%s cohort JSON not found: %s", label, src))
+    src <- resolve_index_definition_path(source_id, index_def_dir)
+    if (is.na(src) || !file.exists(src)) {
+      stop(sprintf("%s cohort JSON not found for source %s in %s", label, source_id, index_def_dir))
     }
     invisible(src)
   }
 
   cohort_json_exists <- function(source_id, index_def_dir) {
-    src <- file.path(index_def_dir, sprintf("%s.json", source_id))
-    file.exists(src)
+    src <- resolve_index_definition_path(source_id, index_def_dir)
+    !is.na(src) && file.exists(src)
   }
 
   validate_positive_integer <- function(value, label) {
@@ -2953,7 +3193,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   collect_text_value <- function(value, prompt, default = "") {
     current <- value %||% default
     if (!isTRUE(interactive)) return(current)
-    entered <- readline(sprintf("%s [%s]: ", prompt, current))
+    entered <- readline_with_dialogue(sprintf("%s [%s]: ", prompt, current))
     if (nzchar(trimws(entered))) entered else current
   }
 
@@ -2969,7 +3209,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     }
 
     repeat {
-      entered <- trimws(readline(sprintf("Select option [%s]: ", match(current, choices))))
+      entered <- trimws(readline_with_dialogue(sprintf("Select option [%s]: ", match(current, choices))))
       if (!nzchar(entered)) return(current)
       option_idx <- suppressWarnings(as.integer(entered))
       if (!is.na(option_idx) && option_idx >= 1 && option_idx <= length(choices)) {
@@ -2986,7 +3226,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     if (!isTRUE(interactive)) return(current)
 
     repeat {
-      entered <- trimws(readline(sprintf("%s [%s]: ", prompt, current)))
+      entered <- trimws(readline_with_dialogue(sprintf("%s [%s]: ", prompt, current)))
       if (!nzchar(entered)) return(current)
       parsed <- suppressWarnings(as.integer(entered))
       if (!is.na(parsed) && (is.null(min_value) || parsed >= min_value)) {
@@ -3006,7 +3246,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     if (!isTRUE(interactive)) return(current)
 
     repeat {
-      entered <- trimws(readline(sprintf("%s [%s]: ", prompt, format(current, trim = TRUE, scientific = FALSE))))
+      entered <- trimws(readline_with_dialogue(sprintf("%s [%s]: ", prompt, format(current, trim = TRUE, scientific = FALSE))))
       if (!nzchar(entered)) return(current)
       parsed <- suppressWarnings(as.numeric(entered))
       if (!is.na(parsed) && (is.null(min_value) || parsed >= min_value)) {
@@ -3042,7 +3282,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
       )
 
       repeat {
-        entered <- tolower(trimws(readline("Press Enter after saving, or type 'r' to reopen the file: ")))
+        entered <- tolower(trimws(readline_with_dialogue("Press Enter after saving, or type 'r' to reopen the file: ")))
         if (identical(entered, "r")) {
           tryCatch(
             utils::file.edit(review_path),
@@ -3466,7 +3706,8 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   default_intent <- studyIntent %||% cached_inputs$study_intent %||%
     "Compare a target exposure versus a comparator exposure on one or more outcomes using a cohort method design."
   if (isTRUE(interactive)) {
-    entered <- readline(sprintf("Study intent [%s]: ", default_intent))
+    set_dialogue_context("study_intent", context = list(default_intent = default_intent))
+    entered <- readline_with_dialogue(sprintf("Study intent [%s]: ", default_intent))
     if (nzchar(trimws(entered))) {
       studyIntent <- entered
     } else {
@@ -3524,7 +3765,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
       default_selection <- paste(seq_along(defaults), collapse = ",")
       use_manual_outcome <- FALSE
       repeat {
-        entered <- trimws(readline(sprintf(
+        entered <- trimws(readline_with_dialogue(sprintf(
           "Keep outcome statements [%s] (comma-separated numbers, 0/none to enter manually, Enter keeps all): ",
           default_selection
         )))
@@ -3768,8 +4009,23 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     outcomeStatements <- outcome_statements_default
     outcomeStatement <- first_nonempty(outcomeStatements)
   } else {
+    set_dialogue_context("intent_split", "target", context = list(
+      target_statement = target_statement_default,
+      comparator_statement = comparator_statement_default,
+      outcome_statements = outcome_statements_default
+    ))
     targetStatement <- prompt_statement("Target", default = target_statement_default)
+    set_dialogue_context("intent_split", "comparator", context = list(
+      target_statement = targetStatement,
+      comparator_statement = comparator_statement_default,
+      outcome_statements = outcome_statements_default
+    ))
     comparatorStatement <- prompt_statement("Comparator", default = comparator_statement_default)
+    set_dialogue_context("intent_split", "outcome", context = list(
+      target_statement = targetStatement,
+      comparator_statement = comparatorStatement,
+      outcome_statements = outcome_statements_default
+    ))
     outcomeStatements <- prompt_outcome_statements(outcome_statements_default)
     outcomeStatement <- first_nonempty(outcomeStatements)
   }
@@ -3859,7 +4115,10 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
         cache_dir = incidence_selected_target_dir,
         label = "incidence target cohort selection"
       )
-    )
+    ),
+    recommendation_role = "target",
+    workflow_type = "cohort_methods",
+    exclude_metadata = list(executable_definition_status = list("codes_only"))
   )
 
   targetCohortId <- if (length(target_rec$selected_ids) > 0) {
@@ -3904,7 +4163,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     cohortIdBase <- cohortIdBase %||% cached_inputs$cohort_id_base %||% default_cohort_id_base
     cohortIdBase <- suppressWarnings(as.integer(cohortIdBase))
     if (isTRUE(interactive)) {
-      entered <- trimws(readline(sprintf("Cohort ID base [%s]: ", cohortIdBase)))
+      entered <- trimws(readline_with_dialogue(sprintf("Cohort ID base [%s]: ", cohortIdBase)))
       if (nzchar(entered)) cohortIdBase <- suppressWarnings(as.integer(entered))
     }
     cohortIdBase <- validate_positive_integer(cohortIdBase, "cohortIdBase")
@@ -3968,7 +4227,10 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
         cache_dir = NULL,
         label = NULL
       )
-    )
+    ),
+    recommendation_role = "comparator",
+    workflow_type = "cohort_methods",
+    exclude_metadata = list(executable_definition_status = list("codes_only"))
   )
 
   comparatorCohortId <- if (length(comparator_rec$selected_ids) > 0) {
@@ -4051,7 +4313,10 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
         selected_cache_label = NULL,
         selected_cache_dir = NULL,
         cohort_method_cache = NULL,
-        incidence_cache = NULL
+        incidence_cache = NULL,
+        recommendation_role = "outcome",
+        workflow_type = "cohort_methods",
+        exclude_metadata = list(executable_definition_status = list("codes_only"))
       )
     })
   } else {
@@ -4080,7 +4345,10 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
           cache_dir = incidence_selected_outcome_dir,
           label = "incidence outcome cohort selection"
         )
-      )
+      ),
+      recommendation_role = "outcome",
+      workflow_type = "cohort_methods",
+      exclude_metadata = list(executable_definition_status = list("codes_only"))
     ))
   }
   outcome_recommendations <- lapply(seq_along(outcome_recs), function(i) {
@@ -4500,12 +4768,36 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
       cat("The shell will collect each required section in order and ask for the analytic settings profile name last.\n")
     }
 
+    set_dialogue_context(
+      "analytic_settings_step_by_step",
+      "analytic_settings",
+      context = list(
+        study_intent = studyIntent,
+        target_statement = targetStatement,
+        comparator_statement = comparatorStatement,
+        outcome_statements = outcomeStatements,
+        comparison_label = comparisonLabel
+      )
+    )
+
     step_by_step_io <- list(
       section_header = function(label) {
+        set_dialogue_context(
+          "analytic_settings_step_by_step",
+          "analytic_settings",
+          context = list(
+            section = label,
+            study_intent = studyIntent,
+            target_statement = targetStatement,
+            comparator_statement = comparatorStatement,
+            outcome_statements = outcomeStatements,
+            comparison_label = comparisonLabel
+          )
+        )
         cat(sprintf("\n[%s]\n", label))
       },
       text = function(prompt, default = "", allow_blank = FALSE) {
-        entered <- trimws(readline(sprintf("%s [%s]: ", prompt, default)))
+        entered <- trimws(readline_with_dialogue(sprintf("%s [%s]: ", prompt, default)))
         if (!nzchar(entered)) {
           if (isTRUE(allow_blank)) return(default)
           return(default)

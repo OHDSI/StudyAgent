@@ -126,6 +126,8 @@ class StubMCPClient:
             return {"overview": "overview", "spec": "spec", "output_schema": {"type": "object"}}
         if name == "cohort_methods_intent_split":
             return {"overview": "overview", "spec": "spec", "output_schema": {"type": "object"}}
+        if name == "workflow_context_dialogue":
+            return {"overview": "overview", "spec": "spec", "output_schema": {"type": "object"}}
         if name == "lint_prompt_bundle":
             return {"overview": "overview", "spec": "spec", "output_schema": {"type": "object"}}
         if name == "keeper_sanitize_row":
@@ -1207,3 +1209,46 @@ def test_flow_case_causal_review_succeeds_when_optional_enrichment_is_unavailabl
     assert signal_call["ingred_rxcui"] == "456"
     assert signal_call["report_lookup_key"] == {"primaryid": None, "isr": "6526923"}
     assert signal_call["adverse_event_meddra_id"] == "789"
+
+
+@pytest.mark.acp
+def test_flow_workflow_context_dialogue(monkeypatch):
+    agent = StudyAgent(mcp_client=StubMCPClient())
+
+    def fake_call_llm(prompt, required_keys=None):
+        assert "workflow_context_dialogue" in prompt
+        return LLMCallResult(
+            status="ok",
+            parsed_content={
+                "plan": "answer in context",
+                "answer": "Washout reduces prevalent-user bias.",
+                "current_step_guidance": ["Keep the existing comparator step open while you decide."],
+                "cautions": ["Do not change cohort IDs yet."],
+                "suggested_next_actions": ["Confirm whether the design is new-user or prevalent-user."],
+            },
+            content_text="{}",
+            parse_stage="chat_completions_content",
+            schema_valid=True,
+        )
+
+    monkeypatch.setattr(agent, "_call_llm", fake_call_llm)
+
+    result = agent.run_workflow_context_dialogue_flow(
+        user_prompt="Why does the washout matter here?",
+        study_intent="Compare metformin versus sulfonylurea new users.",
+        workflow_type="cohort_methods",
+        current_step="comparator_recommendation",
+        current_role="comparator",
+        current_context={"statement": "New users of glipizide"},
+    )
+
+    assert result["status"] == "ok"
+    assert result["dialogue"]["answer"] == "Washout reduces prevalent-user bias."
+    assert result["dialogue"]["current_step_guidance"] == ["Keep the existing comparator step open while you decide."]
+
+
+@pytest.mark.acp
+def test_flow_workflow_context_dialogue_missing_prompt():
+    agent = StudyAgent(mcp_client=StubMCPClient())
+    result = agent.run_workflow_context_dialogue_flow(user_prompt="")
+    assert result["error"] == "missing user_prompt"

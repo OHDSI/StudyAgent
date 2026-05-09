@@ -1,6 +1,11 @@
 import pytest
 
+from pathlib import Path
+
 from study_agent_acp.demo_shell import (
+    ACPClient,
+    DemoSession,
+    StudyAgentDemoShell,
     _extract_keeper_row,
     _infer_phenotype_name,
     _slugify,
@@ -65,3 +70,43 @@ def test_infer_phenotype_name_prefers_top_level() -> None:
 def test_infer_phenotype_name_uses_nested_full_result() -> None:
     payload = {"full_result": {"phenotype_name": "Intracranial bleeding"}}
     assert _infer_phenotype_name(payload) == "Intracranial bleeding"
+
+
+class _FakeClient(ACPClient):
+    def __init__(self):
+        super().__init__(base_url="http://127.0.0.1:8765")
+        self.last_post = None
+
+    def post(self, path, payload):
+        self.last_post = (path, payload)
+        return {
+            "status": "ok",
+            "dialogue": {
+                "answer": "Use the current step context before changing cohort IDs.",
+                "current_step_guidance": ["Stay in the comparator recommendation step."],
+                "cautions": ["Do not overwrite cached selections yet."],
+                "suggested_next_actions": ["Review the comparator statement wording."],
+            },
+        }
+
+
+def test_demo_shell_ohdsi_command_uses_session_context(tmp_path, capsys) -> None:
+    client = _FakeClient()
+    session = DemoSession(output_dir=Path(tmp_path))
+    session.current_study_intent = "Compare sitagliptin versus glipizide new users."
+    session.current_workflow_type = "cohort_methods"
+    session.current_step = "comparator_recommendation"
+    session.current_role = "comparator"
+    session.current_context = {"statement": "New users of glipizide"}
+    shell = StudyAgentDemoShell(client=client, session=session)
+
+    shell.handle_line("/ohdsi why is this comparator weak?")
+
+    assert client.last_post is not None
+    path, payload = client.last_post
+    assert path == "/flows/workflow_context_dialogue"
+    assert payload["current_step"] == "comparator_recommendation"
+    assert payload["current_role"] == "comparator"
+    assert payload["study_intent"] == "Compare sitagliptin versus glipizide new users."
+    out = capsys.readouterr().out
+    assert "Use the current step context before changing cohort IDs." in out

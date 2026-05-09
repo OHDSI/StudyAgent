@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "workflow_context_dialogue_output",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "string"
+    },
+    "answer": {
+      "type": "string"
+    },
+    "current_step_guidance": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "cautions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "suggested_next_actions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "plan",
+    "answer",
+    "current_step_guidance",
+    "cautions",
+    "suggested_next_actions"
+  ],
+  "additionalProperties": false
+}

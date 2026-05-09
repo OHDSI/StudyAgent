@@ -20,6 +20,8 @@ from .models import (
     PhenotypeValidationReviewOutput,
     PhenotypeRecommendationsInput,
     PhenotypeRecommendationsOutput,
+    WorkflowContextDialogueInput,
+    WorkflowContextDialogueOutput,
 )
 
 
@@ -594,6 +596,65 @@ def phenotype_recommendation_advice(
         advice=advice,
         next_steps=next_steps,
         questions=questions,
+        mode=mode,
+    )
+    return _model_dump(output)
+
+
+def workflow_context_dialogue(
+    user_prompt: str,
+    study_intent: str = "",
+    workflow_type: str = "",
+    current_step: str = "",
+    current_role: str = "",
+    current_context: Optional[Dict[str, Any]] = None,
+    llm_result: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    payload = WorkflowContextDialogueInput(
+        user_prompt=user_prompt,
+        study_intent=study_intent,
+        workflow_type=workflow_type,
+        current_step=current_step,
+        current_role=current_role,
+        current_context=current_context or {},
+        llm_result=llm_result,
+    )
+
+    plan = "Answer the user's workflow question in the context of the current study-design step."
+    answer = ""
+    current_step_guidance: List[str] = []
+    cautions: List[str] = []
+    suggested_next_actions: List[str] = []
+    mode = "llm"
+
+    if payload.llm_result:
+        if payload.llm_result.get("plan"):
+            plan = str(payload.llm_result["plan"])
+        answer = str(payload.llm_result.get("answer") or "")
+        if isinstance(payload.llm_result.get("current_step_guidance"), list):
+            current_step_guidance = [str(item) for item in payload.llm_result["current_step_guidance"]]
+        if isinstance(payload.llm_result.get("cautions"), list):
+            cautions = [str(item) for item in payload.llm_result["cautions"]]
+        if isinstance(payload.llm_result.get("suggested_next_actions"), list):
+            suggested_next_actions = [str(item) for item in payload.llm_result["suggested_next_actions"]]
+    else:
+        mode = "stub"
+        answer = "No LLM response is available for workflow guidance right now."
+        if payload.current_step:
+            current_step_guidance = [
+                f"Continue the current workflow step ({payload.current_step}) after clarifying the question manually."
+            ]
+        suggested_next_actions = [
+            "Restate the question with more concrete study-design detail.",
+            "Continue the workflow and revisit the question after gathering more context.",
+        ]
+
+    output = WorkflowContextDialogueOutput(
+        plan=plan,
+        answer=answer,
+        current_step_guidance=current_step_guidance,
+        cautions=cautions,
+        suggested_next_actions=suggested_next_actions,
         mode=mode,
     )
     return _model_dump(output)
