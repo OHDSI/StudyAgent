@@ -51,6 +51,7 @@ Related implemented flows:
 - `phenotype_recommendation_advice`
 - `phenotype_improvements`
 - `phenotype_intent_split`
+- `cohort_methods_intent_split`
 - `concept_sets_review`
 - `cohort_critique_general_design`
 
@@ -173,6 +174,14 @@ export LLM_MODEL=<MODEL_NAME>
 This has been tested with [Open webui](https://docs.openwebui.com/), with locally hosted models, and [LLM Shim](https://github.com/dbmi-pitt/llm-shim) with access to cloud services (tested with openai and bedrock models) and an embedding model serviced using the HugginFace Text Embedding Interface service. 
 
 If you want phenotype retrieval, you also need an indexed phenotype library. See [docs/PHENOTYPE_INDEXING.md](/ai-agent/HadesProject/OHDSI-Study-Agent/docs/PHENOTYPE_INDEXING.md).
+
+Current indexing workflow:
+
+1. Build `catalog.jsonl` plus `sparse_index.pkl` from OHDSI and/or CIPHER source files.
+2. Optionally enable LLM-derived retrieval keywords during that build.
+3. Build `dense.index` separately when embedding infrastructure is available, either during the main build with `--build-dense` or later with `--build-dense --dense-only`.
+
+The retrieval layer reads from `PHENOTYPE_INDEX_DIR`, which should point to the built output directory. The source phenotype files do not need to live under that directory.
 
 
 ## Minimal Examples

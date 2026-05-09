@@ -14,6 +14,7 @@ from .mcp_client import HttpMCPClient, HttpMCPClientConfig, StdioMCPClient, Stdi
 
 SERVICES = [
     {"name": "phenotype_recommendation", "endpoint": "/flows/phenotype_recommendation"},
+    {"name": "phenotype_definition", "endpoint": "/flows/phenotype_definition"},
     {"name": "phenotype_improvements", "endpoint": "/flows/phenotype_improvements"},
     {"name": "concept_sets_review", "endpoint": "/flows/concept_sets_review"},
     {"name": "cohort_critique_general_design", "endpoint": "/flows/cohort_critique_general_design"},
@@ -23,6 +24,8 @@ SERVICES = [
     {"name": "keeper_profiles_generate", "endpoint": "/flows/keeper_profiles_generate"},
     {"name": "phenotype_recommendation_advice", "endpoint": "/flows/phenotype_recommendation_advice"},
     {"name": "phenotype_intent_split", "endpoint": "/flows/phenotype_intent_split"},
+    {"name": "cohort_methods_intent_split", "endpoint": "/flows/cohort_methods_intent_split"},
+    {"name": "cohort_methods_specifications_recommendation", "endpoint": "/flows/cohort_methods_specifications_recommendation"},
 ]
 SERVICE_REGISTRY_PATH = os.getenv("STUDY_AGENT_SERVICE_REGISTRY", "docs/SERVICE_REGISTRY.yaml")
 logger = logging.getLogger("study_agent.acp")
@@ -248,6 +251,24 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             _write_json(self, status, result)
             return
 
+        if self.path == "/flows/phenotype_definition":
+            try:
+                body = _read_json(self)
+            except Exception as exc:
+                _write_json(self, 400, {"error": f"invalid_json: {exc}"})
+                return
+            phenotype_id = body.get("phenotype_id") or ""
+            try:
+                result = self.agent.run_phenotype_definition_flow(phenotype_id=phenotype_id)
+            except Exception as exc:
+                if self.debug:
+                    logger.exception("flow_failed name=phenotype_definition")
+                _write_json(self, 500, {"error": "flow_failed", "detail": str(exc) if self.debug else None})
+                return
+            status = 200 if result.get("status") != "error" else 500
+            _write_json(self, status, result)
+            return
+
         if self.path == "/flows/phenotype_recommendation":
             try:
                 body = _read_json(self)
@@ -278,6 +299,31 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
                 return
             status = 200 if result.get("status") != "error" else 500
             _write_json(self, status, result)
+            return
+
+        if self.path == "/flows/cohort_methods_specifications_recommendation":
+            try:
+                body = _read_json(self)
+            except Exception as exc:
+                _write_json(self, 400, {"error": f"invalid_json: {exc}"})
+                return
+            try:
+                from study_agent_core.models import CohortMethodSpecsRecommendationInput
+                payload = CohortMethodSpecsRecommendationInput(**body)
+            except Exception as exc:
+                _write_json(self, 422, {"error": f"invalid_payload: {exc}"})
+                return
+            try:
+                result = self.agent.run_cohort_methods_specs_recommendation_flow(
+                    analytic_settings_description=payload.analytic_settings_description,
+                    study_intent=payload.study_intent or "",
+                )
+            except Exception as exc:
+                if self.debug:
+                    logger.exception("flow_failed name=cohort_methods_specifications_recommendation")
+                _write_json(self, 500, {"error": "flow_failed", "detail": str(exc) if self.debug else None})
+                return
+            _write_json(self, 200, result)
             return
 
         if self.path == "/flows/phenotype_improvements":
@@ -552,6 +598,26 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             except Exception as exc:
                 if self.debug:
                     logger.exception("flow_failed name=phenotype_intent_split")
+                _write_json(self, 500, {"error": "flow_failed", "detail": str(exc) if self.debug else None})
+                return
+            status = 200 if result.get("status") != "error" else 500
+            _write_json(self, status, result)
+            return
+
+        if self.path == "/flows/cohort_methods_intent_split":
+            try:
+                body = _read_json(self)
+            except Exception as exc:
+                _write_json(self, 400, {"error": f"invalid_json: {exc}"})
+                return
+            study_intent = body.get("study_intent") or body.get("query") or ""
+            try:
+                result = self.agent.run_cohort_methods_intent_split_flow(
+                    study_intent=study_intent,
+                )
+            except Exception as exc:
+                if self.debug:
+                    logger.exception("flow_failed name=cohort_methods_intent_split")
                 _write_json(self, 500, {"error": "flow_failed", "detail": str(exc) if self.debug else None})
                 return
             status = 200 if result.get("status") != "error" else 500

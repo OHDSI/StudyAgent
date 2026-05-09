@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "phenotype_recommendation_plan_output",
+  "type": "object",
+  "properties": {
+    "plan": { "type": "string" },
+    "intent_facets": {
+      "type": "object",
+      "properties": {
+        "condition_or_topic": { "type": "string" },
+        "phenotype_role": { "type": "string" },
+        "care_setting": { "type": "string" },
+        "population_cue": { "type": "string" },
+        "validation_preference": { "type": "string" },
+        "executability_preference": { "type": "string" },
+        "geography_coding_preference": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "shortlist_ids": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "needs_more_search": { "type": "boolean" },
+    "reasoning_notes": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "required": ["plan", "intent_facets", "shortlist_ids", "needs_more_search", "reasoning_notes"],
+  "additionalProperties": false
+}

@@ -9,12 +9,12 @@
       "items": {
         "type": "object",
         "properties": {
-          "cohortId": { "type": "integer" },
-          "cohortName": { "type": "string" },
+          "phenotype_id": { "type": "string" },
+          "phenotype_name": { "type": "string" },
           "justification": { "type": "string" },
           "confidence": { "type": ["number", "null"] }
         },
-        "required": ["cohortId", "cohortName", "justification"]
+        "required": ["phenotype_id", "phenotype_name", "justification"]
       }
     }
   },

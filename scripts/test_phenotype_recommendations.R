@@ -5,9 +5,10 @@
 # Import the R thin api to the ACP server/bridge
 devtools::load_all("OHDSI-Study-Agent/R/OHDSIAssistant")
 
+Sys.setenv(PHENOTYPE_INDEX_DIR="OHDSI-Study-Agent/data/phenotype_index_cipher_omop")
+
 # confirm the ACP server/bridge is running
 OHDSIAssistant::acp_connect("http://127.0.0.1:8765")
-
 
 ############################################################
 
@@ -15,7 +16,7 @@ OHDSIAssistant::acp_connect("http://127.0.0.1:8765")
 protocol <- "OHDSI-Study-Agent/demo/protocol.md"
 study_dir <- "OHDSI-Study-Agent/demo"
 
-rec <- OHDSIAssistant::suggestPhenotypes(protocolPath = protocol, maxResults = 10, candidateLimit = 10, interactive = TRUE)
+rec <- OHDSIAssistant::suggestPhenotypes(protocolPath = protocol, maxResults = 10, candidateLimit = 20, interactive = TRUE)
 core <- rec$recommendations %||% rec
 ids <- OHDSIAssistant::selectPhenotypeRecommendations(core$phenotype_recommendations, select = NULL, interactive = interactive())
 # this will write the JSON for the selected cohort definitions to a folder

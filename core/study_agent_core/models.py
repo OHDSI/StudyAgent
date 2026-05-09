@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ConceptSetDiffInput(BaseModel):
@@ -21,6 +21,13 @@ class PhenotypeRecommendationsInput(BaseModel):
     llm_result: Optional[Dict[str, Any]] = None
 
 
+class PhenotypeRecommendationPlanInput(BaseModel):
+    study_intent: str
+    catalog_rows: List[Dict[str, Any]]
+    max_shortlist: int = 5
+    llm_result: Optional[Dict[str, Any]] = None
+
+
 class PhenotypeImprovementsInput(BaseModel):
     protocol_text: str
     cohorts: List[Dict[str, Any]]
@@ -34,6 +41,11 @@ class PhenotypeRecommendationAdviceInput(BaseModel):
 
 
 class PhenotypeIntentSplitInput(BaseModel):
+    study_intent: str
+    llm_result: Optional[Dict[str, Any]] = None
+
+
+class CohortMethodsIntentSplitInput(BaseModel):
     study_intent: str
     llm_result: Optional[Dict[str, Any]] = None
 
@@ -214,7 +226,17 @@ class PhenotypeRecommendationsOutput(BaseModel):
     phenotype_recommendations: List[Dict[str, Any]] = Field(default_factory=list)
     mode: str
     catalog_stats: Dict[str, Any] = Field(default_factory=dict)
-    invalid_ids_filtered: List[int] = Field(default_factory=list)
+    invalid_ids_filtered: List[str] = Field(default_factory=list)
+
+
+class PhenotypeRecommendationPlanOutput(BaseModel):
+    plan: str
+    intent_facets: Dict[str, Any] = Field(default_factory=dict)
+    shortlist_ids: List[str] = Field(default_factory=list)
+    needs_more_search: bool = False
+    reasoning_notes: List[str] = Field(default_factory=list)
+    mode: str
+    invalid_ids_filtered: List[str] = Field(default_factory=list)
 
 
 class PhenotypeImprovementsOutput(BaseModel):
@@ -242,6 +264,18 @@ class PhenotypeIntentSplitOutput(BaseModel):
     mode: str
 
 
+class CohortMethodsIntentSplitOutput(BaseModel):
+    status: Literal["ok", "needs_clarification"]
+    plan: str
+    target_statement: str
+    comparator_statement: str
+    outcome_statement: str
+    outcome_statements: List[str] = Field(default_factory=list)
+    rationale: str
+    questions: List[str] = Field(default_factory=list)
+    mode: str
+
+
 class PhenotypeValidationReviewOutput(BaseModel):
     label: str
     rationale: str
@@ -253,6 +287,26 @@ class CaseCausalReviewOutput(BaseModel):
     mode: str
     candidates_by_domain: Dict[str, List[CaseCausalReviewCandidate]] = Field(default_factory=dict)
     narrative: str
+    diagnostics: Dict[str, Any] = Field(default_factory=dict)
+
+
+class CohortMethodSpecsRecommendationInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    analytic_settings_description: str
+    study_intent: Optional[str] = ""
+    study_description: Optional[str] = None
+    llm_result: Optional[Dict[str, Any]] = None
+
+
+CohortMethodSpecsStatus = Literal["ok", "llm_parse_error", "schema_validation_error"]
+
+
+class CohortMethodSpecsRecommendationOutput(BaseModel):
+    status: CohortMethodSpecsStatus
+    recommendation: Dict[str, Any] = Field(default_factory=dict)
+    cohort_methods_specifications: Optional[Dict[str, Any]] = None
+    section_rationales: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     diagnostics: Dict[str, Any] = Field(default_factory=dict)
 
 

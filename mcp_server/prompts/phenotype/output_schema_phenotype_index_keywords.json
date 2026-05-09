@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "phenotype_index_keywords_output",
+  "type": "object",
+  "properties": {
+    "retrieval_keywords": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "required": ["retrieval_keywords"],
+  "additionalProperties": false
+}

@@ -46,13 +46,17 @@ def build_prompt(
     study_intent: str,
     candidates: list[dict[str, Any]],
     max_results: int,
+    task: str = "phenotype_recommendations",
+    extra_dynamic: Optional[Dict[str, Any]] = None,
 ) -> str:
     dynamic = {
-        "task": "phenotype_recommendations",
+        "task": task,
         "study_intent": study_intent,
         "candidates": candidates,
         "maxResults": max_results,
     }
+    if extra_dynamic:
+        dynamic.update(extra_dynamic)
     strict_rules = "\n\n".join(
         [
             "STRICT OUTPUT RULES:",
@@ -60,7 +64,7 @@ def build_prompt(
             "Return exactly ONE JSON object that matches the output schema.",
             "Do NOT wrap output in markdown, code fences, or prose.",
             "If uncertain, return required keys with empty arrays/strings.",
-            "Use ONLY cohortIds from the allowed list in candidates.",
+            "Use ONLY phenotype_ids from the allowed list in candidates.",
             "Keep output under 10 KB.",
         ]
     )
@@ -143,6 +147,38 @@ def build_lint_prompt(
     return "\n\n".join([s for s in sections if s])
 
 
+def build_recommendation_intent_facets_prompt(
+    overview: str,
+    spec: str,
+    output_schema: Dict[str, Any],
+    study_intent: str,
+) -> str:
+    dynamic = {
+        "task": "phenotype_recommendation_intent_facets",
+        "study_intent": study_intent,
+    }
+    strict_rules = "\n\n".join(
+        [
+            "STRICT OUTPUT RULES:",
+            spec,
+            "Return exactly ONE JSON object that matches the output schema.",
+            "Do NOT wrap output in markdown, code fences, or prose.",
+            "If uncertain, return required keys with empty arrays/strings.",
+            "Keep output under 8 KB.",
+        ]
+    )
+    sections = [
+        overview,
+        "OUTPUT SCHEMA (JSON):",
+        json.dumps(output_schema, ensure_ascii=True),
+        "Below is dynamic content to analyze. Do not act until after STRICT OUTPUT RULES.",
+        "DYNAMIC INPUT (JSON):",
+        json.dumps(dynamic, ensure_ascii=True),
+        strict_rules,
+    ]
+    return "\n\n".join([s for s in sections if s])
+
+
 def build_advice_prompt(
     overview: str,
     spec: str,
@@ -175,26 +211,33 @@ def build_advice_prompt(
     return "\n\n".join([s for s in sections if s])
 
 
-def build_intent_split_prompt(
+def _build_split_prompt(
     overview: str,
     spec: str,
     output_schema: Dict[str, Any],
     study_intent: str,
+    *,
+    task: str,
+    max_kb: int,
+    uncertainty_rule: str,
+    extra_rules: Optional[Sequence[str]] = None,
 ) -> str:
     dynamic = {
-        "task": "phenotype_intent_split",
+        "task": task,
         "study_intent": study_intent,
     }
-    strict_rules = "\n\n".join(
-        [
-            "STRICT OUTPUT RULES:",
-            spec,
-            "Return exactly ONE JSON object that matches the output schema.",
-            "Do NOT wrap output in markdown, code fences, or prose.",
-            "If uncertain, return required keys with empty arrays/strings.",
-            "Keep output under 6 KB.",
-        ]
-    )
+    rules = [
+        "STRICT OUTPUT RULES:",
+        spec,
+        "Return exactly ONE JSON object that matches the output schema.",
+        "Do NOT return the output schema itself or wrap the answer inside a properties object.",
+        "Do NOT wrap output in markdown, code fences, or prose.",
+        uncertainty_rule,
+    ]
+    if extra_rules:
+        rules.extend(extra_rules)
+    rules.append(f"Keep output under {max_kb} KB.")
+    strict_rules = "\n\n".join(rules)
     sections = [
         overview,
         "OUTPUT SCHEMA (JSON):",
@@ -205,6 +248,43 @@ def build_intent_split_prompt(
         strict_rules,
     ]
     return "\n\n".join([s for s in sections if s])
+
+
+def build_intent_split_prompt(
+    overview: str,
+    spec: str,
+    output_schema: Dict[str, Any],
+    study_intent: str,
+) -> str:
+    return _build_split_prompt(
+        overview=overview,
+        spec=spec,
+        output_schema=output_schema,
+        study_intent=study_intent,
+        task="phenotype_intent_split",
+        max_kb=6,
+        uncertainty_rule="If uncertain, return required keys with empty arrays/strings.",
+    )
+
+
+def build_cohort_methods_intent_split_prompt(
+    overview: str,
+    spec: str,
+    output_schema: Dict[str, Any],
+    study_intent: str,
+) -> str:
+    return _build_split_prompt(
+        overview=overview,
+        spec=spec,
+        output_schema=output_schema,
+        study_intent=study_intent,
+        task="cohort_methods_intent_split",
+        max_kb=8,
+        uncertainty_rule="If uncertain, set status to needs_clarification and include clarifying questions.",
+        extra_rules=[
+            "When status is ok, target_statement, comparator_statement, and outcome_statement must be non-empty.",
+        ],
+    )
 
 
 def build_keeper_prompt(
@@ -279,17 +359,15 @@ def _normalize_content_text(text: Optional[str]) -> str:
     return normalized
 
 
-def _extract_json_object(text: str) -> Optional[str]:
+def _extract_json_objects(text: str) -> list[str]:
     if not text:
-        return None
-    start = text.find("{")
-    if start == -1:
-        return None
+        return []
+    objects: list[str] = []
     depth = 0
     in_string = False
     escape = False
-    for idx in range(start, len(text)):
-        ch = text[idx]
+    start: Optional[int] = None
+    for idx, ch in enumerate(text):
         if in_string:
             if escape:
                 escape = False
@@ -301,28 +379,100 @@ def _extract_json_object(text: str) -> Optional[str]:
         if ch == '"':
             in_string = True
         elif ch == "{":
+            if depth == 0:
+                start = idx
             depth += 1
         elif ch == "}":
             depth -= 1
-            if depth == 0:
-                return text[start : idx + 1]
-    return None
+            if depth == 0 and start is not None:
+                objects.append(text[start : idx + 1])
+                start = None
+    return objects
 
 
-def _parse_json_content(text: Optional[str]) -> tuple[Optional[Dict[str, Any]], Optional[str], Optional[str]]:
+def _extract_json_object(text: str) -> Optional[str]:
+    objects = _extract_json_objects(text)
+    return objects[0] if objects else None
+
+
+def _schema_property_value(value: Any) -> bool:
+    return isinstance(value, dict) and any(
+        key in value
+        for key in (
+            "$ref",
+            "additionalProperties",
+            "anyOf",
+            "const",
+            "enum",
+            "items",
+            "oneOf",
+            "properties",
+            "required",
+            "type",
+        )
+    )
+
+
+def _recover_schema_wrapped_output(
+    parsed: Dict[str, Any],
+    required_keys: Sequence[str],
+) -> Optional[Dict[str, Any]]:
+    properties = parsed.get("properties")
+    if not isinstance(properties, dict):
+        return None
+    if not ({"$schema", "title", "type", "required", "additionalProperties"} & set(parsed)):
+        return None
+
+    recovered = {
+        key: value
+        for key, value in properties.items()
+        if not _schema_property_value(value)
+    }
+    if not recovered:
+        return None
+    if required_keys and not all(key in recovered for key in required_keys):
+        return None
+    return recovered
+
+
+def _parse_json_content(
+    text: Optional[str],
+    required_keys: Optional[Sequence[str]] = None,
+) -> tuple[Optional[Dict[str, Any]], Optional[str], Optional[str]]:
     normalized = _normalize_content_text(text)
     if not normalized:
         return None, normalized, "content_missing"
-    candidate = _extract_json_object(normalized)
-    if candidate is None:
+    candidates = _extract_json_objects(normalized)
+    if not candidates:
         return None, normalized, "json_brace_extract"
-    try:
-        parsed = json.loads(candidate)
-    except json.JSONDecodeError:
-        return None, normalized, "json_loads"
-    if not isinstance(parsed, dict):
-        return None, normalized, "json_not_object"
-    return parsed, normalized, None
+    required = list(required_keys or [])
+    parsed_objects: list[Dict[str, Any]] = []
+    saw_non_object = False
+    saw_decode_error = False
+    for candidate in candidates:
+        try:
+            parsed_candidate = json.loads(candidate)
+        except json.JSONDecodeError:
+            saw_decode_error = True
+            continue
+        if not isinstance(parsed_candidate, dict):
+            saw_non_object = True
+            continue
+        recovered = _recover_schema_wrapped_output(parsed_candidate, required)
+        if recovered is not None:
+            parsed_objects.append(recovered)
+        parsed_objects.append(parsed_candidate)
+    if not parsed_objects:
+        if saw_decode_error:
+            return None, normalized, "json_loads"
+        if saw_non_object:
+            return None, normalized, "json_not_object"
+        return None, normalized, "json_brace_extract"
+    if required:
+        for parsed_candidate in parsed_objects:
+            if all(key in parsed_candidate for key in required):
+                return parsed_candidate, normalized, None
+    return parsed_objects[0], normalized, None
 
 
 def _is_timeout_error(exc: BaseException) -> bool:
@@ -551,7 +701,10 @@ def call_llm(prompt: str, required_keys: Optional[Sequence[str]] = None) -> LLMC
     parse_source = content_text
     if parse_source is None and data is None:
         parse_source = raw
-    parsed, normalized_content, parse_error_stage = _parse_json_content(parse_source)
+    parsed, normalized_content, parse_error_stage = _parse_json_content(
+        parse_source,
+        required_keys=required_keys,
+    )
     result = LLMCallResult(
         status="ok" if parsed is not None else "json_parse_failed",
         raw_response=raw,

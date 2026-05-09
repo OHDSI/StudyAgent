@@ -9,8 +9,8 @@
 suggestPhenotypes <- function(protocolPath = NULL,
                               studyIntent = NULL,
                               topK = 20,
-                              maxResults = 10,
-                              candidateLimit = NULL,
+                              maxResults = 3,
+                              candidateLimit = 10,
                               interactive = TRUE) {
   if (!is.null(protocolPath)) {
     protocolPath <- normalizePath(protocolPath, winslash = "/", mustWork = FALSE)
@@ -45,17 +45,23 @@ suggestPhenotypes <- function(protocolPath = NULL,
   res$artifact <- list(protocolRef = protocolPath)
   core <- res$recommendations %||% res
   if (interactive) {
-    cat("\n== Phenotype Suggestions ==\n")
-    cat(core$plan %||% "", "\n")
-    if (!is.null(core$mode)) cat(sprintf("Mode: %s\n", core$mode))
+    cat("
+== Phenotype Suggestions ==
+")
+    cat(core$plan %||% "", "
+")
+    if (!is.null(core$mode)) cat(sprintf("Mode: %s
+", core$mode))
     recs <- core$phenotype_recommendations %||% list()
     if (length(recs) == 0) {
-      cat("  [stub] No recommendations (LLM not connected or no matches).\n")
+      cat("  [stub] No recommendations (LLM not connected or no matches).
+")
     } else {
       for (r in recs) {
-        cat(sprintf("  - %s (%s): %s\n",
-                    r$cohortName %||% "<unknown>",
-                    r$cohortId %||% "?",
+        cat(sprintf("  - %s (%s): %s
+",
+                    r$phenotype_name %||% "<unknown>",
+                    r$phenotype_id %||% "?",
                     r$justification %||% ""))
       }
     }
@@ -64,31 +70,62 @@ suggestPhenotypes <- function(protocolPath = NULL,
 }
 
 #' Pull phenotype definitions to a local folder
-#' @param cohortIds integer vector of cohortIds
+#' @param cohortIds character vector of ACP phenotype ids, typically selected from suggestPhenotypes()
 #' @param outputDir directory to write JSON definitions
 #' @param overwrite logical; if FALSE, auto-version the filename
 #' @return character vector of written file paths
 pullPhenotypeDefinitions <- function(cohortIds,
                                      outputDir = ".",
                                      overwrite = FALSE) {
+  phenotype_ids <- as.character(cohortIds %||% character(0))
+  if (length(phenotype_ids) == 0) return(character(0))
+
+  unsupported <- phenotype_ids[!grepl("^ohdsi:", phenotype_ids)]
+  if (length(unsupported) > 0) {
+    stop(
+      sprintf(
+        paste0(
+          "pullPhenotypeDefinitions() currently supports OHDSI phenotype ids only. ",
+          "Conversion of non-OHDSI phenotypes to computable OHDSI cohort definitions is not implemented yet. ",
+          "Unsupported ids: %s"
+        ),
+        paste(unique(unsupported), collapse = ", ")
+      )
+    )
+  }
+
+  index_dir <- Sys.getenv("PHENOTYPE_INDEX_DIR", "data/phenotype_index")
+  index_dir <- normalizePath(index_dir, winslash = "/", mustWork = FALSE)
+  index_def_dir <- file.path(index_dir, "definitions")
+  if (!dir.exists(index_def_dir)) {
+    stop(sprintf("Missing phenotype index definitions folder: %s", index_def_dir))
+  }
+
   outputDir <- normalizePath(outputDir, winslash = "/", mustWork = FALSE)
   if (!dir.exists(outputDir)) dir.create(outputDir, recursive = TRUE)
-  cds <- PhenotypeLibrary::getPlCohortDefinitionSet(as.integer(cohortIds))
+
+  definition_path <- function(phenotype_id) {
+    file.path(index_def_dir, sprintf("%s.json", gsub(":", "__", phenotype_id, fixed = TRUE)))
+  }
+
   written <- character(0)
-  for (i in seq_len(nrow(cds))) {
-    nm <- cds$cohortName[i] %||% ""
-    safe <- gsub("[^A-Za-z0-9_-]+", "_", nm)
-    if (identical(safe, "") || is.na(safe)) safe <- paste0("cohort_", cds$cohortId[i])
-    fname_base <- file.path(outputDir, sprintf("%s_%s.json", cds$cohortId[i], safe))
-    target <- fname_base
+  for (phenotype_id in phenotype_ids) {
+    src <- definition_path(phenotype_id)
+    if (!file.exists(src)) {
+      stop(sprintf("Phenotype JSON not found: %s", src))
+    }
+
+    safe <- gsub("[^A-Za-z0-9_-]+", "_", phenotype_id)
+    target <- file.path(outputDir, sprintf("%s.json", safe))
     if (!overwrite) {
       idx <- 1
       while (file.exists(target)) {
-        target <- file.path(outputDir, sprintf("%s_%s-v%d.json", cds$cohortId[i], safe, idx))
+        target <- file.path(outputDir, sprintf("%s-v%d.json", safe, idx))
         idx <- idx + 1
       }
     }
-    writeLines(cds$json[i], con = target, useBytes = TRUE)
+
+    file.copy(src, target, overwrite = TRUE)
     written <- c(written, target)
   }
   written
@@ -113,27 +150,39 @@ reviewPhenotypes <- function(protocolPath,
   if (!is.null(characterizationPaths)) {
     characterizationPaths <- unname(vapply(characterizationPaths, normalizePath, character(1), winslash = "/", mustWork = FALSE))
   }
+
   body <- list(
-    protocolRef = protocolPath,
-    cohortRefs = as.list(cohortJsonPaths),
-    characterizationRefs = as.list(characterizationPaths %||% list())
+    protocol_path = protocolPath,
+    cohort_paths = as.list(cohortJsonPaths)
   )
+  if (!is.null(characterizationPaths) && length(characterizationPaths) > 0) {
+    warning("characterizationPaths are not yet forwarded to /flows/phenotype_improvements; ignoring them for now.")
+  }
+
   res <- if (!is.null(acp_state$url)) {
-    .acp_post("/tools/phenotype_improvements", body)
+    .acp_post("/flows/phenotype_improvements", body)
   } else {
     local_phenotype_improvements()
   }
-  res$artifact <- list(protocolRef = protocolPath, cohortRefs = cohortJsonPaths)
+
+  res$artifact <- list(protocolPath = protocolPath, cohortPaths = cohortJsonPaths)
+  core <- res$full_result %||% res
   if (interactive) {
-    cat("\n== Phenotype Improvements ==\n")
-    cat(res$plan %||% "", "\n")
-    if (!is.null(res$mode)) cat(sprintf("Mode: %s\n", res$mode))
-    imp <- res$phenotype_improvements %||% list()
+    cat("
+== Phenotype Improvements ==
+")
+    cat(core$plan %||% "", "
+")
+    if (!is.null(core$mode)) cat(sprintf("Mode: %s
+", core$mode))
+    imp <- core$phenotype_improvements %||% list()
     if (length(imp) == 0) {
-      cat("  [stub] No improvements returned (LLM not connected).\n")
+      cat("  [stub] No improvements returned (LLM not connected).
+")
     } else {
       for (p in imp) {
-        cat(sprintf("  - [%s] %s\n",
+        cat(sprintf("  - [%s] %s
+",
                     p$targetCohortId %||% "?",
                     p$summary %||% jsonlite::toJSON(p, auto_unbox = TRUE)))
       }
@@ -141,7 +190,7 @@ reviewPhenotypes <- function(protocolPath,
   }
   if (apply) {
     picks <- selectPhenotypeImprovements(
-      improvements = res$phenotype_improvements,
+      improvements = core$phenotype_improvements,
       cohortJsonPaths = cohortJsonPaths,
       select = select,
       apply = TRUE,
@@ -151,8 +200,12 @@ reviewPhenotypes <- function(protocolPath,
     res$selected_improvements <- picks$selected
     res$written <- picks$written
     if (interactive && length(picks$written)) {
-      cat("\nSaved improvement notes:\n")
-      cat(paste(sprintf("  - %s", picks$written), collapse = "\n"), "\n")
+      cat("
+Saved improvement notes:
+")
+      cat(paste(sprintf("  - %s", picks$written), collapse = "
+"), "
+")
     }
   }
   res
@@ -160,48 +213,57 @@ reviewPhenotypes <- function(protocolPath,
 
 #' Select phenotype recommendations (interactive or programmatic)
 #' @param recommendations list from suggestPhenotypes()$phenotype_recommendations
-#' @param select either numeric cohortIds, integer indices, or "all"/NULL to pick all
+#' @param select either phenotype ids, integer indices, or "all"/NULL to pick all
 #' @param interactive if TRUE and select is NULL, prompt user
-#' @return integer vector of chosen cohortIds
+#' @return character vector of chosen phenotype ids
 selectPhenotypeRecommendations <- function(recommendations,
                                            select = NULL,
                                            interactive = interactive()) {
   recs <- recommendations %||% list()
-  if (length(recs) == 0) return(integer(0))
+  if (length(recs) == 0) return(character(0))
 
-  # normalize to cohortIds
-  ids <- vapply(recs, function(r) r$cohortId %||% NA_real_, numeric(1))
+  ids <- vapply(recs, function(r) r$phenotype_id %||% NA_character_, character(1))
 
   if (is.null(select) || identical(select, "all")) {
     if (interactive) {
       labels <- vapply(seq_along(recs), function(i) {
-        sprintf("%s (%s)", recs[[i]]$cohortName %||% "<unknown>", recs[[i]]$cohortId %||% "?")
+        sprintf("%s (%s)", recs[[i]]$phenotype_name %||% "<unknown>", recs[[i]]$phenotype_id %||% "?")
       }, character(1))
       picks <- utils::select.list(labels, multiple = TRUE, title = "Select phenotypes to pull")
-      if (length(picks) == 0) return(integer(0))
+      if (length(picks) == 0) return(character(0))
       idx <- match(picks, labels)
-      return(as.integer(ids[idx]))
+      return(as.character(ids[idx]))
     }
-    return(as.integer(ids))
+    return(as.character(ids))
   }
 
   # explicit selection provided
   if (is.numeric(select)) {
-    # if they look like indices (<= length), map to ids; else assume cohortIds
+    # if they look like indices (<= length), map to ids; else assume ids already supplied
     if (all(select %% 1 == 0) && all(select >= 1) && all(select <= length(ids))) {
-      return(as.integer(ids[select]))
+      return(as.character(ids[select]))
     }
-    return(as.integer(select))
+    return(as.character(select))
   }
 
-  integer(0)
+  if (is.character(select)) {
+    if (all(select %in% ids)) {
+      return(as.character(select))
+    }
+    idx <- suppressWarnings(as.integer(select))
+    if (!anyNA(idx) && all(idx >= 1) && all(idx <= length(ids))) {
+      return(as.character(ids[idx]))
+    }
+  }
+
+  character(0)
 }
 
 
 #' Select phenotype improvements and optionally persist notes
 #' @param improvements list from reviewPhenotypes()$phenotype_improvements
 #' @param cohortJsonPaths character vector of cohort JSON paths
-#' @param select optional vector of cohortIds/indices or "all"/NULL to pick all
+#' @param select optional vector of phenotype ids, indices, or "all"/NULL to pick all
 #' @param apply logical; if TRUE, write selected improvements to disk
 #' @param outputDir directory for notes; defaults to directory of first cohortJsonPath
 #' @param interactive prompt user selection when select is NULL

@@ -16,6 +16,30 @@ class DummyMCP:
 
 
 @pytest.mark.mcp
+def test_prompt_bundle_intent_facets_schema() -> None:
+    mcp = DummyMCP()
+    phenotype_prompt_bundle.register(mcp)
+    fn = mcp.tools["phenotype_prompt_bundle"]
+    payload = fn("phenotype_recommendation_intent_facets")
+    assert "overview" in payload
+    assert "spec" in payload
+    assert "output_schema" in payload
+    assert payload["output_schema"]["title"] == "phenotype_recommendation_intent_facets_output"
+
+
+@pytest.mark.mcp
+def test_prompt_bundle_plan_schema() -> None:
+    mcp = DummyMCP()
+    phenotype_prompt_bundle.register(mcp)
+    fn = mcp.tools["phenotype_prompt_bundle"]
+    payload = fn("phenotype_recommendation_plan")
+    assert "overview" in payload
+    assert "spec" in payload
+    assert "output_schema" in payload
+    assert payload["output_schema"]["title"] == "phenotype_recommendation_plan_output"
+
+
+@pytest.mark.mcp
 def test_prompt_bundle_tool_returns_schema() -> None:
     mcp = DummyMCP()
     phenotype_prompt_bundle.register(mcp)
@@ -25,6 +49,20 @@ def test_prompt_bundle_tool_returns_schema() -> None:
     assert "spec" in payload
     assert "output_schema" in payload
     assert payload["output_schema"]["title"] == "phenotype_recommendations_output"
+
+
+@pytest.mark.mcp
+def test_cohort_methods_intent_split_bundle_schema() -> None:
+    from study_agent_mcp.tools import cohort_methods_intent_split
+
+    mcp = DummyMCP()
+    cohort_methods_intent_split.register(mcp)
+    fn = mcp.tools["cohort_methods_intent_split"]
+    payload = fn()
+    assert "overview" in payload
+    assert "spec" in payload
+    assert "output_schema" in payload
+    assert payload["output_schema"]["title"] == "cohort_methods_intent_split_output"
 
 
 @pytest.mark.mcp

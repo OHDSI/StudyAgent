@@ -44,6 +44,18 @@ def _hash_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def _normalize_score_map(scores: Dict[int, float]) -> Dict[int, float]:
+    if not scores:
+        return {}
+    values = [float(score) for score in scores.values()]
+    min_score = min(values)
+    max_score = max(values)
+    if math.isclose(max_score, min_score):
+        return {doc_id: 1.0 for doc_id in scores}
+    scale = max_score - min_score
+    return {doc_id: (float(score) - min_score) / scale for doc_id, score in scores.items()}
+
+
 def _load_catalog(path: str) -> List[Dict[str, Any]]:
     catalog: List[Dict[str, Any]] = []
     if not os.path.exists(path):
@@ -55,6 +67,12 @@ def _load_catalog(path: str) -> List[Dict[str, Any]]:
                 continue
             catalog.append(json.loads(line))
     return catalog
+
+
+def _definition_filename(phenotype_id: str) -> str:
+    safe = phenotype_id.replace(":", "__")
+    safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", safe)
+    return f"{safe}.json"
 
 
 @dataclass
@@ -124,7 +142,7 @@ class PhenotypeIndex:
         self.allow_sparse = allow_sparse
 
         self._catalog: List[Dict[str, Any]] = []
-        self._catalog_by_id: Dict[int, Dict[str, Any]] = {}
+        self._catalog_by_id: Dict[str, Dict[str, Any]] = {}
         self._sparse: Optional[Dict[str, Any]] = None
         self._dense: Optional[Any] = None
         self._meta: Dict[str, Any] = {}
@@ -142,9 +160,9 @@ class PhenotypeIndex:
         self._catalog = _load_catalog(paths["catalog"])
         self._catalog_by_id = {}
         for row in self._catalog:
-            cid = row.get("cohortId")
-            if isinstance(cid, int):
-                self._catalog_by_id[cid] = row
+            phenotype_id = row.get("phenotype_id")
+            if isinstance(phenotype_id, str) and phenotype_id:
+                self._catalog_by_id[phenotype_id] = row
         if os.path.exists(paths["meta"]):
             with open(paths["meta"], "r", encoding="utf-8") as handle:
                 self._meta = json.load(handle)
@@ -160,19 +178,51 @@ class PhenotypeIndex:
                 self._dense = faiss.read_index(paths["dense"])
         return self
 
-    def fetch_summary(self, cohort_id: int) -> Optional[Dict[str, Any]]:
-        row = self._catalog_by_id.get(cohort_id)
+    def fetch_summary(self, phenotype_id: str) -> Optional[Dict[str, Any]]:
+        row = self._catalog_by_id.get(phenotype_id)
         if not row:
             return None
         return {
-            "cohortId": row.get("cohortId"),
+            "phenotype_id": row.get("phenotype_id"),
+            "source_dataset": row.get("source_dataset"),
+            "source_record_type": row.get("source_record_type"),
             "name": row.get("name"),
             "short_description": row.get("short_description"),
             "tags": row.get("tags") or [],
+            "raw_keywords": row.get("raw_keywords") or [],
+            "retrieval_keywords": row.get("retrieval_keywords") or [],
+            "retrieval_keywords_source": row.get("retrieval_keywords_source") or "heuristic",
+            "retrieval_concept_labels": row.get("retrieval_concept_labels") or [],
+            "methodology_summary": row.get("methodology_summary") or "",
+            "primary_clinical_topic": row.get("primary_clinical_topic") or "",
+            "secondary_topics": row.get("secondary_topics") or [],
+            "phenotype_role": row.get("phenotype_role") or "unknown",
+            "care_setting_scope": row.get("care_setting_scope") or "unspecified",
+            "population_scope": row.get("population_scope") or "",
+            "topic_mentions": row.get("topic_mentions") or {},
+            "target_vs_context_conditions": row.get("target_vs_context_conditions") or {},
+            "exclude_from_primary_topic_match": row.get("exclude_from_primary_topic_match") or [],
+            "recommendation_summary": row.get("recommendation_summary") or "",
+            "recommendation_metadata_source": row.get("recommendation_metadata_source") or "heuristic",
             "signals": row.get("signals") or [],
             "ontology_keys": row.get("ontology_keys") or [],
-            "logic_features": row.get("logic_features") or {},
+            "code_systems": row.get("code_systems") or [],
+            "executable_definition_status": row.get("executable_definition_status"),
+            "execution_readiness_score": row.get("execution_readiness_score"),
+            "adaptation_notes": row.get("adaptation_notes") or "",
         }
+
+    def fetch_definition(self, phenotype_id: str) -> Optional[Dict[str, Any]]:
+        row = self._catalog_by_id.get(phenotype_id)
+        if not row:
+            return None
+        definitions_dir = os.path.join(self.index_dir, "definitions")
+        ref = row.get("definition_ref") or _definition_filename(phenotype_id)
+        path = os.path.join(definitions_dir, ref)
+        if not os.path.exists(path):
+            return None
+        with open(path, "r", encoding="utf-8") as handle:
+            return json.load(handle)
 
     def search(
         self,
@@ -181,18 +231,21 @@ class PhenotypeIndex:
         offset: int = 0,
         dense_k: int = 100,
         sparse_k: int = 100,
-        dense_weight: float = 0.9,
-        sparse_weight: float = 0.1,
+        dense_weight: float = 0.6,
+        sparse_weight: float = 0.4,
     ) -> List[Dict[str, Any]]:
         if not query:
             return []
-        dense_scores: Dict[int, float] = {}
-        sparse_scores: Dict[int, float] = {}
+        dense_scores_raw: Dict[int, float] = {}
+        sparse_scores_raw: Dict[int, float] = {}
 
         if self._dense is not None and self.embedding_client is not None:
-            dense_scores = self._dense_search(query, dense_k)
+            dense_scores_raw = self._dense_search(query, dense_k)
         if self._sparse is not None:
-            sparse_scores = self._sparse_search(query, sparse_k)
+            sparse_scores_raw = self._sparse_search(query, sparse_k)
+
+        dense_scores = _normalize_score_map(dense_scores_raw)
+        sparse_scores = _normalize_score_map(sparse_scores_raw)
 
         merged: Dict[int, float] = {}
         for doc_id, score in dense_scores.items():
@@ -210,27 +263,28 @@ class PhenotypeIndex:
             row = self._catalog[doc_id]
             results.append(
                 {
-                    "cohortId": row.get("cohortId"),
+                    "phenotype_id": row.get("phenotype_id"),
+                    "source_dataset": row.get("source_dataset"),
                     "name": row.get("name"),
                     "short_description": row.get("short_description"),
                     "tags": row.get("tags") or [],
                     "signals": row.get("signals") or [],
+                    "executable_definition_status": row.get("executable_definition_status"),
+                    "execution_readiness_score": row.get("execution_readiness_score"),
                     "score": score,
                     "score_dense": dense_scores.get(doc_id),
                     "score_sparse": sparse_scores.get(doc_id),
+                    "score_dense_raw": dense_scores_raw.get(doc_id),
+                    "score_sparse_raw": sparse_scores_raw.get(doc_id),
                 }
             )
         return results
 
-    def list_similar(self, cohort_id: int, top_k: int = 10) -> List[Dict[str, Any]]:
+    def list_similar(self, phenotype_id: str, top_k: int = 10) -> List[Dict[str, Any]]:
         if self._dense is None:
             return []
-        doc_id = self._find_doc_id(cohort_id)
+        doc_id = self._find_doc_id(phenotype_id)
         if doc_id is None:
-            return []
-        try:
-            import faiss  # type: ignore
-        except ImportError:
             return []
         try:
             vector = self._dense.reconstruct(doc_id)
@@ -249,7 +303,8 @@ class PhenotypeIndex:
             row = self._catalog[idx]
             results.append(
                 {
-                    "cohortId": row.get("cohortId"),
+                    "phenotype_id": row.get("phenotype_id"),
+                    "source_dataset": row.get("source_dataset"),
                     "name": row.get("name"),
                     "short_description": row.get("short_description"),
                     "score": float(score),
@@ -259,9 +314,9 @@ class PhenotypeIndex:
                 break
         return results
 
-    def _find_doc_id(self, cohort_id: int) -> Optional[int]:
+    def _find_doc_id(self, phenotype_id: str) -> Optional[int]:
         for idx, row in enumerate(self._catalog):
-            if row.get("cohortId") == cohort_id:
+            if row.get("phenotype_id") == phenotype_id:
                 return idx
         return None
 
@@ -358,9 +413,7 @@ def get_default_index() -> PhenotypeIndex:
         catalog_info = status["files"].get("catalog") or {}
         if not catalog_info.get("exists"):
             raise RuntimeError(f"Phenotype catalog not found: {catalog_info.get('path')}")
-        embed_url = rewrite_container_host_url(
-            os.getenv("EMBED_URL", "http://localhost:3000/ollama/api/embed")
-            )
+        embed_url = rewrite_container_host_url(os.getenv("EMBED_URL", "http://localhost:3000/ollama/api/embed"))
         embed_model = os.getenv("EMBED_MODEL", "qwen3-embedding:4b")
         api_key = os.getenv("EMBED_API_KEY")
         embedding_client = EmbeddingClient(url=embed_url, model=embed_model, api_key=api_key)

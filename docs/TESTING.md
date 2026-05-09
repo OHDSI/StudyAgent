@@ -285,6 +285,7 @@ curl -s -X POST http://127.0.0.1:8765/flows/phenotype_recommendation \
 
 Expected recommendation responses now include `llm_used`, `llm_status`, `fallback_reason`, `fallback_mode`, and `diagnostics`. If the LLM path fails to parse or validate, ACP still returns `status: ok` with an explicit machine-readable fallback reason instead of silently degrading.
 
+
 ## Timeout calibration
 
 Use the automated calibration task to derive environment-specific starting values for `EMBED_TIMEOUT`, `STUDY_AGENT_MCP_TIMEOUT`, `LLM_TIMEOUT`, and `ACP_TIMEOUT`:
@@ -342,6 +343,64 @@ Invoke-RestMethod `
   -Headers @{ "Content-Type" = "application/json" } `
   -Body $body `
   -TimeoutSec 180
+```
+
+Cohort methods intent split (target/comparator/outcome statements):
+
+```bash
+curl -s -X POST http://127.0.0.1:8765/flows/cohort_methods_intent_split \
+  -H 'Content-Type: application/json' \
+  -d '{"study_intent":"What is the risk of angioedema or acute myocardial infarction in new users of ACE inhibitors compared to new users of thiazide and thiazide-like diuretics?"}'
+```
+
+PowerShell (Windows) equivalent:
+
+```powershell
+$body = @{
+  study_intent = "What is the risk of angioedema or acute myocardial infarction in new users of ACE inhibitors compared to new users of thiazide and thiazide-like diuretics?"
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8765/flows/cohort_methods_intent_split `
+  -Headers @{ "Content-Type" = "application/json" } `
+  -Body $body `
+  -TimeoutSec 180
+```
+
+Cohort methods specifications recommendation (analytic settings):
+
+```bash
+curl -s -X POST http://127.0.0.1:8765/flows/cohort_methods_specifications_recommendation \
+  -H 'Content-Type: application/json' \
+  -d '{"analytic_settings_description":"Compare sitagliptin new users vs glipizide new users for acute myocardial infarction. Use a 365-day washout, intent-to-treat follow-up, 1:1 propensity score matching on standardized logit with a caliper of 0.2, and a Cox model.","study_intent":"Comparative effectiveness study on CV outcomes."}' | python -m json.tool
+```
+
+PowerShell (Windows) equivalent:
+
+```powershell
+$body = @{
+  analytic_settings_description = "Compare sitagliptin new users vs glipizide new users for acute myocardial infarction. Use a 365-day washout, intent-to-treat follow-up, 1:1 propensity score matching on standardized logit with a caliper of 0.2, and a Cox model."
+  study_intent = "Comparative effectiveness study on CV outcomes."
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8765/flows/cohort_methods_specifications_recommendation `
+  -Headers @{ "Content-Type" = "application/json" } `
+  -Body $body `
+  -TimeoutSec 240
+```
+
+Expected responses include `status`, `recommendation`, `cohort_methods_specifications`, `section_rationales`, and `diagnostics`. Valid top-level statuses are `ok`, `schema_validation_error`, and `llm_parse_error`; parse or section validation failures should return a backfilled recommendation with diagnostics rather than an unstructured response.
+
+For local non-live coverage of the route, input model, validation, and mocked ACP flow:
+
+```bash
+pytest tests/test_acp_cohort_methods_route.py \
+  tests/test_cohort_methods_specs_models.py \
+  tests/test_cohort_methods_spec_validation.py \
+  tests/test_acp_cohort_methods_flow.py
 ```
 
 ## ACP flow examples (MCP-backed)
@@ -992,6 +1051,27 @@ doit smoke_concept_sets_review_flow
 ```bash
 doit smoke_cohort_critique_flow
 ```
+
+## Cohort methods specifications recommendation smoke test
+
+This live ACP + MCP smoke test requires LLM credentials, because the flow asks the LLM to map free-text cohort-method analytic settings into the CohortMethod specification shape:
+
+```bash
+export LLM_API_KEY="..."
+doit smoke_cohort_methods_specs_recommend_flow
+```
+
+If you want `doit` to start MCP over HTTP automatically, use the same managed MCP settings as the phenotype flow smoke test:
+
+```bash
+export STUDY_AGENT_MCP_URL="http://127.0.0.1:8790/mcp"
+export STUDY_AGENT_MCP_MANAGED=1
+export MCP_START_TIMEOUT=3
+export LLM_API_KEY="..."
+doit smoke_cohort_methods_specs_recommend_flow
+```
+
+The smoke test posts to `/flows/cohort_methods_specifications_recommendation` and checks that the response status is one of `ok`, `schema_validation_error`, or `llm_parse_error`, and that `recommendation.raw_description` is present.
 
 ## Phenotype validation review smoke test
 

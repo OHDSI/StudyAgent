@@ -17,3 +17,5 @@ dependencies:
       - sqlalchemy
       - ruff
       - requests
+      - ruff      
+      - sqlalchemy

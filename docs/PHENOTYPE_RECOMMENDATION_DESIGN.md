@@ -1,134 +1,120 @@
 **Overview**
-This document defines the `phenotype_recommendation` capability in the ACP + MCP architecture. The MCP service owns the phenotype index on local disk and exposes read-only retrieval tools. ACP only orchestrates LLM calls and tool invocations, and core remains pure/deterministic for validation and filtering.
+This document defines the `phenotype_recommendation` design in the ACP + MCP architecture. The MCP service owns the phenotype index on local disk and exposes read-only retrieval tools. ACP orchestrates retrieval, multiple LLM calls, deterministic shortlist enforcement, and final response assembly. Core remains pure and deterministic for schema validation and final filtering.
 
-**Goals**
-1. Move recall outside the LLM by using a hybrid retrieval index.
-2. Send the LLM only a small candidate set for ranking and justification.
-3. Keep index ownership inside MCP for air-gapped deployment.
-4. Support regular updates from OHDSI Phenotype Library exports.
 
-**Non-Goals**
-1. No direct DB/OMOP access in MCP tools.
-2. No write or edit operations exposed through MCP tools.
-3. No heavy external infrastructure dependencies for sparse search.
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User / Client
+    participant A as ACP HTTP Server
+    participant G as ACP StudyAgent
+    participant M as MCP Server
+    participant L as LLM
+    participant C as Core Validators
 
-**Components**
-1. MCP Retrieval Layer
-   - Owns index storage on local disk.
-   - Exposes search and preview tools.
-2. ACP Orchestration
-   - Calls MCP tools to retrieve candidates.
-   - Calls LLM to rank and justify.
-   - Validates LLM output via core.
-3. Core Validation
-   - `phenotype_recommendations(...)` merges or filters LLM results against the candidate set.
+    U->>A: POST /flows/phenotype_recommendation<br/>{study_intent, top_k, max_results, candidate_limit}
+    A->>G: run_phenotype_recommendation_flow(...)
 
-**Index Data Model**
-Each phenotype is stored as a compact JSON document (one line per document):
-1. `cohortId`
-2. `name`
-3. `short_description`
-4. `tags`
-5. `ontology_keys`
-6. `signals`
-7. `logic_features`
-8. `pop_keywords`
-9. `source_meta`
+    Note over G: Stage 1: Candidate retrieval
+    G->>M: phenotype_search(query=study_intent, top_k, offset?)
+    M-->>G: search results + scores<br/>(dense/sparse hybrid retrieval)
 
-**Index Directory Layout**
-Default root is `PHENOTYPE_INDEX_DIR` or repo-relative `data/phenotype_index` (resolved from the MCP package location).
-1. `catalog.jsonl` (compact phenotype docs)
-2. `sparse_index.pkl` (pure-Python BM25-style index)
-3. `dense.index` (FAISS index)
-4. `meta.json` (index metadata)
-5. `definitions/` (optional raw cohort JSON by `cohortId.json`)
+    Note over G: Stage 2: Intent-facet extraction
+    G->>M: phenotype_prompt_bundle(task="phenotype_recommendation_intent_facets")
+    M-->>G: overview + spec + output_schema
+    G->>L: intent facets prompt<br/>(study_intent only)
+    L-->>G: {plan, intent_facets, reasoning_notes}
+    G->>G: normalize intent facets and aliases
 
-**Embedding Strategy**
-1. Embed only `name + short_description + pop_keywords`.
-2. Use the local embedding API:
-   - URL: `EMBED_URL` (default `http://localhost:3000/ollama/api/embed`)
-   - Model: `EMBED_MODEL` (default `qwen3-embedding:4b`)
-   - Key: `EMBED_API_KEY` (optional)
-3. Cache embeddings by `(cohortId, input_text_hash)` to avoid recompute.
+    Note over G: Stage 3: Planning shortlist
+    G->>M: phenotype_fetch_summary(...) x N
+    M-->>G: hydrated candidate summaries
+    G->>G: rerank planning candidates using intent facets + metadata
+    G->>M: phenotype_prompt_bundle(task="phenotype_recommendation_plan")
+    M-->>G: overview + spec + output_schema
+    G->>L: planning prompt<br/>(study_intent + planner candidate band)
+    L-->>G: {plan, shortlist_ids, needs_more_search, reasoning_notes}
+    G->>C: phenotype_recommendation_plan(...)
+    C-->>G: validated planning payload
+    G->>G: enforce shortlist deterministically<br/>block unsafe rows, dedupe, suppress weak filler
+    G->>M: phenotype_fetch_summary(...) x shortlist
+    M-->>G: hydrated shortlist rows
+    G->>G: rebuild planning reasoning_notes from enforced shortlist
 
-**Sparse Retrieval Strategy**
-1. Tokenize text using a simple regex tokenizer.
-2. Build an inverted index with term frequencies.
-3. Score with a lightweight BM25-style formula.
-4. Store postings and doc lengths in `sparse_index.pkl`.
+    Note over G: Stage 4: Final recommendation text
+    G->>M: phenotype_prompt_bundle(task="phenotype_recommendations")
+    M-->>G: overview + spec + output_schema
+    G->>L: final recommendation prompt<br/>(study_intent + final compact candidates)
+    L-->>G: {plan, phenotype_recommendations}
 
-**Hybrid Retrieval Flow**
-1. Embed the query text (dense).
-2. Run dense search (FAISS) for top-N.
-3. Run sparse search (BM25) for top-N.
-4. Merge scores using weighted sum or RRF.
-5. Return top-K compact candidates to ACP/LLM.
+    Note over G: Stage 5: Deterministic finalization
+    G->>G: validate LLM payload against shortlist/catalog
+    G->>G: build deterministic final payload<br/>ids come from enforced shortlist, LLM supplies usable justifications
+    G->>C: phenotype_recommendations(...)
+    C-->>G: final grounded response
 
-**MCP Tools (Read-Only)**
-1. `phenotype_search(query, top_k=20)`
-2. `phenotype_fetch_summary(cohortId)`
-3. `phenotype_fetch_definition(cohortId, truncate=true)`
-4. `phenotype_list_similar(cohortId, top_k=10)`
-5. `phenotype_prompt_bundle(task)` (returns overview/spec/output_schema)
-6. `phenotype_index_status()` (returns index path + file existence for preflight checks)
+    G-->>A: {status, search, intent_facets, planning,<br/>recommendations, diagnostics}
+    A-->>U: HTTP 200 JSON
+```
 
-**ACP Orchestration**
-1. User submits study intent to ACP.
-2. ACP calls `phenotype_search` to get top-K candidates.
-3. ACP calls `phenotype_prompt_bundle` to fetch prompt assets.
-4. ACP calls LLM with candidates for ranking and justification.
-5. ACP validates with `core.phenotype_recommendations(...)`.
+A compact swimlane version with the main responsibility split:
 
-Candidate selection:
-1. ACP truncates the candidate list before the LLM using `LLM_CANDIDATE_LIMIT` or per-request `candidate_limit`.
-2. ACP supports `candidate_offset` to request the next window of candidates from MCP `phenotype_search`
-   (for example, offset by `candidate_limit` to avoid re-sending the same top hits).
+```mermaid
+flowchart LR
+    subgraph User
+        U1[Submit study intent]
+    end
 
-**Phenotype Improvements Scope**
-1. The improvements flow reviews one phenotype definition at a time.
-2. If multiple cohorts are provided, ACP uses the first cohort only.
-3. If the cohort JSON has no `id`, ACP injects a synthetic `id` for validation only and does not write it back.
+    subgraph ACP
+        A1[HTTP flow handler]
+        A2[Run phenotype recommendation flow]
+        A3[Intent facet extraction]
+        A4[Planning rerank and shortlist enforcement]
+        A5[Final deterministic recommendation assembly]
+    end
 
-**LLM Formats**
-1. Default: OpenAI Chat Completions payload (`/v1/chat/completions`-style).
-2. Optional: OpenAI Responses payload (`/v1/responses`-style) enabled with `LLM_USE_RESPONSES=1`.
-3. This setting only changes request/response formatting for the LLM API; it does not affect MCP tool usage.
+    subgraph MCP
+        M1[phenotype_search]
+        M2[phenotype_fetch_summary]
+        M3[phenotype_prompt_bundle]
+    end
 
-**Update and Reindex**
-1. MCP exposes `POST /phenotypes/reindex` for manual refresh.
-2. Index build script accepts CSV metadata + JSON cohort definitions.
-3. Regular updates are expected; rebuild is safe and idempotent.
+    subgraph LLM
+        L1[Intent facets call]
+        L2[Planning call]
+        L3[Final recommendation call]
+    end
 
-**Configuration**
-1. `PHENOTYPE_INDEX_DIR` (default `data/phenotype_index`)
-2. `EMBED_URL` (default `http://localhost:3000/ollama/api/embed`)
-3. `EMBED_MODEL` (default `qwen3-embedding:4b`)
-4. `EMBED_API_KEY` (optional)
-5. `PHENOTYPE_DENSE_WEIGHT` (default `0.6`)
-6. `PHENOTYPE_SPARSE_WEIGHT` (default `0.4`)
-7. `LLM_API_URL` (default `http://localhost:3000/api/chat/completions`)
-8. `LLM_API_KEY` (required for LLM calls)
-9. `LLM_MODEL` (default `agentstudyassistant`)
-10. `LLM_TIMEOUT` (default `180`)
-11. `LLM_LOG` (default `0`) enables verbose LLM logging in the ACP logger (config, prompt, raw response).
-12. `LLM_DRY_RUN` (default `0`)
-13. `LLM_USE_RESPONSES` (default `0`) selects OpenAI Responses API format instead of Chat Completions. It does not affect MCP tool use.
-14. `LLM_CANDIDATE_LIMIT` (default `10`)
-15. `STUDY_AGENT_MCP_ONESHOT` (default `0`, forced on Windows) runs MCP in per-request oneshot mode to avoid stdio lockups.
-16. `STUDY_AGENT_BASE_DIR` (optional) base directory for resolving relative paths (index dir, banner, outputs).
-17. `STUDY_AGENT_THREADING` (default `1`) uses a threaded HTTP server for ACP. Set to `0` to disable.
-18. `STUDY_AGENT_HOST` (default `127.0.0.1`)
-19. `STUDY_AGENT_PORT` (default `8765`)
-20. `STUDY_AGENT_MCP_CWD` (optional) working directory passed to MCP subprocesses. Use for stable relative paths.
-21. `MCP_LOG_LEVEL` (default `INFO`) controls MCP logger verbosity (`DEBUG|INFO|WARN|ERROR|OFF`).
-22. `STUDY_AGENT_MCP_URL` (optional) HTTP MCP endpoint. When set, ACP uses HTTP and ignores `STUDY_AGENT_MCP_COMMAND`.
-23. `STUDY_AGENT_MCP_TOKEN` (optional) bearer token passed to MCP over HTTP.
-24. `STUDY_AGENT_MCP_TIMEOUT` (default `30`) HTTP MCP request timeout in seconds.
+    subgraph Core
+        C1[Plan validator]
+        C2[Final recommendation validator]
+    end
 
-**Risks and Mitigations**
-1. Missing dependencies for FAISS
-   - Mitigation: allow sparse-only mode with explicit warning.
-2. Inconsistent or missing metadata fields
-   - Mitigation: robust fallbacks when building catalog rows.
-3. Large updates
-   - Mitigation: incremental caching by text hash, batch embedding.
+    U1 --> A1
+    A1 --> A2
+    A2 --> M1
+    M1 --> A3
+    A3 --> M3
+    M3 --> L1
+    L1 --> A3
+    A3 --> M2
+    M2 --> A4
+    A4 --> M3
+    M3 --> L2
+    L2 --> C1
+    C1 --> A4
+    A4 --> M2
+    M2 --> A5
+    A5 --> M3
+    M3 --> L3
+    L3 --> A5
+    A5 --> C2
+    C2 --> A1
+    A1 --> U1
+```
+
+
+A few implementation notes worth keeping in mind:
+- MCP does not rank finally; it only retrieves candidates and prompt assets.
+- ACP owns the real decision logic now: reranking, blocking, shortlist enforcement, dedupe, deterministic final ids.
+- The final LLM call is advisory for text/justification, not for unconstrained id selection.

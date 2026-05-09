@@ -108,10 +108,21 @@ services:
       - mode
       - diagnostics
     validation:
-      - fail-closed sanitization before any LLM call
-      - only observed candidate_items may appear in structured ranking output
-      - index_event is never eligible for structured ranking
-      - optional enrichment tools are additive and not required for successful execution
+      rules:
+        - fail-closed sanitization before any LLM call
+        - only observed candidate_items may appear in structured ranking output
+        - index_event is never eligible for structured ranking
+        - optional enrichment tools are additive and not required for successful execution
+      controlled_identifier_keys:
+        - ingred_rxcui
+        - rxcui
+        - adverse_event_meddra_id
+        - meddra_code
+        - meddra_id
+        - concept_id
+        - ingredient_concept_id
+        - adverse_event_concept_id
+        - outcome_concept_id
 
   keeper_concept_sets_generate:
     endpoint: /flows/keeper_concept_sets_generate
@@ -191,3 +202,37 @@ services:
       - questions
     validation:
       - core.phenotype_intent_split schema validation
+
+  cohort_methods_intent_split:
+    endpoint: /flows/cohort_methods_intent_split
+    mcp_tools:
+      - cohort_methods_intent_split
+    input:
+      - study_intent
+    output:
+      - target_statement
+      - comparator_statement
+      - outcome_statement
+      - rationale
+      - questions
+    validation:
+      - core.cohort_methods_intent_split schema validation
+
+  cohort_methods_specifications_recommendation:
+    endpoint: /flows/cohort_methods_specifications_recommendation
+    mcp_tools:
+      - cohort_methods_prompt_bundle
+    input:
+      - analytic_settings_description
+      - study_description
+      - study_intent
+    output:
+      - status
+      - recommendation
+      - cohort_methods_specifications
+      - section_rationales
+      - diagnostics
+    validation:
+      - core.validate_cohort_methods_spec top-level validation
+      - core.validate_section with default backfill for invalid sections
+      - core.cohort_methods_spec_to_shell_recommendation projection

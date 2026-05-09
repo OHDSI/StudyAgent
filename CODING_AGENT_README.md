@@ -60,6 +60,7 @@ The currently exposed ACP flow endpoints are:
 - `phenotype_recommendation_advice`
 - `phenotype_improvements`
 - `phenotype_intent_split`
+- `cohort_methods_intent_split`
 - `concept_sets_review`
 - `cohort_critique_general_design`
 - `keeper_concept_sets_generate`

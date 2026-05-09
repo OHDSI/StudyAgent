@@ -2,6 +2,8 @@ import json
 from typing import Any, Dict, List, Optional, Tuple
 
 from .models import (
+    CohortMethodsIntentSplitInput,
+    CohortMethodsIntentSplitOutput,
     CohortLintInput,
     CohortLintOutput,
     ConceptSetDiffInput,
@@ -12,6 +14,8 @@ from .models import (
     PhenotypeIntentSplitOutput,
     PhenotypeRecommendationAdviceInput,
     PhenotypeRecommendationAdviceOutput,
+    PhenotypeRecommendationPlanInput,
+    PhenotypeRecommendationPlanOutput,
     PhenotypeValidationReviewInput,
     PhenotypeValidationReviewOutput,
     PhenotypeRecommendationsInput,
@@ -96,29 +100,86 @@ def apply_set_include_descendants(
     return cs_copy, preview
 
 
+def _build_allowed_id_maps(catalog_rows: List[Dict[str, Any]]) -> tuple[Dict[str, Dict[str, Any]], Dict[str, List[str]]]:
+    allowed: Dict[str, Dict[str, Any]] = {}
+    suffix_map: Dict[str, List[str]] = {}
+    for row in catalog_rows or []:
+        phenotype_id = row.get("phenotype_id")
+        if phenotype_id in (None, ""):
+            continue
+        phenotype_id = str(phenotype_id)
+        allowed[phenotype_id] = row
+        if ":" in phenotype_id:
+            suffix = phenotype_id.rsplit(":", 1)[-1]
+            suffix_map.setdefault(suffix, []).append(phenotype_id)
+    return allowed, suffix_map
+
+
+def _resolve_catalog_phenotype_id(
+    phenotype_id: Any,
+    allowed: Dict[str, Dict[str, Any]],
+    suffix_map: Dict[str, List[str]],
+) -> Optional[str]:
+    if phenotype_id in (None, ""):
+        return None
+    text = str(phenotype_id).strip()
+    if not text:
+        return None
+    if text in allowed:
+        return text
+    suffix_hits = suffix_map.get(text) or []
+    if len(suffix_hits) == 1:
+        return suffix_hits[0]
+    return None
+
+
 def _filter_catalog_recs(
     recs: List[Dict[str, Any]],
     catalog_rows: List[Dict[str, Any]],
     max_results: int,
 ) -> List[Dict[str, Any]]:
-    allowed = {r.get("cohortId"): r for r in catalog_rows if r.get("cohortId") is not None}
+    allowed, suffix_map = _build_allowed_id_maps(catalog_rows)
     cleaned = []
+    seen: set[str] = set()
     for rec in recs or []:
-        cid = rec.get("cohortId")
-        if cid not in allowed:
+        phenotype_id = _resolve_catalog_phenotype_id(rec.get("phenotype_id"), allowed, suffix_map)
+        if phenotype_id is None or phenotype_id in seen:
             continue
-        info = allowed[cid]
+        info = allowed[phenotype_id]
         cleaned.append(
             {
-                "cohortId": cid,
-                "cohortName": rec.get("cohortName") or info.get("cohortName") or "",
+                "phenotype_id": phenotype_id,
+                "phenotype_name": rec.get("phenotype_name") or info.get("phenotype_name") or info.get("name") or "",
                 "justification": rec.get("justification") or "Model justification not provided.",
                 "confidence": rec.get("confidence"),
             }
         )
+        seen.add(phenotype_id)
         if len(cleaned) >= max_results:
             break
     return cleaned
+
+
+def _filter_shortlist_ids(
+    shortlist_ids: List[Any],
+    catalog_rows: List[Dict[str, Any]],
+    max_shortlist: int,
+) -> tuple[List[str], List[str]]:
+    allowed, suffix_map = _build_allowed_id_maps(catalog_rows)
+    cleaned: List[str] = []
+    invalid_ids = []
+    for phenotype_id in shortlist_ids or []:
+        resolved = _resolve_catalog_phenotype_id(phenotype_id, allowed, suffix_map)
+        if resolved is None:
+            if phenotype_id not in (None, ""):
+                invalid_ids.append(str(phenotype_id))
+            continue
+        if resolved in cleaned:
+            continue
+        cleaned.append(resolved)
+        if len(cleaned) >= max_shortlist:
+            break
+    return cleaned, sorted(set(invalid_ids))
 
 
 def propose_concept_set_diff(
@@ -293,6 +354,69 @@ def cohort_lint(
     return _model_dump(output)
 
 
+def phenotype_recommendation_plan(
+    study_intent: str,
+    catalog_rows: List[Dict[str, Any]],
+    max_shortlist: int = 5,
+    llm_result: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    payload = PhenotypeRecommendationPlanInput(
+        study_intent=study_intent,
+        catalog_rows=catalog_rows,
+        max_shortlist=max_shortlist,
+        llm_result=llm_result,
+    )
+
+    allowed_ids = [r.get("phenotype_id") for r in payload.catalog_rows if r.get("phenotype_id")]
+    max_shortlist = max(0, min(payload.max_shortlist, len(allowed_ids)))
+
+    plan = "Select a shortlist of phenotypes for deeper review against the study intent (stub if no LLM)."
+    intent_facets: Dict[str, Any] = {}
+    shortlist_ids: List[str] = []
+    invalid_ids: List[str] = []
+    reasoning_notes: List[str] = []
+    needs_more_search = False
+    mode = "llm"
+
+    if payload.llm_result and isinstance(payload.llm_result.get("shortlist_ids"), list):
+        shortlist_ids, invalid_ids = _filter_shortlist_ids(
+            payload.llm_result.get("shortlist_ids") or [],
+            payload.catalog_rows,
+            max_shortlist,
+        )
+        raw_intent_facets = payload.llm_result.get("intent_facets")
+        intent_facets = raw_intent_facets if isinstance(raw_intent_facets, dict) else {}
+        raw_reasoning_notes = payload.llm_result.get("reasoning_notes")
+        if isinstance(raw_reasoning_notes, list):
+            reasoning_notes = [str(note) for note in raw_reasoning_notes if note not in (None, "")]
+        elif isinstance(raw_reasoning_notes, str) and raw_reasoning_notes.strip():
+            reasoning_notes = [raw_reasoning_notes.strip()]
+        else:
+            reasoning_notes = []
+        needs_more_search = bool(payload.llm_result.get("needs_more_search"))
+        if payload.llm_result.get("plan"):
+            plan = payload.llm_result["plan"]
+        if not shortlist_ids and max_shortlist > 0:
+            mode = "llm_fallback"
+            shortlist_ids = [str(pid) for pid in allowed_ids[:max_shortlist]]
+            reasoning_notes.append("Fell back to top retrieved candidates after invalid or empty LLM shortlist.")
+    else:
+        mode = "stub"
+        shortlist_ids = [str(pid) for pid in allowed_ids[:max_shortlist]]
+        reasoning_notes = ["Stub shortlist from deterministic fallback (no LLM)."]
+
+    output = PhenotypeRecommendationPlanOutput(
+        plan=plan,
+        intent_facets=intent_facets,
+        shortlist_ids=shortlist_ids,
+        needs_more_search=needs_more_search,
+        reasoning_notes=reasoning_notes,
+        mode=mode,
+        invalid_ids_filtered=invalid_ids,
+    )
+    return _model_dump(output)
+
+
 def phenotype_recommendations(
     protocol_text: str,
     catalog_rows: List[Dict[str, Any]],
@@ -306,34 +430,47 @@ def phenotype_recommendations(
         llm_result=llm_result,
     )
 
-    allowed_ids = [r.get("cohortId") for r in payload.catalog_rows if r.get("cohortId") is not None]
-    allowed_set = {cid for cid in allowed_ids}
+    allowed_ids = [r.get("phenotype_id") for r in payload.catalog_rows if r.get("phenotype_id")]
+    allowed_set = {pid for pid in allowed_ids}
     max_results = max(0, min(payload.max_results, len(allowed_ids)))
 
     plan = "Suggest relevant phenotypes from catalog for the study intent (stub if no LLM)."
     recs: List[Dict[str, Any]] = []
-    invalid_ids: List[int] = []
+    invalid_ids: List[str] = []
     mode = "llm"
 
     if payload.llm_result and isinstance(payload.llm_result.get("phenotype_recommendations"), list):
         raw_recs = payload.llm_result.get("phenotype_recommendations") or []
+        allowed, suffix_map = _build_allowed_id_maps(payload.catalog_rows)
         invalid_ids = sorted(
             {
-                rec.get("cohortId")
+                str(rec.get("phenotype_id"))
                 for rec in raw_recs
-                if rec.get("cohortId") not in allowed_set and rec.get("cohortId") is not None
+                if _resolve_catalog_phenotype_id(rec.get("phenotype_id"), allowed, suffix_map) is None
+                and rec.get("phenotype_id") not in (None, "")
             }
         )
         recs = _filter_catalog_recs(raw_recs, payload.catalog_rows, max_results)
         if payload.llm_result.get("plan"):
             plan = payload.llm_result["plan"]
+        if not recs and payload.catalog_rows[:max_results]:
+            mode = "llm_fallback"
+            for row in payload.catalog_rows[:max_results]:
+                recs.append(
+                    {
+                        "phenotype_id": row.get("phenotype_id"),
+                        "phenotype_name": row.get("phenotype_name") or row.get("name") or "",
+                        "justification": "Fallback recommendation from top shortlisted candidates after invalid or empty LLM output.",
+                        "confidence": None,
+                    }
+                )
     else:
         mode = "stub"
         for row in payload.catalog_rows[:max_results]:
             recs.append(
                 {
-                    "cohortId": row.get("cohortId"),
-                    "cohortName": row.get("cohortName") or row.get("name") or "",
+                    "phenotype_id": row.get("phenotype_id"),
+                    "phenotype_name": row.get("phenotype_name") or row.get("name") or "",
                     "justification": "Stub recommendation from deterministic fallback (no LLM).",
                     "confidence": None,
                 }
@@ -496,6 +633,78 @@ def phenotype_intent_split(
         rationale=rationale,
         questions=questions,
         mode=mode,
+    )
+    return _model_dump(output)
+
+
+def _normalize_cohort_methods_outcomes(llm_result: Dict[str, Any]) -> tuple[str, List[str]]:
+    outcome_statement = str(llm_result.get("outcome_statement") or "")
+    outcome_statements: List[str] = []
+    if isinstance(llm_result.get("outcome_statements"), list):
+        outcome_statements = [
+            str(statement).strip()
+            for statement in llm_result["outcome_statements"]
+            if str(statement).strip()
+        ]
+    if not outcome_statements and outcome_statement.strip():
+        outcome_statements = [outcome_statement.strip()]
+    if not outcome_statement.strip() and outcome_statements:
+        outcome_statement = outcome_statements[0]
+    return outcome_statement, outcome_statements
+
+
+def cohort_methods_intent_split(
+    study_intent: str,
+    llm_result: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    payload = CohortMethodsIntentSplitInput(
+        study_intent=study_intent,
+        llm_result=llm_result,
+    )
+
+    if not payload.llm_result:
+        return {"error": "no_llm_response"}
+
+    plan = "Extract target, comparator, and outcome cohort statements from the study intent."
+    target_statement = str(payload.llm_result.get("target_statement") or "")
+    comparator_statement = str(payload.llm_result.get("comparator_statement") or "")
+    outcome_statement, outcome_statements = _normalize_cohort_methods_outcomes(payload.llm_result)
+    rationale = str(payload.llm_result.get("rationale") or "")
+    questions: List[str] = []
+    if isinstance(payload.llm_result.get("questions"), list):
+        questions = [str(q) for q in payload.llm_result["questions"]]
+    if payload.llm_result.get("plan"):
+        plan = str(payload.llm_result["plan"])
+
+    raw_status = str(payload.llm_result.get("status") or "").strip().lower()
+    missing_statements = [
+        name
+        for name, value in (
+            ("target_statement", target_statement),
+            ("comparator_statement", comparator_statement),
+            ("outcome_statements", "present" if outcome_statements else ""),
+        )
+        if not value.strip()
+    ]
+    if raw_status not in {"ok", "needs_clarification"}:
+        raw_status = "needs_clarification" if missing_statements else "ok"
+    if raw_status == "ok" and missing_statements:
+        return {
+            "error": "invalid_cohort_methods_intent_split",
+            "details": "status ok requires non-empty target_statement, comparator_statement, and outcome_statements",
+            "missing": missing_statements,
+        }
+
+    output = CohortMethodsIntentSplitOutput(
+        status=raw_status,
+        plan=plan,
+        target_statement=target_statement,
+        comparator_statement=comparator_statement,
+        outcome_statement=outcome_statement,
+        outcome_statements=outcome_statements,
+        rationale=rationale,
+        questions=questions,
+        mode="llm",
     )
     return _model_dump(output)
 
