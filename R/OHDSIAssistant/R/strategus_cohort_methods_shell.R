@@ -1561,8 +1561,8 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
                                            outcomeCohortIds = NULL,
                                            comparisonLabel = NULL,
                                            topK = 20,
-                                           maxResults = 20,
-                                           candidateLimit = 20,
+                                           maxResults = 3,
+                                           candidateLimit = 10,
                                            indexDir = Sys.getenv("PHENOTYPE_INDEX_DIR", "data/phenotype_index"),
                                            negativeControlConceptSetId = NULL,
                                            includeCovariateConceptSetId = NULL,
@@ -2196,8 +2196,12 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
                                       selected_cache_label = NULL,
                                       selected_cache_dir = NULL,
                                       cohort_method_cache = NULL,
-                                      incidence_cache = NULL) {
+                                      incidence_cache = NULL,
+                                      recommendation_role = NULL,
+                                      workflow_type = "cohort_methods",
+                                      exclude_metadata = NULL) {
     role_key <- tolower(role_label)
+    recommendation_role <- tolower(trimws(as.character(recommendation_role %||% role_key)))
     preferred_selected_ids <- normalize_selected_ids(
       preferred_selected_ids,
       sprintf("%s cohort ID%s", role_label, if (isTRUE(allow_multiple)) "s" else ""),
@@ -2285,7 +2289,10 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
         study_intent = statement,
         top_k = top_k,
         max_results = max_results,
-        candidate_limit = candidate_limit
+        candidate_limit = candidate_limit,
+        recommendation_role = recommendation_role,
+        workflow_type = workflow_type,
+        exclude_metadata = exclude_metadata
       )
       message(sprintf("Calling ACP flow: phenotype_recommendation (%s)", role_key))
       recommendation_response <- tryCatch(
@@ -2299,6 +2306,29 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
 
     recommendations_core <- recommendation_response$recommendations %||% recommendation_response
     recommendations <- recommendations_core$phenotype_recommendations %||% list()
+    no_candidate_reason <- as.character(recommendation_response$fallback_reason %||% recommendations_core$fallback_reason %||% "")
+
+    if (isTRUE(interactive) && length(recommendations) == 0 && !is.null(recommendation_response)) {
+      cat(sprintf("
+== %s Phenotype Recommendations ==
+", role_label))
+      if (identical(no_candidate_reason, "no_direct_role_match")) {
+        cat("No sufficiently direct computable OHDSI phenotype match was found for this cohort statement.
+")
+        cat("Enter a cohort ID manually if you want to continue with a known cohort definition.
+")
+      } else if (identical(no_candidate_reason, "no_viable_candidates_after_rerank")) {
+        cat("No viable phenotype candidates were identified from the current search results.
+")
+        cat("Enter a cohort ID manually if you want to continue with a known cohort definition.
+")
+      } else {
+        cat("No phenotype recommendations were returned.
+")
+        cat("Enter a cohort ID manually if you want to continue with a known cohort definition.
+")
+      }
+    }
 
     if (isTRUE(interactive) && length(recommendations) > 0) {
       cat(sprintf("\n== %s Phenotype Recommendations ==\n", role_label))
@@ -2321,7 +2351,10 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
             top_k = top_k,
             max_results = max_results,
             candidate_limit = candidate_limit,
-            candidate_offset = candidate_limit
+            candidate_offset = candidate_limit,
+            recommendation_role = recommendation_role,
+            workflow_type = workflow_type,
+            exclude_metadata = exclude_metadata
           )
           message(sprintf("Calling ACP flow: phenotype_recommendation (%s window 2)", role_key))
           recommendation_response <- tryCatch(
@@ -3933,7 +3966,10 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
         cache_dir = incidence_selected_target_dir,
         label = "incidence target cohort selection"
       )
-    )
+    ),
+    recommendation_role = "target",
+    workflow_type = "cohort_methods",
+    exclude_metadata = list(executable_definition_status = list("codes_only"))
   )
 
   targetCohortId <- if (length(target_rec$selected_ids) > 0) {
@@ -4042,7 +4078,10 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
         cache_dir = NULL,
         label = NULL
       )
-    )
+    ),
+    recommendation_role = "comparator",
+    workflow_type = "cohort_methods",
+    exclude_metadata = list(executable_definition_status = list("codes_only"))
   )
 
   comparatorCohortId <- if (length(comparator_rec$selected_ids) > 0) {
@@ -4125,7 +4164,10 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
         selected_cache_label = NULL,
         selected_cache_dir = NULL,
         cohort_method_cache = NULL,
-        incidence_cache = NULL
+        incidence_cache = NULL,
+        recommendation_role = "outcome",
+        workflow_type = "cohort_methods",
+        exclude_metadata = list(executable_definition_status = list("codes_only"))
       )
     })
   } else {
@@ -4154,7 +4196,10 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
           cache_dir = incidence_selected_outcome_dir,
           label = "incidence outcome cohort selection"
         )
-      )
+      ),
+      recommendation_role = "outcome",
+      workflow_type = "cohort_methods",
+      exclude_metadata = list(executable_definition_status = list("codes_only"))
     ))
   }
   outcome_recommendations <- lapply(seq_along(outcome_recs), function(i) {

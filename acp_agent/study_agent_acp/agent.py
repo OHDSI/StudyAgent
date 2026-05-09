@@ -977,6 +977,8 @@ class StudyAgent:
         intent_facets: Dict[str, Any],
         search_rank: int,
         study_intent: str = "",
+        recommendation_role: Optional[str] = None,
+        workflow_type: Optional[str] = None,
     ) -> Dict[str, Any]:
         topic_tokens = self._topic_tokens(intent_facets.get("condition_or_topic"))
         alias_tokens_list = [
@@ -1079,6 +1081,26 @@ class StudyAgent:
         if intent_role == "medication_based":
             medication_text = any(token in combined_text for token in ("medication", "drug", "med codes", "insulin", "metformin", "antidiabetic", "meglitinide", "prescription", "therapy"))
             medication_signal = "has_code_system:medication" in signals_text or medication_text
+            recommendation_role_text = self._flatten_text(recommendation_role)
+            focus_stop_tokens = {
+                "new", "users", "user", "prior", "exposure", "index", "date", "days", "day", "before",
+                "after", "first", "prescription", "dispensing", "with", "without", "therapy", "treated",
+                "initiators", "initiator", "cohort", "patients", "patient", "use", "using", "the", "and",
+                "for", "from", "in", "medication", "drug", "newuser", "prioruse", "no", "of"
+            }
+            intent_focus_tokens = {
+                token for token in self._topic_tokens(study_intent)
+                if token not in focus_stop_tokens and not token.isdigit()
+            }
+            intent_focus_preview = sorted(intent_focus_tokens)[:6]
+            candidate_focus_text = " ".join(
+                part for part in (
+                    name_text,
+                    self._flatten_text(row.get("primary_clinical_topic")),
+                    retrieval_keywords,
+                ) if part
+            )
+            candidate_focus_tokens = self._topic_tokens(candidate_focus_text)
             if "medication" in role or "drug" in role:
                 score += 8.0
                 reasons.append({"kind": "role_match_medication", "delta": 8.0, "detail": row.get("phenotype_role") or ""})
@@ -1097,6 +1119,30 @@ class StudyAgent:
             if any(token in role for token in ("procedure", "screen", "severity", "outcome")):
                 score -= 3.5
                 reasons.append({"kind": "role_penalty_non_medication", "delta": -3.5, "detail": row.get("phenotype_role") or ""})
+            if intent_focus_tokens and recommendation_role_text in {"target", "comparator"}:
+                focus_overlap = self._topic_overlap_score(intent_focus_tokens, candidate_focus_tokens)
+                if focus_overlap > 0.0:
+                    delta = focus_overlap * 12.0
+                    score += delta
+                    reasons.append({
+                        "kind": f"{recommendation_role_text}_focus_match",
+                        "delta": round(delta, 4),
+                        "detail": {"intent_tokens": intent_focus_preview},
+                    })
+                else:
+                    score -= 7.5
+                    reasons.append({
+                        "kind": f"{recommendation_role_text}_focus_mismatch",
+                        "delta": -7.5,
+                        "detail": {"intent_tokens": intent_focus_preview},
+                    })
+                if workflow_type == "cohort_methods":
+                    if recommendation_role_text == "comparator":
+                        score += 1.5
+                        reasons.append({"kind": "workflow_comparator_bias", "delta": 1.5, "detail": workflow_type})
+                    elif recommendation_role_text == "target":
+                        score += 1.0
+                        reasons.append({"kind": "workflow_target_bias", "delta": 1.0, "detail": workflow_type})
 
         if care_setting and care_setting != "any":
             if candidate_care_setting and care_setting in candidate_care_setting:
@@ -1153,11 +1199,74 @@ class StudyAgent:
             "reasons": reasons,
         }
 
+    def _normalize_metadata_exclusions(self, exclude_metadata: Optional[Dict[str, Any]]) -> Dict[str, List[str]]:
+        normalized: Dict[str, List[str]] = {}
+        if not isinstance(exclude_metadata, dict):
+            return normalized
+        for key, raw_values in exclude_metadata.items():
+            if key in (None, ""):
+                continue
+            values = raw_values if isinstance(raw_values, list) else [raw_values]
+            cleaned = []
+            for value in values:
+                value_text = self._flatten_text(value)
+                if value_text:
+                    cleaned.append(value_text)
+            if cleaned:
+                normalized[str(key)] = sorted(set(cleaned))
+        return normalized
+
+    def _candidate_exclusion_reason(self, row: Dict[str, Any], exclude_metadata: Dict[str, List[str]]) -> Optional[str]:
+        if not isinstance(row, dict) or not exclude_metadata:
+            return None
+        for key, disallowed_values in exclude_metadata.items():
+            row_value = self._flatten_text(row.get(key))
+            if row_value and row_value in set(disallowed_values or []):
+                return f"{key}={row_value}"
+        return None
+
+    def _apply_metadata_exclusions(
+        self,
+        candidates: List[Dict[str, Any]],
+        exclude_metadata: Optional[Dict[str, Any]],
+    ) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
+        normalized = self._normalize_metadata_exclusions(exclude_metadata)
+        if not normalized:
+            return list(candidates or []), {
+                "requested": {},
+                "excluded_ids": [],
+                "excluded_reasons": {},
+                "remaining_count": len(candidates or []),
+            }
+        kept: List[Dict[str, Any]] = []
+        excluded_ids: List[str] = []
+        excluded_reasons: Dict[str, str] = {}
+        for row in candidates or []:
+            if not isinstance(row, dict):
+                continue
+            reason = self._candidate_exclusion_reason(row, normalized)
+            phenotype_id = str(row.get("phenotype_id") or "")
+            if reason:
+                if phenotype_id:
+                    excluded_ids.append(phenotype_id)
+                    excluded_reasons[phenotype_id] = reason
+                continue
+            kept.append(row)
+        diagnostics = {
+            "requested": normalized,
+            "excluded_ids": excluded_ids,
+            "excluded_reasons": excluded_reasons,
+            "remaining_count": len(kept),
+        }
+        return kept, diagnostics
+
     def _rerank_planning_candidates(
         self,
         candidates: List[Dict[str, Any]],
         intent_facets: Dict[str, Any],
         study_intent: str = "",
+        recommendation_role: Optional[str] = None,
+        workflow_type: Optional[str] = None,
     ) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         ranked_rows: List[tuple[float, float, int, Dict[str, Any], Dict[str, Any]]] = []
         for index, row in enumerate(candidates):
@@ -1168,6 +1277,8 @@ class StudyAgent:
                 intent_facets=intent_facets,
                 search_rank=index,
                 study_intent=study_intent,
+                recommendation_role=recommendation_role,
+                workflow_type=workflow_type,
             )
             metadata_score = float(priority.get("metadata_score") or 0.0)
             retrieval_score = float(priority.get("retrieval_score") or 0.0)
@@ -1435,6 +1546,9 @@ class StudyAgent:
         max_results: Optional[int] = None,
         candidate_limit: Optional[int] = None,
         candidate_offset: Optional[int] = None,
+        recommendation_role: Optional[str] = None,
+        workflow_type: Optional[str] = None,
+        exclude_metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         if not study_intent:
             return {"status": "error", "error": "missing study_intent"}
@@ -1444,6 +1558,9 @@ class StudyAgent:
             top_k = int(os.getenv("LLM_RECOMMENDATION_TOP_K", "20"))
         if max_results is None:
             max_results = int(os.getenv("LLM_RECOMMENDATION_MAX_RESULTS", "3"))
+        recommendation_role = (str(recommendation_role or "").strip().lower() or None)
+        workflow_type = (str(workflow_type or "").strip().lower() or None)
+        exclude_metadata = exclude_metadata if isinstance(exclude_metadata, dict) else {}
 
         search_args = {"query": study_intent, "top_k": top_k}
         if candidate_offset is not None:
@@ -1483,6 +1600,7 @@ class StudyAgent:
             }
 
         all_candidates = full.get("results") or []
+        all_candidates, exclusion_diagnostics = self._apply_metadata_exclusions(all_candidates, exclude_metadata)
         if candidate_limit is None:
             candidate_limit = int(os.getenv("LLM_CANDIDATE_LIMIT", "5"))
         candidate_limit = max(0, int(candidate_limit))
@@ -1523,10 +1641,14 @@ class StudyAgent:
             "phenotype_recommendation: intent llm end "
             f"status={intent_llm_result.status} seconds={intent_llm_result.duration_seconds:.2f} parse_stage={intent_llm_result.parse_stage}"
         )
-        intent_payload = llm_result_payload(intent_llm_result) or {}
+        intent_payload = llm_result_payload(intent_llm_result) or getattr(intent_llm_result, "parsed_content", None) or {}
         raw_intent_facets = intent_payload.get("intent_facets")
         intent_facets = raw_intent_facets if isinstance(raw_intent_facets, dict) else {}
         effective_intent_facets = self._effective_intent_facets(study_intent=study_intent, intent_facets=intent_facets)
+        if recommendation_role:
+            effective_intent_facets["recommendation_role"] = recommendation_role
+        if workflow_type:
+            effective_intent_facets["workflow_type"] = workflow_type
         raw_intent_notes = intent_payload.get("reasoning_notes")
         if isinstance(raw_intent_notes, list):
             intent_reasoning_notes = [str(note) for note in raw_intent_notes if note not in (None, "")]
@@ -1567,6 +1689,8 @@ class StudyAgent:
             planning_hydrated,
             effective_intent_facets,
             study_intent=study_intent,
+            recommendation_role=recommendation_role,
+            workflow_type=workflow_type,
         )
         planning_top_band = int(os.getenv("LLM_PLANNING_TOP_BAND", str(max((max_results or 0) + 2, 5))))
         planning_top_band = max(1, min(planning_top_band, len(planning_ranked))) if planning_ranked else 0
@@ -1632,40 +1756,80 @@ class StudyAgent:
         )
 
         selected_candidates = [row for row in hydrated_candidates[: max(0, max_results)] if isinstance(row, dict)]
+        strict_role_match_kind = None
+        role_match_candidate_ids: List[str] = []
+        selected_role_match_ids: List[str] = []
+        if (
+            workflow_type == "cohort_methods"
+            and recommendation_role in {"target", "comparator"}
+            and self._flatten_text(effective_intent_facets.get("phenotype_role")) == "medication_based"
+        ):
+            strict_role_match_kind = f"{recommendation_role}_focus_match"
+            role_match_candidate_ids = [
+                str(item.get("phenotype_id"))
+                for item in planning_rerank_diagnostics
+                if any(
+                    isinstance(reason, dict) and reason.get("kind") == strict_role_match_kind
+                    for reason in (item.get("reasons") or [])
+                )
+                and item.get("phenotype_id") not in (None, "")
+            ]
+            if role_match_candidate_ids:
+                selected_candidates = [
+                    row for row in selected_candidates
+                    if str(row.get("phenotype_id") or "") in set(role_match_candidate_ids)
+                ]
+                selected_role_match_ids = [str(row.get("phenotype_id") or "") for row in selected_candidates if row.get("phenotype_id") not in (None, "")]
+            else:
+                selected_candidates = []
         compact_final_candidates = self._build_compact_final_candidates(selected_candidates)
 
-        self._log_debug("phenotype_recommendation: final prompt bundle fetch start")
-        prompt_bundle = self.call_tool(
-            name="phenotype_prompt_bundle",
-            arguments={"task": "phenotype_recommendations"},
-        )
-        self._log_debug(f"phenotype_recommendation: final prompt bundle fetch end status={prompt_bundle.get('status')}")
-        prompt_full = prompt_bundle.get("full_result") or {}
-        if prompt_bundle.get("status") != "ok" or prompt_full.get("error"):
-            return {
-                "status": "error",
-                "error": "phenotype_prompt_bundle_failed",
-                "details": prompt_bundle,
-            }
+        skip_final_reason = None
+        final_prompt = ""
+        if not compact_final_candidates:
+            skip_final_reason = "no_direct_role_match" if strict_role_match_kind else "no_viable_candidates_after_rerank"
+            self._log_debug(f"phenotype_recommendation: final llm skipped reason={skip_final_reason}")
+            llm_result = LLMCallResult(
+                status=f"skipped_{skip_final_reason}",
+                duration_seconds=0.0,
+                error=skip_final_reason,
+                parse_stage="skipped",
+                request_mode="chat_completions",
+                schema_valid=False,
+            )
+        else:
+            self._log_debug("phenotype_recommendation: final prompt bundle fetch start")
+            prompt_bundle = self.call_tool(
+                name="phenotype_prompt_bundle",
+                arguments={"task": "phenotype_recommendations"},
+            )
+            self._log_debug(f"phenotype_recommendation: final prompt bundle fetch end status={prompt_bundle.get('status')}")
+            prompt_full = prompt_bundle.get("full_result") or {}
+            if prompt_bundle.get("status") != "ok" or prompt_full.get("error"):
+                return {
+                    "status": "error",
+                    "error": "phenotype_prompt_bundle_failed",
+                    "details": prompt_bundle,
+                }
 
-        final_prompt = build_prompt(
-            overview=prompt_full.get("overview", ""),
-            spec=prompt_full.get("spec", ""),
-            output_schema=prompt_full.get("output_schema", {}),
-            study_intent=study_intent,
-            candidates=compact_final_candidates,
-            max_results=max_results,
-            task="phenotype_recommendations",
-            extra_dynamic={"intent_facets": effective_intent_facets},
-        )
-        self._log_debug(
-            f"phenotype_recommendation: final llm start prompt_chars={len(final_prompt)} candidate_count={len(compact_final_candidates)}"
-        )
-        llm_result = self._call_llm(final_prompt, required_keys=["plan", "phenotype_recommendations"])
-        self._log_debug(
-            "phenotype_recommendation: final llm end "
-            f"status={llm_result.status} seconds={llm_result.duration_seconds:.2f} parse_stage={llm_result.parse_stage}"
-        )
+            final_prompt = build_prompt(
+                overview=prompt_full.get("overview", ""),
+                spec=prompt_full.get("spec", ""),
+                output_schema=prompt_full.get("output_schema", {}),
+                study_intent=study_intent,
+                candidates=compact_final_candidates,
+                max_results=max_results,
+                task="phenotype_recommendations",
+                extra_dynamic={"intent_facets": effective_intent_facets},
+            )
+            self._log_debug(
+                f"phenotype_recommendation: final llm start prompt_chars={len(final_prompt)} candidate_count={len(compact_final_candidates)}"
+            )
+            llm_result = self._call_llm(final_prompt, required_keys=["plan", "phenotype_recommendations"])
+            self._log_debug(
+                "phenotype_recommendation: final llm end "
+                f"status={llm_result.status} seconds={llm_result.duration_seconds:.2f} parse_stage={llm_result.parse_stage}"
+            )
 
         catalog_rows = []
         for row in selected_candidates:
@@ -1707,8 +1871,12 @@ class StudyAgent:
             fallback_reason = None
             fallback_mode = None
         else:
-            fallback_reason = self._fallback_reason_for_llm(llm_result) if llm_payload is None else "llm_explanations_unusable"
-            fallback_mode = "stub" if llm_payload is None else core_result.get("mode")
+            if skip_final_reason:
+                fallback_reason = skip_final_reason
+                fallback_mode = core_result.get("mode")
+            else:
+                fallback_reason = self._fallback_reason_for_llm(llm_result) if llm_payload is None else "llm_explanations_unusable"
+                fallback_mode = "stub" if llm_payload is None else core_result.get("mode")
         if fallback_reason:
             self._log_debug(f"phenotype_recommendation: fallback chosen reason={fallback_reason} mode={fallback_mode}")
 
@@ -1721,11 +1889,20 @@ class StudyAgent:
         diagnostics["planning_rerank"] = {
             "intent_facets_raw": intent_facets,
             "intent_facets_effective": effective_intent_facets,
+            "recommendation_role": recommendation_role,
+            "workflow_type": workflow_type,
             "candidate_count": len(planning_rerank_diagnostics),
             "planner_allowed_count": len(planning_candidates),
             "planner_allowed_ids": [row.get("phenotype_id") for row in planner_allowed_candidates if row.get("phenotype_id")],
             "shortlist_enforcement": shortlist_enforcement,
             "candidates": planning_rerank_diagnostics,
+        }
+        diagnostics["candidate_exclusions"] = exclusion_diagnostics
+        diagnostics["role_match_gate"] = {
+            "required_kind": strict_role_match_kind,
+            "matched_candidate_ids": role_match_candidate_ids,
+            "selected_candidate_ids": selected_role_match_ids if selected_role_match_ids else [str(row.get("phenotype_id") or "") for row in selected_candidates if row.get("phenotype_id") not in (None, "")],
+            "skip_reason": skip_final_reason,
         }
         diagnostics["final_validation"] = final_validation
         diagnostics["final_deterministic"] = final_deterministic
@@ -1742,6 +1919,8 @@ class StudyAgent:
             "fallback_mode": fallback_mode,
             "candidate_limit": candidate_limit,
             "candidate_offset": candidate_offset or 0,
+            "recommendation_role": recommendation_role,
+            "workflow_type": workflow_type,
             "candidate_count": len(hydrated_candidates),
             "candidate_count_before_truncation": pre_truncation_count,
             "plan_prompt_length_chars": len(plan_prompt),

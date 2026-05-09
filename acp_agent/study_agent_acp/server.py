@@ -284,6 +284,11 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             candidate_offset = body.get("candidate_offset")
             if candidate_offset is not None:
                 candidate_offset = int(candidate_offset)
+            recommendation_role = str(body.get("recommendation_role") or "").strip() or None
+            workflow_type = str(body.get("workflow_type") or "").strip() or None
+            exclude_metadata = body.get("exclude_metadata")
+            if not isinstance(exclude_metadata, dict):
+                exclude_metadata = None
             try:
                 result = self.agent.run_phenotype_recommendation_flow(
                     study_intent=study_intent,
@@ -291,6 +296,9 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
                     max_results=max_results,
                     candidate_limit=candidate_limit,
                     candidate_offset=candidate_offset,
+                    recommendation_role=recommendation_role,
+                    workflow_type=workflow_type,
+                    exclude_metadata=exclude_metadata,
                 )
             except Exception as exc:
                 if self.debug:
