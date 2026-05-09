@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "cohort_methods_intent_split_output",
+  "type": "object",
+  "properties": {
+    "status": {"type": "string", "enum": ["ok", "needs_clarification"]},
+    "plan": {"type": "string"},
+    "target_statement": {"type": "string"},
+    "comparator_statement": {"type": "string"},
+    "outcome_statement": {"type": "string"},
+    "outcome_statements": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "rationale": {"type": "string"},
+    "questions": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "required": ["status", "plan", "target_statement", "comparator_statement", "outcome_statement", "outcome_statements", "rationale"],
+  "additionalProperties": false
+}

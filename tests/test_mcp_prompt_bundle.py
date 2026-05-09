@@ -52,6 +52,20 @@ def test_prompt_bundle_tool_returns_schema() -> None:
 
 
 @pytest.mark.mcp
+def test_cohort_methods_intent_split_bundle_schema() -> None:
+    from study_agent_mcp.tools import cohort_methods_intent_split
+
+    mcp = DummyMCP()
+    cohort_methods_intent_split.register(mcp)
+    fn = mcp.tools["cohort_methods_intent_split"]
+    payload = fn()
+    assert "overview" in payload
+    assert "spec" in payload
+    assert "output_schema" in payload
+    assert payload["output_schema"]["title"] == "cohort_methods_intent_split_output"
+
+
+@pytest.mark.mcp
 def test_prompt_bundle_improvements_schema() -> None:
     mcp = DummyMCP()
     phenotype_prompt_bundle.register(mcp)

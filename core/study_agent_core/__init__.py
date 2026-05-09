@@ -1,4 +1,5 @@
 from .tools import (
+    cohort_methods_intent_split,
     cohort_lint,
     phenotype_improvements,
     phenotype_intent_split,
@@ -9,6 +10,7 @@ from .tools import (
 )
 
 __all__ = [
+    "cohort_methods_intent_split",
     "cohort_lint",
     "phenotype_improvements",
     "phenotype_intent_split",

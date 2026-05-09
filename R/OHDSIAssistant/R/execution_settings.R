@@ -26,6 +26,9 @@ createStrategusExecutionSettings <- function(path = file.path(getwd(), "strategu
   workFolder <- cfg$workFolder
   resultsFolder <- cfg$resultsFolder
   cohortIdFieldName <- cfg$cohortIdFieldName %||% "cohort_definition_id"
+  maxCores <- cfg$maxCores %||% parallel::detectCores()
+  maxCores <- suppressWarnings(as.integer(maxCores)[1])
+  if (is.na(maxCores) || maxCores < 1L) maxCores <- 1L
 
   if (!nzchar(cdmDatabaseSchema)) stop("cdmDatabaseSchema must be provided in strategus-execution-settings.json")
   if (!nzchar(workDatabaseSchema)) stop("workDatabaseSchema must be provided in strategus-execution-settings.json")
@@ -38,8 +41,10 @@ createStrategusExecutionSettings <- function(path = file.path(getwd(), "strategu
   executionSettings <- createCdmExecutionSettings(
     cdmDatabaseSchema = cdmDatabaseSchema,
     workDatabaseSchema = workDatabaseSchema,
+    cohortTableNames = CohortGenerator::getCohortTableNames(cohortTable = cohortTable),
     workFolder = workFolder,
-    resultsFolder = resultsFolder
+    resultsFolder = resultsFolder,
+    maxCores = maxCores
   )
 
   list(
@@ -51,6 +56,7 @@ createStrategusExecutionSettings <- function(path = file.path(getwd(), "strategu
     cohortTable = cohortTable,
     workFolder = workFolder,
     resultsFolder = resultsFolder,
+    maxCores = maxCores,
     cohortIdFieldName = cohortIdFieldName
   )
 }

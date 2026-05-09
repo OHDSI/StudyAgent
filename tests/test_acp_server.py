@@ -124,6 +124,8 @@ class StubMCPClient:
             return {"overview": "overview", "spec": "spec", "output_schema": {"type": "object"}}
         if name == "phenotype_intent_split":
             return {"overview": "overview", "spec": "spec", "output_schema": {"type": "object"}}
+        if name == "cohort_methods_intent_split":
+            return {"overview": "overview", "spec": "spec", "output_schema": {"type": "object"}}
         if name == "lint_prompt_bundle":
             return {"overview": "overview", "spec": "spec", "output_schema": {"type": "object"}}
         if name == "keeper_sanitize_row":
@@ -733,6 +735,93 @@ def test_flow_phenotype_intent_split_prompt_bundle_error(monkeypatch):
     )
     assert result["status"] == "error"
     assert result["error"] == "phenotype_intent_split_prompt_failed"
+
+
+@pytest.mark.acp
+def test_flow_cohort_methods_intent_split(monkeypatch):
+    import study_agent_acp.agent as agent_module
+
+    captured = {}
+
+    def fake_llm(prompt, required_keys=None):
+        captured["prompt"] = prompt
+        captured["required_keys"] = required_keys
+        return {
+            "status": "ok",
+            "plan": "plan",
+            "target_statement": "Metformin users",
+            "comparator_statement": "Sulfonylurea users",
+            "outcome_statement": "GI bleeding",
+            "outcome_statements": ["GI bleeding", "Stroke"],
+            "rationale": "Rationale",
+            "questions": [],
+        }
+
+    monkeypatch.setattr(agent_module, "call_llm", fake_llm)
+    agent = StudyAgent(mcp_client=StubMCPClient())
+    result = agent.run_cohort_methods_intent_split_flow(
+        study_intent="Compare metformin versus sulfonylurea on GI bleeding.",
+    )
+    assert result["status"] == "ok"
+    assert result["intent_split"]["target_statement"] == "Metformin users"
+    assert result["intent_split"]["comparator_statement"] == "Sulfonylurea users"
+    assert result["intent_split"]["outcome_statements"] == ["GI bleeding", "Stroke"]
+    assert "cohort_methods_intent_split" in captured.get("prompt", "")
+    assert "comparator_statement" in captured.get("required_keys", [])
+    assert "outcome_statements" in captured.get("required_keys", [])
+
+
+@pytest.mark.acp
+def test_flow_cohort_methods_intent_split_schema_mismatch(monkeypatch):
+    import study_agent_acp.agent as agent_module
+
+    def fake_llm(prompt, required_keys=None):
+        return LLMCallResult(
+            status="schema_mismatch",
+            parsed_content={"target_statement": "Target only"},
+            parse_stage="chat_completions_content:schema",
+            error="missing_required_keys:comparator_statement,outcome_statements,rationale",
+            missing_keys=["comparator_statement", "outcome_statements", "rationale"],
+            schema_valid=False,
+            request_mode="chat_completions",
+        )
+
+    monkeypatch.setattr(agent_module, "call_llm", fake_llm)
+    agent = StudyAgent(mcp_client=StubMCPClient())
+    result = agent.run_cohort_methods_intent_split_flow(
+        study_intent="Intent text",
+    )
+    assert result["status"] == "error"
+    assert result["error"] == "llm_unavailable"
+    assert result["diagnostics"]["llm_missing_keys"] == [
+        "comparator_statement",
+        "outcome_statements",
+        "rationale",
+    ]
+
+
+@pytest.mark.acp
+def test_flow_cohort_methods_intent_split_missing_intent():
+    agent = StudyAgent(mcp_client=StubMCPClient())
+    result = agent.run_cohort_methods_intent_split_flow(study_intent="")
+    assert result["status"] == "error"
+    assert result["error"] == "missing study_intent"
+
+
+@pytest.mark.acp
+def test_flow_cohort_methods_intent_split_prompt_bundle_error():
+    class BadMCPClient(StubMCPClient):
+        def call_tool(self, name, arguments):
+            if name == "cohort_methods_intent_split":
+                return {"error": "bad prompt"}
+            return super().call_tool(name, arguments)
+
+    agent = StudyAgent(mcp_client=BadMCPClient())
+    result = agent.run_cohort_methods_intent_split_flow(
+        study_intent="Intent text",
+    )
+    assert result["status"] == "error"
+    assert result["error"] == "cohort_methods_intent_split_prompt_failed"
 
 
 

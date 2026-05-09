@@ -3,11 +3,13 @@ import logging
 import os
 import re
 import time
+from copy import deepcopy
 from typing import Any, Dict, List, Optional, Protocol
 
 from .phenotype_recommendation_utils import PhenotypeRecommendationMixin
 
 from study_agent_core.models import (
+    CohortMethodsIntentSplitInput,
     CohortLintInput,
     ConceptSetDiffInput,
     KeeperConceptSetsGenerateInput,
@@ -19,6 +21,7 @@ from study_agent_core.models import (
     PhenotypeRecommendationsInput,
 )
 from study_agent_core.tools import (
+    cohort_methods_intent_split,
     cohort_lint,
     phenotype_intent_split,
     phenotype_improvements,
@@ -29,6 +32,7 @@ from study_agent_core.tools import (
 )
 from .llm_client import (
     LLMCallResult,
+    build_cohort_methods_intent_split_prompt,
     build_intent_split_prompt,
     build_recommendation_intent_facets_prompt,
     build_advice_prompt,
@@ -74,6 +78,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
             "phenotype_recommendation_advice": phenotype_recommendation_advice,
             "phenotype_improvements": phenotype_improvements,
             "phenotype_intent_split": phenotype_intent_split,
+            "cohort_methods_intent_split": cohort_methods_intent_split,
         }
 
         self._schemas = {
@@ -84,6 +89,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
             "phenotype_recommendation_advice": PhenotypeRecommendationAdviceInput.model_json_schema(),
             "phenotype_improvements": PhenotypeImprovementsInput.model_json_schema(),
             "phenotype_intent_split": PhenotypeIntentSplitInput.model_json_schema(),
+            "cohort_methods_intent_split": CohortMethodsIntentSplitInput.model_json_schema(),
             "keeper_concept_sets_generate": KeeperConceptSetsGenerateInput.model_json_schema(),
             "keeper_profiles_generate": KeeperProfilesGenerateInput.model_json_schema(),
         }
@@ -1689,11 +1695,12 @@ class StudyAgent:
             max_results=max_results,
             study_intent=study_intent,
         )
+        effective_final_payload = None if llm_payload is None else deterministic_llm_payload
         core_result = phenotype_recommendations(
             protocol_text=study_intent,
             catalog_rows=catalog_rows,
             max_results=max_results,
-            llm_result=deterministic_llm_payload,
+            llm_result=effective_final_payload,
         )
         llm_used = bool(final_deterministic.get("used_llm_justification_count"))
         if llm_used:
@@ -1701,7 +1708,7 @@ class StudyAgent:
             fallback_mode = None
         else:
             fallback_reason = self._fallback_reason_for_llm(llm_result) if llm_payload is None else "llm_explanations_unusable"
-            fallback_mode = core_result.get("mode")
+            fallback_mode = "stub" if llm_payload is None else core_result.get("mode")
         if fallback_reason:
             self._log_debug(f"phenotype_recommendation: fallback chosen reason={fallback_reason} mode={fallback_mode}")
 
@@ -1810,6 +1817,180 @@ class StudyAgent:
             "document": document,
         }
 
+    def run_cohort_methods_specs_recommendation_flow(
+        self,
+        analytic_settings_description: str,
+        study_intent: str = "",
+    ) -> Dict[str, Any]:
+        import re as _re
+
+        from study_agent_core.cohort_methods_spec_validation import (
+            LLM_FILLED_SECTIONS,
+            backfill_section_from_defaults,
+            cohort_methods_spec_to_shell_recommendation,
+            validate_section,
+            validate_cohort_methods_spec,
+        )
+
+        if self._mcp_client is None:
+            raise RuntimeError("MCP client unavailable")
+
+        bundle = self.call_tool(name="cohort_methods_prompt_bundle", arguments={})
+        if bundle.get("status") != "ok":
+            raise RuntimeError(f"cohort_methods_prompt_bundle failed: {bundle}")
+        bundle_full = bundle.get("full_result") or {}
+        defaults_spec: Dict[str, Any] = bundle_full.get("defaults_spec", {})
+        analysis_template: str = (
+            bundle_full.get("analysis_specifications_template")
+            or bundle_full.get("annotated_template", "")
+        )
+        json_field_descriptions: str = bundle_full.get("json_field_descriptions", "")
+        instruction: str = bundle_full.get("instruction_template", "")
+        output_style: str = bundle_full.get("output_style_template", "")
+
+        defaults_snapshot: Dict[str, Any] = {}
+        input_method = "typed_text"
+        profile_name_default = "Recommended from free-text description"
+
+        diagnostics: Dict[str, Any] = {
+            "llm_parse_stage": "ok",
+            "schema_valid": True,
+            "failed_sections": [],
+            "latency_ms": 0,
+        }
+
+        def _fallback(status: str, *, reason: Optional[str] = None) -> Dict[str, Any]:
+            recommendation = cohort_methods_spec_to_shell_recommendation(
+                cohort_methods_spec=defaults_spec,
+                raw_description=analytic_settings_description or "",
+                defaults_snapshot=defaults_snapshot,
+                profile_name=defaults_spec.get("description") or defaults_spec.get("name") or profile_name_default,
+                input_method=input_method,
+                rec_status="backfilled",
+            )
+            if reason:
+                diagnostics["reason"] = reason
+            diagnostics["schema_valid"] = False
+            return {
+                "status": status,
+                "recommendation": recommendation,
+                "cohort_methods_specifications": defaults_spec,
+                "section_rationales": {s: {"rationale": "", "confidence": "low"} for s in LLM_FILLED_SECTIONS},
+                "diagnostics": diagnostics,
+            }
+
+        if not analytic_settings_description or not analytic_settings_description.strip():
+            diagnostics["llm_parse_stage"] = "json_extract_failed"
+            return _fallback("llm_parse_error", reason="analytic_settings_description is required")
+
+        prompt_parts = [
+            instruction,
+            "",
+            "<Text>",
+            analytic_settings_description.strip(),
+            "</Text>",
+            "",
+            "<Study Intent>",
+            (study_intent or "").strip(),
+            "</Study Intent>",
+            "",
+            "<Analysis Specifications Template>",
+            analysis_template,
+            "</Analysis Specifications Template>",
+            "",
+            "<JSON Fields Descriptions>",
+            json_field_descriptions,
+            "</JSON Fields Descriptions>",
+            "",
+            output_style,
+        ]
+        prompt = "\n".join(prompt_parts)
+
+        llm_result = self._call_llm(prompt, required_keys=["specifications", "sectionRationales"])
+        diagnostics.update(self._llm_diagnostics(llm_result))
+
+        payload: Optional[Dict[str, Any]] = getattr(llm_result, "parsed_content", None)
+        if payload is None:
+            extract_source = getattr(llm_result, "content_text", None) or getattr(llm_result, "raw_response", None) or ""
+            match = _re.search(r"```json\s*(\{.*?\})\s*```", extract_source, flags=_re.DOTALL)
+            if match:
+                try:
+                    payload = json.loads(match.group(1))
+                except Exception:
+                    payload = None
+                    diagnostics["llm_parse_stage"] = "json_decode_failed"
+            else:
+                diagnostics["llm_parse_stage"] = "json_extract_failed"
+
+        if not isinstance(payload, dict) or "specifications" not in payload:
+            return _fallback("llm_parse_error")
+
+        spec = payload.get("specifications") or {}
+        ok_top, missing = validate_cohort_methods_spec(spec)
+        if not ok_top:
+            diagnostics["llm_parse_stage"] = "schema_validation_failed"
+            diagnostics["missing_keys"] = missing
+            return _fallback("schema_validation_error")
+
+        rationale_section_map = {
+            "getDbCohortMethodDataArgs": "study_population",
+            "createStudyPopArgs": "study_population",
+            "propensityScoreAdjustment": "propensity_score_adjustment",
+            "fitOutcomeModelArgs": "outcome_model",
+        }
+        rationales_in = payload.get("sectionRationales") or {}
+        rationales_out: Dict[str, Dict[str, Any]] = {}
+        for rationale_section in ("study_population", "time_at_risk", "propensity_score_adjustment", "outcome_model"):
+            incoming = rationales_in.get(rationale_section) if isinstance(rationales_in, dict) else None
+            if isinstance(incoming, dict):
+                rationales_out[rationale_section] = {
+                    "rationale": str(incoming.get("rationale", "")),
+                    "confidence": incoming.get("confidence", "low") if incoming.get("confidence") in {"high", "medium", "low"} else "low",
+                }
+            else:
+                rationales_out[rationale_section] = {"rationale": "", "confidence": "low"}
+
+        for section in LLM_FILLED_SECTIONS:
+            rationale_section = rationale_section_map.get(section, section)
+
+            section_value = spec.get(section)
+            if section == "propensityScoreAdjustment" and section not in spec:
+                section_value = {
+                    "trimByPsArgs": spec.get("trimByPsArgs"),
+                    "matchOnPsArgs": spec.get("matchOnPsArgs"),
+                    "stratifyByPsArgs": spec.get("stratifyByPsArgs"),
+                    "createPsArgs": spec.get("createPsArgs"),
+                }
+            ok_sec, violations = validate_section(section, section_value)
+            if not ok_sec:
+                if section == "propensityScoreAdjustment" and section not in defaults_spec:
+                    for ps_section in ("trimByPsArgs", "matchOnPsArgs", "stratifyByPsArgs", "createPsArgs"):
+                        spec[ps_section] = deepcopy(defaults_spec.get(ps_section))
+                else:
+                    spec = backfill_section_from_defaults(spec, defaults_spec, section)
+                diagnostics["failed_sections"].append(section)
+                rationales_out[rationale_section] = {
+                    "rationale": (rationales_out[rationale_section].get("rationale") or "") + f" [backfilled: {'; '.join(violations)}]",
+                    "confidence": "low",
+                }
+
+        rec_status = "backfilled" if diagnostics["failed_sections"] else "received"
+        recommendation = cohort_methods_spec_to_shell_recommendation(
+            cohort_methods_spec=spec,
+            raw_description=analytic_settings_description,
+            defaults_snapshot=defaults_snapshot,
+            profile_name=spec.get("description") or spec.get("name") or profile_name_default,
+            input_method=input_method,
+            rec_status=rec_status,
+        )
+        return {
+            "status": "ok",
+            "recommendation": recommendation,
+            "cohort_methods_specifications": spec,
+            "section_rationales": rationales_out,
+            "diagnostics": diagnostics,
+        }
+
     def run_phenotype_recommendation_advice_flow(
         self,
         study_intent: str,
@@ -1897,6 +2078,75 @@ class StudyAgent:
             study_intent=study_intent,
             llm_result=llm_payload,
         )
+
+        return {
+            "status": "ok",
+            "llm_used": True,
+            "llm_status": llm_result.status,
+            "intent_split": core_result,
+            "diagnostics": self._llm_diagnostics(llm_result),
+        }
+
+    def run_cohort_methods_intent_split_flow(
+        self,
+        study_intent: str,
+    ) -> Dict[str, Any]:
+        if not study_intent:
+            return {"status": "error", "error": "missing study_intent"}
+        if self._mcp_client is None:
+            return {"status": "error", "error": "MCP client unavailable"}
+        prompt_bundle = self.call_tool(
+            name="cohort_methods_intent_split",
+            arguments={},
+        )
+        prompt_full = prompt_bundle.get("full_result") or {}
+        if prompt_bundle.get("status") != "ok" or prompt_full.get("error"):
+            return {
+                "status": "error",
+                "error": "cohort_methods_intent_split_prompt_failed",
+                "details": prompt_bundle,
+            }
+
+        prompt = build_cohort_methods_intent_split_prompt(
+            overview=prompt_full.get("overview", ""),
+            spec=prompt_full.get("spec", ""),
+            output_schema=prompt_full.get("output_schema", {}),
+            study_intent=study_intent,
+        )
+        self._log_debug("cohort_methods_intent_split: calling LLM")
+        llm_result = self._call_llm(
+            prompt,
+            required_keys=[
+                "status",
+                "target_statement",
+                "comparator_statement",
+                "outcome_statement",
+                "outcome_statements",
+                "rationale",
+            ],
+        )
+        self._log_debug(
+            "cohort_methods_intent_split: LLM returned "
+            f"status={llm_result.status} parse_stage={llm_result.parse_stage}"
+        )
+        llm_payload = llm_result_payload(llm_result)
+        if llm_payload is None:
+            return {
+                "status": "error",
+                "error": "llm_unavailable",
+                "diagnostics": self._llm_diagnostics(llm_result),
+            }
+        core_result = cohort_methods_intent_split(
+            study_intent=study_intent,
+            llm_result=llm_payload,
+        )
+        if core_result.get("error"):
+            return {
+                "status": "error",
+                "error": core_result.get("error"),
+                "details": core_result,
+                "diagnostics": self._llm_diagnostics(llm_result),
+            }
 
         return {
             "status": "ok",

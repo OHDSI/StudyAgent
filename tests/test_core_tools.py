@@ -1,6 +1,7 @@
 import pytest
 
 from study_agent_core.tools import (
+    cohort_methods_intent_split,
     cohort_lint,
     phenotype_intent_split,
     phenotype_improvements,
@@ -204,3 +205,72 @@ def test_phenotype_intent_split_llm():
     result = phenotype_intent_split("intent", llm_result=llm)
     assert result["target_statement"] == "Target"
     assert result["outcome_statement"] == "Outcome"
+
+
+@pytest.mark.core
+def test_cohort_methods_intent_split_llm():
+    llm = {
+        "status": "ok",
+        "plan": "plan",
+        "target_statement": "Metformin users",
+        "comparator_statement": "Sulfonylurea users",
+        "outcome_statement": "GI bleeding",
+        "outcome_statements": ["GI bleeding", "Stroke"],
+        "rationale": "Because",
+        "questions": [],
+    }
+    result = cohort_methods_intent_split("intent", llm_result=llm)
+    assert result["status"] == "ok"
+    assert result["target_statement"] == "Metformin users"
+    assert result["comparator_statement"] == "Sulfonylurea users"
+    assert result["outcome_statement"] == "GI bleeding"
+    assert result["outcome_statements"] == ["GI bleeding", "Stroke"]
+
+
+@pytest.mark.core
+def test_cohort_methods_intent_split_backfills_outcome_statements():
+    llm = {
+        "status": "ok",
+        "plan": "plan",
+        "target_statement": "Metformin users",
+        "comparator_statement": "Sulfonylurea users",
+        "outcome_statement": "GI bleeding",
+        "rationale": "Because",
+        "questions": [],
+    }
+    result = cohort_methods_intent_split("intent", llm_result=llm)
+    assert result["outcome_statement"] == "GI bleeding"
+    assert result["outcome_statements"] == ["GI bleeding"]
+
+
+@pytest.mark.core
+def test_cohort_methods_intent_split_requires_comparator_when_ok():
+    llm = {
+        "status": "ok",
+        "plan": "plan",
+        "target_statement": "Metformin users",
+        "comparator_statement": "",
+        "outcome_statement": "GI bleeding",
+        "outcome_statements": ["GI bleeding"],
+        "rationale": "Because",
+    }
+    result = cohort_methods_intent_split("intent", llm_result=llm)
+    assert result["error"] == "invalid_cohort_methods_intent_split"
+    assert result["missing"] == ["comparator_statement"]
+
+
+@pytest.mark.core
+def test_cohort_methods_intent_split_allows_clarification():
+    llm = {
+        "status": "needs_clarification",
+        "plan": "plan",
+        "target_statement": "",
+        "comparator_statement": "",
+        "outcome_statement": "",
+        "outcome_statements": [],
+        "rationale": "Intent is underspecified.",
+        "questions": ["What exposure should define the target cohort?"],
+    }
+    result = cohort_methods_intent_split("intent", llm_result=llm)
+    assert result["status"] == "needs_clarification"
+    assert result["questions"] == ["What exposure should define the target cohort?"]

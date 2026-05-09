@@ -143,3 +143,158 @@ def test_call_llm_missing_required_keys(monkeypatch):
     result = llm_client.call_llm("prompt", required_keys=["advice", "next_steps"])
     assert result.status == "schema_mismatch"
     assert result.missing_keys == ["next_steps"]
+
+
+@pytest.mark.acp
+def test_call_llm_uses_later_json_object_matching_required_keys(monkeypatch):
+    schema_echo = {
+        "type": "object",
+        "properties": {
+            "status": {"type": "string"},
+            "target_statement": {"type": "string"},
+        },
+    }
+    actual_output = {
+        "status": "ok",
+        "target_statement": "Metformin initiators.",
+        "comparator_statement": "Sulfonylurea initiators.",
+        "outcome_statement": "GI bleeding.",
+        "outcome_statements": ["GI bleeding.", "MACE."],
+        "rationale": "Comparative cohort method intent.",
+    }
+    payload = {
+        "choices": [
+            {
+                "message": {
+                    "content": f"{json.dumps(schema_echo)}\n{json.dumps(actual_output)}"
+                }
+            }
+        ]
+    }
+
+    monkeypatch.setenv("LLM_API_KEY", "secret")
+    monkeypatch.setenv("LLM_USE_RESPONSES", "0")
+    monkeypatch.setattr(
+        llm_client.urllib.request,
+        "urlopen",
+        lambda request, timeout=0: _FakeResponse(json.dumps(payload)),
+    )
+
+    result = llm_client.call_llm(
+        "prompt",
+        required_keys=[
+            "status",
+            "target_statement",
+            "comparator_statement",
+            "outcome_statement",
+            "outcome_statements",
+            "rationale",
+        ],
+    )
+    assert result.status == "ok"
+    assert result.parsed_content["target_statement"] == "Metformin initiators."
+    assert result.parsed_content["outcome_statements"] == ["GI bleeding.", "MACE."]
+
+
+@pytest.mark.acp
+def test_call_llm_recovers_schema_wrapped_properties_output(monkeypatch):
+    schema_wrapped_output = {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "cohort_methods_intent_split_output",
+        "type": "object",
+        "properties": {
+            "status": "ok",
+            "plan": "Derived cohort statements.",
+            "target_statement": "Patients treated with Ticagrelor.",
+            "comparator_statement": "Patients treated with Clopidogrel.",
+            "outcome_statement": "Cardiovascular events.",
+            "outcome_statements": ["Myocardial infarction", "Stroke"],
+            "rationale": "Comparative antiplatelet study intent.",
+            "questions": [],
+        },
+        "required": [
+            "status",
+            "plan",
+            "target_statement",
+            "comparator_statement",
+            "outcome_statement",
+            "outcome_statements",
+            "rationale",
+        ],
+        "additionalProperties": False,
+    }
+    payload = {"choices": [{"message": {"content": json.dumps(schema_wrapped_output)}}]}
+
+    monkeypatch.setenv("LLM_API_KEY", "secret")
+    monkeypatch.setenv("LLM_USE_RESPONSES", "0")
+    monkeypatch.setattr(
+        llm_client.urllib.request,
+        "urlopen",
+        lambda request, timeout=0: _FakeResponse(json.dumps(payload)),
+    )
+
+    result = llm_client.call_llm(
+        "prompt",
+        required_keys=[
+            "status",
+            "target_statement",
+            "comparator_statement",
+            "outcome_statement",
+            "outcome_statements",
+            "rationale",
+        ],
+    )
+    assert result.status == "ok"
+    assert result.schema_valid is True
+    assert result.parsed_content["status"] == "ok"
+    assert result.parsed_content["target_statement"] == "Patients treated with Ticagrelor."
+    assert result.parsed_content["outcome_statements"] == ["Myocardial infarction", "Stroke"]
+
+
+@pytest.mark.acp
+def test_call_llm_does_not_recover_plain_schema_echo(monkeypatch):
+    schema_echo = {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "cohort_methods_intent_split_output",
+        "type": "object",
+        "properties": {
+            "status": {"type": "string", "enum": ["ok", "needs_clarification"]},
+            "target_statement": {"type": "string"},
+            "comparator_statement": {"type": "string"},
+            "outcome_statement": {"type": "string"},
+            "outcome_statements": {"type": "array", "items": {"type": "string"}},
+            "rationale": {"type": "string"},
+        },
+        "required": [
+            "status",
+            "target_statement",
+            "comparator_statement",
+            "outcome_statement",
+            "outcome_statements",
+            "rationale",
+        ],
+        "additionalProperties": False,
+    }
+    payload = {"choices": [{"message": {"content": json.dumps(schema_echo)}}]}
+
+    monkeypatch.setenv("LLM_API_KEY", "secret")
+    monkeypatch.setenv("LLM_USE_RESPONSES", "0")
+    monkeypatch.setattr(
+        llm_client.urllib.request,
+        "urlopen",
+        lambda request, timeout=0: _FakeResponse(json.dumps(payload)),
+    )
+
+    result = llm_client.call_llm(
+        "prompt",
+        required_keys=[
+            "status",
+            "target_statement",
+            "comparator_statement",
+            "outcome_statement",
+            "outcome_statements",
+            "rationale",
+        ],
+    )
+    assert result.status == "schema_mismatch"
+    assert result.schema_valid is False

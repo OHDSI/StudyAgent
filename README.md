@@ -51,6 +51,7 @@ Related implemented flows:
 - `phenotype_recommendation_advice`
 - `phenotype_improvements`
 - `phenotype_intent_split`
+- `cohort_methods_intent_split`
 - `concept_sets_review`
 - `cohort_critique_general_design`
 

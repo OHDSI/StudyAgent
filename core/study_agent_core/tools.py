@@ -2,6 +2,8 @@ import json
 from typing import Any, Dict, List, Optional, Tuple
 
 from .models import (
+    CohortMethodsIntentSplitInput,
+    CohortMethodsIntentSplitOutput,
     CohortLintInput,
     CohortLintOutput,
     ConceptSetDiffInput,
@@ -631,6 +633,78 @@ def phenotype_intent_split(
         rationale=rationale,
         questions=questions,
         mode=mode,
+    )
+    return _model_dump(output)
+
+
+def _normalize_cohort_methods_outcomes(llm_result: Dict[str, Any]) -> tuple[str, List[str]]:
+    outcome_statement = str(llm_result.get("outcome_statement") or "")
+    outcome_statements: List[str] = []
+    if isinstance(llm_result.get("outcome_statements"), list):
+        outcome_statements = [
+            str(statement).strip()
+            for statement in llm_result["outcome_statements"]
+            if str(statement).strip()
+        ]
+    if not outcome_statements and outcome_statement.strip():
+        outcome_statements = [outcome_statement.strip()]
+    if not outcome_statement.strip() and outcome_statements:
+        outcome_statement = outcome_statements[0]
+    return outcome_statement, outcome_statements
+
+
+def cohort_methods_intent_split(
+    study_intent: str,
+    llm_result: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    payload = CohortMethodsIntentSplitInput(
+        study_intent=study_intent,
+        llm_result=llm_result,
+    )
+
+    if not payload.llm_result:
+        return {"error": "no_llm_response"}
+
+    plan = "Extract target, comparator, and outcome cohort statements from the study intent."
+    target_statement = str(payload.llm_result.get("target_statement") or "")
+    comparator_statement = str(payload.llm_result.get("comparator_statement") or "")
+    outcome_statement, outcome_statements = _normalize_cohort_methods_outcomes(payload.llm_result)
+    rationale = str(payload.llm_result.get("rationale") or "")
+    questions: List[str] = []
+    if isinstance(payload.llm_result.get("questions"), list):
+        questions = [str(q) for q in payload.llm_result["questions"]]
+    if payload.llm_result.get("plan"):
+        plan = str(payload.llm_result["plan"])
+
+    raw_status = str(payload.llm_result.get("status") or "").strip().lower()
+    missing_statements = [
+        name
+        for name, value in (
+            ("target_statement", target_statement),
+            ("comparator_statement", comparator_statement),
+            ("outcome_statements", "present" if outcome_statements else ""),
+        )
+        if not value.strip()
+    ]
+    if raw_status not in {"ok", "needs_clarification"}:
+        raw_status = "needs_clarification" if missing_statements else "ok"
+    if raw_status == "ok" and missing_statements:
+        return {
+            "error": "invalid_cohort_methods_intent_split",
+            "details": "status ok requires non-empty target_statement, comparator_statement, and outcome_statements",
+            "missing": missing_statements,
+        }
+
+    output = CohortMethodsIntentSplitOutput(
+        status=raw_status,
+        plan=plan,
+        target_statement=target_statement,
+        comparator_statement=comparator_statement,
+        outcome_statement=outcome_statement,
+        outcome_statements=outcome_statements,
+        rationale=rationale,
+        questions=questions,
+        mode="llm",
     )
     return _model_dump(output)
 
