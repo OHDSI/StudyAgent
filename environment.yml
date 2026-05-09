@@ -10,10 +10,12 @@ dependencies:
       - flask
       - mcp
       - numpy
-      - omop-alchemy
+      - omop_alchemy
       - pydantic
       - pyyaml      
       - pytest
+      - sqlalchemy
+      - ruff
       - requests
       - ruff      
       - sqlalchemy
