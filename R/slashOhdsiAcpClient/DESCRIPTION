@@ -7,6 +7,6 @@ Description: Thin R client for the OHDSI Study Agent ACP bridge. Provides explic
 License: MIT + file LICENSE
 Encoding: UTF-8
 Depends: R (>= 4.2)
-Imports: httr, jsonlite
+Imports: httr, jsonlite, utils, tools
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-SOURCE = Path("R/OHDSIAssistant/R/strategus_cohort_methods_shell.R")
+SOURCE = Path("R/slashOhdsiStrategusAssistant/R/strategus_cohort_methods_shell.R")
 
 
 def test_shell_supports_namespaced_recommendation_ids_and_blocks_unsupported_selection() -> None:

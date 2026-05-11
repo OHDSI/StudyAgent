@@ -12,7 +12,7 @@ The flow endpoint is:
 One available R wrapper is:
 
 ```r
-OHDSIAssistant::suggestCohortMethodSpecs()
+slashOhdsiStrategusAssistant::suggestCohortMethodSpecs()
 ```
 
 ## Purpose

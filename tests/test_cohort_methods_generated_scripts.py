@@ -5,8 +5,8 @@ import subprocess
 import pytest
 
 
-SOURCE = Path("R/OHDSIAssistant/R/strategus_cohort_methods_shell.R")
-EXECUTION_SETTINGS_SOURCE = Path("R/OHDSIAssistant/R/execution_settings.R")
+SOURCE = Path("R/slashOhdsiStrategusAssistant/R/strategus_cohort_methods_shell.R")
+EXECUTION_SETTINGS_SOURCE = Path("R/slashOhdsiStrategusAssistant/R/execution_settings.R")
 
 
 def _generated_script_block(source: str, script_name: str, filename: str) -> str:
@@ -55,8 +55,8 @@ def test_generated_cm_spec_builds_and_executes_strategus_analysis_specification(
     assert "cmAnalysesSpecifications = cmAnalysesSpecifications$toList()" in block
     assert "ParallelLogger::saveSettingsToJson(analysisSpecifications, analysis_spec_path)" in block
     assert "result <- Strategus::execute(" in block
-    assert "connectionDetails <- OHDSIAssistant::createStrategusConnectionDetails(path = db_details_path)" in block
-    assert "exec <- OHDSIAssistant::createStrategusExecutionSettings(path = execution_settings_path)" in block
+    assert "connectionDetails <- slashOhdsiStrategusAssistant::createStrategusConnectionDetails(path = db_details_path)" in block
+    assert "exec <- slashOhdsiStrategusAssistant::createStrategusExecutionSettings(path = execution_settings_path)" in block
     assert "CohortMethod::runCmAnalyses(" not in block
     assert "CohortMethod::loadCmAnalysisList(" not in block
     assert "CohortMethod::loadTargetComparatorOutcomesList(" not in block

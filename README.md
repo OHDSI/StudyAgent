@@ -14,7 +14,7 @@ The project separates orchestration from deterministic tooling:
 - `acp_agent/`: ACP server that exposes the flow endpoints and handles LLM orchestration
 - `mcp_server/`: MCP server that exposes retrieval, prompt, vocabulary, and Keeper tools
 - `core/`: pure validation and business logic shared by ACP and MCP
-- `R/OHDSIAssistant/`: R-side shell for the Strategus incidence workflow
+- `R/slashOhdsiStrategusAssistant/`: R-side Strategus workflow package and canonical shell entrypoints
 
 ## What Problems This Solves
 
@@ -98,7 +98,7 @@ Use this when you need a defensible starting cohort definition for a target or o
 3. Review returned candidates and diagnostics
 4. If needed, call `phenotype_recommendation_advice` for next-step guidance
 5. Optionally call `phenotype_improvements` on a selected cohort
-6. If you are working in R, continue through `runStrategusIncidenceShell()`
+6. If you are working in R, continue through `slashOhdsiStrategusAssistant::runStrategusIncidenceShell()`
 
 ### Workflow B: Go from clinical event to keeper-assisted validation review
 

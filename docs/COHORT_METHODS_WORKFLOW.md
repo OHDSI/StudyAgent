@@ -1,6 +1,6 @@
 **Cohort Methods Workflow**
 
-This document captures the current cohort-methods workflow implemented by `OHDSIAssistant::runStrategusCohortMethodsShell()` and how it fits into a broader Strategus execution pipeline.
+This document captures the current cohort-methods workflow implemented by `slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell()` and how it fits into a broader Strategus execution pipeline.
 
 ## Shell Workflow (Target/Comparator/Outcome + Analytic Settings)
 

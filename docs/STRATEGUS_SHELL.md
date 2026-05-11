@@ -1,7 +1,7 @@
 **Strategus Incidence Shell (R)**
 
 This document summarizes the interactive Strategus incidence shell provided by
-`OHDSIAssistant::runStrategusIncidenceShell()`. The shell is intended for
+`slashOhdsiStrategusAssistant::runStrategusIncidenceShell()`. The shell is intended for
 interactive use in R/RStudio and guides users through phenotype selection and
 script generation for a CohortIncidence analysis.
 

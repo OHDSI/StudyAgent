@@ -7,6 +7,6 @@ Description: Higher-level Strategus workflow package for slash-ohdsi. Owns workf
 License: MIT + file LICENSE
 Encoding: UTF-8
 Depends: R (>= 4.2)
-Imports: slashOhdsiAcpClient
+Imports: slashOhdsiAcpClient, jsonlite, DatabaseConnector, CohortGenerator, Strategus, utils
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2

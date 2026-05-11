@@ -7,11 +7,11 @@ Current stage scope:
 - The shell can configure one effective analytic-settings profile through `step_by_step` prompts or `free_text` ACP recommendation.
 - The shell writes reproducible R scripts, a Strategus analysis specification, and a merged CohortMethod execution script.
 
-This shell is provided as `OHDSIAssistant::runStrategusCohortMethodsShell()`.
+This shell is provided as `slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell()`.
 
 ## Running
 
-Usage examples for `OHDSIAssistant::runStrategusCohortMethodsShell()` live in the R package README: `R/OHDSIAssistant/README.md`.
+Usage examples for `slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell()` live in the R package README: `R/slashOhdsiStrategusAssistant/README.md`.
 
 Workflow diagrams live in `docs/COHORT_METHODS_WORKFLOW.md`.
 
