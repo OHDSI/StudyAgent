@@ -1586,194 +1586,37 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     if (!dir.exists(path)) dir.create(path, recursive = TRUE, showWarnings = FALSE)
   }
 
-  normalize_dialogue_step <- function(step) {
-    step <- as.character(step %||% "")
-    mapped <- switch(
-      step,
-      study_intent = "study_intent_capture",
-      target_recommendation = "target_selection",
-      comparator_recommendation = "comparator_selection",
-      outcome_recommendation = "outcome_selection",
-      target_improvements = "phenotype_review",
-      comparator_improvements = "phenotype_review",
-      outcome_improvements = "phenotype_review",
-      analytic_settings_step_by_step = "analytic_settings_collection",
-      step
-    )
-    as.character(mapped %||% "")
-  }
+  normalize_dialogue_step <- .studyAgentSlashNormalizeCohortMethodsDialogueStep
 
-  dialogue_step_label <- function(step, role = "") {
-    step <- normalize_dialogue_step(step)
-    role <- as.character(role %||% "")
-    role_label <- if (nzchar(role)) {
-      paste0(toupper(substring(role, 1, 1)), substring(role, 2), " ")
-    } else {
-      ""
-    }
-    switch(
-      step,
-      study_intent_capture = "Study intent capture",
-      intent_split = if (nzchar(role_label)) paste0("Intent split: ", trimws(role_label)) else "Intent split",
-      target_selection = "Target selection",
-      comparator_selection = "Comparator selection",
-      outcome_selection = "Outcome selection",
-      phenotype_review = if (nzchar(role_label)) paste0(role_label, "phenotype review") else "Phenotype review",
-      analytic_settings_collection = "Analytic settings collection",
-      cohort_method_spec_recommendation = "Cohort method specification recommendation",
-      cohort_method_spec_confirmation = "Cohort method specification confirmation",
-      workflow_summary = "Workflow summary",
-      gsub("_", " ", step, fixed = TRUE)
+  dialogue_step_label <- .studyAgentSlashCohortMethodsDialogueStepLabel
+  build_workflow_stage_context <- function(studyIntent, dialogue_state) {
+    .studyAgentSlashBuildCohortMethodsWorkflowStageContext(
+      study_intent = studyIntent,
+      dialogue_state = dialogue_state,
+      interactive = interactive
     )
   }
 
-  build_workflow_stage_context <- function(study_intent, dialogue_state) {
-    current_step <- normalize_dialogue_step(dialogue_state$current_step %||% "")
-    current_role <- as.character(dialogue_state$current_role %||% "")
-    current_context <- compact_dialogue_context(dialogue_state$current_context %||% list())
+  compact_dialogue_context <- .studyAgentSlashCompactWorkflowDialogueContext
 
-    list(
-      contract_version = 1L,
-      workflow_type = "strategus_cohort_methods",
-      current_step = current_step,
-      step_label = dialogue_step_label(current_step, current_role),
-      user_goal = as.character(studyIntent %||% ""),
-      entities = compact_dialogue_context(list(
-        active_role = current_role,
-        role_statement = current_context$role_statement %||% current_context$statement,
-        target = current_context$target_statement %||% NULL,
-        comparator = current_context$comparator_statement %||% NULL,
-        outcomes = current_context$outcome_statements %||% list()
-      )),
-      available_artifacts = compact_dialogue_context(list(
-        selected_target_ids = as.list(current_context$selected_target_ids %||% list()),
-        selected_comparator_ids = as.list(current_context$selected_comparator_ids %||% list()),
-        selected_outcome_ids = as.list(current_context$selected_outcome_ids %||% list()),
-        analysis_settings_path = current_context$analysis_settings_path %||% NULL,
-        concept_set_paths = current_context$concept_set_paths %||% list()
-      )),
-      dialogue = list(
-        prior_questions = list(),
-        prior_answers = list(),
-        last_user_message = NULL
-      ),
-      constraints = list(
-        interactive = isTRUE(interactive),
-        allow_recommendations = TRUE,
-        allow_generation = FALSE
-      ),
-      legacy_context = current_context
-    )
-  }
-
-
-  compact_dialogue_context <- function(value) {
-    if (!is.list(value) || length(value) == 0) return(list())
-    keep <- lapply(value, function(item) {
-      if (is.null(item)) return(FALSE)
-      if (is.character(item) && length(item) == 1 && !nzchar(trimws(item))) return(FALSE)
-      if (is.atomic(item) && length(item) == 0) return(FALSE)
-      if (is.list(item) && length(item) == 0) return(FALSE)
-      TRUE
-    })
-    keep_idx <- which(vapply(keep, isTRUE, logical(1)))
-    if (length(keep_idx) == 0) return(list())
-    value[keep_idx]
-  }
-
-  dialogue_state <- new.env(parent = emptyenv())
-  dialogue_state$current_step <- ""
-  dialogue_state$current_role <- ""
-  dialogue_state$current_context <- list()
   dialogue_acp_client <- new.env(parent = emptyenv())
   dialogue_acp_client$client <- NULL
-
-
-  set_dialogue_context <- function(step = "", role = "", context = list()) {
-    dialogue_state$current_step <- as.character(step %||% "")
-    dialogue_state$current_role <- as.character(role %||% "")
-    dialogue_state$current_context <- compact_dialogue_context(context %||% list())
-    invisible(NULL)
-  }
-
-  render_workflow_dialogue <- function(response) {
-    core <- response$dialogue %||% response
-    cat("
-== OHDSI Guidance ==
-")
-    answer <- as.character(core$answer %||% "")
-    if (nzchar(trimws(answer))) {
-      cat(answer, "
-")
-    } else {
-      cat("No contextual guidance was returned.
-")
-    }
-    guidance <- core$current_step_guidance %||% list()
-    if (length(guidance) > 0) {
-      cat("Current step guidance:
-")
-      for (item in guidance) cat(sprintf("  - %s
-", item))
-    }
-    cautions <- core$cautions %||% list()
-    if (length(cautions) > 0) {
-      cat("Cautions:
-")
-      for (item in cautions) cat(sprintf("  - %s
-", item))
-    }
-    next_actions <- core$suggested_next_actions %||% list()
-    if (length(next_actions) > 0) {
-      cat("Suggested next actions:
-")
-      for (item in next_actions) cat(sprintf("  - %s
-", item))
-    }
-    cat("
-")
-  }
-
-  handle_workflow_dialogue_command <- function(entered) {
-    trimmed <- trimws(as.character(entered %||% ""))
-    if (!isTRUE(interactive) || !startsWith(trimmed, "/ohdsi")) {
-      return(list(handled = FALSE, value = entered))
-    }
-    question <- trimws(sub("^/ohdsi", "", trimmed))
-    if (!nzchar(question)) {
-      cat("Enter a question after /ohdsi. Example: /ohdsi why is washout important here?
-")
-      return(list(handled = TRUE, value = ""))
-    }
-    if (!ensure_workflow_dialogue_client(acpUrl)) {
-      cat("ACP bridge unavailable. Connect ACP before using /ohdsi.\n")
-      return(list(handled = TRUE, value = ""))
-    }
-    stage_context <- build_workflow_stage_context(studyIntent = studyIntent, dialogue_state = dialogue_state)
-    stage_context$dialogue$last_user_message <- question
-    message("Calling ACP flow: workflow_context_dialogue")
-    response <- tryCatch(
-      call_acp_workflow_context_dialogue(dialogue_acp_client$client, stage_context, question),
-      error = function(e) list(status = "error", error = conditionMessage(e))
-    )
-
-    if (!identical(response$status %||% "", "ok")) {
-      cat(sprintf("OHDSI guidance failed: %s
-", as.character(response$error %||% "unknown error")))
-      return(list(handled = TRUE, value = ""))
-    }
-    render_workflow_dialogue(response)
-    list(handled = TRUE, value = "")
-  }
-
-  readline_with_dialogue <- function(prompt) {
-    repeat {
-      entered <- readline(prompt)
-      handled <- handle_workflow_dialogue_command(entered)
-      if (isTRUE(handled$handled)) next
-      return(handled$value)
-    }
-  }
+  dialogue_session <- .studyAgentSlashNewWorkflowDialogueSession(
+    interactive = interactive,
+    study_intent_getter = function() studyIntent,
+    build_stage_context = build_workflow_stage_context,
+    call_dialogue = function(stage_context, message) {
+      if (!ensure_workflow_dialogue_client(acpUrl)) {
+        stop("ACP bridge unavailable. Connect ACP before using /ohdsi.")
+      }
+      message("Calling ACP flow: workflow_context_dialogue")
+      .studyAgentSlashWorkflowContextDialogue(dialogue_acp_client$client, stage_context, message)
+    },
+    empty_question_message = "Enter a question after /ohdsi. Example: /ohdsi why is washout important here?"
+  )
+  dialogue_state <- dialogue_session$state
+  set_dialogue_context <- dialogue_session$set_context
+  readline_with_dialogue <- dialogue_session$readline
 
   prompt_yesno <- function(prompt, default = TRUE) {
     if (!isTRUE(interactive)) return(default)
@@ -2325,22 +2168,11 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   }
 
   acp_client_is_ready <- function(client) {
-    is.list(client) && is.character(client$url) && length(client$url) == 1 && nzchar(client$url)
+    .studyAgentSlashAcpIsConnected(client)
   }
 
   create_acp_client <- function(url, token = NULL, check = TRUE) {
-    client <- list(
-      url = sub("/$", "", as.character(url)),
-      token = token
-    )
-    if (isTRUE(check)) {
-      response <- httr::GET(
-        paste0(client$url, "/health"),
-        httr::timeout(acp_timeout_seconds())
-      )
-      if (httr::status_code(response) != 200) stop("ACP bridge not reachable")
-    }
-    client
+    .studyAgentSlashCreateAcpClient(url = url, token = token, check = check)
   }
 
   ensure_workflow_dialogue_client <- function(url) {
@@ -2375,32 +2207,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     if (!acp_client_is_ready(dialogue_acp_client$client)) {
       if (!ensure_workflow_dialogue_client(url)) stop("ACP bridge unavailable.")
     }
-    response <- httr::POST(
-      paste0(dialogue_acp_client$client$url, sprintf("/flows/%s", flow_name)),
-      body = body,
-      encode = "json",
-      httr::add_headers(.headers = c(`Content-Type` = "application/json")),
-      httr::timeout(acp_timeout_seconds())
-    )
-    if (httr::status_code(response) >= 300) {
-      stop(httr::content(response, as = "text", encoding = "UTF-8"))
-    }
-    jsonlite::fromJSON(
-      httr::content(response, as = "text", encoding = "UTF-8"),
-      simplifyVector = FALSE
-    )
-  }
-
-  call_acp_workflow_context_dialogue <- function(client, stage_context, message) {
-    if (!acp_client_is_ready(client)) stop("ACP bridge unavailable.")
-    call_shell_acp_flow(
-      flow_name = "workflow_context_dialogue",
-      body = list(
-        workflow_stage_context = stage_context,
-        message = trimws(as.character(message %||% ""))
-      ),
-      url = client$url
-    )
+    .studyAgentSlashCallAcpFlow(dialogue_acp_client$client, flow_name = flow_name, body = body)
   }
 
   collect_recommendation_selection <- function(recommendations, role_label, allow_multiple = FALSE) {
