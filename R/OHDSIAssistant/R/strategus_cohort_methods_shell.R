@@ -1586,6 +1586,87 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     if (!dir.exists(path)) dir.create(path, recursive = TRUE, showWarnings = FALSE)
   }
 
+  normalize_dialogue_step <- function(step) {
+    step <- as.character(step %||% "")
+    mapped <- switch(
+      step,
+      study_intent = "study_intent_capture",
+      target_recommendation = "target_selection",
+      comparator_recommendation = "comparator_selection",
+      outcome_recommendation = "outcome_selection",
+      target_improvements = "phenotype_review",
+      comparator_improvements = "phenotype_review",
+      outcome_improvements = "phenotype_review",
+      analytic_settings_step_by_step = "analytic_settings_collection",
+      step
+    )
+    as.character(mapped %||% "")
+  }
+
+  dialogue_step_label <- function(step, role = "") {
+    step <- normalize_dialogue_step(step)
+    role <- as.character(role %||% "")
+    role_label <- if (nzchar(role)) {
+      paste0(toupper(substring(role, 1, 1)), substring(role, 2), " ")
+    } else {
+      ""
+    }
+    switch(
+      step,
+      study_intent_capture = "Study intent capture",
+      intent_split = if (nzchar(role_label)) paste0("Intent split: ", trimws(role_label)) else "Intent split",
+      target_selection = "Target selection",
+      comparator_selection = "Comparator selection",
+      outcome_selection = "Outcome selection",
+      phenotype_review = if (nzchar(role_label)) paste0(role_label, "phenotype review") else "Phenotype review",
+      analytic_settings_collection = "Analytic settings collection",
+      cohort_method_spec_recommendation = "Cohort method specification recommendation",
+      cohort_method_spec_confirmation = "Cohort method specification confirmation",
+      workflow_summary = "Workflow summary",
+      gsub("_", " ", step, fixed = TRUE)
+    )
+  }
+
+  build_workflow_stage_context <- function(study_intent, dialogue_state) {
+    current_step <- normalize_dialogue_step(dialogue_state$current_step %||% "")
+    current_role <- as.character(dialogue_state$current_role %||% "")
+    current_context <- compact_dialogue_context(dialogue_state$current_context %||% list())
+
+    list(
+      contract_version = 1L,
+      workflow_type = "strategus_cohort_methods",
+      current_step = current_step,
+      step_label = dialogue_step_label(current_step, current_role),
+      user_goal = as.character(studyIntent %||% ""),
+      entities = compact_dialogue_context(list(
+        active_role = current_role,
+        role_statement = current_context$role_statement %||% current_context$statement,
+        target = current_context$target_statement %||% NULL,
+        comparator = current_context$comparator_statement %||% NULL,
+        outcomes = current_context$outcome_statements %||% list()
+      )),
+      available_artifacts = compact_dialogue_context(list(
+        selected_target_ids = as.list(current_context$selected_target_ids %||% list()),
+        selected_comparator_ids = as.list(current_context$selected_comparator_ids %||% list()),
+        selected_outcome_ids = as.list(current_context$selected_outcome_ids %||% list()),
+        analysis_settings_path = current_context$analysis_settings_path %||% NULL,
+        concept_set_paths = current_context$concept_set_paths %||% list()
+      )),
+      dialogue = list(
+        prior_questions = list(),
+        prior_answers = list(),
+        last_user_message = NULL
+      ),
+      constraints = list(
+        interactive = isTRUE(interactive),
+        allow_recommendations = TRUE,
+        allow_generation = FALSE
+      ),
+      legacy_context = current_context
+    )
+  }
+
+
   compact_dialogue_context <- function(value) {
     if (!is.list(value) || length(value) == 0) return(list())
     keep <- lapply(value, function(item) {
@@ -1604,6 +1685,9 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   dialogue_state$current_step <- ""
   dialogue_state$current_role <- ""
   dialogue_state$current_context <- list()
+  dialogue_acp_client <- new.env(parent = emptyenv())
+  dialogue_acp_client$client <- NULL
+
 
   set_dialogue_context <- function(step = "", role = "", context = list()) {
     dialogue_state$current_step <- as.character(step %||% "")
@@ -1661,24 +1745,18 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
 ")
       return(list(handled = TRUE, value = ""))
     }
-    if (!ensure_acp_ready(acpUrl)) {
-      cat("ACP bridge unavailable. Connect ACP before using /ohdsi.
-")
+    if (!ensure_workflow_dialogue_client(acpUrl)) {
+      cat("ACP bridge unavailable. Connect ACP before using /ohdsi.\n")
       return(list(handled = TRUE, value = ""))
     }
-    body <- list(
-      user_prompt = question,
-      study_intent = as.character(studyIntent %||% ""),
-      workflow_type = "cohort_methods",
-      current_step = as.character(dialogue_state$current_step %||% ""),
-      current_role = as.character(dialogue_state$current_role %||% ""),
-      current_context = compact_dialogue_context(dialogue_state$current_context %||% list())
-    )
+    stage_context <- build_workflow_stage_context(studyIntent = studyIntent, dialogue_state = dialogue_state)
+    stage_context$dialogue$last_user_message <- question
     message("Calling ACP flow: workflow_context_dialogue")
     response <- tryCatch(
-      .acp_post("/flows/workflow_context_dialogue", body),
+      call_acp_workflow_context_dialogue(dialogue_acp_client$client, stage_context, question),
       error = function(e) list(status = "error", error = conditionMessage(e))
     )
+
     if (!identical(response$status %||% "", "ok")) {
       cat(sprintf("OHDSI guidance failed: %s
 ", as.character(response$error %||% "unknown error")))
@@ -2240,7 +2318,44 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     if (nzchar(trimws(entered))) trimws(entered) else default_value
   }
 
+  acp_timeout_seconds <- function(default = 180) {
+    timeout_seconds <- as.numeric(Sys.getenv("ACP_TIMEOUT", as.character(default)))
+    if (is.na(timeout_seconds) || timeout_seconds <= 0) timeout_seconds <- default
+    timeout_seconds
+  }
+
+  acp_client_is_ready <- function(client) {
+    is.list(client) && is.character(client$url) && length(client$url) == 1 && nzchar(client$url)
+  }
+
+  create_acp_client <- function(url, token = NULL, check = TRUE) {
+    client <- list(
+      url = sub("/$", "", as.character(url)),
+      token = token
+    )
+    if (isTRUE(check)) {
+      response <- httr::GET(
+        paste0(client$url, "/health"),
+        httr::timeout(acp_timeout_seconds())
+      )
+      if (httr::status_code(response) != 200) stop("ACP bridge not reachable")
+    }
+    client
+  }
+
+  ensure_workflow_dialogue_client <- function(url) {
+    if (acp_client_is_ready(dialogue_acp_client$client)) return(TRUE)
+    if (is.null(url) || !nzchar(trimws(url))) return(FALSE)
+    tryCatch({
+      dialogue_acp_client$client <- create_acp_client(url = url, check = TRUE)
+      TRUE
+    }, error = function(e) {
+      FALSE
+    })
+  }
+
   ensure_acp_ready <- function(url) {
+    if (ensure_workflow_dialogue_client(url)) return(TRUE)
     has_acp_state <- exists("acp_state", inherits = TRUE)
     has_acp_connect <- exists("acp_connect", mode = "function", inherits = TRUE)
     has_acp_post <- exists(".acp_post", mode = "function", inherits = TRUE)
@@ -2254,6 +2369,38 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     }, error = function(e) {
       FALSE
     })
+  }
+
+  call_shell_acp_flow <- function(flow_name, body, url = acpUrl) {
+    if (!acp_client_is_ready(dialogue_acp_client$client)) {
+      if (!ensure_workflow_dialogue_client(url)) stop("ACP bridge unavailable.")
+    }
+    response <- httr::POST(
+      paste0(dialogue_acp_client$client$url, sprintf("/flows/%s", flow_name)),
+      body = body,
+      encode = "json",
+      httr::add_headers(.headers = c(`Content-Type` = "application/json")),
+      httr::timeout(acp_timeout_seconds())
+    )
+    if (httr::status_code(response) >= 300) {
+      stop(httr::content(response, as = "text", encoding = "UTF-8"))
+    }
+    jsonlite::fromJSON(
+      httr::content(response, as = "text", encoding = "UTF-8"),
+      simplifyVector = FALSE
+    )
+  }
+
+  call_acp_workflow_context_dialogue <- function(client, stage_context, message) {
+    if (!acp_client_is_ready(client)) stop("ACP bridge unavailable.")
+    call_shell_acp_flow(
+      flow_name = "workflow_context_dialogue",
+      body = list(
+        workflow_stage_context = stage_context,
+        message = trimws(as.character(message %||% ""))
+      ),
+      url = client$url
+    )
   }
 
   collect_recommendation_selection <- function(recommendations, role_label, allow_multiple = FALSE) {
@@ -2420,7 +2567,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
       )
       message(sprintf("Calling ACP flow: phenotype_recommendation (%s)", role_key))
       recommendation_response <- tryCatch(
-        .acp_post("/flows/phenotype_recommendation", body),
+        call_shell_acp_flow("phenotype_recommendation", body),
         error = function(e) {
           list(status = "error", error = conditionMessage(e))
         }
@@ -2482,7 +2629,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
           )
           message(sprintf("Calling ACP flow: phenotype_recommendation (%s window 2)", role_key))
           recommendation_response <- tryCatch(
-            .acp_post("/flows/phenotype_recommendation", body),
+            call_shell_acp_flow("phenotype_recommendation", body),
             error = function(e) {
               list(status = "error", error = conditionMessage(e))
             }
@@ -2505,7 +2652,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
           used_advice <- TRUE
           message(sprintf("Calling ACP flow: phenotype_recommendation_advice (%s)", role_key))
           advice <- tryCatch(
-            .acp_post("/flows/phenotype_recommendation_advice", list(study_intent = statement)),
+            call_shell_acp_flow("phenotype_recommendation_advice", list(study_intent = statement)),
             error = function(e) {
               list(status = "error", error = conditionMessage(e))
             }
@@ -2660,7 +2807,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
         message(sprintf("Calling ACP flow: phenotype_improvements (%s cohort %s)", role_key, cid))
         flow_called <- TRUE
         response_by_id[[as.character(cid)]] <- tryCatch(
-          .acp_post("/flows/phenotype_improvements", body),
+          call_shell_acp_flow("phenotype_improvements", body),
           error = function(e) {
             err <- list(
               status = "error",
@@ -3548,7 +3695,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     }
 
     response <- tryCatch(
-      .acp_post(sprintf("/flows/%s", flow_name), body),
+      call_shell_acp_flow(flow_name, body, url = acp_url),
       error = function(e) {
         list(
           flow = flow_name,
@@ -3944,7 +4091,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
         message("Calling ACP flow: cohort_methods_intent_split")
       }
       cohort_methods_intent_split_response <- tryCatch(
-        .acp_post("/flows/cohort_methods_intent_split", list(study_intent = studyIntent)),
+        call_shell_acp_flow("cohort_methods_intent_split", list(study_intent = studyIntent)),
         error = function(e) {
           list(status = "error", error = conditionMessage(e))
         }

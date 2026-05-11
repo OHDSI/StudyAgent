@@ -37,10 +37,238 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     if (!dir.exists(path)) dir.create(path, recursive = TRUE)
   }
 
+  normalize_dialogue_step <- function(step) {
+    step <- as.character(step %||% "")
+    mapped <- switch(
+      step,
+      study_intent = "study_intent_capture",
+      target_recommendation = "target_selection",
+      target_recommendation_window2 = "target_selection",
+      target_recommendation_resume = "target_selection",
+      target_advice_call = "target_selection",
+      target_improvements = "phenotype_review",
+      outcome_recommendation = "outcome_selection",
+      outcome_recommendation_window2 = "outcome_selection",
+      outcome_recommendation_resume = "outcome_selection",
+      outcome_advice_call = "outcome_selection",
+      outcome_improvements = "phenotype_review",
+      step
+    )
+    as.character(mapped %||% "")
+  }
+
+  dialogue_step_label <- function(step, role = "") {
+    step <- normalize_dialogue_step(step)
+    role <- as.character(role %||% "")
+    role_label <- if (nzchar(role)) paste0(toupper(substring(role, 1, 1)), substring(role, 2), " ") else ""
+    switch(
+      step,
+      study_intent_capture = "Study intent capture",
+      intent_split = if (nzchar(role_label)) paste0("Intent split: ", trimws(role_label)) else "Intent split",
+      target_selection = "Target selection",
+      outcome_selection = "Outcome selection",
+      phenotype_review = if (nzchar(role_label)) paste0(role_label, "phenotype review") else "Phenotype review",
+      incidence_design_setup = "Incidence design setup",
+      time_at_risk_configuration = "Time-at-risk configuration",
+      workflow_summary = "Workflow summary",
+      gsub("_", " ", step, fixed = TRUE)
+    )
+  }
+
+  compact_dialogue_context <- function(value) {
+    if (!is.list(value) || length(value) == 0) return(list())
+    keep <- lapply(value, function(item) {
+      if (is.null(item)) return(FALSE)
+      if (is.character(item) && length(item) == 1 && !nzchar(trimws(item))) return(FALSE)
+      if (is.atomic(item) && length(item) == 0) return(FALSE)
+      if (is.list(item) && length(item) == 0) return(FALSE)
+      TRUE
+    })
+    keep_idx <- which(vapply(keep, isTRUE, logical(1)))
+    if (length(keep_idx) == 0) return(list())
+    value[keep_idx]
+  }
+
+  dialogue_state <- new.env(parent = emptyenv())
+  dialogue_state$current_step <- ""
+  dialogue_state$current_role <- ""
+  dialogue_state$current_context <- list()
+
+  dialogue_acp_client <- new.env(parent = emptyenv())
+  dialogue_acp_client$client <- NULL
+
+  set_dialogue_context <- function(step = "", role = "", context = list()) {
+    dialogue_state$current_step <- as.character(step %||% "")
+    dialogue_state$current_role <- as.character(role %||% "")
+    dialogue_state$current_context <- compact_dialogue_context(context %||% list())
+    invisible(NULL)
+  }
+
+  build_workflow_stage_context <- function(studyIntent, dialogue_state) {
+    current_step <- normalize_dialogue_step(dialogue_state$current_step %||% "")
+    current_role <- as.character(dialogue_state$current_role %||% "")
+    current_context <- compact_dialogue_context(dialogue_state$current_context %||% list())
+
+    list(
+      contract_version = 1L,
+      workflow_type = "strategus_incidence",
+      current_step = current_step,
+      step_label = dialogue_step_label(current_step, current_role),
+      user_goal = as.character(studyIntent %||% ""),
+      entities = compact_dialogue_context(list(
+        active_role = current_role,
+        role_statement = current_context$role_statement %||% current_context$statement,
+        target = current_context$target_statement %||% NULL,
+        outcomes = current_context$outcome_statement %||% current_context$outcome_statements %||% list()
+      )),
+      available_artifacts = compact_dialogue_context(list(
+        selected_target_ids = as.list(current_context$selected_target_ids %||% list()),
+        selected_outcome_ids = as.list(current_context$selected_outcome_ids %||% list()),
+        analysis_settings_path = current_context$analysis_settings_path %||% NULL,
+        concept_set_paths = current_context$concept_set_paths %||% list()
+      )),
+      dialogue = list(
+        prior_questions = list(),
+        prior_answers = list(),
+        last_user_message = NULL
+      ),
+      constraints = list(
+        interactive = isTRUE(interactive),
+        allow_recommendations = TRUE,
+        allow_generation = FALSE
+      ),
+      legacy_context = current_context
+    )
+  }
+
+  render_workflow_dialogue <- function(response) {
+    core <- response$dialogue %||% response
+    cat("\n== OHDSI Guidance ==\n")
+    answer <- as.character(core$answer %||% "")
+    if (nzchar(trimws(answer))) {
+      cat(answer, "\n")
+    } else {
+      cat("No contextual guidance was returned.\n")
+    }
+    guidance <- core$current_step_guidance %||% list()
+    if (length(guidance) > 0) {
+      cat("Current step guidance:\n")
+      for (item in guidance) cat(sprintf("  - %s\n", item))
+    }
+    cautions <- core$cautions %||% list()
+    if (length(cautions) > 0) {
+      cat("Cautions:\n")
+      for (item in cautions) cat(sprintf("  - %s\n", item))
+    }
+    next_actions <- core$suggested_next_actions %||% list()
+    if (length(next_actions) > 0) {
+      cat("Suggested next actions:\n")
+      for (item in next_actions) cat(sprintf("  - %s\n", item))
+    }
+    cat("\n")
+  }
+
+  acp_timeout_seconds <- function(default = 180) {
+    timeout_seconds <- as.numeric(Sys.getenv("ACP_TIMEOUT", as.character(default)))
+    if (is.na(timeout_seconds) || timeout_seconds <= 0) timeout_seconds <- default
+    timeout_seconds
+  }
+
+  acp_client_is_ready <- function(client) {
+    is.list(client) && is.character(client$url) && length(client$url) == 1 && nzchar(client$url)
+  }
+
+  create_acp_client <- function(url, token = NULL, check = TRUE) {
+    client <- list(
+      url = sub("/$", "", as.character(url)),
+      token = token
+    )
+    if (isTRUE(check)) {
+      response <- httr::GET(
+        paste0(client$url, "/health"),
+        httr::timeout(acp_timeout_seconds())
+      )
+      if (httr::status_code(response) != 200) stop("ACP bridge not reachable")
+    }
+    client
+  }
+
+  ensure_workflow_dialogue_client <- function(url) {
+    if (acp_client_is_ready(dialogue_acp_client$client)) return(TRUE)
+    if (is.null(url) || !nzchar(trimws(url))) return(FALSE)
+    tryCatch({
+      dialogue_acp_client$client <- create_acp_client(url = url, check = TRUE)
+      TRUE
+    }, error = function(e) {
+      FALSE
+    })
+  }
+
+  call_shell_acp_flow <- function(flow_name, body, url = acpUrl) {
+    if (!acp_client_is_ready(dialogue_acp_client$client)) {
+      if (!ensure_workflow_dialogue_client(url)) stop("ACP bridge unavailable.")
+    }
+    response <- httr::POST(
+      paste0(dialogue_acp_client$client$url, sprintf("/flows/%s", flow_name)),
+      body = body,
+      encode = "json",
+      httr::add_headers(.headers = c(`Content-Type` = "application/json")),
+      httr::timeout(acp_timeout_seconds())
+    )
+    if (httr::status_code(response) >= 300) {
+      stop(httr::content(response, as = "text", encoding = "UTF-8"))
+    }
+    jsonlite::fromJSON(
+      httr::content(response, as = "text", encoding = "UTF-8"),
+      simplifyVector = FALSE
+    )
+  }
+
+  handle_workflow_dialogue_command <- function(entered) {
+    trimmed <- trimws(as.character(entered %||% ""))
+    if (!isTRUE(interactive) || !startsWith(trimmed, "/ohdsi")) {
+      return(list(handled = FALSE, value = entered))
+    }
+    question <- trimws(sub("^/ohdsi", "", trimmed))
+    if (!nzchar(question)) {
+      cat("Enter a question after /ohdsi. Example: /ohdsi why are these candidates weak here?\n")
+      return(list(handled = TRUE, value = ""))
+    }
+    if (!ensure_workflow_dialogue_client(acpUrl)) {
+      cat("ACP bridge unavailable. Connect ACP before using /ohdsi.\n")
+      return(list(handled = TRUE, value = ""))
+    }
+    stage_context <- build_workflow_stage_context(studyIntent = studyIntent, dialogue_state = dialogue_state)
+    stage_context$dialogue$last_user_message <- question
+    message("Calling ACP flow: workflow_context_dialogue")
+    response <- tryCatch(
+      call_shell_acp_flow(
+        "workflow_context_dialogue",
+        list(workflow_stage_context = stage_context, message = question)
+      ),
+      error = function(e) list(status = "error", error = conditionMessage(e))
+    )
+    if (!identical(response$status %||% "", "ok")) {
+      cat(sprintf("OHDSI guidance failed: %s\n", as.character(response$error %||% "unknown error")))
+      return(list(handled = TRUE, value = ""))
+    }
+    render_workflow_dialogue(response)
+    list(handled = TRUE, value = "")
+  }
+
+  readline_with_dialogue <- function(prompt) {
+    repeat {
+      entered <- readline(prompt)
+      handled <- handle_workflow_dialogue_command(entered)
+      if (isTRUE(handled$handled)) next
+      return(handled$value)
+    }
+  }
+
   prompt_yesno <- function(prompt, default = TRUE) {
     if (!isTRUE(interactive)) return(default)
     suffix <- if (default) "[Y/n]" else "[y/N]"
-    resp <- tolower(trimws(readline(sprintf("%s %s ", prompt, suffix))))
+    resp <- tolower(trimws(readline_with_dialogue(sprintf("%s %s ", prompt, suffix))))
     if (resp == "") return(default)
     if (resp %in% c("y", "yes")) return(TRUE)
     if (resp %in% c("n", "no")) return(FALSE)
@@ -69,8 +297,9 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     repeat {
       resp <- NULL
       err <- NULL
+      flow_name <- sub("^/flows/", "", as.character(path))
       resp <- tryCatch(
-        .acp_post(path, body),
+        call_shell_acp_flow(flow_name, body),
         error = function(e) {
           err <<- e
           NULL
@@ -264,7 +493,8 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
 
   default_intent <- studyIntent %||% "What is the risk of GI bleed in new users of Celecoxib compared to new users of Diclofenac?"
   if (interactive) {
-    entered <- readline(sprintf("Study intent [%s]: ", default_intent))
+    set_dialogue_context("study_intent", context = list(default_intent = default_intent))
+    entered <- readline_with_dialogue(sprintf("Study intent [%s]: ", default_intent))
     if (nzchar(trimws(entered))) studyIntent <- entered else studyIntent <- default_intent
   } else {
     if (is.null(studyIntent) || !nzchar(trimws(studyIntent))) studyIntent <- default_intent
@@ -280,6 +510,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   if (interactive) {
     cat("\n== Step 1: Parse study intent into target/outcome statements ==\n")
   }
+  set_dialogue_context("intent_split", context = list(study_intent = studyIntent))
   if (maybe_use_cache(intent_split_path, "intent split")) {
     intent_response <- read_json(intent_split_path)
   } else {
@@ -300,9 +531,11 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
       cat("Questions to clarify:\n")
       for (q in intent_core$questions) cat(sprintf("  - %s\n", q))
     }
-    inp <- readline(sprintf("Target cohort statement [%s]: ", target_statement))
+    set_dialogue_context("intent_split", "target", context = list(study_intent = studyIntent, target_statement = target_statement, outcome_statement = outcome_statement))
+    inp <- readline_with_dialogue(sprintf("Target cohort statement [%s]: ", target_statement))
     if (nzchar(trimws(inp))) target_statement <- inp
-    inp <- readline(sprintf("Outcome cohort statement [%s]: ", outcome_statement))
+    set_dialogue_context("intent_split", "outcome", context = list(study_intent = studyIntent, target_statement = target_statement, outcome_statement = outcome_statement))
+    inp <- readline_with_dialogue(sprintf("Outcome cohort statement [%s]: ", outcome_statement))
     if (nzchar(trimws(inp))) outcome_statement <- inp
   }
   if (!nzchar(trimws(target_statement))) stop("Missing target cohort statement.")
@@ -327,6 +560,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     if (interactive) {
       cat("\n== Step 2: Target phenotype recommendations ==\n")
     }
+    set_dialogue_context("target_recommendation", "target", context = list(study_intent = studyIntent, role_statement = target_statement, target_statement = target_statement, outcome_statement = outcome_statement, top_k = topK, max_results = maxResults, candidate_limit = candidateLimit))
     if (maybe_use_cache(recs_target_path, "target recommendations")) {
       rec_response_target <- read_json(recs_target_path)
       used_cached_recs_target <- TRUE
@@ -369,6 +603,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   }
 
   if (interactive) {
+    set_dialogue_context("target_recommendation", "target", context = list(study_intent = studyIntent, role_statement = target_statement, target_statement = target_statement, outcome_statement = outcome_statement, top_k = topK, max_results = maxResults, candidate_limit = candidateLimit))
     ok_any <- prompt_yesno("Are any of these acceptable for the target?", default = TRUE)
     if (!ok_any) {
       widen <- prompt_yesno("Widen candidate pool and try again?", default = TRUE)
@@ -419,6 +654,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   }
 
   if (interactive) {
+    set_dialogue_context("target_selection", "target", context = list(study_intent = studyIntent, role_statement = target_statement, target_statement = target_statement, outcome_statement = outcome_statement))
     if (!prompt_yesno("Continue to target cohort selection?", default = TRUE)) {
       return(invisible(list(output_dir = output_dir, recommendations = recs_target_path)))
     }
@@ -444,6 +680,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
 
   use_mapping <- FALSE
   if (interactive) {
+    set_dialogue_context("incidence_design_setup", context = list(study_intent = studyIntent, target_statement = target_statement, outcome_statement = outcome_statement, selected_target_ids = as.list(selected_ids_target %||% list()), selected_outcome_ids = as.list(selected_ids_outcome %||% list())))
     use_mapping <- prompt_yesno("Map cohort IDs to a new range (avoid collisions)?", default = TRUE)
   }
   cohort_id_base <- NA_integer_
@@ -452,7 +689,8 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     cohort_id_base <- sample(10000:50000, 1)
     if (interactive) {
       msg <- sprintf("Enter cohort ID base (10000-50000) or press Enter to use %s: ", cohort_id_base)
-      inp <- trimws(readline(msg))
+      set_dialogue_context("incidence_design_setup", context = list(study_intent = studyIntent, target_statement = target_statement, outcome_statement = outcome_statement, selected_target_ids = as.list(selected_ids_target %||% list()), selected_outcome_ids = as.list(selected_ids_outcome %||% list()), suggested_cohort_id_base = cohort_id_base))
+      inp <- trimws(readline_with_dialogue(msg))
       if (nzchar(inp)) cohort_id_base <- as.integer(inp)
     }
     next_id <- cohort_id_base
@@ -473,6 +711,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
 
   do_target_improvements <- TRUE
   if (interactive) {
+    set_dialogue_context("target_improvements", "target", context = list(study_intent = studyIntent, role_statement = target_statement, target_statement = target_statement, selected_target_ids = as.list(selected_ids_target %||% list())))
     do_target_improvements <- prompt_yesno("Continue to target phenotype improvements?", default = TRUE)
     if (do_target_improvements) {
       cat("\n== Step 4: Target phenotype improvements ==\n")
@@ -521,6 +760,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
           cat("  No improvements returned for this cohort.\n")
           next
         }
+        set_dialogue_context("target_improvements", "target", context = list(study_intent = studyIntent, role_statement = target_statement, target_statement = target_statement, cohort_id = as.integer(cid), selected_target_ids = as.list(selected_ids_target %||% list())))
         if (prompt_yesno(sprintf("Apply improvements for target cohort %s now?", cid), default = FALSE)) {
           cohort_path <- file.path(selected_target_dir, sprintf("%s.json", cid))
           cohort_obj <- read_json(cohort_path)
@@ -572,6 +812,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     if (interactive) {
       cat("\n== Step 5: Outcome phenotype recommendations ==\n")
     }
+    set_dialogue_context("outcome_recommendation", "outcome", context = list(study_intent = studyIntent, role_statement = outcome_statement, target_statement = target_statement, outcome_statement = outcome_statement, top_k = topK, max_results = maxResults, candidate_limit = candidateLimit))
     if (maybe_use_cache(recs_outcome_path, "outcome recommendations")) {
       rec_response_outcome <- read_json(recs_outcome_path)
       used_cached_recs_outcome <- TRUE
@@ -614,6 +855,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   }
 
   if (interactive) {
+    set_dialogue_context("outcome_recommendation", "outcome", context = list(study_intent = studyIntent, role_statement = outcome_statement, target_statement = target_statement, outcome_statement = outcome_statement, top_k = topK, max_results = maxResults, candidate_limit = candidateLimit))
     ok_any <- prompt_yesno("Are any of these acceptable for the outcomes?", default = TRUE)
     if (!ok_any) {
       widen <- prompt_yesno("Widen candidate pool and try again?", default = TRUE)
@@ -664,6 +906,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   }
 
   if (interactive) {
+    set_dialogue_context("outcome_selection", "outcome", context = list(study_intent = studyIntent, role_statement = outcome_statement, target_statement = target_statement, outcome_statement = outcome_statement))
     if (!prompt_yesno("Continue to outcome cohort selection?", default = TRUE)) {
       return(invisible(list(output_dir = output_dir, recommendations = recs_outcome_path)))
     }
@@ -701,6 +944,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
 
   do_outcome_improvements <- TRUE
   if (interactive) {
+    set_dialogue_context("outcome_improvements", "outcome", context = list(study_intent = studyIntent, role_statement = outcome_statement, target_statement = target_statement, outcome_statement = outcome_statement, selected_outcome_ids = as.list(selected_ids_outcome %||% list())))
     do_outcome_improvements <- prompt_yesno("Continue to outcome phenotype improvements?", default = TRUE)
     if (do_outcome_improvements) {
       cat("\n== Step 7: Outcome phenotype improvements ==\n")
@@ -751,6 +995,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
           cat("  No improvements returned for this cohort.\n")
           next
         }
+        set_dialogue_context("outcome_improvements", "outcome", context = list(study_intent = studyIntent, role_statement = outcome_statement, target_statement = target_statement, outcome_statement = outcome_statement, cohort_id = as.integer(cid), selected_outcome_ids = as.list(selected_ids_outcome %||% list())))
         if (prompt_yesno(sprintf("Apply improvements for outcome cohort %s now?", cid), default = FALSE)) {
           cohort_path <- file.path(selected_outcome_dir, sprintf("%s.json", cid))
           cohort_obj <- read_json(cohort_path)
