@@ -197,6 +197,30 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     }
   }
 
+  default_cohort_id_from_source <- function(source_id) {
+    source_id <- as.character(source_id %||% "")
+    if (!nzchar(source_id)) return(NA_integer_)
+    if (grepl("^ohdsi:[0-9]+$", source_id)) {
+      return(suppressWarnings(as.integer(sub("^ohdsi:", "", source_id))))
+    }
+    suppressWarnings(as.integer(source_id))
+  }
+
+  default_cohort_ids_from_sources <- function(source_ids, role_label = "selected") {
+    source_ids <- as.character(source_ids %||% character(0))
+    if (length(source_ids) == 0) return(integer(0))
+    derived <- vapply(source_ids, default_cohort_id_from_source, integer(1))
+    if (any(is.na(derived))) {
+      bad <- source_ids[is.na(derived)]
+      stop(sprintf(
+        "Could not derive numeric cohort IDs for %s phenotype(s): %s",
+        role_label,
+        paste(unique(bad), collapse = ", ")
+      ))
+    }
+    as.integer(derived)
+  }
+
   copy_cohort_json_multi <- function(source_id, dest_id, dest_dirs, index_def_dir) {
     src <- phenotype_definition_path(source_id, index_def_dir)
     if (!file.exists(src)) stop(sprintf("Cohort JSON not found: %s", src))
@@ -533,10 +557,18 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   }
 
   map_ids <- function(ids) {
-    if (!use_mapping) return(ids)
+    if (!use_mapping) return(default_cohort_ids_from_sources(ids, role_label = "selected"))
     new <- seq(next_id, length.out = length(ids))
     next_id <<- max(new) + 1
     new
+  }
+
+  extract_phenotype_improvement_items <- function(resp, cohort_label) {
+    core <- resp$full_result %||% resp
+    if (!is.null(core$error) && nzchar(trimws(as.character(core$error)))) {
+      stop(sprintf("ACP returned an error for %s phenotype improvements: %s", cohort_label, core$error))
+    }
+    core$phenotype_improvements %||% list()
   }
 
   stop_if_unsupported_selected(selected_ids_target, "target")
@@ -581,8 +613,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     if (interactive) {
       for (cid in names(imp_response_target)) {
         resp <- imp_response_target[[cid]]
-        core <- resp$full_result %||% resp
-        items <- core$phenotype_improvements %||% list()
+        items <- extract_phenotype_improvement_items(resp, sprintf("target cohort %s", cid))
         cat(sprintf("\n== Improvements for target cohort %s ==\n", cid))
         for (item in items) {
           cat(sprintf("- %s\n", item$summary %||% "(no summary)"))
@@ -619,8 +650,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     if (!isTRUE(interactive) && isTRUE(autoApplyImprovements)) {
       for (cid in names(imp_response_target)) {
         resp <- imp_response_target[[cid]]
-        core <- resp$full_result %||% resp
-        items <- core$phenotype_improvements %||% list()
+        items <- extract_phenotype_improvement_items(resp, sprintf("target cohort %s", cid))
         if (length(items) == 0) next
         cohort_path <- file.path(selected_target_dir, sprintf("%s.json", cid))
         cohort_obj <- read_json(cohort_path)
@@ -816,8 +846,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     if (interactive) {
       for (cid in names(imp_response_outcome)) {
         resp <- imp_response_outcome[[cid]]
-        core <- resp$full_result %||% resp
-        items <- core$phenotype_improvements %||% list()
+        items <- extract_phenotype_improvement_items(resp, sprintf("outcome cohort %s", cid))
         cat(sprintf("\n== Improvements for outcome cohort %s ==\n", cid))
         for (item in items) {
           cat(sprintf("- %s\n", item$summary %||% "(no summary)"))
@@ -854,8 +883,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     if (!isTRUE(interactive) && isTRUE(autoApplyImprovements)) {
       for (cid in names(imp_response_outcome)) {
         resp <- imp_response_outcome[[cid]]
-        core <- resp$full_result %||% resp
-        items <- core$phenotype_improvements %||% list()
+        items <- extract_phenotype_improvement_items(resp, sprintf("outcome cohort %s", cid))
         if (length(items) == 0) next
         cohort_path <- file.path(selected_outcome_dir, sprintf("%s.json", cid))
         cohort_obj <- read_json(cohort_path)
@@ -1035,8 +1063,26 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "  if (nzchar(inp)) cohort_id_base <- as.integer(inp)",
     "  next_id <- cohort_id_base",
     "}",
+    "default_cohort_id <- function(source_id) {",
+    "  source_id <- as.character(source_id %||% '')",
+    "  if (!nzchar(source_id)) return(NA_integer_)",
+    "  if (grepl('^ohdsi:[0-9]+$', source_id)) {",
+    "    return(suppressWarnings(as.integer(sub('^ohdsi:', '', source_id))))",
+    "  }",
+    "  suppressWarnings(as.integer(source_id))",
+    "}",
+    "default_cohort_ids <- function(ids, role_label = 'selected') {",
+    "  ids <- as.character(ids %||% character(0))",
+    "  if (length(ids) == 0) return(integer(0))",
+    "  derived <- vapply(ids, default_cohort_id, integer(1))",
+    "  if (any(is.na(derived))) {",
+    "    bad <- ids[is.na(derived)]",
+    "    stop(sprintf('Could not derive numeric cohort IDs for %s phenotype(s): %s', role_label, paste(unique(bad), collapse = ', ')))",
+    "  }",
+    "  as.integer(derived)",
+    "}",
     "map_ids <- function(ids) {",
-    "  if (!use_mapping) return(ids)",
+    "  if (!use_mapping) return(default_cohort_ids(ids, role_label = 'selected'))",
     "  new <- seq(next_id, length.out = length(ids))",
     "  next_id <<- max(new) + 1",
     "  new",
@@ -1141,6 +1187,9 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "  for (cid in names(improvements)) {",
     "    resp <- improvements[[cid]]",
     "    core <- resp$full_result %||% resp",
+    "    if (!is.null(core$error) && nzchar(trimws(as.character(core$error)))) {",
+    "      stop(sprintf('ACP returned an error for phenotype improvements on cohort %s: %s', cid, core$error))",
+    "    }",
     "    items <- core$phenotype_improvements %||% list()",
     "    if (length(items) == 0) next",
     "    cohort_path <- file.path(selected_role_dir, sprintf('%s.json', cid))",
