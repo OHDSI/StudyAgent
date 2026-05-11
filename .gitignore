@@ -1,5 +1,5 @@
-demo-strategus-cohort-incidence/*
-demo-strategus-cohort-methods/*
+demo-*
+TEST-*
 conda-pip-env-github-workflow.yml
 *sandbox*
 *.doit.db*

@@ -854,7 +854,7 @@ def task_smoke_keeper_concept_sets_generate_flow():
             payload = json.dumps(
                 {
                     "phenotype": "Gastrointestinal bleeding",
-                    "domain_keys": ["doi", "alternativeDiagnosis", "symptoms"],
+                    "domain_keys": ["doi"], # could also add/change to "alternativeDiagnosis", "symptoms", "drugs", "treatmentProcedures", "diagnosticProcedures", "measurements"
                     "candidate_limit": 10,
                     "include_diagnostics": True,
                 }
