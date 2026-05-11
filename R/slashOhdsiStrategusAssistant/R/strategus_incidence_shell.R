@@ -128,6 +128,207 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     jsonlite::write_json(x, path, pretty = TRUE, auto_unbox = TRUE)
   }
 
+  default_time_at_risk_settings <- function() {
+    list(
+      time_at_risk_defs = list(
+        list(id = 1L, name = "During exposure", startWith = "start", startOffset = 0L, endWith = "end", endOffset = 0L),
+        list(id = 2L, name = "365 days after cohort start", startWith = "start", startOffset = 0L, endWith = "start", endOffset = 365L)
+      ),
+      analysis_tar_ids = c(1L, 2L),
+      strata_settings = list(byYear = TRUE, byGender = TRUE, byAge = FALSE, ageBreaks = c(18L, 45L, 65L))
+    )
+  }
+
+  normalize_time_at_risk_settings <- function(settings) {
+    settings <- settings %||% list()
+    defs <- settings$time_at_risk_defs %||% settings$tars %||% list()
+    if (!is.list(defs) || length(defs) == 0) defs <- default_time_at_risk_settings()$time_at_risk_defs
+
+    normalized_defs <- lapply(seq_along(defs), function(i) {
+      item <- defs[[i]] %||% list()
+      id <- suppressWarnings(as.integer(item$id %||% i))
+      if (is.na(id) || id <= 0L) stop(sprintf("time_at_risk_defs[%s].id must be a positive integer.", i))
+      start_with <- tolower(trimws(as.character(item$startWith %||% "start")))
+      end_with <- tolower(trimws(as.character(item$endWith %||% "end")))
+      if (!start_with %in% c("start", "end")) stop(sprintf("time_at_risk_defs[%s].startWith must be 'start' or 'end'.", i))
+      if (!end_with %in% c("start", "end")) stop(sprintf("time_at_risk_defs[%s].endWith must be 'start' or 'end'.", i))
+      start_offset <- suppressWarnings(as.integer(item$startOffset %||% 0L))
+      end_offset <- suppressWarnings(as.integer(item$endOffset %||% 0L))
+      if (is.na(start_offset)) stop(sprintf("time_at_risk_defs[%s].startOffset must be an integer.", i))
+      if (is.na(end_offset)) stop(sprintf("time_at_risk_defs[%s].endOffset must be an integer.", i))
+      name <- trimws(as.character(item$name %||% sprintf("TAR %s", id)))
+      if (!nzchar(name)) name <- sprintf("TAR %s", id)
+      list(
+        id = as.integer(id),
+        name = name,
+        startWith = start_with,
+        startOffset = as.integer(start_offset),
+        endWith = end_with,
+        endOffset = as.integer(end_offset)
+      )
+    })
+
+    ids <- vapply(normalized_defs, function(item) as.integer(item$id), integer(1))
+    if (length(unique(ids)) != length(ids)) stop("time_at_risk_defs ids must be unique.")
+
+    analysis_tar_ids <- suppressWarnings(as.integer(unlist(settings$analysis_tar_ids %||% ids, use.names = FALSE)))
+    analysis_tar_ids <- unique(analysis_tar_ids[!is.na(analysis_tar_ids)])
+    if (length(analysis_tar_ids) == 0) analysis_tar_ids <- ids
+    if (!all(analysis_tar_ids %in% ids)) stop("analysis_tar_ids must reference defined time_at_risk_defs ids.")
+
+    strata <- settings$strata_settings %||% list()
+    by_year <- isTRUE(strata$byYear %||% TRUE)
+    by_gender <- isTRUE(strata$byGender %||% TRUE)
+    by_age <- isTRUE(strata$byAge %||% FALSE)
+    age_breaks <- suppressWarnings(as.integer(unlist(strata$ageBreaks %||% c(18L, 45L, 65L), use.names = FALSE)))
+    age_breaks <- unique(age_breaks[!is.na(age_breaks)])
+    age_breaks <- sort(age_breaks)
+    if (isTRUE(by_age) && length(age_breaks) == 0) stop("strata_settings.ageBreaks must contain at least one integer when byAge is TRUE.")
+
+    list(
+      time_at_risk_defs = normalized_defs,
+      analysis_tar_ids = as.integer(analysis_tar_ids),
+      strata_settings = list(
+        byYear = by_year,
+        byGender = by_gender,
+        byAge = by_age,
+        ageBreaks = as.integer(age_breaks)
+      )
+    )
+  }
+
+  print_time_at_risk_settings <- function(settings) {
+    settings <- normalize_time_at_risk_settings(settings)
+    cat("\nCurrent time-at-risk settings\n")
+    for (item in settings$time_at_risk_defs) {
+      cat(sprintf(
+        "  - TAR %s [%s]: start=%s %+d days, end=%s %+d days\n",
+        item$id,
+        item$name,
+        item$startWith,
+        item$startOffset,
+        item$endWith,
+        item$endOffset
+      ))
+    }
+    cat(sprintf("  Analysis TAR ids: %s\n", paste(settings$analysis_tar_ids, collapse = ", ")))
+    strata <- settings$strata_settings
+    cat(sprintf(
+      "  Strata: byYear=%s, byGender=%s, byAge=%s%s\n",
+      strata$byYear,
+      strata$byGender,
+      strata$byAge,
+      if (isTRUE(strata$byAge) && length(strata$ageBreaks) > 0) paste0(", ageBreaks=", paste(strata$ageBreaks, collapse = ",")) else ""
+    ))
+  }
+
+  collect_time_at_risk_settings <- function(seed_settings,
+                                            study_intent,
+                                            target_statement,
+                                            outcome_statement,
+                                            target_ids,
+                                            outcome_ids) {
+    settings <- normalize_time_at_risk_settings(seed_settings)
+
+    set_dialogue_context(
+      "time_at_risk_configuration",
+      context = list(
+        study_intent = study_intent,
+        target_statement = target_statement,
+        outcome_statement = outcome_statement,
+        selected_target_ids = as.list(target_ids %||% list()),
+        selected_outcome_ids = as.list(outcome_ids %||% list()),
+        time_at_risk_settings = settings,
+        denominator_guidance = "Denominators depend on cohort entry logic, TAR definitions, and chosen strata settings."
+      )
+    )
+
+    if (isTRUE(interactive)) cat("\n== Step 8: Configure time at risk ==\n")
+    print_time_at_risk_settings(settings)
+    if (!isTRUE(interactive)) return(settings)
+    if (prompt_yesno("Use these time-at-risk and strata settings?", default = TRUE)) return(settings)
+
+    prompt_integer_value <- function(prompt, current, min_value = NULL) {
+      repeat {
+        entered <- trimws(readline_with_dialogue(sprintf("%s [%s]: ", prompt, current)))
+        if (!nzchar(entered)) return(as.integer(current))
+        parsed <- suppressWarnings(as.integer(entered))
+        if (!is.na(parsed) && (is.null(min_value) || parsed >= min_value)) return(as.integer(parsed))
+        cat("Please enter a valid integer.\n")
+      }
+    }
+
+    prompt_choice_value <- function(prompt, current, choices) {
+      repeat {
+        entered <- tolower(trimws(readline_with_dialogue(sprintf("%s [%s]: ", prompt, current))))
+        if (!nzchar(entered)) return(current)
+        if (entered %in% choices) return(entered)
+        cat(sprintf("Please enter one of: %s\n", paste(choices, collapse = ", ")))
+      }
+    }
+
+    prompt_text_value <- function(prompt, current) {
+      entered <- readline_with_dialogue(sprintf("%s [%s]: ", prompt, current))
+      if (!nzchar(trimws(entered))) current else trimws(entered)
+    }
+
+    tar_count <- prompt_integer_value("Number of time-at-risk definitions", length(settings$time_at_risk_defs), min_value = 1L)
+    defs <- vector("list", tar_count)
+    for (i in seq_len(tar_count)) {
+      current <- settings$time_at_risk_defs[[min(i, length(settings$time_at_risk_defs))]] %||% list(
+        id = i,
+        name = sprintf("TAR %s", i),
+        startWith = "start",
+        startOffset = 0L,
+        endWith = "end",
+        endOffset = 0L
+      )
+      cat(sprintf("\nTAR %s\n", i))
+      defs[[i]] <- list(
+        id = prompt_integer_value("  TAR id", current$id, min_value = 1L),
+        name = prompt_text_value("  TAR label", current$name %||% sprintf("TAR %s", i)),
+        startWith = prompt_choice_value("  startWith (start/end)", current$startWith %||% "start", c("start", "end")),
+        startOffset = prompt_integer_value("  startOffset (days)", current$startOffset %||% 0L),
+        endWith = prompt_choice_value("  endWith (start/end)", current$endWith %||% "end", c("start", "end")),
+        endOffset = prompt_integer_value("  endOffset (days)", current$endOffset %||% 0L)
+      )
+    }
+
+    default_analysis_ids <- paste(vapply(defs, function(item) as.integer(item$id), integer(1)), collapse = ",")
+    analysis_ids_text <- trimws(readline_with_dialogue(sprintf("Analysis TAR ids (comma-separated) [%s]: ", default_analysis_ids)))
+    analysis_ids <- if (!nzchar(analysis_ids_text)) {
+      suppressWarnings(as.integer(strsplit(default_analysis_ids, ",", fixed = TRUE)[[1]]))
+    } else {
+      suppressWarnings(as.integer(trimws(strsplit(analysis_ids_text, ",", fixed = TRUE)[[1]])))
+    }
+
+    strata_settings <- settings$strata_settings
+    by_year <- prompt_yesno("Stratify incidence by calendar year?", default = isTRUE(strata_settings$byYear))
+    by_gender <- prompt_yesno("Stratify incidence by gender?", default = isTRUE(strata_settings$byGender))
+    by_age <- prompt_yesno("Stratify incidence by age?", default = isTRUE(strata_settings$byAge))
+    age_breaks_default <- paste(strata_settings$ageBreaks %||% c(18L, 45L, 65L), collapse = ",")
+    age_breaks <- strata_settings$ageBreaks %||% c(18L, 45L, 65L)
+    if (isTRUE(by_age)) {
+      age_breaks_text <- trimws(readline_with_dialogue(sprintf("Age breaks (comma-separated integers) [%s]: ", age_breaks_default)))
+      if (nzchar(age_breaks_text)) {
+        age_breaks <- suppressWarnings(as.integer(trimws(strsplit(age_breaks_text, ",", fixed = TRUE)[[1]])))
+      }
+    }
+
+    settings <- normalize_time_at_risk_settings(list(
+      time_at_risk_defs = defs,
+      analysis_tar_ids = analysis_ids,
+      strata_settings = list(
+        byYear = by_year,
+        byGender = by_gender,
+        byAge = by_age,
+        ageBreaks = age_breaks
+      )
+    ))
+    print_time_at_risk_settings(settings)
+    settings
+  }
+
   acp_try <- function(path, body, label) {
     repeat {
       resp <- NULL
@@ -954,6 +1155,21 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   cohort_df <- do.call(rbind, cohort_rows)
   write.csv(cohort_df, cohort_csv, row.names = FALSE)
 
+  time_at_risk_settings_path <- file.path(analysis_settings_dir, "time_at_risk_settings.json")
+  seed_time_at_risk_settings <- if (file.exists(time_at_risk_settings_path)) {
+    tryCatch(read_json(time_at_risk_settings_path), error = function(e) default_time_at_risk_settings())
+  } else {
+    default_time_at_risk_settings()
+  }
+  incidence_time_at_risk <- collect_time_at_risk_settings(
+    seed_settings = seed_time_at_risk_settings,
+    study_intent = studyIntent,
+    target_statement = target_statement,
+    outcome_statement = outcome_statement,
+    target_ids = target_ids,
+    outcome_ids = outcome_ids
+  )
+  write_json(incidence_time_at_risk, time_at_risk_settings_path)
 
   state <- list(
     study_intent = studyIntent,
@@ -968,6 +1184,8 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     patched_outcome_dir = patched_outcome_dir,
     keeper_dir = keeper_dir,
     analysis_settings_dir = analysis_settings_dir,
+    time_at_risk_settings_path = time_at_risk_settings_path,
+    incidence_time_at_risk = incidence_time_at_risk,
     index_def_dir = index_def_dir,
     intent_split_path = intent_split_path,
     recommendations_target_path = recs_target_path,
@@ -1083,7 +1301,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
 
   # ---- Generate scripts ----
   if (interactive) {
-    cat("\n== Step 8: Generate scripts ==\n")
+    cat("\n== Step 9: Generate scripts ==\n")
   }
   write_lines <- function(path, lines) {
     writeLines(lines, con = path, useBytes = TRUE)
@@ -1555,6 +1773,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "output_dir <- file.path(base_dir, 'outputs')",
     "analysis_settings_dir <- file.path(base_dir, 'analysis-settings')",
     "dir.create(analysis_settings_dir, recursive = TRUE, showWarnings = FALSE)",
+    "time_at_risk_settings_path <- file.path(analysis_settings_dir, 'time_at_risk_settings.json')",
     "selected_dir <- file.path(base_dir, 'selected-cohorts')",
     "patched_dir <- file.path(base_dir, 'patched-cohorts')",
     "cohort_csv <- file.path(selected_dir, 'Cohorts.csv')",
@@ -1589,24 +1808,44 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "  row <- cohortDefinitionSet[cohortDefinitionSet$cohortId == id, ]",
     "  CohortIncidence::createOutcomeDef(id = id, name = row$cohortName[1])",
     "})",
-    "",
-    "tars <- list(",
-    "  CohortIncidence::createTimeAtRiskDef(id = 1, startWith = 'start', endWith = 'end'),",
-    "  CohortIncidence::createTimeAtRiskDef(id = 2, startWith = 'start', endWith = 'start', endOffset = 365)",
-    ")",
-    "",
+    "tar_settings <- jsonlite::fromJSON(time_at_risk_settings_path, simplifyVector = FALSE)",
+    "tar_defs <- tar_settings$time_at_risk_defs %||% list()",
+    "if (length(tar_defs) == 0) stop('No time-at-risk definitions found in time_at_risk_settings.json')",
+    "tars <- lapply(tar_defs, function(def) {",
+    "  CohortIncidence::createTimeAtRiskDef(",
+    "    id = as.numeric(def$id %||% NA),",
+    "    startWith = as.character(def$startWith %||% 'start'),",
+    "    startOffset = as.numeric(def$startOffset %||% 0),",
+    "    endWith = as.character(def$endWith %||% 'end'),",
+    "    endOffset = as.numeric(def$endOffset %||% 0)",
+    "  )",
+    "})",
+    "analysis_tar_ids <- as.numeric(unlist(tar_settings$analysis_tar_ids %||% lapply(tar_defs, function(def) def$id), use.names = FALSE))",
+    "analysis_tar_ids <- analysis_tar_ids[!is.na(analysis_tar_ids)]",
+    "if (length(analysis_tar_ids) == 0) stop('No analysis TAR ids found in time_at_risk_settings.json')",
+    "strata_args <- tar_settings$strata_settings %||% list()",
+    "strata_args$byYear <- isTRUE(strata_args$byYear %||% TRUE)",
+    "strata_args$byGender <- isTRUE(strata_args$byGender %||% TRUE)",
+    "strata_args$byAge <- isTRUE(strata_args$byAge %||% FALSE)",
+    "age_breaks <- suppressWarnings(as.numeric(unlist(strata_args$ageBreaks %||% numeric(0), use.names = FALSE)))",
+    "age_breaks <- age_breaks[!is.na(age_breaks)]",
+    "if (isTRUE(strata_args$byAge) && length(age_breaks) > 0) {",
+    "  strata_args$ageBreaks <- age_breaks",
+    "} else {",
+    "  strata_args$ageBreaks <- NULL",
+    "}",
+    "strataSettings <- do.call(CohortIncidence::createStrataSettings, strata_args)",
     "analysis1 <- CohortIncidence::createIncidenceAnalysis(",
     "  targets = sapply(targets, function(x) x$id),",
     "  outcomes = sapply(outcomes, function(x) x$id),",
-    "  tars = c(1, 2)",
+    "  tars = analysis_tar_ids",
     ")",
-    "",
     "irDesign <- CohortIncidence::createIncidenceDesign(",
     "  targetDefs = targets,",
     "  outcomeDefs = outcomes,",
     "  tars = tars,",
     "  analysisList = list(analysis1),",
-    "  strataSettings = CohortIncidence::createStrataSettings(byYear = TRUE, byGender = TRUE)",
+    "  strataSettings = strataSettings",
     ")",
     "",
     "ciModule <- CohortIncidenceModule$new()",
@@ -1649,6 +1888,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     cat(sprintf("  - Selected target cohorts: %s\n", selected_target_dir))
     cat(sprintf("  - Selected outcome cohorts: %s\n", selected_outcome_dir))
     cat(sprintf("  - Selected cohorts (combined): %s\n", selected_dir))
+    cat(sprintf("  - Time-at-risk settings: %s\n", time_at_risk_settings_path))
     if (improvements_applied) {
       cat(sprintf("  - Patched target cohorts: %s\n", patched_target_dir))
       cat(sprintf("  - Patched outcome cohorts: %s\n", patched_outcome_dir))
