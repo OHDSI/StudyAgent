@@ -1,33 +1,55 @@
-### Demo:  `phenotype_recommendations`
+### Demo: `phenotype_recommendation` plus follow-up improvements
 
-## !!!!NOTE!!!! run this from a directory above the OHDSI-Study-Agent where an .renv has the HADES packages loaded  !!!!NOTE!!!! 
+## Run this from the repo root with ACP listening on `http://127.0.0.1:8765`.
 
-# Import the R thin api to the ACP server/bridge
-devtools::load_all("OHDSI-Study-Agent/R/OHDSIAssistant")
+script_dir <- local({
+  cmd_args <- commandArgs(trailingOnly = FALSE)
+  file_arg <- grep("^--file=", cmd_args, value = TRUE)
+  if (length(file_arg) > 0) {
+    return(dirname(normalizePath(sub("^--file=", "", file_arg[[1]]), winslash = "/", mustWork = FALSE)))
+  }
+  frame_files <- Filter(Negate(is.null), lapply(sys.frames(), function(x) x$ofile))
+  if (length(frame_files) > 0) {
+    return(dirname(normalizePath(frame_files[[length(frame_files)]], winslash = "/", mustWork = FALSE)))
+  }
+  normalizePath("scripts", winslash = "/", mustWork = FALSE)
+})
 
-Sys.setenv(PHENOTYPE_INDEX_DIR="OHDSI-Study-Agent/data/phenotype_index_cipher_omop")
+source(file.path(script_dir, "demo_setup.R"))
+repo_root <- set_study_agent_repo_root(start = dirname(script_dir))
+load_study_agent_r_packages(include_strategus = FALSE)
+invisible(connect_study_agent_acp())
 
-# confirm the ACP server/bridge is running
-OHDSIAssistant::acp_connect("http://127.0.0.1:8765")
+Sys.setenv(PHENOTYPE_INDEX_DIR = repo_file("data", "phenotype_index_cipher_omop"))
 
-############################################################
+protocol <- repo_file("demo", "protocol.md")
+study_dir <- repo_file("demo")
 
-## -- `phenotype_recommendations` (ACP flow)
-protocol <- "OHDSI-Study-Agent/demo/protocol.md"
-study_dir <- "OHDSI-Study-Agent/demo"
+rec <- slashOhdsiAcpClient::suggestPhenotypes(
+  protocolPath = protocol,
+  maxResults = 10,
+  candidateLimit = 20,
+  interactive = TRUE
+)
 
-rec <- OHDSIAssistant::suggestPhenotypes(protocolPath = protocol, maxResults = 10, candidateLimit = 20, interactive = TRUE)
-core <- rec$recommendations %||% rec
-ids <- OHDSIAssistant::selectPhenotypeRecommendations(core$phenotype_recommendations, select = NULL, interactive = interactive())
-# this will write the JSON for the selected cohort definitions to a folder
+core <- if (!is.null(rec$recommendations)) rec$recommendations else rec
+ids <- slashOhdsiAcpClient::selectPhenotypeRecommendations(
+  core$phenotype_recommendations,
+  select = NULL,
+  interactive = interactive()
+)
 
-## -- `phenotype_improvements` - depends on ids having been chosen above
+paths <- character(0)
 if (length(ids)) {
-    paths <- OHDSIAssistant::pullPhenotypeDefinitions(ids, outputDir = study_dir, overwrite = TRUE)
-} 
+  paths <- slashOhdsiAcpClient::pullPhenotypeDefinitions(
+    ids,
+    outputDir = study_dir,
+    overwrite = TRUE
+  )
+}
 
 if (length(paths)) {
-  OHDSIAssistant::reviewPhenotypes(protocol, paths, interactive = TRUE)
-  # To persist improvement notes next to the cohort JSONs, set apply=TRUE:
-  # OHDSIAssistant::reviewPhenotypes(protocol, paths, interactive = TRUE, apply = TRUE, select = "all")
-} 
+  slashOhdsiAcpClient::reviewPhenotypes(protocol, paths, interactive = TRUE)
+  # To persist improvement notes next to the cohort JSONs, set apply = TRUE:
+  # slashOhdsiAcpClient::reviewPhenotypes(protocol, paths, interactive = TRUE, apply = TRUE, select = "all")
+}

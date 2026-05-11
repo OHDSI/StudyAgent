@@ -4,26 +4,28 @@
 
 This document expands sprint item 3 in `CURRENT-SPRINT-PLAN.md` into a concrete architecture plan for the R side of the project.
 
-The current `R/OHDSIAssistant/` package mixes three responsibilities:
+The split described here is now complete: `slashOhdsiAcpClient` owns ACP connectivity and thin wrappers, `slashOhdsiStrategusAssistant` owns Strategus workflows and shell entrypoints, and the legacy combined package has been removed. The remaining sections are kept as architectural context for how the split was designed.
+
+The original combined R package mixed three responsibilities:
 
 - ACP transport and call/response helpers
 - thin R wrappers around ACP flows and actions
 - high-level Strategus workflow orchestration and interactive shells
 
-That coupling is already visible in the current code:
+That coupling is visible in the split code that replaced it:
 
-- [`R/OHDSIAssistant/R/acp_client.R`](/ai-agent/HadesProject/OHDSI-Study-Agent/R/OHDSIAssistant/R/acp_client.R) owns connection state and raw POST behavior
-- [`R/OHDSIAssistant/R/phenotype_workflow.R`](/ai-agent/HadesProject/OHDSI-Study-Agent/R/OHDSIAssistant/R/phenotype_workflow.R), [`R/OHDSIAssistant/R/cohort_methods_workflow.R`](/ai-agent/HadesProject/OHDSI-Study-Agent/R/OHDSIAssistant/R/cohort_methods_workflow.R), [`R/OHDSIAssistant/R/lintStudyDesign.R`](/ai-agent/HadesProject/OHDSI-Study-Agent/R/OHDSIAssistant/R/lintStudyDesign.R), and [`R/OHDSIAssistant/R/concept_set_actions.R`](/ai-agent/HadesProject/OHDSI-Study-Agent/R/OHDSIAssistant/R/concept_set_actions.R) are flow/action wrappers but still depend directly on the transport internals
-- [`R/OHDSIAssistant/R/strategus_incidence_shell.R`](/ai-agent/HadesProject/OHDSI-Study-Agent/R/OHDSIAssistant/R/strategus_incidence_shell.R) and [`R/OHDSIAssistant/R/strategus_cohort_methods_shell.R`](/ai-agent/HadesProject/OHDSI-Study-Agent/R/OHDSIAssistant/R/strategus_cohort_methods_shell.R) directly call ACP endpoints while also owning interactive workflow state, checkpoints, artifact layout, and script generation
+- [`R/slashOhdsiAcpClient/R/client.R`](/ai-agent/HadesProject/OHDSI-Study-Agent/R/slashOhdsiAcpClient/R/client.R) owns connection state and raw POST behavior
+- [`R/slashOhdsiAcpClient/R/compatibility_api.R`](/ai-agent/HadesProject/OHDSI-Study-Agent/R/slashOhdsiAcpClient/R/compatibility_api.R), [`R/slashOhdsiAcpClient/R/lint_and_concept_sets.R`](/ai-agent/HadesProject/OHDSI-Study-Agent/R/slashOhdsiAcpClient/R/lint_and_concept_sets.R), and [`R/slashOhdsiAcpClient/R/actions_and_lint.R`](/ai-agent/HadesProject/OHDSI-Study-Agent/R/slashOhdsiAcpClient/R/actions_and_lint.R) now own the thin flow/action wrappers
+- [`R/slashOhdsiStrategusAssistant/R/strategus_incidence_shell.R`](/ai-agent/HadesProject/OHDSI-Study-Agent/R/slashOhdsiStrategusAssistant/R/strategus_incidence_shell.R) and [`R/slashOhdsiStrategusAssistant/R/strategus_cohort_methods_shell.R`](/ai-agent/HadesProject/OHDSI-Study-Agent/R/slashOhdsiStrategusAssistant/R/strategus_cohort_methods_shell.R) own interactive workflow state, checkpoints, artifact layout, and script generation
 
-The package split should isolate those concerns before more `/ohdsi` dialogue work, incidence-shell extension, and concept-set generation integration are added.
+The package split isolated those concerns before more `/ohdsi` dialogue work, incidence-shell extension, and concept-set generation integration are added.
 
 ## Goals
 
 1. Create a small ACP-focused R package with a stable, testable HTTP interface and typed request/response helpers.
 2. Move Strategus shells and workflow orchestration into a separate higher-level package that depends on the ACP package rather than internal transport functions.
 3. Define one small workflow-stage contract that all shells use when asking ACP for contextual dialogue or recommendations.
-4. Keep the migration incremental so the existing `OHDSIAssistant` package can continue to work during the transition.
+4. Keep the migration incremental enough that downstream code can adopt the split in stages during the transition.
 
 ## Non-Goals
 
@@ -291,7 +293,7 @@ Deliverable:
 
 ### Phase 5: Compatibility cleanup
 
-- This is a clean refactor that can replace the deprecated old combined exports from `OHDSIAssistant` 
+- remove the deprecated combined-package exports entirely
 - update README and examples
 - add package-focused tests
 

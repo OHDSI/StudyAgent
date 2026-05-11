@@ -16,7 +16,8 @@ The top-level [README.md](/ai-agent/HadesProject/OHDSI-Study-Agent/README.md:1) 
 - `acp_agent/`: ACP server and user-facing flow orchestration
 - `mcp_server/`: MCP tool server, prompt bundles, retrieval, vocabulary, and Keeper tooling
 - `core/`: pure deterministic logic and validation
-- `R/OHDSIAssistant/`: R Strategus shell
+- `R/slashOhdsiAcpClient/`: R ACP client package and thin flow/action wrappers
+- `R/slashOhdsiStrategusAssistant/`: R Strategus workflow package and shell entrypoints
 - `docs/`: primary documentation, including testing, roadmap, Keeper specs, and moved legacy docs
 - `demo/`: sample artifacts and cohort JSON files
 

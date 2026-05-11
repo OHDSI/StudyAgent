@@ -2,7 +2,7 @@
 ## What Was Implemented
 
 We added the current CohortMethod shell path around
-`OHDSIAssistant::runStrategusCohortMethodsShell()`. In broad terms, the work now
+`slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell()`. In broad terms, the work now
 supports:
 
 - CohortMethod-specific intent splitting from one study-intent sentence into
@@ -29,8 +29,8 @@ supports:
 - MCP tool:
 	- `cohort_methods_intent_split`
 	- MCP tool: `cohort_methods_prompt_bundle`
-- R helper: `OHDSIAssistant::suggestCohortMethodSpecs()`
-- R shell integration:  `runStrategusCohortMethodsShell()`
+- R helper: `slashOhdsiStrategusAssistant::suggestCohortMethodSpecs()`
+- R shell integration: `slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell()`
 - Prompt/template assets:
   - CohortMethod intent-split overview/spec/schema assets.
   - CohortMethod cmAnalysis template and instruction assets under
@@ -58,7 +58,7 @@ supports:
   - `mcp_server/prompts/phenotype/spec_cohort_methods_intent_split.md`
   - `mcp_server/prompts/phenotype/output_schema_cohort_methods_intent_split.json`
 - R usage examples:
-  - `R/OHDSIAssistant/README.md`
+  - `R/slashOhdsiStrategusAssistant/README.md`
 - Test and smoke-test commands:
   - `docs/TESTING.md`
 

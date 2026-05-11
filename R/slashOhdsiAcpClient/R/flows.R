@@ -91,16 +91,39 @@ acp_suggest_cohort_method_specs <- function(client,
 #' @param stage_context workflow-stage context object
 #' @param message latest user message
 #' @return parsed ACP response
-#' @export
-acp_workflow_context_dialogue <- function(client, stage_context, message) {
+.flatten_workflow_context_dialogue_payload <- function(stage_context, message) {
   if (!is.list(stage_context)) stop("stage_context must be a list.")
   if (is.null(message) || !nzchar(trimws(as.character(message)))) {
     stop("Provide a non-empty message.")
   }
-  body <- list(
-    workflow_stage_context = stage_context,
-    message = trimws(as.character(message))
+
+  dialogue <- stage_context$dialogue %||% list()
+  current_context <- stage_context$legacy_context %||% list()
+  if (!is.list(current_context)) current_context <- list()
+
+  current_context$contract_version <- current_context$contract_version %||% stage_context$contract_version %||% NULL
+  current_context$step_label <- current_context$step_label %||% stage_context$step_label %||% NULL
+  current_context$entities <- current_context$entities %||% stage_context$entities %||% list()
+  current_context$available_artifacts <- current_context$available_artifacts %||% stage_context$available_artifacts %||% list()
+  current_context$prior_questions <- current_context$prior_questions %||% dialogue$prior_questions %||% list()
+  current_context$prior_answers <- current_context$prior_answers %||% dialogue$prior_answers %||% list()
+  current_context$constraints <- current_context$constraints %||% stage_context$constraints %||% list()
+
+  current_role <- current_context$active_role %||% (stage_context$entities %||% list())$active_role %||% ""
+
+  list(
+    user_prompt = trimws(as.character(message)),
+    study_intent = trimws(as.character(stage_context$user_goal %||% "")),
+    workflow_type = trimws(as.character(stage_context$workflow_type %||% "")),
+    current_step = trimws(as.character(stage_context$current_step %||% "")),
+    current_role = trimws(as.character(current_role)),
+    current_context = .normalize_acp_body(current_context)
   )
+}
+
+#' @export
+acp_workflow_context_dialogue <- function(client, stage_context, message) {
+  body <- .flatten_workflow_context_dialogue_payload(stage_context = stage_context, message = message)
   acp_call_flow(client, "workflow_context_dialogue", body)
 }
 
