@@ -1,242 +1,171 @@
-**Keeper Expansion Plan**
+  Target Design
 
-The Keeper expansion should be implemented as three linked capabilities:
+  Do not run the Keeper R package from the Strategus shells.
 
-1. concept-set generation
-2. profile extraction from OMOP CDM
-3. patient-row adjudication
+  Use the Keeper 2.0 subfolder only as a semantic reference for:
 
-The end-to-end workflow should be:
+  - concept-set domain names
+  - row field names
+  - expected review workflow shape
 
-1. user provides a clinical event of interest
-2. `/flows/keeper_concept_sets_generate` generates Keeper input concept sets
-3. user reviews and approves those concept sets
-4. `/flows/keeper_profiles_generate` extracts Keeper-style patient review rows from OMOP CDM using the approved concept sets
-5. `/flows/phenotype_validation_review` evaluates one or more sanitized review rows with the LLM
+  The actual R runtime path should be:
 
-This keeps the architecture aligned with Keeper’s actual separation between concept-set generation, profile construction, and case review.
+  1. keeper_concept_sets_generate
+  2. user review/approval of concept sets
+  3. keeper_profiles_generate
+  4. row-by-row phenotype_validation_review
+  5. /ohdsi available during concept-set generation and row-review steps
 
-**Flows**
-`/flows/keeper_concept_sets_generate`
-- Purpose: generate Keeper input concept sets equivalent to Keeper’s `generateKeeperConceptSets()`.
-- Input:
-  - `phenotype`
-  - optional domain subset
-  - provider overrides for vocabulary search and Phoebe
-  - tuning controls like search limits and min record count
-- Output:
-  - flat Keeper-style concept table with:
-    - `conceptId`
-    - `conceptName`
-    - `vocabularyId`
-    - `conceptSetName`
-    - `target`
-  - structured `keeper_concept_sets`
-  - diagnostics per domain and per step
-- LLM use: yes
-- Patient data: none
+  Plan
 
-`/flows/keeper_profiles_generate`
-- Purpose: generate Keeper-style patient review rows from OMOP CDM using approved concept sets, analogous to Keeper’s `generateKeeper()`.
-- Input:
-  - OMOP connection/config reference
-  - cohort source/table details
-  - cohort definition id and/or sampled person ids
-  - approved `keeper_concept_sets`
-  - sampling controls
-  - descendant inclusion flag
-- Output:
-  - Keeper review rows suitable for downstream review
-  - optional table-oriented output for CSV/UI consumption
-  - extraction metadata and counts
-- LLM use: no
-- Patient data: yes, but only deterministic local processing
+  1. Complete the R ACP client surface.
 
-`/flows/phenotype_validation_review`
-- Purpose: adjudicate whether a sanitized patient review row supports the event of interest.
-- Input:
-  - `disease_name`
-  - one or more Keeper review rows
-- Output:
-  - `label`
-  - `rationale`
-  - diagnostics
-- LLM use: yes
-- Patient data: sanitized only
+  - Expand R/slashOhdsiAcpClient/R/flows.R:138 so acp_keeper_concept_sets_generate() matches the full ACP contract: vocab_search_provider, phoebe_provider, min_record_count, and the
+    existing fields.
+  - Add acp_keeper_profiles_generate(...).
+  - Add acp_phenotype_validation_review(...).
+  - Add matching runtime passthrough helpers in R/slashOhdsiStrategusAssistant/R/slash_ohdsi_runtime.R:1 so the workflow package stays on the public ACP seam.
 
-**MCP Tools**
-Prompt/config tools:
-- `keeper_concept_set_bundle`
-- `keeper_prompt_bundle`
-- `keeper_build_prompt`
-- `keeper_parse_response`
+  2. Add one shared R helper module for Keeper workflow orchestration.
 
-Vocabulary/provider tools:
-- `vocab_search_standard`
-- `phoebe_related_concepts`
-- `vocab_filter_standard_concepts`
-- `vocab_remove_descendants`
-- `vocab_add_nonchildren`
-- `vocab_fetch_concepts`
+  - Create a shared helper file in R/slashOhdsiStrategusAssistant/R/, not duplicated shell logic.
+  - Responsibilities:
+      - derive default phenotype labels from selected cohort names/statements
+      - call the three ACP flows
+      - persist raw concept-set responses, approved concept sets, generated rows, and per-row review results
+      - implement row selection/review loops
+      - print concise summaries and surface ACP errors clearly
+  - This helper should be reused by both cohort-method and incidence shells.
 
-Profile extraction tools:
-- `keeper_profile_extract`
-- `keeper_profile_to_rows`
-- `keeper_sanitize_profile_row`
+  3. Wire Keeper stages into the interactive shells.
 
-`keeper_profile_extract` is the key new deterministic MCP tool. It should use `OMOP_Alchemy` as the primary OMOP CDM access layer. This tool should query the cohort/sample and construct review evidence across Keeper-relevant categories using approved concept sets. It should not involve the LLM.
+  - Insert an optional Keeper phase after cohort selection/improvements are finalized and before final script generation.
+  - Recommended flow per selected role/cohort:
+      - choose which roles to review
+      - generate concept sets
+      - accept/edit/rerun concept sets
+      - generate Keeper rows
+      - review rows one by one
+  - Default behavior should probably be:
+      - outcomes first
+      - target/comparator optional
+  - Use the existing stage names already reserved in R/slashOhdsiStrategusAssistant/R/workflow_stage_context.R:3:
+      - keeper_concept_set_generation
+      - keeper_case_review
+  - Update R/slashOhdsiStrategusAssistant/R/workflow_dialogue_mapping.R:1 so /ohdsi has proper step labels for these stages.
 
-**Use of OMOP_Alchemy**
-All OMOP-backed MCP tools should use `OMOP_Alchemy` first, especially for:
-- `Concept`
-- `Concept_Ancestor`
-- `Concept_Relationship`
-- `Condition_Occurrence`
-- `Condition_Era`
-- `Drug_Era`
-- `Procedure_Occurrence`
-- `Measurement`
-- `Death`
-- `Person`
-- `Visit_Occurrence`
-- `Observation_Period`
-- `Cohort`
-- `CDM_Source`
+  4. Keep /ohdsi safe during Keeper work.
 
-This should be wrapped in a small internal DB/session utility module inside Study Agent so MCP tools can consistently:
-- create engines/sessions
-- resolve schema/table configuration
-- run common OMOP lookups
-- normalize outputs
+  - /ohdsi during Keeper stages should send only workflow metadata, not patient row contents.
+  - Good stage context for /ohdsi:
+      - phenotype name
+      - role
+      - cohort id
+      - concept-set artifact paths
+      - row count
+      - current row index
+      - review status
+  - Do not embed Keeper row payloads into workflow_context_dialogue. Row-specific adjudication should go only through phenotype_validation_review.
 
-Hecate or other external search services should remain optional provider layers for vector search and Phoebe-like recommendations. Returned concept IDs should be validated and enriched against local OMOP vocabulary using `OMOP_Alchemy`.
+  5. Replace generated 04_keeper_review.R in both shells.
 
-**Keeper Domain Model**
-Study Agent should mirror Keeper’s concept-set generation categories, not downstream review fields. The canonical concept-set categories are:
-- `doi`
-- `alternativeDiagnosis`
-- `symptoms`
-- `drugs`
-- `diagnosticProcedures`
-- `measurements`
-- `treatmentProcedures`
-- `complications`
+  - Remove library(Keeper), DatabaseConnector, and createKeeper(...) from the generated script path in both shells.
+  - New 04_keeper_review.R should:
+      - read selected cohort ids from cohort_id_map.json
+      - read schema/table info from strategus-execution-settings.json
+      - call ACP wrappers only
+      - write JSON artifacts under keeper-case-review/
+      - optionally write convenience CSV summaries for human scanning
+  - It should not require databaseId, and it should no longer depend on strategus-db-details.json unless you deliberately keep that for unrelated reasons.
 
-The review rows extracted later may populate fields such as presentation, prior disease, prior drugs, post disease, post drugs, and death. Those are profile-extraction outputs, not separate concept-generation domains.
+  6. Define the Keeper artifact layout explicitly.
 
-**PHI-Safe Data Boundaries**
-This must be a hard architectural rule:
+  - Keep keeper-case-review/, but make it structured:
+      - keeper-case-review/concept-sets-generated/
+      - keeper-case-review/concept-sets-approved/
+      - keeper-case-review/rows/
+      - keeper-case-review/reviews/
+  - Persist shell summary state in a new output artifact such as outputs/keeper_review_state.json, and echo the important paths in outputs/study_agent_state.json.
+  - In cohort methods, keep these separate from the existing concept-sets/ directory, which is already being used for negative-control/covariate placeholder material.
 
-No raw row-level patient data containing direct or indirect PII/PHI may ever be sent to an LLM.
+  7. Land this in low-risk slices.
 
-The boundary should be:
-- concept-set generation: no patient data involved
-- profile extraction: patient data allowed, deterministic local processing only
-- validation review: sanitized rows only
+  - Slice 1:
+      - ACP wrappers
+      - shared Keeper helper
+      - direct demo scripts for the three flows
+  - Slice 2:
+      - replace generated 04_keeper_review.R in both shells
+      - add artifact/state persistence
+  - Slice 3:
+      - inline interactive Keeper phase in both shells
+      - /ohdsi Keeper-stage wiring
+      - resume/cache behavior
 
-Required behavior:
-- raw extracted review rows may exist only inside deterministic MCP processing or local persisted outputs
-- any LLM-facing path must pass through a fail-closed sanitization gate
-- `keeper_build_prompt` must only accept sanitized row payloads
-- if sanitization fails, the row must not be sent to the LLM
+  Testing Plan
 
-The sanitization policy should explicitly strip or transform:
-- person ids
-- visit ids
-- MRNs and account numbers
-- exact dates/timestamps
-- addresses and locations
-- provider/site identifiers if sensitive
-- exact ages where bucketing is required
-- free-text fields that may contain identifiers
+  1. R wrapper tests.
 
-Allowed LLM payloads should be limited to review-safe abstractions such as:
-- age bucket
-- generalized visit context
-- concept names
-- relative timing if needed
-- scrubbed measurement summaries
+  - Add source-level tests for new wrappers in R/slashOhdsiAcpClient/R/flows.R.
+  - Verify request-field coverage for all three Keeper flows.
 
-**Audit And Governance**
-This should be treated as a first-class requirement for organizations using cloud/commercial LLMs.
+  2. Generated-script regression tests.
 
-For every outbound LLM call, Study Agent should record:
-- initiating user or service identity
-- timestamp
-- flow name and version
-- MCP tool/template versions used
-- model, provider, and endpoint
-- whether the call was local/self-hosted or external/cloud
-- sanitization status and sanitization tool/version
-- policy decision: allowed or blocked
-- hash of sanitized prompt payload
-- hash of model response
-- dataset/cohort/concept-set artifact identifiers
+  - Extend tests/test_cohort_methods_generated_scripts.py:1.
+  - Add an incidence counterpart if needed.
+  - Assert:
+      - no library(Keeper)
+      - no createKeeper(
+      - no DatabaseConnector
+      - presence of ACP wrapper calls and JSON artifact writes
 
-It must not log:
-- raw unsanitized patient rows
-- secrets
-- direct identifiers
+  3. Shell workflow/state tests.
 
-Recommended audit modes:
-- `strict_metadata_only`
-- `sealed_payload_logging`
+  - Add shell regression tests for:
+      - Keeper stage insertion
+      - study_agent_state.json Keeper fields
+      - /ohdsi stage mapping during Keeper concept-set generation and case review
+      - resume using approved concept sets / saved rows
 
-Recommended governance controls:
-- provider allowlist
-- outbound egress policy
-- configurable retention for audit records
-- reproducibility via config snapshot and template version capture
-- optional approval workflow before external callouts
+  4. ACP-side contract tests.
 
-**Implementation Phases**
-1. Prompt/config foundation
-- add Keeper concept-set prompt assets under `mcp_server/prompts/keeper_concept_sets/`
-- add domain config file matching Keeper prompt-set structure
+  - Reuse existing ACP flow coverage in tests/test_acp_server.py:430.
+  - Add only what is missing on the R integration boundary; the server flows themselves already have basic coverage.
 
-2. Vocabulary/provider tooling
-- implement normalized vocab/Phoebe MCP tools
-- support `hecate_api` first
-- add `generic_search_api` and DB-backed fallback modes
+  5. Manual demos.
 
-3. OMOP DB access layer
-- add internal Study Agent session/config wrapper around `OMOP_Alchemy`
+  - Add:
+      - scripts/demo_keeper_concept_sets_generate.R
+      - scripts/demo_keeper_profiles_generate.R
+      - scripts/demo_keeper_review_row.R
+      - optional end-to-end scripts/demo_keeper_review_pipeline.R
+  - Reuse scripts/test_phenotype_validation_review.R:1 as the seed for the row-review demo.
 
-4. Concept-set generation
-- implement `/flows/keeper_concept_sets_generate`
-- add domain-level tests and one smoke path
+  6. Live manual checklist.
 
-5. Profile extraction
-- implement `keeper_profile_extract`
-- implement `/flows/keeper_profiles_generate`
-- ensure no LLM use in this flow
+  - Run 03_generate_cohorts.R.
+  - Run new 04_keeper_review.R.
+  - Confirm:
+      - concept-set generation artifacts exist
+      - approved concept sets are consumed
+      - row files are generated
+      - individual row reviews save correctly
+      - /ohdsi works in Keeper stages
+      - ACP failure modes are readable:
+          - omop_db_engine_unconfigured
+          - phi_detected
+          - zero rows returned
+          - row index out of range
 
-6. Sanitization hardening
-- formalize `keeper_sanitize_profile_row`
-- enforce sanitized-only prompt building
+  Recommended Decisions Before Coding
 
-7. Integrated case review
-- update `phenotype_validation_review` to support one or more sanitized Keeper rows
-- add smoke test for:
-  - concept sets generate
-  - profiles generate
-  - phenotype validation review
+  - Default Keeper review scope: outcomes only by default, target/comparator optional.
+  - Enforce remove_pii = TRUE for shell-driven review paths.
+  - Keep 04_keeper_review.R as one script to avoid renumbering downstream docs/scripts.
+  - Treat the vendored Keeper/ folder as reference-only, not runtime.
 
-8. Audit/governance layer
-- add ACP-side LLM audit logging
-- add metadata capture for sanitization and outbound egress
+  Main Risk
 
-**Summary**
-The correct Study Agent design is:
+  The only real architectural trap is letting generic /ohdsi dialogue see row contents. Avoid that, and the migration is mostly plumbing plus workflow/state work rather than a hard
+  redesign.
 
-- `keeper_concept_sets_generate` produces approved concept sets
-- `keeper_profiles_generate` uses those concept sets plus OMOP CDM data to build review rows
-- `phenotype_validation_review` evaluates sanitized rows only
-- `OMOP_Alchemy` is the primary OMOP access layer
-- all LLM egress is sanitized, auditable, and policy-controlled
-
-The next concrete step should be to define the JSON interfaces for:
-- `/flows/keeper_concept_sets_generate`
-- `/flows/keeper_profiles_generate`
-- the `keeper_profile_row` schema
-- the audit metadata envelope for outbound LLM calls

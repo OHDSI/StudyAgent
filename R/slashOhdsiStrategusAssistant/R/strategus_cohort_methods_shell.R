@@ -1777,13 +1777,30 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     path
   }
 
+  parse_single_cohort_id <- function(x) {
+    ids <- parse_ids(x)
+    ids <- ids[!is.na(ids)]
+    if (length(ids) == 0) return(NA_integer_)
+    as.integer(ids[[1]])
+  }
+
   parse_ids <- function(x) {
     if (is.null(x)) return(integer(0))
     if (is.numeric(x) || is.integer(x)) return(as.integer(x))
+    if (is.list(x)) {
+      return(parse_ids(unlist(x, use.names = FALSE)))
+    }
     if (is.character(x)) {
       pieces <- unlist(strsplit(paste(x, collapse = ","), "[,[:space:]]+"))
       pieces <- pieces[nzchar(trimws(pieces))]
-      return(as.integer(pieces))
+      return(vapply(pieces, function(piece) {
+        piece <- trimws(as.character(piece))
+        if (!nzchar(piece)) return(NA_integer_)
+        if (grepl("^ohdsi:[0-9]+$", piece)) {
+          return(suppressWarnings(as.integer(sub("^ohdsi:", "", piece))))
+        }
+        suppressWarnings(as.integer(piece))
+      }, integer(1)))
     }
     integer(0)
   }
@@ -2135,12 +2152,12 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
       any(names(mapping[[1]]) %in% c("role", "original_id", "cohort_id"))
     if (isTRUE(is_row_mapping)) {
       roles <- vapply(mapping, function(item) as.character(item$role %||% NA_character_), character(1))
-      original_ids <- vapply(mapping, function(item) as.integer(item$original_id %||% NA_integer_), integer(1))
-      cohort_ids <- vapply(mapping, function(item) as.integer(item$cohort_id %||% NA_integer_), integer(1))
+      original_ids <- vapply(mapping, function(item) parse_single_cohort_id(item$original_id %||% NA_integer_), integer(1))
+      cohort_ids <- vapply(mapping, function(item) parse_single_cohort_id(item$cohort_id %||% NA_integer_), integer(1))
     } else {
       roles <- as.character(unlist(mapping$role %||% character(0), use.names = FALSE))
-      original_ids <- as.integer(unlist(mapping$original_id %||% integer(0), use.names = FALSE))
-      cohort_ids <- as.integer(unlist(mapping$cohort_id %||% integer(0), use.names = FALSE))
+      original_ids <- parse_ids(unlist(mapping$original_id %||% integer(0), use.names = FALSE))
+      cohort_ids <- parse_ids(unlist(mapping$cohort_id %||% integer(0), use.names = FALSE))
     }
     if (!length(roles) || length(roles) != length(original_ids) || length(roles) != length(cohort_ids)) {
       return(NULL)
@@ -5852,6 +5869,21 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     "dir.create(analysis_settings_dir, recursive = TRUE, showWarnings = FALSE)",
     "",
     "`%||%` <- function(x, y) if (is.null(x)) y else x",
+    "package_version_or_na <- function(package_name) {",
+    "  if (!requireNamespace(package_name, quietly = TRUE)) return(NA_character_)",
+    "  as.character(utils::packageVersion(package_name))",
+    "}",
+    "call_with_supported_args <- function(fn, args) {",
+    "  formal_names <- names(formals(fn)) %||% character(0)",
+    "  if (!('...' %in% formal_names)) {",
+    "    args <- args[names(args) %in% formal_names]",
+    "  }",
+    "  do.call(fn, args)",
+    "}",
+    "has_exported_function <- function(package_name, function_name) {",
+    "  function_name %in% getNamespaceExports(package_name)",
+    "}",
+    "message('Using Strategus ', package_version_or_na('Strategus'), ' and CohortMethod ', package_version_or_na('CohortMethod'))",
     "defaults <- jsonlite::fromJSON(file.path(output_dir, 'cm_analysis_defaults.json'), simplifyVector = TRUE)",
     "conceptSetSelections <- jsonlite::fromJSON(file.path(output_dir, 'cm_concept_set_selections.json'), simplifyVector = FALSE)",
     "cohort_csv <- file.path(selected_dir, 'Cohorts.csv')",
@@ -5940,7 +5972,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     "# Characterization module: one characterization configuration for target and comparator cohorts.",
     "characterizationTargetIds <- as.numeric(unique(c(target_id, comparator_id)))",
     "characterizationModule <- CharacterizationModule$new()",
-    "characterizationModuleSpecifications <- characterizationModule$createModuleSpecifications(",
+    "characterizationArgs <- list(",
     "  targetIds = characterizationTargetIds,",
     "  outcomeIds = as.numeric(outcome_ids),",
     "  limitToFirstInNDays = as.numeric(rep(if (isTRUE(getDbDefaults$firstExposureOnly %||% TRUE)) 99999 else 0, length(characterizationTargetIds))),",
@@ -5951,6 +5983,13 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     "  riskWindowEnd = as.numeric(studyPopulationDefaults$riskWindowEnd %||% 0),",
     "  endAnchor = studyPopulationDefaults$endAnchor %||% 'cohort end',",
     "  mode = 'CohortIncidence'",
+    ")",
+    "characterizationFormals <- names(formals(characterizationModule$createModuleSpecifications)) %||% character(0)",
+    "if (!('limitToFirstInNDays' %in% characterizationFormals)) message('CharacterizationModule compatibility: omitting limitToFirstInNDays')",
+    "if (!('mode' %in% characterizationFormals)) message('CharacterizationModule compatibility: omitting mode')",
+    "characterizationModuleSpecifications <- call_with_supported_args(",
+    "  characterizationModule$createModuleSpecifications,",
+    "  characterizationArgs",
     ")",
     "",
     "# CohortIncidence module: one incidence analysis across target/comparator cohorts and outcomes.",
@@ -6050,17 +6089,24 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     "  errorOnHighCorrelation = isTRUE(psDefaults$errorOnHighCorrelation %||% FALSE),",
     "  prior = psPrior",
     ")",
-    "trimByPsArgs <- if (identical(psTrimmingStrategy, 'by_percent')) {",
-    "  CohortMethod::createTrimByPsArgs(",
+    "trimByPsArgs <- NULL",
+    "trimByPsToEquipoiseArgs <- NULL",
+    "if (identical(psTrimmingStrategy, 'by_percent')) {",
+    "  trimByPsArgs <- CohortMethod::createTrimByPsArgs(",
     "    trimFraction = psTrimmingPercent / 100,",
     "    trimMethod = 'symmetric'",
     "  )",
     "} else if (identical(psTrimmingStrategy, 'by_equipoise')) {",
-    "  CohortMethod::createTrimByPsArgs(",
-    "    equipoiseBounds = c(equipoiseLowerBound, equipoiseUpperBound)",
-    "  )",
-    "} else {",
-    "  NULL",
+    "  if (has_exported_function('CohortMethod', 'createTrimByPsToEquipoiseArgs')) {",
+    "    message('CohortMethod compatibility: using createTrimByPsToEquipoiseArgs for equipoise trimming')",
+    "    trimByPsToEquipoiseArgs <- CohortMethod::createTrimByPsToEquipoiseArgs(",
+    "      bounds = c(equipoiseLowerBound, equipoiseUpperBound)",
+    "    )",
+    "  } else {",
+    "    trimByPsArgs <- CohortMethod::createTrimByPsArgs(",
+    "      equipoiseBounds = c(equipoiseLowerBound, equipoiseUpperBound)",
+    "    )",
+    "  }",
     "}",
     "matchOnPsArgs <- if (identical(psAdjustmentStrategy, 'match_on_ps')) CohortMethod::createMatchOnPsArgs(",
     "  caliper = matchDefaults$caliper,",
@@ -6084,31 +6130,64 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     "  prior = outcomeModelPrior",
     ")",
     "",
-    "cmAnalysisList <- list(",
-    "  CohortMethod::createCmAnalysis(",
-    "    analysisId = as.integer(defaults$analysis_id %||% 1L),",
-    "    description = analyticSettingsProfile %||% comparison$label %||% 'Default cohort method analysis',",
-    "    getDbCohortMethodDataArgs = getDbCohortMethodDataArgs,",
-    "    createStudyPopulationArgs = createStudyPopulationArgs,",
-    "    createPsArgs = createPsArgs,",
-    "    trimByPsArgs = trimByPsArgs,",
-    "    matchOnPsArgs = matchOnPsArgs,",
-    "    stratifyByPsArgs = stratifyByPsArgs,",
-    "    fitOutcomeModelArgs = fitOutcomeModelArgs",
-    "  )",
+    "cmAnalysisArgs <- list(",
+    "  analysisId = as.integer(defaults$analysis_id %||% 1L),",
+    "  description = analyticSettingsProfile %||% comparison$label %||% 'Default cohort method analysis',",
+    "  getDbCohortMethodDataArgs = getDbCohortMethodDataArgs,",
+    "  createStudyPopulationArgs = createStudyPopulationArgs,",
+    "  createPsArgs = createPsArgs,",
+    "  trimByPsArgs = trimByPsArgs,",
+    "  trimByPsToEquipoiseArgs = trimByPsToEquipoiseArgs,",
+    "  matchOnPsArgs = matchOnPsArgs,",
+    "  stratifyByPsArgs = stratifyByPsArgs,",
+    "  fitOutcomeModelArgs = fitOutcomeModelArgs",
     ")",
-    "cmAnalysesSpecifications <- CohortMethod::createCmAnalysesSpecifications(",
-    "  cmAnalysisList = cmAnalysisList,",
-    "  targetComparatorOutcomesList = targetComparatorOutcomesList,",
-    "  analysesToExclude = NULL,",
-    "  refitPsForEveryOutcome = FALSE,",
-    "  refitPsForEveryStudyPopulation = TRUE,",
-    "  cmDiagnosticThresholds = CohortMethod::createCmDiagnosticThresholds()",
-    ")",
+    "cmAnalysisFormals <- names(formals(CohortMethod::createCmAnalysis)) %||% character(0)",
+    "if ('createStudyPopulationArgs' %in% cmAnalysisFormals) {",
+    "  cmAnalysisArgs$createStudyPopulationArgs <- createStudyPopulationArgs",
+    "} else if ('createStudyPopArgs' %in% cmAnalysisFormals) {",
+    "  message('CohortMethod compatibility: using legacy createStudyPopArgs name')",
+    "  cmAnalysisArgs$createStudyPopArgs <- createStudyPopulationArgs",
+    "  cmAnalysisArgs$createStudyPopulationArgs <- NULL",
+    "} else {",
+    "  stop('Unsupported CohortMethod::createCmAnalysis signature: expected createStudyPopulationArgs or createStudyPopArgs')",
+    "}",
+    "cmAnalysisList <- list(call_with_supported_args(CohortMethod::createCmAnalysis, cmAnalysisArgs))",
+    "cmDiagnosticThresholds <- CohortMethod::createCmDiagnosticThresholds()",
     "cmModule <- CohortMethodModule$new()",
-    "cohortMethodModuleSpecifications <- cmModule$createModuleSpecifications(",
-    "  cmAnalysesSpecifications = cmAnalysesSpecifications$toList()",
-    ")",
+    "cmModuleFormals <- names(formals(cmModule$createModuleSpecifications)) %||% character(0)",
+    "if ('cmAnalysesSpecifications' %in% cmModuleFormals) {",
+    "  if (!has_exported_function('CohortMethod', 'createCmAnalysesSpecifications')) {",
+    "    stop('Installed Strategus expects cmAnalysesSpecifications, but CohortMethod does not export createCmAnalysesSpecifications')",
+    "  }",
+    "  cmAnalysesSpecifications <- CohortMethod::createCmAnalysesSpecifications(",
+    "    cmAnalysisList = cmAnalysisList,",
+    "    targetComparatorOutcomesList = targetComparatorOutcomesList,",
+    "    analysesToExclude = NULL,",
+    "    refitPsForEveryOutcome = FALSE,",
+    "    refitPsForEveryStudyPopulation = TRUE,",
+    "    cmDiagnosticThresholds = cmDiagnosticThresholds",
+    "  )",
+    "  cohortMethodModuleSpecifications <- call_with_supported_args(",
+    "    cmModule$createModuleSpecifications,",
+    "    list(cmAnalysesSpecifications = cmAnalysesSpecifications)",
+    "  )",
+    "} else if (all(c('cmAnalysisList', 'targetComparatorOutcomesList') %in% cmModuleFormals)) {",
+    "  message('CohortMethodModule compatibility: using legacy module specification signature')",
+    "  cohortMethodModuleSpecifications <- call_with_supported_args(",
+    "    cmModule$createModuleSpecifications,",
+    "    list(",
+    "      cmAnalysisList = cmAnalysisList,",
+    "      targetComparatorOutcomesList = targetComparatorOutcomesList,",
+    "      analysesToExclude = NULL,",
+    "      refitPsForEveryOutcome = FALSE,",
+    "      refitPsForEveryStudyPopulation = TRUE,",
+    "      cmDiagnosticThresholds = cmDiagnosticThresholds",
+    "    )",
+    "  )",
+    "} else {",
+    "  stop('Unsupported CohortMethodModule$createModuleSpecifications signature in installed Strategus')",
+    "}",
     "",
     "analysisSpecifications <- Strategus::createEmptyAnalysisSpecifications()",
     "analysisSpecifications <- Strategus::addSharedResources(analysisSpecifications, cohortDefinitionSharedResource)",
