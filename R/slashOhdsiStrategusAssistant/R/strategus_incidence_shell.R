@@ -497,6 +497,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   }
 
   selected_ids_target <- NULL
+  selected_ids_outcome <- character(0)
   if (interactive) {
     labels <- vapply(seq_along(recommendations_target), function(i) {
       rec <- recommendations_target[[i]]
