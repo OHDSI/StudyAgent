@@ -94,7 +94,7 @@ def _build_parser(
 @dataclass
 class ACPClient:
     base_url: str
-    timeout: int = 120
+    timeout: int = 360
 
     def get(self, path: str) -> Dict[str, Any]:
         request = urllib.request.Request(f"{self.base_url}{path}", method="GET")

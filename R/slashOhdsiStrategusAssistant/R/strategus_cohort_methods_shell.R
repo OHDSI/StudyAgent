@@ -5487,6 +5487,93 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   )
   write_json(state, state_path)
 
+  keeper_review_state_path <- file.path(output_dir, "keeper_review_state.json")
+  keeper_review_roles <- character(0)
+  keeper_acp_timeout_seconds <- as.numeric(Sys.getenv("ACP_TIMEOUT", "300"))
+  keeper_reuse_generated_artifacts <- TRUE
+  keeper_overwrite_approved_concept_sets <- FALSE
+  keeper_resume_reviews <- TRUE
+  keeper_review_row_selection <- NULL
+  keeper_review_ran <- FALSE
+  keeper_review_result <- NULL
+
+  if (isTRUE(interactive)) {
+    run_keeper_review_now <- prompt_yesno("Run ACP-based Keeper review now?", default = FALSE)
+    if (isTRUE(run_keeper_review_now)) {
+      entered_roles <- trimws(readline_with_dialogue("Keeper review roles [outcome]: "))
+      keeper_review_roles <- if (!nzchar(entered_roles)) "outcome" else trimws(strsplit(entered_roles, ",", fixed = TRUE)[[1]])
+      keeper_review_roles <- keeper_review_roles[nzchar(keeper_review_roles)]
+      keeper_review_roles <- intersect(keeper_review_roles, c("outcome", "target", "comparator"))
+      if (!length(keeper_review_roles)) keeper_review_roles <- "outcome"
+      keeper_reuse_generated_artifacts <- prompt_yesno("Reuse existing Keeper generated artifacts?", default = TRUE)
+      keeper_overwrite_approved_concept_sets <- prompt_yesno("Replace approved concept sets with current generated output?", default = FALSE)
+      keeper_resume_reviews <- prompt_yesno("Resume existing Keeper row reviews?", default = TRUE)
+      entered_row_selection <- trimws(readline_with_dialogue("Keeper row selection [default first N or e.g. 1-3,5]: "))
+      keeper_review_row_selection <- if (!nzchar(entered_row_selection)) NULL else entered_row_selection
+
+      stage_callback <- function(step, role = "", context = list()) {
+        safe_context <- c(
+          list(
+            study_intent = studyIntent,
+            target_statement = targetStatement,
+            comparator_statement = comparatorStatement,
+            outcome_statements = as.list(outcomeStatementsForSelectedCohorts),
+            selected_target_ids = as.list(new_target_id),
+            selected_comparator_ids = as.list(new_comparator_id),
+            selected_outcome_ids = as.list(new_outcome_ids),
+            keeper_review_state_path = keeper_review_state_path,
+            acp_timeout_seconds = keeper_acp_timeout_seconds
+          ),
+          context
+        )
+        set_dialogue_context(step, role, context = safe_context)
+      }
+
+      stage_callback(
+        "keeper_concept_set_generation",
+        role = keeper_review_roles[[1]],
+        context = list(review_roles = as.list(keeper_review_roles), review_status = "starting")
+      )
+
+      keeper_review_result <- tryCatch(
+        runKeeperReviewWorkflow(
+          base_dir = base_dir,
+          execution_settings_path = file.path(base_dir, "strategus-execution-settings.json"),
+          cohort_id_map_path = cohort_id_map_path,
+          cohort_roles_path = cohort_roles_path,
+          intent_path = cohort_methods_intent_split_path,
+          acp_timeout_seconds = keeper_acp_timeout_seconds,
+          review_roles = keeper_review_roles,
+          overwrite_approved_concept_sets = keeper_overwrite_approved_concept_sets,
+          reuse_generated_concept_sets = keeper_reuse_generated_artifacts,
+          reuse_rows = keeper_reuse_generated_artifacts,
+          resume_reviews = keeper_resume_reviews,
+          review_row_selection = keeper_review_row_selection,
+          stage_callback = stage_callback
+        ),
+        error = function(e) e
+      )
+
+      if (inherits(keeper_review_result, "error")) {
+        cat(sprintf("Keeper review failed: %s\n", conditionMessage(keeper_review_result)))
+      } else {
+        keeper_review_ran <- TRUE
+        cat(sprintf("Keeper review state saved to: %s\n", keeper_review_state_path))
+      }
+      set_dialogue_context("workflow_summary", context = list(study_intent = studyIntent, keeper_review_state_path = keeper_review_state_path))
+    }
+  }
+
+  state$keeper_review_state_path <- keeper_review_state_path
+  state$keeper_review_roles <- as.list(keeper_review_roles)
+  state$keeper_acp_timeout_seconds <- as.numeric(keeper_acp_timeout_seconds)
+  state$keeper_reuse_generated_artifacts <- isTRUE(keeper_reuse_generated_artifacts)
+  state$keeper_overwrite_approved_concept_sets <- isTRUE(keeper_overwrite_approved_concept_sets)
+  state$keeper_resume_reviews <- isTRUE(keeper_resume_reviews)
+  state$keeper_review_row_selection <- keeper_review_row_selection
+  state$keeper_review_ran <- isTRUE(keeper_review_ran)
+  write_json(state, state_path)
+
   package_root <- resolve_path("R/slashOhdsiStrategusAssistant", study_base_dir)
   if (!dir.exists(package_root)) {
     alt <- file.path(getwd(), "R", "slashOhdsiStrategusAssistant")
@@ -5721,71 +5808,58 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
 
   script_04 <- c(
     script_header,
-    "library(Keeper)",
     "library(jsonlite)",
-    "library(DatabaseConnector)",
     "",
     package_loader_lines,
     "",
     sprintf("base_dir <- '%s'", base_dir),
     "output_dir <- file.path(base_dir, 'outputs')",
-    "keeper_dir <- file.path(base_dir, 'keeper-case-review')",
-    "dir.create(keeper_dir, recursive = TRUE, showWarnings = FALSE)",
-    "id_map <- jsonlite::fromJSON(file.path(output_dir, 'cohort_id_map.json'), simplifyVector = TRUE)$mapping",
-    "db_details_path <- file.path(base_dir, 'strategus-db-details.json')",
     "execution_settings_path <- file.path(base_dir, 'strategus-execution-settings.json')",
-    "connectionDetails <- slashOhdsiStrategusAssistant::createStrategusConnectionDetails(path = db_details_path)",
-    "exec <- slashOhdsiStrategusAssistant::createStrategusExecutionSettings(path = execution_settings_path)",
-    "databaseId <- '<FILL IN>'",
-    "cdmDatabaseSchema <- exec$cdmDatabaseSchema",
-    "cohortDatabaseSchema <- exec$workDatabaseSchema",
-    "cohortTable <- exec$cohortTable",
+    "cohort_id_map_path <- file.path(output_dir, 'cohort_id_map.json')",
+    "cohort_roles_path <- file.path(output_dir, 'cohort_roles.json')",
+    "intent_path <- file.path(output_dir, 'cohort_methods_intent_split.json')",
     "",
-    "# TODO: Replace these placeholder concept vectors with study-specific Keeper settings.",
-    "keeperConcepts <- list(",
-    "  doi = integer(0),",
-    "  symptoms = integer(0),",
-    "  comorbidities = integer(0),",
-    "  drugs = integer(0),",
-    "  diagnosticProcedures = integer(0),",
-    "  measurements = integer(0),",
-    "  alternativeDiagnosis = integer(0),",
-    "  treatmentProcedures = integer(0),",
-    "  complications = integer(0)",
+    "# Edit these defaults as needed before running the ACP-based Keeper workflow.",
+    "review_roles <- c('outcome')",
+    "domain_keys <- c(",
+    "  'doi', 'alternativeDiagnosis', 'symptoms', 'drugs',",
+    "  'diagnosticProcedures', 'measurements', 'treatmentProcedures', 'complications'",
     ")",
+    "candidate_limit <- 50",
+    "sample_size <- 20",
+    "review_row_limit <- 5",
+    "acp_timeout_seconds <- as.numeric(Sys.getenv('ACP_TIMEOUT', '300'))",
+    "Sys.setenv(ACP_TIMEOUT = as.character(acp_timeout_seconds))",
+    "reuse_generated_concept_sets <- TRUE",
+    "overwrite_approved_concept_sets <- FALSE",
+    "reuse_rows <- TRUE",
+    "resume_reviews <- TRUE",
+    "review_row_selection <- NULL  # e.g. '1-3,5'",
+    "acp_url <- Sys.getenv('ACP_URL', 'http://127.0.0.1:8765')",
     "",
-    "for (i in seq_len(nrow(id_map))) {",
-    "  cid <- id_map$cohort_id[i]",
-    "  role <- id_map$role[i]",
-    "  cohort_name <- id_map$cohort_name[i]",
-    "  role_dir <- file.path(keeper_dir, role)",
-    "  dir.create(role_dir, recursive = TRUE, showWarnings = FALSE)",
-    "  keeper <- createKeeper(",
-    "    connectionDetails = connectionDetails,",
-    "    databaseId = databaseId,",
-    "    cdmDatabaseSchema = cdmDatabaseSchema,",
-    "    cohortDatabaseSchema = cohortDatabaseSchema,",
-    "    cohortTable = cohortTable,",
-    "    cohortDefinitionId = cid,",
-    "    cohortName = cohort_name,",
-    "    sampleSize = 100,",
-    "    assignNewId = TRUE,",
-    "    useAncestor = TRUE,",
-    "    doi = keeperConcepts$doi,",
-    "    symptoms = keeperConcepts$symptoms,",
-    "    comorbidities = keeperConcepts$comorbidities,",
-    "    drugs = keeperConcepts$drugs,",
-    "    diagnosticProcedures = keeperConcepts$diagnosticProcedures,",
-    "    measurements = keeperConcepts$measurements,",
-    "    alternativeDiagnosis = keeperConcepts$alternativeDiagnosis,",
-    "    treatmentProcedures = keeperConcepts$treatmentProcedures,",
-    "    complications = keeperConcepts$complications",
-    "  )",
-    "  out_path <- file.path(role_dir, sprintf('%s.csv', cid))",
-    "  write.csv(keeper, out_path, row.names = FALSE)",
-    "}",
-    "",
-    "# TODO: When ACP is implemented for cohort methods, add optional LLM-based Keeper row review here.",
+    "result <- slashOhdsiStrategusAssistant::runKeeperReviewWorkflow(",
+    "  base_dir = base_dir,",
+    "  execution_settings_path = execution_settings_path,",
+    "  cohort_id_map_path = cohort_id_map_path,",
+    "  cohort_roles_path = cohort_roles_path,",
+    "  intent_path = intent_path,",
+    "  acp_url = acp_url,",
+    "  acp_timeout_seconds = acp_timeout_seconds,",
+    "  review_roles = review_roles,",
+    "  domain_keys = domain_keys,",
+    "  candidate_limit = candidate_limit,",
+    "  sample_size = sample_size,",
+    "  review_row_limit = review_row_limit,",
+    "  overwrite_approved_concept_sets = overwrite_approved_concept_sets,",
+    "  reuse_generated_concept_sets = reuse_generated_concept_sets,",
+    "  reuse_rows = reuse_rows,",
+    "  resume_reviews = resume_reviews,",
+    "  review_row_selection = review_row_selection,",
+    "  remove_pii = TRUE",
+    ")",
+    "keeper_state_path <- file.path(output_dir, 'keeper_review_state.json')",
+    "message('Keeper review state saved to: ', keeper_state_path)",
+    "print(result)",
     ""
   )
   write_lines(file.path(scripts_dir, "04_keeper_review.R"), script_04)

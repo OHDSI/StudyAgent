@@ -130,26 +130,119 @@ acp_workflow_context_dialogue <- function(client, stage_context, message) {
 #' Call keeper concept set generation flow
 #' @param client ACP client object
 #' @param phenotype phenotype label
-#' @param domain_keys character vector of domain keys
+#' @param domain_keys optional character vector of domain keys
+#' @param vocab_search_provider optional vocabulary search provider override
+#' @param phoebe_provider optional related-concepts provider override
 #' @param candidate_limit candidate limit
+#' @param min_record_count optional minimum record count filter
 #' @param include_diagnostics whether to request diagnostics
 #' @return parsed ACP response
 #' @export
 acp_keeper_concept_sets_generate <- function(client,
                                              phenotype,
-                                             domain_keys,
+                                             domain_keys = NULL,
+                                             vocab_search_provider = NULL,
+                                             phoebe_provider = NULL,
                                              candidate_limit = 5,
+                                             min_record_count = NULL,
                                              include_diagnostics = TRUE) {
   if (is.null(phenotype) || !nzchar(trimws(as.character(phenotype)))) {
     stop("Provide a non-empty phenotype.")
   }
   domain_keys <- as.character(domain_keys %||% character(0))
-  if (!length(domain_keys)) stop("Provide at least one domain key.")
   body <- list(
     phenotype = trimws(as.character(phenotype)),
-    domain_keys = as.list(domain_keys),
     candidate_limit = candidate_limit,
     include_diagnostics = isTRUE(include_diagnostics)
   )
+  if (length(domain_keys)) body$domain_keys <- as.list(domain_keys)
+  if (!is.null(vocab_search_provider) && nzchar(trimws(as.character(vocab_search_provider)))) {
+    body$vocab_search_provider <- trimws(as.character(vocab_search_provider))
+  }
+  if (!is.null(phoebe_provider) && nzchar(trimws(as.character(phoebe_provider)))) {
+    body$phoebe_provider <- trimws(as.character(phoebe_provider))
+  }
+  if (!is.null(min_record_count)) body$min_record_count <- as.numeric(min_record_count)
   acp_call_flow(client, "keeper_concept_sets_generate", body)
+}
+
+#' Call keeper profile generation flow
+#' @param client ACP client object
+#' @param cohort_database_schema cohort results schema
+#' @param cohort_table cohort table name
+#' @param cohort_definition_id cohort definition ID to sample from
+#' @param cdm_database_schema CDM schema
+#' @param keeper_concept_sets list of normalized Keeper concept-set rows
+#' @param sample_size requested sample size
+#' @param person_ids optional character vector of person IDs to restrict to
+#' @param phenotype_name optional phenotype label for output metadata
+#' @param use_descendants whether to expand descendant concepts
+#' @param remove_pii whether to strip PII from generated rows
+#' @return parsed ACP response
+#' @export
+acp_keeper_profiles_generate <- function(client,
+                                         cohort_database_schema,
+                                         cohort_table,
+                                         cohort_definition_id,
+                                         cdm_database_schema,
+                                         keeper_concept_sets,
+                                         sample_size = 20,
+                                         person_ids = NULL,
+                                         phenotype_name = NULL,
+                                         use_descendants = TRUE,
+                                         remove_pii = TRUE) {
+  if (is.null(cohort_database_schema) || !nzchar(trimws(as.character(cohort_database_schema)))) {
+    stop("Provide a non-empty cohort_database_schema.")
+  }
+  if (is.null(cohort_table) || !nzchar(trimws(as.character(cohort_table)))) {
+    stop("Provide a non-empty cohort_table.")
+  }
+  if (is.null(cdm_database_schema) || !nzchar(trimws(as.character(cdm_database_schema)))) {
+    stop("Provide a non-empty cdm_database_schema.")
+  }
+  cohort_definition_id <- suppressWarnings(as.integer(cohort_definition_id))
+  if (is.na(cohort_definition_id)) stop("Provide a numeric cohort_definition_id.")
+  if (!is.list(keeper_concept_sets) || !length(keeper_concept_sets)) {
+    stop("Provide a non-empty keeper_concept_sets list.")
+  }
+  person_ids <- as.character(person_ids %||% character(0))
+
+  body <- list(
+    cohort_database_schema = trimws(as.character(cohort_database_schema)),
+    cohort_table = trimws(as.character(cohort_table)),
+    cohort_definition_id = cohort_definition_id,
+    cdm_database_schema = trimws(as.character(cdm_database_schema)),
+    sample_size = as.integer(sample_size),
+    person_ids = as.list(person_ids),
+    keeper_concept_sets = keeper_concept_sets,
+    use_descendants = isTRUE(use_descendants),
+    remove_pii = isTRUE(remove_pii)
+  )
+  if (!is.null(phenotype_name) && nzchar(trimws(as.character(phenotype_name)))) {
+    body$phenotype_name <- trimws(as.character(phenotype_name))
+  }
+  acp_call_flow(client, "keeper_profiles_generate", body)
+}
+
+#' Call phenotype validation review flow
+#' @param client ACP client object
+#' @param disease_name disease or phenotype name
+#' @param keeper_row sanitized Keeper-style review row
+#' @return parsed ACP response
+#' @export
+acp_phenotype_validation_review <- function(client, disease_name, keeper_row) {
+  if (is.null(disease_name) || !nzchar(trimws(as.character(disease_name)))) {
+    stop("Provide a non-empty disease_name.")
+  }
+  if (!is.list(keeper_row) || !length(keeper_row)) {
+    stop("Provide keeper_row as a non-empty list.")
+  }
+  acp_call_flow(
+    client,
+    "phenotype_validation_review",
+    list(
+      disease_name = trimws(as.character(disease_name)),
+      keeper_row = keeper_row
+    )
+  )
 }

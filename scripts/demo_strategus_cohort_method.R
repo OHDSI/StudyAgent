@@ -9,18 +9,7 @@
 ##   /ohdsi what is weak about this comparator cohort?
 ##   /ohdsi what should I double-check before accepting these analytic settings?
 
-script_dir <- local({
-  cmd_args <- commandArgs(trailingOnly = FALSE)
-  file_arg <- grep("^--file=", cmd_args, value = TRUE)
-  if (length(file_arg) > 0) {
-    return(dirname(normalizePath(sub("^--file=", "", file_arg[[1]]), winslash = "/", mustWork = FALSE)))
-  }
-  frame_files <- Filter(Negate(is.null), lapply(sys.frames(), function(x) x$ofile))
-  if (length(frame_files) > 0) {
-    return(dirname(normalizePath(frame_files[[length(frame_files)]], winslash = "/", mustWork = FALSE)))
-  }
-  normalizePath("scripts", winslash = "/", mustWork = FALSE)
-})
+script_dir = "OHDSI-Study-Agent/scripts/" 
 
 source(file.path(script_dir, "demo_setup.R"))
 repo_root <- set_study_agent_repo_root(start = dirname(script_dir))
@@ -32,7 +21,7 @@ invisible(connect_study_agent_acp())
 
 ### CLEAN UP FROM LAST RUN?
 # Uncomment to reset the state of the output folder.
-# unlink(repo_file("demo-strategus-cohort-method"), recursive = TRUE, force = TRUE)
+#unlink(repo_file("demo-strategus-cohort-method"), recursive = TRUE, force = TRUE)
 #
 # If you already ran `scripts/test_strategus_incidence_plus_keeper.R`, this shell can
 # reuse cached target and outcome artifacts from `demo-strategus-cohort-incidence`.

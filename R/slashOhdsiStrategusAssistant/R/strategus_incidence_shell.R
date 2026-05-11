@@ -996,6 +996,91 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   state_path <- file.path(output_dir, "study_agent_state.json")
   write_json(state, state_path)
 
+  keeper_review_state_path <- file.path(output_dir, "keeper_review_state.json")
+  keeper_review_roles <- character(0)
+  keeper_acp_timeout_seconds <- as.numeric(Sys.getenv("ACP_TIMEOUT", "300"))
+  keeper_reuse_generated_artifacts <- TRUE
+  keeper_overwrite_approved_concept_sets <- FALSE
+  keeper_resume_reviews <- TRUE
+  keeper_review_row_selection <- NULL
+  keeper_review_ran <- FALSE
+  keeper_review_result <- NULL
+
+  if (isTRUE(interactive)) {
+    run_keeper_review_now <- prompt_yesno("Run ACP-based Keeper review now?", default = FALSE)
+    if (isTRUE(run_keeper_review_now)) {
+      entered_roles <- trimws(readline_with_dialogue("Keeper review roles [outcome]: "))
+      keeper_review_roles <- if (!nzchar(entered_roles)) "outcome" else trimws(strsplit(entered_roles, ",", fixed = TRUE)[[1]])
+      keeper_review_roles <- keeper_review_roles[nzchar(keeper_review_roles)]
+      keeper_review_roles <- intersect(keeper_review_roles, c("outcome", "target"))
+      if (!length(keeper_review_roles)) keeper_review_roles <- "outcome"
+      keeper_reuse_generated_artifacts <- prompt_yesno("Reuse existing Keeper generated artifacts?", default = TRUE)
+      keeper_overwrite_approved_concept_sets <- prompt_yesno("Replace approved concept sets with current generated output?", default = FALSE)
+      keeper_resume_reviews <- prompt_yesno("Resume existing Keeper row reviews?", default = TRUE)
+      entered_row_selection <- trimws(readline_with_dialogue("Keeper row selection [default first N or e.g. 1-3,5]: "))
+      keeper_review_row_selection <- if (!nzchar(entered_row_selection)) NULL else entered_row_selection
+
+      stage_callback <- function(step, role = "", context = list()) {
+        safe_context <- c(
+          list(
+            study_intent = studyIntent,
+            target_statement = target_statement,
+            outcome_statement = outcome_statement,
+            selected_target_ids = as.list(target_ids),
+            selected_outcome_ids = as.list(outcome_ids),
+            keeper_review_state_path = keeper_review_state_path,
+            acp_timeout_seconds = keeper_acp_timeout_seconds
+          ),
+          context
+        )
+        set_dialogue_context(step, role, context = safe_context)
+      }
+
+      stage_callback(
+        "keeper_concept_set_generation",
+        role = keeper_review_roles[[1]],
+        context = list(review_roles = as.list(keeper_review_roles), review_status = "starting")
+      )
+
+      keeper_review_result <- tryCatch(
+        runKeeperReviewWorkflow(
+          base_dir = base_dir,
+          execution_settings_path = file.path(base_dir, "strategus-execution-settings.json"),
+          cohort_id_map_path = file.path(output_dir, "cohort_id_map.json"),
+          cohort_roles_path = roles_path,
+          intent_path = intent_split_path,
+          acp_timeout_seconds = keeper_acp_timeout_seconds,
+          review_roles = keeper_review_roles,
+          overwrite_approved_concept_sets = keeper_overwrite_approved_concept_sets,
+          reuse_generated_concept_sets = keeper_reuse_generated_artifacts,
+          reuse_rows = keeper_reuse_generated_artifacts,
+          resume_reviews = keeper_resume_reviews,
+          review_row_selection = keeper_review_row_selection,
+          stage_callback = stage_callback
+        ),
+        error = function(e) e
+      )
+
+      if (inherits(keeper_review_result, "error")) {
+        cat(sprintf("Keeper review failed: %s\n", conditionMessage(keeper_review_result)))
+      } else {
+        keeper_review_ran <- TRUE
+        cat(sprintf("Keeper review state saved to: %s\n", keeper_review_state_path))
+      }
+      set_dialogue_context("workflow_summary", context = list(study_intent = studyIntent, keeper_review_state_path = keeper_review_state_path))
+    }
+  }
+
+  state$keeper_review_state_path <- keeper_review_state_path
+  state$keeper_review_roles <- as.list(keeper_review_roles)
+  state$keeper_acp_timeout_seconds <- as.numeric(keeper_acp_timeout_seconds)
+  state$keeper_reuse_generated_artifacts <- isTRUE(keeper_reuse_generated_artifacts)
+  state$keeper_overwrite_approved_concept_sets <- isTRUE(keeper_overwrite_approved_concept_sets)
+  state$keeper_resume_reviews <- isTRUE(keeper_resume_reviews)
+  state$keeper_review_row_selection <- keeper_review_row_selection
+  state$keeper_review_ran <- isTRUE(keeper_review_ran)
+  write_json(state, state_path)
+
   # ---- Generate scripts ----
   if (interactive) {
     cat("\n== Step 8: Generate scripts ==\n")
@@ -1309,9 +1394,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   # 04 - Keeper review
   script_04 <- c(
     script_header,
-    "library(Keeper)",
     "library(jsonlite)",
-    "library(DatabaseConnector)",
     "",
     "# loads the Strategus workflow assistant package when working from the repo",
     "if (!requireNamespace('slashOhdsiStrategusAssistant', quietly = TRUE)) {",
@@ -1322,120 +1405,55 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "  }",
     "}",
     "library(slashOhdsiStrategusAssistant)",
-    "`%||%` <- function(x, y) if (is.null(x)) y else x",
     "",
     sprintf("base_dir <- '%s'", base_dir),
     "output_dir <- file.path(base_dir, 'outputs')",
-    "keeper_dir <- file.path(base_dir, 'keeper-case-review')",
-    "dir.create(keeper_dir, recursive = TRUE, showWarnings = FALSE)",
-    "id_map <- jsonlite::fromJSON(file.path(output_dir, 'cohort_id_map.json'))$mapping",
-    "connectionDetails <- slashOhdsiStrategusAssistant::createStrategusConnectionDetails(path='<FILL IN>')",
+    "execution_settings_path <- file.path(base_dir, 'strategus-execution-settings.json')",
+    "cohort_id_map_path <- file.path(output_dir, 'cohort_id_map.json')",
+    "cohort_roles_path <- file.path(output_dir, 'cohort_roles.json')",
+    "intent_path <- file.path(output_dir, 'intent_split.json')",
     "",
-    "exec <- slashOhdsiStrategusAssistant::createStrategusExecutionSettings()",
-    "# TODO: fill in databaseId (used by Keeper for labeling outputs)",
-    "databaseId <- '<FILL IN>'",
-    "cdmDatabaseSchema <- exec$cdmDatabaseSchema",
-    "cohortDatabaseSchema <- exec$workDatabaseSchema",
-    "cohortTable <- exec$cohortTable",
+    "# Edit these defaults as needed before running the ACP-based Keeper workflow.",
+    "review_roles <- c('outcome')",
+    "domain_keys <- c(",
+    "  'doi', 'alternativeDiagnosis', 'symptoms', 'drugs',",
+    "  'diagnosticProcedures', 'measurements', 'treatmentProcedures', 'complications'",
+    ")",
+    "candidate_limit <- 50",
+    "sample_size <- 20",
+    "review_row_limit <- 5",
+    "acp_timeout_seconds <- as.numeric(Sys.getenv('ACP_TIMEOUT', '300'))",
+    "Sys.setenv(ACP_TIMEOUT = as.character(acp_timeout_seconds))",
+    "reuse_generated_concept_sets <- TRUE",
+    "overwrite_approved_concept_sets <- FALSE",
+    "reuse_rows <- TRUE",
+    "resume_reviews <- TRUE",
+    "review_row_selection <- NULL  # e.g. '1-3,5'",
+    "acp_url <- Sys.getenv('ACP_URL', 'http://127.0.0.1:8765')",
     "",
-    "for (cid in id_map$cohort_id) {",
-    "  keeper <- createKeeper(",
-    "    connectionDetails = connectionDetails,",
-    "    databaseId = databaseId,",
-    "    cdmDatabaseSchema = cdmDatabaseSchema,",
-    "    cohortDatabaseSchema = cohortDatabaseSchema,",
-    "    cohortTable = cohortTable,",
-    "    cohortDefinitionId = cid,",
-    "    cohortName = paste('Cohort', cid),",
-    "    sampleSize = 100,",
-    "    assignNewId = TRUE,",
-    "    useAncestor = TRUE,",
-    "    doi = c(4202064, 192671, 2108878, 2108900, 2002608),",
-    "    symptoms = c(4103703, 443530, 4245614, 28779),",
-    "    comorbidities = c(81893, 201606, 313217, 318800, 432585, 4027663, 4180790, 4212540,
-                         40481531, 42535737, 46271022),",
-    "    drugs = c(904453, 906780, 923645, 929887, 948078, 953076, 961047, 985247, 992956,
-               997276, 1102917, 1113648, 1115008, 1118045, 1118084, 1124300, 1126128,
-               1136980, 1146810, 1150345, 1153928, 1177480, 1178663, 1185922, 1195492,
-               1236607, 1303425, 1313200, 1353766, 1507835, 1522957, 1721543, 1746940,
-               1777806, 19044727, 19119253, 36863425),",
-    "    diagnosticProcedures = c(4087381, 4143985, 4294382, 42872565, 45888171, 46257627),",
-    "    measurements = c(3000905, 3000963, 3003458, 3012471, 3016251, 3018677, 3020416,
-                      3022217, 3023314, 3024929, 3034426),",
-    "    alternativeDiagnosis = c(24966, 76725, 195562, 316457, 318800, 4096682),",
-    "    treatmentProcedures = c(0),",
-    "    complications = c(132797, 196152, 439777, 4192647)",
-    "  )",
-    "  out_path <- file.path(keeper_dir, sprintf('%s.csv', cid))",
-    "  write.csv(keeper, out_path, row.names = FALSE)",
-    "}",
-    "# Optional: if ACP is available, use phenotype_validation_review on rows from keeper_dir.",
-    "# Uncomment to enable:",
-    "if (!requireNamespace('slashOhdsiAcpClient', quietly = TRUE) && requireNamespace('devtools', quietly = TRUE)) {",
-    "  devtools::load_all('OHDSI-Study-Agent/R/slashOhdsiAcpClient')",
-    "}",
-    "if (requireNamespace('slashOhdsiAcpClient', quietly = TRUE) || 'slashOhdsiAcpClient' %in% loadedNamespaces()) {",
-    "   acp_client <- slashOhdsiAcpClient::acp_client('http://127.0.0.1:8765', check = FALSE)",
-    "   roles <- jsonlite::fromJSON(file.path(output_dir, 'cohort_roles.json'), simplifyVector = TRUE)",
-    "   intent <- jsonlite::fromJSON(file.path(output_dir, 'intent_split.json'), simplifyVector = TRUE)",
-    "   cohort_type <- utils::select.list(c('target', 'outcome'), title = 'Keeper review for which cohort type?')",
-    "   if (!nzchar(cohort_type)) stop('No cohort type selected.')",
-    "   get_intent_field <- function(obj, field) {",
-    "     if (!is.null(obj$intent_split) && !is.null(obj$intent_split[[field]])) return(obj$intent_split[[field]])",
-    "     obj[[field]]",
-    "   }",
-    "   default_disease <- if (cohort_type == 'target') get_intent_field(intent, 'target_statement') else get_intent_field(intent, 'outcome_statement')",
-    "   disease_name <- readline(sprintf('Disease name [%s]: ', default_disease))",
-    "   if (!nzchar(trimws(disease_name))) disease_name <- default_disease",
-    "   sample_n <- as.integer(readline('How many cases per cohort to review? [5]: '))",
-    "   if (is.na(sample_n) || sample_n <= 0) sample_n <- 5",
-    "   random_pick <- tolower(trimws(readline('Randomly sample cases? [Y/n]: ')))",
-    "   random_pick <- !(random_pick %in% c('n', 'no'))",
-    "   write_output <- tolower(trimws(readline('Write LLM review rows to file? [Y/n]: ')))",
-    "   write_output <- !(write_output %in% c('n', 'no'))",
-    "   cohort_ids <- if (cohort_type == 'target') roles$targets else roles$outcomes",
-    "   for (cid in cohort_ids) {",
-    "     keeper_path <- file.path(keeper_dir, sprintf('%s.csv', cid))",
-    "     keeper_rows <- read.csv(keeper_path, stringsAsFactors = FALSE)",
-    "     if (nrow(keeper_rows) == 0) next",
-    "     n <- min(sample_n, nrow(keeper_rows))",
-    "     idx <- if (random_pick) sample(seq_len(nrow(keeper_rows)), n) else seq_len(n)",
-    "     selected <- keeper_rows[idx, , drop = FALSE]",
-    "     results <- list()",
-    "     for (i in seq_len(nrow(selected))) {",
-    "       row_payload <- as.list(selected[i, , drop = FALSE])",
-    "       row_payload <- lapply(row_payload, function(x) if (length(x) == 0) NA else x)",
-    "       resp <- slashOhdsiAcpClient::acp_call_flow(",
-    "         acp_client,",
-    "         'phenotype_validation_review',",
-    "         list(keeper_row = row_payload, disease_name = disease_name)",
-    "       )",
-    "       if (!is.null(resp$status) && resp$status == 'error') {",
-    "         out <- c(row_payload, list(label = NA, rationale = NA, acp_error = resp$error %||% 'acp_error'))",
-    "         results[[length(results) + 1]] <- as.data.frame(out, stringsAsFactors = FALSE, check.names = FALSE)",
-    "         next",
-    "       }",
-    "       label <- resp$label",
-    "       rationale <- resp$rationale",
-    "       if (is.null(label) && !is.null(resp$full_result$label)) label <- resp$full_result$label",
-    "       if (is.null(rationale) && !is.null(resp$full_result$rationale)) rationale <- resp$full_result$rationale",
-    "       if (is.null(label) && !is.null(resp$result$label)) label <- resp$result$label",
-    "       if (is.null(rationale) && !is.null(resp$result$rationale)) rationale <- resp$result$rationale",
-    "       if (is.null(label)) label <- NA",
-    "       if (is.null(rationale)) rationale <- NA",
-    "       out <- c(row_payload, list(label = label, rationale = rationale))",
-    "       results[[length(results) + 1]] <- as.data.frame(out, stringsAsFactors = FALSE, check.names = FALSE)",
-    "     }",
-    "     if (length(results) > 0) {",
-    "       out_df <- do.call(rbind, results)",
-    "       if (write_output) {",
-    "         out_path <- file.path(keeper_dir, sprintf('%s_llm_review.csv', cid))",
-    "         write.csv(out_df, out_path, row.names = FALSE)",
-    "       }",
-    "       print(out_df)",
-    "     }",
-    "   }",
-    " }",
+    "result <- slashOhdsiStrategusAssistant::runKeeperReviewWorkflow(",
+    "  base_dir = base_dir,",
+    "  execution_settings_path = execution_settings_path,",
+    "  cohort_id_map_path = cohort_id_map_path,",
+    "  cohort_roles_path = cohort_roles_path,",
+    "  intent_path = intent_path,",
+    "  acp_url = acp_url,",
+    "  acp_timeout_seconds = acp_timeout_seconds,",
+    "  review_roles = review_roles,",
+    "  domain_keys = domain_keys,",
+    "  candidate_limit = candidate_limit,",
+    "  sample_size = sample_size,",
+    "  review_row_limit = review_row_limit,",
+    "  overwrite_approved_concept_sets = overwrite_approved_concept_sets,",
+    "  reuse_generated_concept_sets = reuse_generated_concept_sets,",
+    "  reuse_rows = reuse_rows,",
+    "  resume_reviews = resume_reviews,",
+    "  review_row_selection = review_row_selection,",
+    "  remove_pii = TRUE",
+    ")",
+    "keeper_state_path <- file.path(output_dir, 'keeper_review_state.json')",
+    "message('Keeper review state saved to: ', keeper_state_path)",
+    "print(result)",
     ""
   )
   write_lines(file.path(scripts_dir, "04_keeper_review.R"), script_04)
