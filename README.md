@@ -2,12 +2,13 @@
 
 This repository is building an agent-style interface for common OHDSI study design tasks. The current implementation is strongest in two areas:
 
-- phenotype recommendation for target and outcome cohort selection
+- Phenotype recommendation for target and outcome cohort selection
 - Keeper-assisted concept generation, profile extraction, and row adjudication for phenotype validation
-
+- R demos of using workflows that call the ACP/MCP flows to design strategus incidence rate and cohort method analyses 
 
 [![Watch the video](https://github.com/user-attachments/assets/1679912f-fcbb-4dbf-830e-ce493188e8db)](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=eaaf0e5f-d60f-4b9a-a521-b42c016b1af3)
 
+[![The new `/ohdsi` feature](https://github.com/user-attachments/assets/ab9d39e2-af4f-4d32-a4a4-d20df17b2f1c)](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=77e8b162-4116-4d61-9e00-b4480104b886)
 
 The project separates orchestration from deterministic tooling:
 
@@ -58,10 +59,15 @@ Related implemented flows:
 This same recommendation path is already wired into the R Strategus incidence shell and the cohort-method shell.
 
 Primary references:
-
-- [docs/PHENOTYPE_RECOMMENDATION_DESIGN.md](docs/PHENOTYPE_RECOMMENDATION_DESIGN.md)
-- [docs/STRATEGUS_SHELL.md](docs/STRATEGUS_SHELL.md)
-- [docs/INCIDENCE_WORKFLOW.md](docs/INCIDENCE_WORKFLOW.md)
+- [docs/TESTING.md](docs/TESTING.md)
+- [docs/WORKFLOW_PHENOTYPE_RECOMMENDATION.md](docs/WORKFLOW_PHENOTYPE_RECOMMENDATION.md)
+- [docs/PHENOTYPE_VALIDATION_REVIEW.md](docs/PHENOTYPE_VALIDATION_REVIEW.md)
+- [docs/SPEC_KEEPER_INTERFACE.md](docs/SPEC_KEEPER_INTERFACE.md)
+- [docs/R_STRATEGUS_INCIDENCE_SHELL.md](docs/R_STRATEGUS_INCIDENCE_SHELL.md)
+- [docs/R_STRATEGUS_COHORT_METHODS_SHELL.md](docs/R_STRATEGUS_COHORT_METHODS_SHELL.md)
+- [docs/WORKFLOW_INCIDENCE.md](docs/WORKFLOW_INCIDENCE.md)
+- [docs/ROADMAP.md](docs/ROADMAP.md)
+- [docs/R_PACKAGE_ARCHITECTURE_PLAN.md](docs/R_PACKAGE_ARCHITECTURE_PLAN.md)
 
 ### 2. Keeper-Assisted Phenotype Validation
 
