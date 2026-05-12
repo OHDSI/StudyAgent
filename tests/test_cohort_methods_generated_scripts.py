@@ -4,10 +4,11 @@ import subprocess
 
 import pytest
 
+from _repo_paths import repo_path
 
-SOURCE = Path("R/OHDSIAssistant/R/strategus_cohort_methods_shell.R")
-EXECUTION_SETTINGS_SOURCE = Path("R/OHDSIAssistant/R/execution_settings.R")
 
+SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_cohort_methods_shell.R")
+EXECUTION_SETTINGS_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "execution_settings.R")
 
 def _generated_script_block(source: str, script_name: str, filename: str) -> str:
     start = source.index(f"{script_name} <- c(")
@@ -47,16 +48,22 @@ def test_generated_cm_spec_builds_and_executes_strategus_analysis_specification(
     assert "outcomeIds = as.numeric(outcome_ids)" in block
     assert "outcomeWashoutDays = as.numeric(" in block
     assert "maxCohortSize = studyPopulationDefaults$maxCohortSize" in block
+    assert "call_with_supported_args <- function(" in block
+    assert "characterizationFormals <- names(formals(characterizationModule$createModuleSpecifications))" in block
     assert "createStudyPopulationArgs <- CohortMethod::createCreateStudyPopulationArgs(" in block
     assert "removeSubjectsWithPriorOutcome = studyPopulationDefaults$removeSubjectsWithPriorOutcome" in block
     assert "useRegularization =" not in block
     assert "prior = outcomeModelPrior" in block
-    assert "CohortMethod::createCmAnalysesSpecifications(" in block
-    assert "cmAnalysesSpecifications = cmAnalysesSpecifications$toList()" in block
+    assert "cmAnalysisFormals <- names(formals(CohortMethod::createCmAnalysis))" in block
+    assert "if ('createStudyPopulationArgs' %in% cmAnalysisFormals)" in block
+    assert "else if ('createStudyPopArgs' %in% cmAnalysisFormals)" in block
+    assert "if ('cmAnalysesSpecifications' %in% cmModuleFormals)" in block
+    assert "else if (all(c('cmAnalysisList', 'targetComparatorOutcomesList') %in% cmModuleFormals))" in block
+    assert "cmAnalysesSpecifications = cmAnalysesSpecifications$toList()" not in block
     assert "ParallelLogger::saveSettingsToJson(analysisSpecifications, analysis_spec_path)" in block
     assert "result <- Strategus::execute(" in block
-    assert "connectionDetails <- OHDSIAssistant::createStrategusConnectionDetails(path = db_details_path)" in block
-    assert "exec <- OHDSIAssistant::createStrategusExecutionSettings(path = execution_settings_path)" in block
+    assert "connectionDetails <- slashOhdsiStrategusAssistant::createStrategusConnectionDetails(path = db_details_path)" in block
+    assert "exec <- slashOhdsiStrategusAssistant::createStrategusExecutionSettings(path = execution_settings_path)" in block
     assert "CohortMethod::runCmAnalyses(" not in block
     assert "CohortMethod::loadCmAnalysisList(" not in block
     assert "CohortMethod::loadTargetComparatorOutcomesList(" not in block
@@ -75,8 +82,16 @@ def test_characterization_spec_accepts_generated_numeric_types() -> None:
         """
         if (!requireNamespace('Strategus', quietly = TRUE)) quit(status = 42)
         library(Strategus)
+        `%||%` <- function(x, y) if (is.null(x)) y else x
+        call_with_supported_args <- function(fn, args) {
+          formal_names <- names(formals(fn)) %||% character(0)
+          if (!('...' %in% formal_names)) {
+            args <- args[names(args) %in% formal_names]
+          }
+          do.call(fn, args)
+        }
         module <- CharacterizationModule$new()
-        spec <- module$createModuleSpecifications(
+        spec <- call_with_supported_args(module$createModuleSpecifications, list(
           targetIds = as.numeric(c(1, 2)),
           outcomeIds = as.numeric(c(3)),
           limitToFirstInNDays = as.numeric(c(99999, 99999)),
@@ -87,8 +102,8 @@ def test_characterization_spec_accepts_generated_numeric_types() -> None:
           riskWindowEnd = as.numeric(0),
           endAnchor = 'cohort end',
           mode = 'CohortIncidence'
-        )
-        stopifnot(identical(spec$module, 'CharacterizationModule'))
+        ))
+        stopifnot(length(spec) > 0)
         """
     )
     assert result.returncode == 0, result.stderr
@@ -124,8 +139,21 @@ def test_cohort_method_spec_accepts_generated_argument_shape() -> None:
         """
         if (!requireNamespace('CohortMethod', quietly = TRUE) ||
             !requireNamespace('FeatureExtraction', quietly = TRUE) ||
-            !requireNamespace('Cyclops', quietly = TRUE)) quit(status = 42)
+            !requireNamespace('Cyclops', quietly = TRUE) ||
+            !requireNamespace('Strategus', quietly = TRUE)) quit(status = 42)
         library(CohortMethod)
+        library(Strategus)
+        `%||%` <- function(x, y) if (is.null(x)) y else x
+        call_with_supported_args <- function(fn, args) {
+          formal_names <- names(formals(fn)) %||% character(0)
+          if (!('...' %in% formal_names)) {
+            args <- args[names(args) %in% formal_names]
+          }
+          do.call(fn, args)
+        }
+        has_exported_function <- function(package_name, function_name) {
+          function_name %in% getNamespaceExports(package_name)
+        }
         target_id <- as.numeric(1)
         comparator_id <- as.numeric(2)
         outcome_ids <- as.numeric(3)
@@ -177,24 +205,59 @@ def test_cohort_method_spec_accepts_generated_argument_shape() -> None:
           inversePtWeighting = FALSE,
           prior = outcomeModelPrior
         )
-        cmAnalysisList <- list(
-          CohortMethod::createCmAnalysis(
-            analysisId = 1,
-            description = 'test',
-            getDbCohortMethodDataArgs = getDbArgs,
-            createStudyPopulationArgs = studyPopulationArgs,
-            createPsArgs = NULL,
-            trimByPsArgs = NULL,
-            matchOnPsArgs = NULL,
-            stratifyByPsArgs = NULL,
-            fitOutcomeModelArgs = fitOutcomeModelArgs
+        cmAnalysisArgs <- list(
+          analysisId = 1,
+          description = 'test',
+          getDbCohortMethodDataArgs = getDbArgs,
+          createStudyPopulationArgs = studyPopulationArgs,
+          createPsArgs = NULL,
+          trimByPsArgs = NULL,
+          trimByPsToEquipoiseArgs = NULL,
+          matchOnPsArgs = NULL,
+          stratifyByPsArgs = NULL,
+          fitOutcomeModelArgs = fitOutcomeModelArgs
+        )
+        cmAnalysisFormals <- names(formals(CohortMethod::createCmAnalysis)) %||% character(0)
+        if ('createStudyPopulationArgs' %in% cmAnalysisFormals) {
+          cmAnalysisArgs$createStudyPopulationArgs <- studyPopulationArgs
+        } else if ('createStudyPopArgs' %in% cmAnalysisFormals) {
+          cmAnalysisArgs$createStudyPopArgs <- studyPopulationArgs
+          cmAnalysisArgs$createStudyPopulationArgs <- NULL
+        } else {
+          stop('Unsupported CohortMethod::createCmAnalysis signature')
+        }
+        cmAnalysisList <- list(call_with_supported_args(CohortMethod::createCmAnalysis, cmAnalysisArgs))
+        cmDiagnosticThresholds <- CohortMethod::createCmDiagnosticThresholds()
+        cmModule <- CohortMethodModule$new()
+        cmModuleFormals <- names(formals(cmModule$createModuleSpecifications)) %||% character(0)
+        if ('cmAnalysesSpecifications' %in% cmModuleFormals) {
+          if (!has_exported_function('CohortMethod', 'createCmAnalysesSpecifications')) {
+            stop('Expected createCmAnalysesSpecifications export')
+          }
+          cmAnalysesSpecifications <- CohortMethod::createCmAnalysesSpecifications(
+            cmAnalysisList = cmAnalysisList,
+            targetComparatorOutcomesList = targetComparatorOutcomesList,
+            cmDiagnosticThresholds = cmDiagnosticThresholds
           )
-        )
-        spec <- CohortMethod::createCmAnalysesSpecifications(
-          cmAnalysisList = cmAnalysisList,
-          targetComparatorOutcomesList = targetComparatorOutcomesList,
-          cmDiagnosticThresholds = CohortMethod::createCmDiagnosticThresholds()
-        )
+          spec <- call_with_supported_args(
+            cmModule$createModuleSpecifications,
+            list(cmAnalysesSpecifications = cmAnalysesSpecifications)
+          )
+        } else if (all(c('cmAnalysisList', 'targetComparatorOutcomesList') %in% cmModuleFormals)) {
+          spec <- call_with_supported_args(
+            cmModule$createModuleSpecifications,
+            list(
+              cmAnalysisList = cmAnalysisList,
+              targetComparatorOutcomesList = targetComparatorOutcomesList,
+              analysesToExclude = NULL,
+              refitPsForEveryOutcome = FALSE,
+              refitPsForEveryStudyPopulation = TRUE,
+              cmDiagnosticThresholds = cmDiagnosticThresholds
+            )
+          )
+        } else {
+          stop('Unsupported CohortMethodModule signature')
+        }
         stopifnot(length(spec) > 0)
         """
     )

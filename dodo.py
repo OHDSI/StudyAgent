@@ -5,6 +5,7 @@ import os
 import socket
 import subprocess
 import time
+import urllib.error
 import urllib.request
 from urllib.parse import urlparse
 
@@ -340,7 +341,7 @@ def task_smoke_phenotype_recommend_flow():
             require_mcp = bool(env.get("STUDY_AGENT_MCP_URL") or env.get("STUDY_AGENT_MCP_COMMAND"))
             _wait_for_acp("http://127.0.0.1:8765/health", timeout_s=30, require_mcp=require_mcp)
             print("Running phenotype flow smoke test...")
-            subprocess.run(["python", "tests/phenotype_flow_smoke_test.py"], check=True, env=env)
+            subprocess.run(["python", "tests/smoke_phenotype_flow.py"], check=True, env=env)
             print(f"ACP logs: {acp_stdout} {acp_stderr}")
         finally:
             print("Stopping ACP...")
@@ -390,7 +391,7 @@ def task_smoke_cohort_methods_specs_recommend_flow():
             require_mcp = bool(env.get("STUDY_AGENT_MCP_URL") or env.get("STUDY_AGENT_MCP_COMMAND"))
             _wait_for_acp("http://127.0.0.1:8765/health", timeout_s=30, require_mcp=require_mcp)
             print("Running cohort-methods-specs flow smoke test...")
-            subprocess.run(["python", "tests/cohort_methods_specs_flow_smoke_test.py"], check=True, env=env)
+            subprocess.run(["python", "tests/smoke_cohort_methods_specs_flow.py"], check=True, env=env)
             print(f"ACP logs: {acp_stdout} {acp_stderr}")
         finally:
             print("Stopping ACP...")
@@ -440,7 +441,7 @@ def task_smoke_phenotype_intent_split_flow():
             require_mcp = bool(env.get("STUDY_AGENT_MCP_URL") or env.get("STUDY_AGENT_MCP_COMMAND"))
             _wait_for_acp("http://127.0.0.1:8765/health", timeout_s=30, require_mcp=require_mcp)
             print("Running phenotype intent split flow smoke test...")
-            subprocess.run(["python", "tests/phenotype_intent_split_smoke_test.py"], check=True, env=env)
+            subprocess.run(["python", "tests/smoke_phenotype_intent_split.py"], check=True, env=env)
             print(f"ACP logs: {acp_stdout} {acp_stderr}")
         finally:
             print("Stopping ACP...")
@@ -490,7 +491,7 @@ def task_smoke_cohort_methods_intent_split_flow():
             require_mcp = bool(env.get("STUDY_AGENT_MCP_URL") or env.get("STUDY_AGENT_MCP_COMMAND"))
             _wait_for_acp("http://127.0.0.1:8765/health", timeout_s=30, require_mcp=require_mcp)
             print("Running cohort methods intent split flow smoke test...")
-            subprocess.run(["python", "tests/cohort_methods_intent_split_smoke_test.py"], check=True, env=env)
+            subprocess.run(["python", "tests/smoke_cohort_methods_intent_split.py"], check=True, env=env)
             print(f"ACP logs: {acp_stdout} {acp_stderr}")
         finally:
             print("Stopping ACP...")
@@ -603,7 +604,7 @@ def task_smoke_phenotype_recommendation_advice_flow():
             require_mcp = bool(env.get("STUDY_AGENT_MCP_URL") or env.get("STUDY_AGENT_MCP_COMMAND"))
             _wait_for_acp("http://127.0.0.1:8765/health", timeout_s=30, require_mcp=require_mcp)
             print("Running phenotype recommendation advice flow smoke test...")
-            subprocess.run(["python", "tests/phenotype_recommendation_advice_smoke_test.py"], check=True, env=env)
+            subprocess.run(["python", "tests/smoke_phenotype_recommendation_advice.py"], check=True, env=env)
         finally:
             print("Stopping ACP...")
             acp_proc.terminate()
@@ -714,9 +715,12 @@ def task_smoke_cohort_critique_flow():
             require_mcp = bool(env.get("STUDY_AGENT_MCP_URL") or env.get("STUDY_AGENT_MCP_COMMAND"))
             _wait_for_acp("http://127.0.0.1:8765/health", timeout_s=30, require_mcp=require_mcp)
             print("Running cohort critique flow smoke test...")
+            cohort_path = os.path.join(os.path.dirname(__file__), "scripts", "cohort_definition.json")
+            with open(cohort_path, "r", encoding="utf-8") as handle:
+                cohort = json.load(handle)
             payload = json.dumps(
                 {
-                    "cohort_path": "demo/cohort_definition.json",
+                    "cohort": cohort,
                 }
             ).encode("utf-8")
             req = urllib.request.Request(
@@ -725,9 +729,14 @@ def task_smoke_cohort_critique_flow():
                 method="POST",
             )
             req.add_header("Content-Type", "application/json")
-            with urllib.request.urlopen(req, timeout=int(env.get("ACP_TIMEOUT", "180"))) as response:
-                body = response.read().decode("utf-8")
-                print(body)
+            try:
+                with urllib.request.urlopen(req, timeout=int(env.get("ACP_TIMEOUT", "180"))) as response:
+                    body = response.read().decode("utf-8")
+                    print(body)
+            except urllib.error.HTTPError as exc:
+                error_body = exc.read().decode("utf-8", errors="replace")
+                print(error_body)
+                raise
             print(f"ACP logs: {acp_stdout} {acp_stderr}")
         finally:
             print("Stopping ACP...")
@@ -854,7 +863,7 @@ def task_smoke_keeper_concept_sets_generate_flow():
             payload = json.dumps(
                 {
                     "phenotype": "Gastrointestinal bleeding",
-                    "domain_keys": ["doi", "alternativeDiagnosis", "symptoms"],
+                    "domain_keys": ["doi"], # could also add/change to "alternativeDiagnosis", "symptoms", "drugs", "treatmentProcedures", "diagnosticProcedures", "measurements"
                     "candidate_limit": 10,
                     "include_diagnostics": True,
                 }
@@ -893,7 +902,7 @@ def task_smoke_keeper_concept_sets_generate_flow():
 def task_smoke_case_causal_review_flow():
     def _run_smoke() -> None:
         print("Running case causal review flow smoke test...")
-        subprocess.run(["python", "tests/case_causal_review_flow_smoke_test.py"], check=True)
+        subprocess.run(["python", "tests/smoke_case_causal_review_flow.py"], check=True)
 
     return {
         "actions": [_run_smoke],

@@ -1,0 +1,12 @@
+Package: slashOhdsiStrategusAssistant
+Type: Package
+Title: Strategus Workflow Assistant for slash-ohdsi
+Version: 0.0.1
+Authors@R: person("Your","Name", email="you@example.org", role=c("aut","cre"))
+Description: Higher-level Strategus workflow package for slash-ohdsi. Owns workflow-stage context construction, shell orchestration, checkpoints, and Strategus-facing assets.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Depends: R (>= 4.2)
+Imports: slashOhdsiAcpClient, jsonlite, DatabaseConnector, CohortGenerator, Strategus, utils
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2

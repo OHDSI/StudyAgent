@@ -1,48 +1,52 @@
-### Demo: `phenotype_improvements` (ACP flow)
+### Demo / test: `slashOhdsiStrategusAssistant::runStrategusIncidenceShell()`
 
-## !!!!NOTE!!!! run this from a directory above the OHDSI-Study-Agent where an .renv has the HADES packages loaded  !!!!NOTE!!!!
+## Run this from the repo root with ACP listening on `http://127.0.0.1:8765`.
+## `scripts/demo_ohdsi_dialogue.R` is the quickest non-interactive `/ohdsi` smoke test.
+##
+## Useful `/ohdsi` prompts to try once the shell reaches phenotype recommendation and TAR steps:
+##   /ohdsi what should I do if none of the candidate cohorts are relevant?
+##   /ohdsi what happens if I accept the phenotype improvement recommendations?
+##   /ohdsi how should I specify TAR so that denominators are coherent across strata?
 
-## !!!!NOTE!!!! `study_agent_acp` should be running under OHDSI-Study-Agent an listening on port 8765  !!!!NOTE!!!!
+script_dir = "OHDSI-Study-Agent/scripts/"
 
-### CLEAN UP FROM LAST RUN?
-# Uncomment to reset the state of the output folder 
-# Or add `reset = TRUE ` to the function call
-unlink("OHDSI-Study-Agent/demo-strategus-cohort-incidence", recursive = TRUE, force = TRUE)
+source(file.path(script_dir, "demo_setup.R"))
+repo_root <- set_study_agent_repo_root(start = dirname(script_dir))
+load_study_agent_r_packages(include_strategus = TRUE)
 
-# Import the R thin api to the ACP server/bridge
+## Optional reset from a prior run.
+reset_demo_output_dir(repo_file("demo-strategus-cohort-incidence"), prompt = TRUE)
+
 Sys.setenv(ACP_TIMEOUT = "280")
-devtools::load_all("OHDSI-Study-Agent/R/OHDSIAssistant")
+invisible(connect_study_agent_acp())
 
-# confirm the ACP server/bridge is running
-OHDSIAssistant::acp_connect("http://127.0.0.1:8765")
+## (RELEVANT PHENOTYPE TEST) This intent should yield stronger phenotype candidates:
+slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
+  outputDir = "demo-strategus-cohort-incidence",
+  acpUrl = "http://127.0.0.1:8765",
+  studyAgentBaseDir = repo_root,
+  indexDir = "data/phenotype_index_cipher_omop",
+  studyIntent = "What is the risk of GI bleed in new users of tofacitinib compared to new users of ruxolitinib?"
+)
 
-## Run an interactive agent "shell"
+############
+## Use this to resume from cached artifacts and regenerate output scripts.
+# slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
+#   outputDir = "demo-strategus-cohort-incidence",
+#   acpUrl = "http://127.0.0.1:8765",
+#   studyAgentBaseDir = repo_root,
+#   resume = TRUE,
+#   allowCache = TRUE,
+#   promptOnCache = FALSE,
+#   interactive = FALSE,
+#   indexDir = "data/phenotype_index_cipher_omop"
+# )
 
-## (NO RELEVANT PHENOTYPE TEST) First enter this study intent which does not really return relevant phenotype definitions:
+## (NO RELEVANT PHENOTYPE TEST) First enter this study intent, which should not return strong phenotype matches:
 ## "What is the risk of GI bleed in new users of Celecoxib compared to new users of Diclofenac?"
-OHDSIAssistant::runStrategusIncidenceShell(
-    outputDir = "demo-strategus-cohort-incidence",
-    studyAgentBaseDir = "OHDSI-Study-Agent",
-    indexDir="data/phenotype_index_cipher_omop/"
-    )
-
-
-## (RELEVANT PHENOTYPE TEST) Run the study agent with a study intent that does have relevant phenotype definitions:
-OHDSIAssistant::runStrategusIncidenceShell(
-    outputDir = "demo-strategus-cohort-incidence",
-    studyAgentBaseDir = "OHDSI-Study-Agent",
-    indexDir="data/phenotype_index_cipher_omop/",
-    studyIntent = "What is the risk of GI bleed in new users of tofacitinib compared to new users of ruxolitinib?"
-    )
-
-
-## Use this to just resume and regenerate the output scripts from cached results
-OHDSIAssistant::runStrategusIncidenceShell(
-    outputDir = "demo-strategus-cohort-incidence",
-    studyAgentBaseDir = "OHDSI-Study-Agent",
-    resume = TRUE,
-    allowCache = TRUE,
-    promptOnCache = FALSE,
-    interactive = FALSE,
-    indexDir="data/phenotype_index_cipher_omop/"
-  )
+# slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
+#   outputDir = "demo-strategus-cohort-incidence",
+#   acpUrl = "http://127.0.0.1:8765",
+#   studyAgentBaseDir = repo_root,
+#   indexDir = "data/phenotype_index_cipher_omop"
+# )

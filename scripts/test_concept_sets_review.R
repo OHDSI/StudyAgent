@@ -1,25 +1,33 @@
-### Demo: `concept-sets-review` (ACP flow)
+### Demo: `concept_sets_review` (ACP flow)
 
-## !!!!NOTE!!!! run this from a directory above the OHDSI-Study-Agent where an .renv has the HADES packages loaded  !!!!NOTE!!!!
+## Run this from the repo root with ACP listening on `http://127.0.0.1:8765`.
 
-# Import the R thin api to the ACP server/bridge
-devtools::load_all("OHDSI-Study-Agent/R/OHDSIAssistant")
+script_dir <- local({
+  cmd_args <- commandArgs(trailingOnly = FALSE)
+  file_arg <- grep("^--file=", cmd_args, value = TRUE)
+  if (length(file_arg) > 0) {
+    return(dirname(normalizePath(sub("^--file=", "", file_arg[[1]]), winslash = "/", mustWork = FALSE)))
+  }
+  frame_files <- Filter(Negate(is.null), lapply(sys.frames(), function(x) x$ofile))
+  if (length(frame_files) > 0) {
+    return(dirname(normalizePath(frame_files[[length(frame_files)]], winslash = "/", mustWork = FALSE)))
+  }
+  normalizePath("scripts", winslash = "/", mustWork = FALSE)
+})
 
-# confirm the ACP server/bridge is running
-OHDSIAssistant::acp_connect("http://127.0.0.1:8765")
+source(file.path(script_dir, "demo_setup.R"))
+repo_root <- set_study_agent_repo_root(start = dirname(script_dir))
+load_study_agent_r_packages(include_strategus = FALSE)
+client <- connect_study_agent_acp()
 
-############################################################
-
-concept_set_path <- "OHDSI-Study-Agent/demo/concept_set.json"
-protocol_path <- "OHDSI-Study-Agent/demo/protocol.md"
+protocol_path <- repo_file("demo", "protocol.md")
+concept_set_path <- repo_file("demo", "concept_set.json")
 study_intent <- paste(readLines(protocol_path, warn = FALSE), collapse = " ")
-concept_set <- jsonlite::fromJSON(concept_set_path, simplifyVector = FALSE)
 
-body <- list(
-  concept_set = concept_set,
+resp <- slashOhdsiAcpClient::acp_lint_concept_sets(
+  client = client,
+  concept_set_path = concept_set_path,
   study_intent = study_intent
 )
-
-resp <- OHDSIAssistant:::`.acp_post`("/flows/concept_sets_review", body)
 cat("\n== Concept Sets Review (ACP flow) ==\n")
 print(resp)
