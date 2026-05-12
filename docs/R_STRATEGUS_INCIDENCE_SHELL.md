@@ -50,6 +50,39 @@ Current runtime expectations:
 - `04_keeper_review.R` uses the ACP-based Keeper workflow helper and writes `outputs/keeper_review_state.json`.
 - `06_incidence_spec.R` reads `analysis-settings/time_at_risk_settings.json` instead of hard-coding TAR definitions.
 
+Generated scripts that connect to the database expect these site-specific files at the root of
+`outputDir`:
+
+- Template `strategus-db-details.json`
+
+```
+{
+  "dbms": "postgresql",
+  "DB_SERVER": "localhost",
+  "DB_PORT": "5432",
+  "DB_USER": "ohdsi",
+  "DB_PASS": "change_me",
+  "DB_DRIVER_PATH": "",
+  "extraSettings": "sslmode=disable"
+}
+```
+
+- Template `strategus-execution-settings.json`
+
+```
+{
+  "cdmDatabaseSchema": "cdm_schema",
+  "workDatabaseSchema": "work_schema",
+  "resultsDatabaseSchema": "results_schema",
+  "vocabularyDatabaseSchema": "vocab_schema",
+  "cohortTable": "cohort",
+  "workFolder": "demo-strategus-cohort-incidence/work",
+  "resultsFolder": "demo-strategus-cohort-incidence/results",
+  "cohortIdFieldName": "cohort_definition_id"
+}
+```
+
+
 ## Notes
 
 - If improvements were applied during the shell session, the scripts are a portable record and do not need to re-apply the same changes.

@@ -418,7 +418,7 @@ Using file paths:
 ```bash
 curl -s -X POST http://127.0.0.1:8765/flows/phenotype_improvements \
   -H 'Content-Type: application/json' \
-  -d '{"protocol_path":"demo/protocol.md","cohort_paths":["demo/1197_Acute_gastrointestinal_bleeding.json"]}'
+  -d '{"protocol_path":"scripts/protocol.md","cohort_paths":["scripts/1197_Acute_gastrointestinal_bleeding.json"]}'
 ```
 
 Concept sets review:
@@ -442,11 +442,11 @@ Using file paths:
 ```bash
 curl -s -X POST http://127.0.0.1:8765/flows/concept_sets_review \
   -H 'Content-Type: application/json' \
-  -d '{"concept_set_path":"demo/concept_set.json","study_intent":"Example intent"}'
+  -d '{"concept_set_path":"scripts/concept_set.json","study_intent":"Example intent"}'
 
 curl -s -X POST http://127.0.0.1:8765/flows/cohort_critique_general_design \
   -H 'Content-Type: application/json' \
-  -d '{"cohort_path":"demo/cohort_definition.json"}'
+  -d '{"cohort_path":"scripts/cohort_definition.json"}'
 ```
 
 Phenotype validation review (single patient):

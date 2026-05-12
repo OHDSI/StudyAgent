@@ -122,11 +122,39 @@ The following directories are created under `outputDir`:
 - `scripts/05_diagnostics.R`
 - `scripts/06_cm_spec.R`
 
+
 Generated scripts that connect to the database expect these site-specific files at the root of
 `outputDir`:
 
-- `strategus-db-details.json`
-- `strategus-execution-settings.json`
+- Template `strategus-db-details.json`
+
+```
+{
+  "dbms": "postgresql",
+  "DB_SERVER": "localhost",
+  "DB_PORT": "5432",
+  "DB_USER": "ohdsi",
+  "DB_PASS": "change_me",
+  "DB_DRIVER_PATH": "",
+  "extraSettings": "sslmode=disable"
+}
+```
+
+- Template `strategus-execution-settings.json`
+
+```
+{
+  "cdmDatabaseSchema": "cdm_schema",
+  "workDatabaseSchema": "work_schema",
+  "resultsDatabaseSchema": "results_schema",
+  "vocabularyDatabaseSchema": "vocab_schema",
+  "cohortTable": "cohort",
+  "workFolder": "demo-strategus-cohort-incidence/work",
+  "resultsFolder": "demo-strategus-cohort-incidence/results",
+  "cohortIdFieldName": "cohort_definition_id"
+}
+```
+
 
 Current Keeper specifics:
 
