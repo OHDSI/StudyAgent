@@ -31,7 +31,7 @@ slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell(
   indexDir = "data/phenotype_index_cipher_omop",
   incidenceOutputDir = "demo-strategus-cohort-incidence",
   studyIntent = paste(
-    "Compare olanzapine new users vs risperidone new users for acute myocardial infarction.",
+    "Compare thiazide or thiazide-like diuretic new users vs angiotensin-converting enzyme inhibitors new users for acute myocardial infarction.",
     "Use a 365-day washout, intent-to-treat follow-up, 1:1 propensity score matching",
     "on standardized logit with a caliper of 0.2, and a Cox model."
   )
