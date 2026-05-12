@@ -265,8 +265,13 @@ class PhenotypeIndex:
                 {
                     "phenotype_id": row.get("phenotype_id"),
                     "source_dataset": row.get("source_dataset"),
+                    "source_record_type": row.get("source_record_type"),
                     "name": row.get("name"),
                     "short_description": row.get("short_description"),
+                    "primary_clinical_topic": row.get("primary_clinical_topic") or "",
+                    "phenotype_role": row.get("phenotype_role") or "unknown",
+                    "care_setting_scope": row.get("care_setting_scope") or "unspecified",
+                    "population_scope": row.get("population_scope") or "",
                     "tags": row.get("tags") or [],
                     "signals": row.get("signals") or [],
                     "executable_definition_status": row.get("executable_definition_status"),

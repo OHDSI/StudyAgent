@@ -15,7 +15,7 @@ repo_root <- set_study_agent_repo_root(start = dirname(script_dir))
 load_study_agent_r_packages(include_strategus = TRUE)
 
 ## Optional reset from a prior run.
-# reset_demo_output_dir(repo_file("demo-strategus-cohort-incidence"), prompt = TRUE)
+reset_demo_output_dir(repo_file("demo-strategus-cohort-incidence"), prompt = TRUE)
 
 Sys.setenv(ACP_TIMEOUT = "280")
 invisible(connect_study_agent_acp())

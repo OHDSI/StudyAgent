@@ -90,7 +90,7 @@ If you change R demo scripts, run parse checks with `Rscript -e "parse(file='...
 
 ## Security and data handling
 
-- No PHI/PII should be sent to LLMs.
+- No PHI/PII should *EVER* be sent to LLMs.
 - `phenotype_validation_review` must go through Keeper sanitization before prompt construction.
 - `keeper_profiles_generate` is deterministic only; any downstream LLM use still requires the sanitization gate.
 - Treat row-level data handling as safety-critical. Preserve fail-closed behavior.
@@ -155,11 +155,12 @@ Demo shell:
 
 - [README.md](README.md)
 - [docs/TESTING.md](docs/TESTING.md)
-- [docs/PHENOTYPE_RECOMMENDATION_DESIGN.md](docs/PHENOTYPE_RECOMMENDATION_DESIGN.md)
+- [docs/WORKFLOW_PHENOTYPE_RECOMMENDATION.md](docs/WORKFLOW_PHENOTYPE_RECOMMENDATION.md)
 - [docs/PHENOTYPE_VALIDATION_REVIEW.md](docs/PHENOTYPE_VALIDATION_REVIEW.md)
-- [docs/KEEPER_INTERFACE_SPEC.md](docs/KEEPER_INTERFACE_SPEC.md)
-- [docs/STRATEGUS_SHELL.md](docs/STRATEGUS_SHELL.md)
-- [docs/INCIDENCE_WORKFLOW.md](docs/INCIDENCE_WORKFLOW.md)
+- [docs/SPEC_KEEPER_INTERFACE.md](docs/SPEC_KEEPER_INTERFACE.md)
+- [docs/R_STRATEGUS_INCIDENCE_SHELL.md](docs/R_STRATEGUS_INCIDENCE_SHELL.md)
+- [docs/R_STRATEGUS_COHORT_METHODS_SHELL.md](docs/R_STRATEGUS_COHORT_METHODS_SHELL.md)
+- [docs/WORKFLOW_INCIDENCE.md](docs/WORKFLOW_INCIDENCE.md)
 - [docs/ROADMAP.md](docs/ROADMAP.md)
 - [docs/R_PACKAGE_ARCHITECTURE_PLAN.md](docs/R_PACKAGE_ARCHITECTURE_PLAN.md)
 

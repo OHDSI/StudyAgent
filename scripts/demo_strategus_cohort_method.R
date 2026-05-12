@@ -20,7 +20,7 @@ Sys.setenv(PHENOTYPE_INDEX_DIR = repo_file("data", "phenotype_index_cipher_omop"
 invisible(connect_study_agent_acp())
 
 ### Optional reset from a prior run.
-# reset_demo_output_dir(repo_file("demo-strategus-cohort-method"), prompt = TRUE)
+#reset_demo_output_dir(repo_file("demo-strategus-cohort-method"), prompt = TRUE)
 #
 # If you already ran `scripts/test_strategus_incidence_plus_keeper.R`, this shell can
 # reuse cached target and outcome artifacts from `demo-strategus-cohort-incidence`.
@@ -31,7 +31,7 @@ slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell(
   indexDir = "data/phenotype_index_cipher_omop",
   incidenceOutputDir = "demo-strategus-cohort-incidence",
   studyIntent = paste(
-    "Compare sitagliptin new users vs glipizide new users for acute myocardial infarction.",
+    "Compare olanzapine new users vs risperidone new users for acute myocardial infarction.",
     "Use a 365-day washout, intent-to-treat follow-up, 1:1 propensity score matching",
     "on standardized logit with a caliper of 0.2, and a Cox model."
   )

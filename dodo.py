@@ -5,6 +5,7 @@ import os
 import socket
 import subprocess
 import time
+import urllib.error
 import urllib.request
 from urllib.parse import urlparse
 
@@ -714,9 +715,12 @@ def task_smoke_cohort_critique_flow():
             require_mcp = bool(env.get("STUDY_AGENT_MCP_URL") or env.get("STUDY_AGENT_MCP_COMMAND"))
             _wait_for_acp("http://127.0.0.1:8765/health", timeout_s=30, require_mcp=require_mcp)
             print("Running cohort critique flow smoke test...")
+            cohort_path = os.path.join(os.path.dirname(__file__), "scripts", "cohort_definition.json")
+            with open(cohort_path, "r", encoding="utf-8") as handle:
+                cohort = json.load(handle)
             payload = json.dumps(
                 {
-                    "cohort_path": "demo/cohort_definition.json",
+                    "cohort": cohort,
                 }
             ).encode("utf-8")
             req = urllib.request.Request(
@@ -725,9 +729,14 @@ def task_smoke_cohort_critique_flow():
                 method="POST",
             )
             req.add_header("Content-Type", "application/json")
-            with urllib.request.urlopen(req, timeout=int(env.get("ACP_TIMEOUT", "180"))) as response:
-                body = response.read().decode("utf-8")
-                print(body)
+            try:
+                with urllib.request.urlopen(req, timeout=int(env.get("ACP_TIMEOUT", "180"))) as response:
+                    body = response.read().decode("utf-8")
+                    print(body)
+            except urllib.error.HTTPError as exc:
+                error_body = exc.read().decode("utf-8", errors="replace")
+                print(error_body)
+                raise
             print(f"ACP logs: {acp_stdout} {acp_stderr}")
         finally:
             print("Stopping ACP...")

@@ -5485,6 +5485,47 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     comparator_ids = as.integer(new_comparator_id),
     outcome_ids = as.integer(new_outcome_ids)
   )
+  seed_strategus_runtime_templates <- function(base_dir) {
+    db_details_path <- file.path(base_dir, "strategus-db-details.json")
+    execution_settings_path <- file.path(base_dir, "strategus-execution-settings.json")
+
+    if (!file.exists(db_details_path)) {
+      write_json(list(
+        dbms = "postgresql",
+        DB_SERVER = "",
+        DB_PORT = "5432",
+        DB_USER = "",
+        DB_PASS = "",
+        DB_DRIVER_PATH = "",
+        extraSettings = "sslmode=disable"
+      ), db_details_path)
+    }
+
+    if (!file.exists(execution_settings_path)) {
+      write_json(list(
+        cdmDatabaseSchema = "",
+        workDatabaseSchema = "",
+        resultsDatabaseSchema = "",
+        vocabularyDatabaseSchema = "",
+        cohortTable = "cohort",
+        workFolder = file.path(base_dir, "work"),
+        resultsFolder = file.path(base_dir, "results"),
+        cohortIdFieldName = "cohort_definition_id",
+        maxCores = 4
+      ), execution_settings_path)
+    }
+
+    list(
+      db_details_path = db_details_path,
+      execution_settings_path = execution_settings_path
+    )
+  }
+
+  runtime_template_paths <- seed_strategus_runtime_templates(base_dir)
+  db_details_path <- runtime_template_paths$db_details_path
+  execution_settings_path <- runtime_template_paths$execution_settings_path
+  state$strategus_db_details_path <- db_details_path
+  state$strategus_execution_settings_path <- execution_settings_path
   write_json(state, state_path)
 
   keeper_review_state_path <- file.path(output_dir, "keeper_review_state.json")
@@ -5538,7 +5579,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
       keeper_review_result <- tryCatch(
         runKeeperReviewWorkflow(
           base_dir = base_dir,
-          execution_settings_path = file.path(base_dir, "strategus-execution-settings.json"),
+          execution_settings_path = execution_settings_path,
           cohort_id_map_path = cohort_id_map_path,
           cohort_roles_path = cohort_roles_path,
           intent_path = cohort_methods_intent_split_path,

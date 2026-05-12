@@ -21,7 +21,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
                                       studyIntent = NULL,
                                       topK = 20,
                                       maxResults = 20,
-                                      candidateLimit = 20,
+                                      candidateLimit = 5,
                                       indexDir = Sys.getenv("PHENOTYPE_INDEX_DIR", "data/phenotype_index"),
                                       interactive = TRUE,
                                       bannerPath = "ohdsi-logo-ascii.txt",
@@ -1212,6 +1212,48 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     improvements_applied = improvements_applied
   )
   state_path <- file.path(output_dir, "study_agent_state.json")
+
+  seed_strategus_runtime_templates <- function(base_dir) {
+    db_details_path <- file.path(base_dir, "strategus-db-details.json")
+    execution_settings_path <- file.path(base_dir, "strategus-execution-settings.json")
+
+    if (!file.exists(db_details_path)) {
+      write_json(list(
+        dbms = "postgresql",
+        DB_SERVER = "",
+        DB_PORT = "5432",
+        DB_USER = "",
+        DB_PASS = "",
+        DB_DRIVER_PATH = "",
+        extraSettings = "sslmode=disable"
+      ), db_details_path)
+    }
+
+    if (!file.exists(execution_settings_path)) {
+      write_json(list(
+        cdmDatabaseSchema = "",
+        workDatabaseSchema = "",
+        resultsDatabaseSchema = "",
+        vocabularyDatabaseSchema = "",
+        cohortTable = "cohort",
+        workFolder = file.path(base_dir, "work"),
+        resultsFolder = file.path(base_dir, "results"),
+        cohortIdFieldName = "cohort_definition_id",
+        maxCores = 4
+      ), execution_settings_path)
+    }
+
+    list(
+      db_details_path = db_details_path,
+      execution_settings_path = execution_settings_path
+    )
+  }
+
+  runtime_template_paths <- seed_strategus_runtime_templates(base_dir)
+  db_details_path <- runtime_template_paths$db_details_path
+  execution_settings_path <- runtime_template_paths$execution_settings_path
+  state$strategus_db_details_path <- db_details_path
+  state$strategus_execution_settings_path <- execution_settings_path
   write_json(state, state_path)
 
   keeper_review_state_path <- file.path(output_dir, "keeper_review_state.json")
@@ -1225,7 +1267,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   keeper_review_result <- NULL
 
   if (isTRUE(interactive)) {
-    run_keeper_review_now <- prompt_yesno("Run ACP-based Keeper review now?", default = FALSE)
+    run_keeper_review_now <- prompt_yesno(paste("Run Keeper review now? (first edit db/execution conf ", db_details_path, ",", execution_settings_path, ") [y/N]"), default = FALSE)
     if (isTRUE(run_keeper_review_now)) {
       entered_roles <- trimws(readline_with_dialogue("Keeper review roles [outcome]: "))
       keeper_review_roles <- if (!nzchar(entered_roles)) "outcome" else trimws(strsplit(entered_roles, ",", fixed = TRUE)[[1]])
@@ -1263,7 +1305,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
       keeper_review_result <- tryCatch(
         runKeeperReviewWorkflow(
           base_dir = base_dir,
-          execution_settings_path = file.path(base_dir, "strategus-execution-settings.json"),
+          execution_settings_path = execution_settings_path,
           cohort_id_map_path = file.path(output_dir, "cohort_id_map.json"),
           cohort_roles_path = roles_path,
           intent_path = intent_split_path,
@@ -1544,9 +1586,11 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "sql_dir <- file.path(selected_dir, 'sql')",
     "dir.create(sql_dir, recursive = TRUE, showWarnings = FALSE)",
     "",
-    "connectionDetails <- slashOhdsiStrategusAssistant::createStrategusConnectionDetails(path='<FILL IN>')",
+    "db_details_path <- file.path(base_dir, 'strategus-db-details.json')",
+    "execution_settings_path <- file.path(base_dir, 'strategus-execution-settings.json')",
+    "connectionDetails <- slashOhdsiStrategusAssistant::createStrategusConnectionDetails(path = db_details_path)",
     "dbms <- connectionDetails$dbms %||% 'postgresql'",
-    "exec <- slashOhdsiStrategusAssistant::createStrategusExecutionSettings()",
+    "exec <- slashOhdsiStrategusAssistant::createStrategusExecutionSettings(path = execution_settings_path)",
     "executionSettings_cohorts <- exec$executionSettings",
     "cdmDatabaseSchema <- exec$cdmDatabaseSchema",
     "workDatabaseSchema <- exec$workDatabaseSchema",
@@ -1634,13 +1678,12 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "# Edit these defaults as needed before running the ACP-based Keeper workflow.",
     "review_roles <- c('outcome')",
     "domain_keys <- c(",
-    "  'doi', 'alternativeDiagnosis', 'symptoms', 'drugs',",
-    "  'diagnosticProcedures', 'measurements', 'treatmentProcedures', 'complications'",
-    ")",
-    "candidate_limit <- 50",
-    "sample_size <- 20",
+    "  'doi', 'drugs'", 
+    ") # NOTE: you could also add 'alternativeDiagnosis', 'symptoms', 'diagnosticProcedures', 'measurements', 'treatmentProcedures', and 'complications' but need to increase the ACP_TIMOUT env variable 3-5 minutes per domain",
+    "candidate_limit <- 5",
+    "sample_size <- 5",
     "review_row_limit <- 5",
-    "acp_timeout_seconds <- as.numeric(Sys.getenv('ACP_TIMEOUT', '300'))",
+    "acp_timeout_seconds <- as.numeric(Sys.getenv('ACP_TIMEOUT', '600'))",
     "Sys.setenv(ACP_TIMEOUT = as.character(acp_timeout_seconds))",
     "reuse_generated_concept_sets <- TRUE",
     "overwrite_approved_concept_sets <- FALSE",
@@ -1658,7 +1701,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "  acp_url = acp_url,",
     "  acp_timeout_seconds = acp_timeout_seconds,",
     "  review_roles = review_roles,",
-    "  domain_keys = domain_keys,",
+    "  domain_keys = domain_keys,  # NOTE: full set of options are as follows but set the ACP_TIMOUT to be > 10 minutes before attempting all of them: doi, alternativeDiagnosis, symptoms, drugs, diagnosticProcedures, measurements, treatmentProcedures, complications",
     "  candidate_limit = candidate_limit,",
     "  sample_size = sample_size,",
     "  review_row_limit = review_row_limit,",
@@ -1707,8 +1750,10 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "sql_dir <- file.path(selected_dir, 'sql')",
     "dir.create(sql_dir, recursive = TRUE, showWarnings = FALSE)",
     "",
-    "connectionDetails <- slashOhdsiStrategusAssistant::createStrategusConnectionDetails(path='<FILL IN>')",
-    "exec <- slashOhdsiStrategusAssistant::createStrategusExecutionSettings(path='<FILL IN>')",
+    "db_details_path <- file.path(base_dir, 'strategus-db-details.json')",
+    "execution_settings_path <- file.path(base_dir, 'strategus-execution-settings.json')",
+    "connectionDetails <- slashOhdsiStrategusAssistant::createStrategusConnectionDetails(path = db_details_path)",
+    "exec <- slashOhdsiStrategusAssistant::createStrategusExecutionSettings(path = execution_settings_path)",
     "executionSettings_diagnostics <- exec$executionSettings",
     "",
     "cohortDefinitionSet <- CohortGenerator::getCohortDefinitionSet(",
@@ -1781,8 +1826,10 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     "sql_dir <- file.path(selected_dir, 'sql')",
     "dir.create(sql_dir, recursive = TRUE, showWarnings = FALSE)",
     "",
-    "connectionDetails <- slashOhdsiStrategusAssistant::createStrategusConnectionDetails(path='<FILL IN>')",
-    "exec <- slashOhdsiStrategusAssistant::createStrategusExecutionSettings(path='<FILL IN>')",
+    "db_details_path <- file.path(base_dir, 'strategus-db-details.json')",
+    "execution_settings_path <- file.path(base_dir, 'strategus-execution-settings.json')",
+    "connectionDetails <- slashOhdsiStrategusAssistant::createStrategusConnectionDetails(path = db_details_path)",
+    "exec <- slashOhdsiStrategusAssistant::createStrategusExecutionSettings(path = execution_settings_path)",
     "executionSettings_incidence <- exec$executionSettings",
     "",
     "cohortDefinitionSet <- CohortGenerator::getCohortDefinitionSet(",
@@ -1792,21 +1839,26 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     ")",
     "",
     "roles <- jsonlite::fromJSON(file.path(output_dir, 'cohort_roles.json'), simplifyVector = TRUE)",
-    "target_ids <- as.character(roles$targets %||% character(0))",
-    "outcome_ids <- as.character(roles$outcomes %||% character(0))",
+    "target_ids <- suppressWarnings(as.integer(unlist(roles$targets %||% integer(0), use.names = FALSE)))",
+    "outcome_ids <- suppressWarnings(as.integer(unlist(roles$outcomes %||% integer(0), use.names = FALSE)))",
+    "target_ids <- target_ids[!is.na(target_ids)]",
+    "outcome_ids <- outcome_ids[!is.na(outcome_ids)]",
     "if (length(target_ids) == 0) stop('No target cohorts defined in cohort_roles.json')",
     "if (length(outcome_ids) == 0) stop('No outcome cohorts defined in cohort_roles.json')",
+    "cohortDefinitionSet$cohortId <- suppressWarnings(as.integer(cohortDefinitionSet$cohortId))",
     "cgModule <- CohortGeneratorModule$new()",
     "cohortDefinitionSharedResource <- cgModule$createCohortSharedResourceSpecifications(",
     "  cohortDefinitionSet = cohortDefinitionSet",
     ")",
     "targets <- lapply(target_ids, function(id) {",
     "  row <- cohortDefinitionSet[cohortDefinitionSet$cohortId == id, ]",
-    "  CohortIncidence::createCohortRef(id = id, name = row$cohortName[1])",
+    "  if (nrow(row) == 0) stop('Target cohort id not found in Cohorts.csv: ', id)",
+    "  CohortIncidence::createCohortRef(id = as.integer(id), name = row$cohortName[1])",
     "})",
     "outcomes <- lapply(outcome_ids, function(id) {",
     "  row <- cohortDefinitionSet[cohortDefinitionSet$cohortId == id, ]",
-    "  CohortIncidence::createOutcomeDef(id = id, name = row$cohortName[1])",
+    "  if (nrow(row) == 0) stop('Outcome cohort id not found in Cohorts.csv: ', id)",
+    "  CohortIncidence::createOutcomeDef(id = as.integer(id), name = row$cohortName[1])",
     "})",
     "tar_settings <- jsonlite::fromJSON(time_at_risk_settings_path, simplifyVector = FALSE)",
     "tar_defs <- tar_settings$time_at_risk_defs %||% list()",
