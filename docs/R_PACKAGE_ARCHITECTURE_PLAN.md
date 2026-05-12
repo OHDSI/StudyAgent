@@ -14,9 +14,9 @@ The original combined R package mixed three responsibilities:
 
 That coupling is visible in the split code that replaced it:
 
-- [`R/slashOhdsiAcpClient/R/client.R`](/ai-agent/HadesProject/OHDSI-Study-Agent/R/slashOhdsiAcpClient/R/client.R) owns connection state and raw POST behavior
-- [`R/slashOhdsiAcpClient/R/compatibility_api.R`](/ai-agent/HadesProject/OHDSI-Study-Agent/R/slashOhdsiAcpClient/R/compatibility_api.R), [`R/slashOhdsiAcpClient/R/lint_and_concept_sets.R`](/ai-agent/HadesProject/OHDSI-Study-Agent/R/slashOhdsiAcpClient/R/lint_and_concept_sets.R), and [`R/slashOhdsiAcpClient/R/actions_and_lint.R`](/ai-agent/HadesProject/OHDSI-Study-Agent/R/slashOhdsiAcpClient/R/actions_and_lint.R) now own the thin flow/action wrappers
-- [`R/slashOhdsiStrategusAssistant/R/strategus_incidence_shell.R`](/ai-agent/HadesProject/OHDSI-Study-Agent/R/slashOhdsiStrategusAssistant/R/strategus_incidence_shell.R) and [`R/slashOhdsiStrategusAssistant/R/strategus_cohort_methods_shell.R`](/ai-agent/HadesProject/OHDSI-Study-Agent/R/slashOhdsiStrategusAssistant/R/strategus_cohort_methods_shell.R) own interactive workflow state, checkpoints, artifact layout, and script generation
+- [`R/slashOhdsiAcpClient/R/client.R`](../R/slashOhdsiAcpClient/R/client.R) owns connection state and raw POST behavior
+- [`R/slashOhdsiAcpClient/R/compatibility_api.R`](../R/slashOhdsiAcpClient/R/compatibility_api.R), [`R/slashOhdsiAcpClient/R/lint_and_concept_sets.R`](../R/slashOhdsiAcpClient/R/lint_and_concept_sets.R), and [`R/slashOhdsiAcpClient/R/actions_and_lint.R`](../R/slashOhdsiAcpClient/R/actions_and_lint.R) now own the thin flow/action wrappers
+- [`R/slashOhdsiStrategusAssistant/R/strategus_incidence_shell.R`](../R/slashOhdsiStrategusAssistant/R/strategus_incidence_shell.R) and [`R/slashOhdsiStrategusAssistant/R/strategus_cohort_methods_shell.R`](../R/slashOhdsiStrategusAssistant/R/strategus_cohort_methods_shell.R) own interactive workflow state, checkpoints, artifact layout, and script generation
 
 The package split isolated those concerns before more `/ohdsi` dialogue work, incidence-shell extension, and concept-set generation integration are added.
 

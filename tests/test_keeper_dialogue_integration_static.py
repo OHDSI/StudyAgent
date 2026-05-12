@@ -1,11 +1,12 @@
 from pathlib import Path
 
+from _repo_paths import repo_path
 
-MAPPING_SOURCE = Path("/ai-agent/HadesProject/OHDSI-Study-Agent/R/slashOhdsiStrategusAssistant/R/workflow_dialogue_mapping.R")
-HELPER_SOURCE = Path("/ai-agent/HadesProject/OHDSI-Study-Agent/R/slashOhdsiStrategusAssistant/R/keeper_review_workflow.R")
-COHORT_SOURCE = Path("/ai-agent/HadesProject/OHDSI-Study-Agent/R/slashOhdsiStrategusAssistant/R/strategus_cohort_methods_shell.R")
-INCIDENCE_SOURCE = Path("/ai-agent/HadesProject/OHDSI-Study-Agent/R/slashOhdsiStrategusAssistant/R/strategus_incidence_shell.R")
 
+MAPPING_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workflow_dialogue_mapping.R")
+HELPER_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "keeper_review_workflow.R")
+COHORT_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_cohort_methods_shell.R")
+INCIDENCE_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_incidence_shell.R")
 
 def test_keeper_stage_labels_exist_for_both_shells() -> None:
     source = MAPPING_SOURCE.read_text(encoding="utf-8")

@@ -19,9 +19,8 @@ Sys.setenv(ACP_TIMEOUT = "180")
 Sys.setenv(PHENOTYPE_INDEX_DIR = repo_file("data", "phenotype_index_cipher_omop"))
 invisible(connect_study_agent_acp())
 
-### CLEAN UP FROM LAST RUN?
-# Uncomment to reset the state of the output folder.
-#unlink(repo_file("demo-strategus-cohort-method"), recursive = TRUE, force = TRUE)
+### Optional reset from a prior run.
+# reset_demo_output_dir(repo_file("demo-strategus-cohort-method"), prompt = TRUE)
 #
 # If you already ran `scripts/test_strategus_incidence_plus_keeper.R`, this shell can
 # reuse cached target and outcome artifacts from `demo-strategus-cohort-incidence`.

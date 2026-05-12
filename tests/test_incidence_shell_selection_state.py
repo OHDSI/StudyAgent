@@ -1,8 +1,9 @@
 from pathlib import Path
 
+from _repo_paths import repo_path
 
-SOURCE = Path("/ai-agent/HadesProject/OHDSI-Study-Agent/R/slashOhdsiStrategusAssistant/R/strategus_incidence_shell.R")
 
+SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_incidence_shell.R")
 
 def test_outcome_selection_state_is_initialized_before_target_mapping_prompt() -> None:
     source = SOURCE.read_text(encoding="utf-8")
@@ -62,4 +63,3 @@ def test_generated_incidence_script_uses_persisted_time_at_risk_settings() -> No
     assert "CohortIncidence::createTimeAtRiskDef(id = 2, startWith = 'start', endWith = 'start', endOffset = 365)" not in block
     assert 'tars = c(1, 2)' not in block
     assert 'createStrataSettings(byYear = TRUE, byGender = TRUE)' not in block
-

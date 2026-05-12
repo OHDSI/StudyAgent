@@ -1,9 +1,10 @@
 from pathlib import Path
 
+from _repo_paths import repo_path
 
-FLOWS_SOURCE = Path("R/slashOhdsiAcpClient/R/flows.R")
-DEMO_SOURCE = Path("scripts/demo_ohdsi_dialogue.R")
 
+FLOWS_SOURCE = repo_path("R", "slashOhdsiAcpClient", "R", "flows.R")
+DEMO_SOURCE = repo_path("scripts", "demo_ohdsi_dialogue.R")
 
 def test_r_workflow_context_dialogue_wrapper_flattens_stage_context() -> None:
     source = FLOWS_SOURCE.read_text(encoding="utf-8")

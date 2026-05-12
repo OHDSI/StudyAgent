@@ -71,3 +71,16 @@ connect_study_agent_acp <- function(acp_url = Sys.getenv("ACP_URL", "http://127.
   slashOhdsiAcpClient::acp_connect(acp_url)
   slashOhdsiAcpClient::acp_get_default_client()
 }
+
+reset_demo_output_dir <- function(path, prompt = interactive(), default = FALSE) {
+  path <- normalizePath(path, winslash = "/", mustWork = FALSE)
+  if (!dir.exists(path)) return(invisible(FALSE))
+  if (isTRUE(prompt)) {
+    suffix <- if (isTRUE(default)) "[Y/n]" else "[y/N]"
+    answer <- tolower(trimws(readline(sprintf("Delete existing output directory '%s'? %s ", path, suffix))))
+    confirmed <- if (!nzchar(answer)) isTRUE(default) else answer %in% c("y", "yes")
+    if (!confirmed) return(invisible(FALSE))
+  }
+  unlink(path, recursive = TRUE, force = TRUE)
+  invisible(TRUE)
+}

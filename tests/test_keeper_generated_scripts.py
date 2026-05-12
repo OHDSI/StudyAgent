@@ -1,9 +1,10 @@
 from pathlib import Path
 
+from _repo_paths import repo_path
 
-COHORT_SOURCE = Path("/ai-agent/HadesProject/OHDSI-Study-Agent/R/slashOhdsiStrategusAssistant/R/strategus_cohort_methods_shell.R")
-INCIDENCE_SOURCE = Path("/ai-agent/HadesProject/OHDSI-Study-Agent/R/slashOhdsiStrategusAssistant/R/strategus_incidence_shell.R")
 
+COHORT_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_cohort_methods_shell.R")
+INCIDENCE_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_incidence_shell.R")
 
 def _generated_script_block(source: str, script_name: str, filename: str) -> str:
     start = source.index(f"{script_name} <- c(")

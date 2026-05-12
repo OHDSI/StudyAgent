@@ -1,7 +1,8 @@
 from pathlib import Path
 
-SOURCE = Path("R/slashOhdsiStrategusAssistant/R/strategus_cohort_methods_shell.R")
+from _repo_paths import repo_path
 
+SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_cohort_methods_shell.R")
 
 def test_shell_supports_namespaced_recommendation_ids_and_blocks_unsupported_selection() -> None:
     source = SOURCE.read_text(encoding="utf-8")

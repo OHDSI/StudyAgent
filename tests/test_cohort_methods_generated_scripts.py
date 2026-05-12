@@ -4,10 +4,11 @@ import subprocess
 
 import pytest
 
+from _repo_paths import repo_path
 
-SOURCE = Path("R/slashOhdsiStrategusAssistant/R/strategus_cohort_methods_shell.R")
-EXECUTION_SETTINGS_SOURCE = Path("R/slashOhdsiStrategusAssistant/R/execution_settings.R")
 
+SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_cohort_methods_shell.R")
+EXECUTION_SETTINGS_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "execution_settings.R")
 
 def _generated_script_block(source: str, script_name: str, filename: str) -> str:
     start = source.index(f"{script_name} <- c(")

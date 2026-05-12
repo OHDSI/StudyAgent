@@ -65,8 +65,9 @@ flowchart TD
 
   AJ --> AT["Confirm Analytic Settings"]
   AS --> AT
-  AT --> AU["Write Outputs + Generate Scripts 02-06"]
-  AU --> AV["End"]
+  AT --> AU["Optional inline ACP Keeper review"]
+  AU --> AV["Write Outputs + Generate Scripts 02-06"]
+  AV --> AW["End"]
 ```
 
 ## Strategus Execution Context
@@ -81,30 +82,39 @@ flowchart TD
   E --> F["Cohort Table in CDM"]
 
   C --> G["04_keeper_review.R"]
-  G --> H["Keeper Case Review"]
-  H --> I["Optional: refine phenotypes"]
-  I --> B
+  G --> H["ACP Keeper flow"]
+  H --> I["Concept-set generation"]
+  H --> J["Keeper profile extraction"]
+  H --> K["Phenotype validation review"]
+  K --> L["Optional phenotype refinement"]
+  L --> B
 
-  C --> J["05_diagnostics.R"]
-  J --> K["CohortDiagnostics"]
+  C --> M["05_diagnostics.R"]
+  M --> N["CohortDiagnostics"]
 
-  C --> L["outputs/cm_analysis_defaults.json"]
-  C --> M["analysis-settings/cmAnalysis.json"]
-  C --> N["outputs/cm_comparisons.json"]
-  C --> O["selected or patched cohort definitions"]
+  C --> O["outputs/cm_analysis_defaults.json"]
+  C --> P["analysis-settings/cmAnalysis.json"]
+  C --> Q["outputs/cm_comparisons.json"]
+  C --> R["selected or patched cohort definitions"]
 
-  L --> P["06_cm_spec.R"]
-  M --> P
-  N --> P
-  O --> P
-  F --> P
-  K --> P
+  O --> S["06_cm_spec.R"]
+  P --> S
+  Q --> S
+  R --> S
+  F --> S
+  N --> S
 
-  P --> Q["analysis-settings/analysisSpecification.json"]
-  Q --> R["Shared Cohort Resource"]
-  Q --> S["CharacterizationModule Spec"]
-  Q --> T["CohortIncidenceModule Spec"]
-  Q --> U["CohortMethodModule Spec"]
-  Q --> V["Strategus::execute"]
-  V --> W["CohortMethod Results + Strategus Execute Result"]
+  S --> T["analysis-settings/analysisSpecification.json"]
+  T --> U["Shared Cohort Resource"]
+  T --> V["CharacterizationModule Spec"]
+  T --> W["CohortIncidenceModule Spec"]
+  T --> X["CohortMethodModule Spec"]
+  T --> Y["Strategus::execute"]
+  Y --> Z["CohortMethod Results + Strategus Execute Result"]
 ```
+
+## Current Explicit Limitations
+
+- Negative-control and covariate concept-set workflows are still placeholder-based.
+- Cohort-method generation currently materializes only the first comparison from `cm_comparisons.json`.
+- ACP analytic-settings recommendations are converted into shell settings, but a dedicated recommendation validation layer is still pending.

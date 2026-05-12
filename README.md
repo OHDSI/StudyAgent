@@ -29,7 +29,7 @@ This repo addresses those bottlenecks by combining:
 - phenotype retrieval from an indexed phenotype library
 - constrained LLM ranking or critique with deterministic validation
 - Keeper-oriented tooling for concept generation, OMOP profile extraction, and row-level adjudication using sanitized summaries only
-- an R shell that turns selected cohorts into a reproducible Strategus incidence workflow
+- R shells that turn selected cohorts into reproducible Strategus incidence and cohort-method workflows
 
 At no point should raw row-level patient data be sent directly to an LLM.
 
@@ -55,13 +55,13 @@ Related implemented flows:
 - `concept_sets_review`
 - `cohort_critique_general_design`
 
-This same recommendation path is already wired into the R Strategus incidence shell for target/outcome selection.
+This same recommendation path is already wired into the R Strategus incidence shell and the cohort-method shell.
 
 Primary references:
 
-- [docs/PHENOTYPE_RECOMMENDATION_DESIGN.md](/ai-agent/HadesProject/OHDSI-Study-Agent/docs/PHENOTYPE_RECOMMENDATION_DESIGN.md)
-- [docs/STRATEGUS_SHELL.md](/ai-agent/HadesProject/OHDSI-Study-Agent/docs/STRATEGUS_SHELL.md)
-- [docs/INCIDENCE_WORKFLOW.md](/ai-agent/HadesProject/OHDSI-Study-Agent/docs/INCIDENCE_WORKFLOW.md)
+- [docs/PHENOTYPE_RECOMMENDATION_DESIGN.md](docs/PHENOTYPE_RECOMMENDATION_DESIGN.md)
+- [docs/STRATEGUS_SHELL.md](docs/STRATEGUS_SHELL.md)
+- [docs/INCIDENCE_WORKFLOW.md](docs/INCIDENCE_WORKFLOW.md)
 
 ### 2. Keeper-Assisted Phenotype Validation
 
@@ -80,12 +80,13 @@ Current characteristics:
 - concept generation can use Hecate-backed, generic-search, or DB-backed vocabulary tooling
 - profile extraction is deterministic only and does not call an LLM
 - downstream adjudication is constrained by fail-closed sanitization and a small label set
+- the R Strategus shells now generate ACP-based `04_keeper_review.R` scripts that persist Keeper workflow state for reuse and resume
 
 Primary references:
 
-- [docs/KEEPER_INTERFACE_SPEC.md](/ai-agent/HadesProject/OHDSI-Study-Agent/docs/KEEPER_INTERFACE_SPEC.md)
-- [docs/PHENOTYPE_VALIDATION_REVIEW.md](/ai-agent/HadesProject/OHDSI-Study-Agent/docs/PHENOTYPE_VALIDATION_REVIEW.md)
-- [docs/TESTING.md](/ai-agent/HadesProject/OHDSI-Study-Agent/docs/TESTING.md)
+- [docs/KEEPER_INTERFACE_SPEC.md](docs/KEEPER_INTERFACE_SPEC.md)
+- [docs/PHENOTYPE_VALIDATION_REVIEW.md](docs/PHENOTYPE_VALIDATION_REVIEW.md)
+- [docs/TESTING.md](docs/TESTING.md)
 
 ## End-To-End Workflows
 
@@ -173,7 +174,7 @@ export LLM_MODEL=<MODEL_NAME>
 
 This has been tested with [Open webui](https://docs.openwebui.com/), with locally hosted models, and [LLM Shim](https://github.com/dbmi-pitt/llm-shim) with access to cloud services (tested with openai and bedrock models) and an embedding model serviced using the HugginFace Text Embedding Interface service. 
 
-If you want phenotype retrieval, you also need an indexed phenotype library. See [docs/PHENOTYPE_INDEXING.md](/ai-agent/HadesProject/OHDSI-Study-Agent/docs/PHENOTYPE_INDEXING.md).
+If you want phenotype retrieval, you also need an indexed phenotype library. See [docs/PHENOTYPE_INDEXING.md](docs/PHENOTYPE_INDEXING.md).
 
 Current indexing workflow:
 
@@ -227,10 +228,10 @@ curl -s -X POST http://127.0.0.1:8765/flows/phenotype_validation_review \
 
 ## Where To Go Next
 
-- Installation, smoke tests, and provider-specific examples: [docs/TESTING.md](/ai-agent/HadesProject/OHDSI-Study-Agent/docs/TESTING.md)
-- Implemented service inventory: [docs/SERVICE_REGISTRY.yaml](/ai-agent/HadesProject/OHDSI-Study-Agent/docs/SERVICE_REGISTRY.yaml)
+- Installation, smoke tests, and provider-specific examples: [docs/TESTING.md](docs/TESTING.md)
+- Implemented service inventory: [docs/SERVICE_REGISTRY.yaml](docs/SERVICE_REGISTRY.yaml)
 - Docker setup: see `compose.yaml` and `.env.example`
-- ACP and MCP component details: [acp_agent/README.md](/ai-agent/HadesProject/OHDSI-Study-Agent/acp_agent/README.md), [mcp_server/README.md](/ai-agent/HadesProject/OHDSI-Study-Agent/mcp_server/README.md)
+- ACP and MCP component details: [acp_agent/README.md](acp_agent/README.md), [mcp_server/README.md](mcp_server/README.md)
 
 ## Contributing
 
@@ -252,7 +253,7 @@ Active expansion areas:
 - more phenotype authoring support beyond recommendation and improvement
 - broader study-design critique and cohort authoring services
 
-For the broader future-service catalog, see [docs/ROADMAP.md](/ai-agent/HadesProject/OHDSI-Study-Agent/docs/ROADMAP.md).
+For the broader future-service catalog, see [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## What Remains Experimental
 

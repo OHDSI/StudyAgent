@@ -1,6 +1,6 @@
 # Keeper Interface Spec
 
-This document captures the first concrete interface layer for the Keeper expansion described in [KEEPER-EXPANSION-PLAN.md](/ai-agent/HadesProject/OHDSI-Study-Agent/KEEPER-EXPANSION-PLAN.md).
+This document captures the current concrete interface layer for the ACP-based Keeper workflow used by the OHDSI Study Agent.
 
 ## Flows
 

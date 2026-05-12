@@ -45,8 +45,10 @@ flowchart TD
 
   AC --> AE[Write Outputs + Roles + Cohorts.csv]
   AD --> AE
-  AE --> AF[Generate Scripts 01–06]
-  AF --> AG[End]
+  AE --> AF[Configure TAR + Strata Settings]
+  AF --> AG[Optional Inline ACP Keeper Review]
+  AG --> AH[Generate Scripts 01-06]
+  AH --> AI[End]
 ```
 
 ## Strategus Execution Context
@@ -54,24 +56,29 @@ flowchart TD
 ```mermaid
 flowchart TD
   A[Study Intent] --> B[runStrategusIncidenceShell]
-  B --> C[Outputs: cohorts + roles + scripts]
+  B --> C[Outputs: cohorts + roles + TAR settings + scripts]
   C --> D[03_generate_cohorts.R]
   D --> E[CohortGenerator]
   E --> F[Cohort Table in CDM]
 
   C --> G[04_keeper_review.R]
-  G --> H[Keeper Case Review]
-  H --> I[Optional: refine phenotypes]
-  I --> B
+  G --> H[ACP Keeper flow]
+  H --> I[Concept-set generation]
+  H --> J[Keeper profile extraction]
+  H --> K[Phenotype validation review]
+  K --> L[Optional phenotype refinement]
+  L --> B
 
-  C --> J[05_diagnostics.R]
-  J --> K[CohortDiagnostics]
+  C --> M[05_diagnostics.R]
+  M --> N[CohortDiagnostics]
 
-  C --> L[06_incidence_spec.R]
-  L --> M[CohortIncidence Spec JSON]
+  C --> O[analysis-settings/time_at_risk_settings.json]
+  C --> P[06_incidence_spec.R]
+  O --> P
+  E --> P
+  N --> P
 
-  E --> L
-  K --> L
-  M --> N[Strategus Execution]
-  N --> O[Incidence Rate Results]
+  P --> Q[CohortIncidence Spec JSON]
+  Q --> R[Strategus Execution]
+  R --> S[Incidence Rate Results]
 ```
