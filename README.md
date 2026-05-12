@@ -143,7 +143,7 @@ uv lock
 uv run pytest
 ```
 
-The repo does not currently require `uv`, and Docker still builds from `environment.yml` plus an editable install.
+The repo does not currently require `uv`. Docker builds the runtime in two layers: `environment.yml` provides the Micromamba/Conda base environment, and then `pyproject.toml` is used by `pip install -e .` to install the Python package and console entrypoints inside that environment.
 
 ### Start MCP over HTTP
 
@@ -182,7 +182,7 @@ Current indexing workflow:
 2. Optionally enable LLM-derived retrieval keywords during that build.
 3. Build `dense.index` separately when embedding infrastructure is available, either during the main build with `--build-dense` or later with `--build-dense --dense-only`.
 
-The retrieval layer reads from `PHENOTYPE_INDEX_DIR`, which should point to the built output directory. The source phenotype files do not need to live under that directory.
+The retrieval layer reads from `PHENOTYPE_INDEX_DIR`, which should point to the built output directory. The source phenotype files do not need to live under that directory. In the default Docker/Compose setup, the index is expected on the host at `./data/phenotype_index` and is mounted into the container at `/data/phenotype_index`. If you set `PHENOTYPE_INDEX_DIR` in `.env`, make sure the mounted volume path is updated to match; otherwise the container will still only see the default mounted index location.
 
 
 ## Minimal Examples
@@ -230,7 +230,7 @@ curl -s -X POST http://127.0.0.1:8765/flows/phenotype_validation_review \
 
 - Installation, smoke tests, and provider-specific examples: [docs/TESTING.md](docs/TESTING.md)
 - Implemented service inventory: [docs/SERVICE_REGISTRY.yaml](docs/SERVICE_REGISTRY.yaml)
-- Docker setup: see `compose.yaml` and `.env.example`
+- Docker setup: see `compose.yaml` and `.env.example`. The default containerized phenotype index path is `./data/phenotype_index` on the host, mounted to `/data/phenotype_index` in the container.
 - ACP and MCP component details: [acp_agent/README.md](acp_agent/README.md), [mcp_server/README.md](mcp_server/README.md)
 
 ## Contributing
