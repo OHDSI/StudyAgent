@@ -14,7 +14,7 @@ A powerful feature that this project enables is the `/ohdsi` contextualized AI w
 
 [![The new `/ohdsi` feature](https://github.com/user-attachments/assets/ab9d39e2-af4f-4d32-a4a4-d20df17b2f1c)](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=77e8b162-4116-4d61-9e00-b4480104b886)
 
-With this approach, a researcher's open questions are sent to generative models with rich context that should enable much more targeted and actionable responses than users would get by just querying an LLM directly. See [docs/WORKFLOW_CONTEXT_DIALOGUE_SLASH_OHDSI.md][this design document] for a detailed overview.  
+With this approach, a researcher's open questions are sent to generative models with rich context that should enable much more targeted and actionable responses than users would get by just querying an LLM directly. See [this design document](docs/WORKFLOW_CONTEXT_DIALOGUE_SLASH_OHDSI.md) for a detailed overview.  
 
 -----
 
