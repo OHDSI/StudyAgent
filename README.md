@@ -1,6 +1,8 @@
 # OHDSI Study Design Assistant
 
-This repository is building an agent-style interface for common OHDSI study design tasks. The current implementation is strongest in two areas:
+This repository is building an agent-style interface for common OHDSI study design tasks. The fundamental use case for this project is to enable AI-assisted, but human led, observational study designs leveraging existing deterministic OHDSI tools. Initially, this is with HADES and Atlas but there no restriction on the use of study agent flows in other tooling environments (e.g., DARWIN tools).
+
+The current implementation is strongest in two areas:
 
 - Phenotype recommendation for target and outcome cohort selection
 - Keeper-assisted concept generation, profile extraction, and row adjudication for phenotype validation
@@ -8,7 +10,13 @@ This repository is building an agent-style interface for common OHDSI study desi
 
 [![Watch the video](https://github.com/user-attachments/assets/1679912f-fcbb-4dbf-830e-ce493188e8db)](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=eaaf0e5f-d60f-4b9a-a521-b42c016b1af3)
 
+A powerful feature that this project enables is the `/ohdsi` contextualized AI workflow query:
+
 [![The new `/ohdsi` feature](https://github.com/user-attachments/assets/ab9d39e2-af4f-4d32-a4a4-d20df17b2f1c)](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=77e8b162-4116-4d61-9e00-b4480104b886)
+
+With this approach, a researcher's open questions are sent to generative models with rich context that should enable much more targeted and actionable responses than users would get by just querying an LLM directly. See [docs/WORKFLOW_CONTEXT_DIALOGUE_SLASH_OHDSI.md][this design document] for a detailed overview.  
+
+-----
 
 The project separates orchestration from deterministic tooling:
 
@@ -60,6 +68,7 @@ This same recommendation path is already wired into the R Strategus incidence sh
 
 Primary references:
 - [docs/TESTING.md](docs/TESTING.md)
+- [docs/WORKFLOW_CONTEXT_DIALOGUE_SLASH_OHDSI.md](docs/WORKFLOW_CONTEXT_DIALOGUE_SLASH_OHDSI.md)
 - [docs/WORKFLOW_PHENOTYPE_RECOMMENDATION.md](docs/WORKFLOW_PHENOTYPE_RECOMMENDATION.md)
 - [docs/PHENOTYPE_VALIDATION_REVIEW.md](docs/PHENOTYPE_VALIDATION_REVIEW.md)
 - [docs/SPEC_KEEPER_INTERFACE.md](docs/SPEC_KEEPER_INTERFACE.md)
