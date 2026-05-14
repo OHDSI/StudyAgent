@@ -16,6 +16,9 @@ load_study_agent_r_packages(include_strategus = TRUE)
 
 ## Optional reset from a prior run.
 reset_demo_output_dir(repo_file("demo-strategus-cohort-incidence"), prompt = TRUE)
+## Note: this clears only `demo-strategus-cohort-incidence`. This script does not read
+## from a second shared output directory, so any cache prompts should come only from
+## artifacts still present under that same incidence demo directory.
 
 Sys.setenv(ACP_TIMEOUT = "280")
 invisible(connect_study_agent_acp())

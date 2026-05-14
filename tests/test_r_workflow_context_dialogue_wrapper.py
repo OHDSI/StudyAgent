@@ -49,6 +49,12 @@ def test_incidence_shell_wires_back_at_major_stage_boundaries() -> None:
     assert 'run_keeper_review_now <- prompt_yesno_navigation(' in source
     assert 'Use /ohdsi for contextual guidance. Type /back at supported stage boundaries to return to the previous step.' in source
 
+def test_cohort_methods_analysis_label_limit_is_100_chars() -> None:
+    source = COHORT_METHODS_SOURCE.read_text(encoding="utf-8")
+
+    assert 'analysis_label_max_chars <- 100L' in source
+
+
 def test_cohort_methods_shell_wires_back_at_major_stage_boundaries() -> None:
     source = COHORT_METHODS_SOURCE.read_text(encoding="utf-8")
 

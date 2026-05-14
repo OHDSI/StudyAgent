@@ -1311,6 +1311,10 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   keeper_review_state_path <- file.path(output_dir, "keeper_review_state.json")
   keeper_review_roles <- character(0)
   keeper_acp_timeout_seconds <- as.numeric(Sys.getenv("ACP_TIMEOUT", "300"))
+  keeper_candidate_limit <- 5L
+  keeper_min_record_count <- NULL
+  keeper_sample_size <- 5L
+  keeper_review_row_limit <- 5L
   keeper_reuse_generated_artifacts <- TRUE
   keeper_overwrite_approved_concept_sets <- FALSE
   keeper_resume_reviews <- TRUE
@@ -1343,9 +1347,27 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
         keeper_review_roles <- keeper_review_roles[nzchar(keeper_review_roles)]
         keeper_review_roles <- intersect(keeper_review_roles, c("outcome", "target"))
         if (!length(keeper_review_roles)) keeper_review_roles <- "outcome"
-        keeper_reuse_generated_artifacts <- prompt_yesno("Reuse existing Keeper generated artifacts?", default = TRUE)
-        keeper_overwrite_approved_concept_sets <- prompt_yesno("Replace approved concept sets with current generated output?", default = FALSE)
-        keeper_resume_reviews <- prompt_yesno("Resume existing Keeper row reviews?", default = TRUE)
+        keeper_generated_dir <- file.path(base_dir, "keeper-case-review", "concept-sets-generated")
+        keeper_approved_dir <- file.path(base_dir, "keeper-case-review", "concept-sets-approved")
+        keeper_rows_dir <- file.path(base_dir, "keeper-case-review", "rows")
+        keeper_reviews_dir <- file.path(base_dir, "keeper-case-review", "reviews")
+        has_keeper_generated_artifacts <- dir.exists(keeper_generated_dir) &&
+          length(list.files(keeper_generated_dir, pattern = "\\.json$", recursive = TRUE, full.names = TRUE)) > 0
+        has_keeper_approved_artifacts <- dir.exists(keeper_approved_dir) &&
+          length(list.files(keeper_approved_dir, pattern = "\\.json$", recursive = TRUE, full.names = TRUE)) > 0
+        has_keeper_rows_artifacts <- dir.exists(keeper_rows_dir) &&
+          length(list.files(keeper_rows_dir, pattern = "\\.json$", recursive = TRUE, full.names = TRUE)) > 0
+        has_keeper_review_artifacts <- dir.exists(keeper_reviews_dir) &&
+          length(list.files(keeper_reviews_dir, pattern = "\\.json$", recursive = TRUE, full.names = TRUE)) > 0
+        if (has_keeper_generated_artifacts || has_keeper_rows_artifacts) {
+          keeper_reuse_generated_artifacts <- prompt_yesno("Reuse existing Keeper generated artifacts?", default = TRUE)
+        }
+        if (has_keeper_generated_artifacts || has_keeper_approved_artifacts) {
+          keeper_overwrite_approved_concept_sets <- prompt_yesno("Replace approved concept sets with current generated output?", default = FALSE)
+        }
+        if (has_keeper_review_artifacts) {
+          keeper_resume_reviews <- prompt_yesno("Resume existing Keeper row reviews?", default = TRUE)
+        }
         entered_row_selection <- trimws(readline_with_dialogue("Keeper row selection [default first N or e.g. 1-3,5]: "))
         keeper_review_row_selection <- if (!nzchar(entered_row_selection)) NULL else entered_row_selection
 
@@ -1365,8 +1387,168 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
           set_dialogue_context(step, role, context = safe_context)
         }
 
+        prompt_keeper_positive_integer <- function(prompt, default) {
+          current_default <- suppressWarnings(as.integer(default %||% 1L))
+          repeat {
+            entered <- trimws(readline_with_dialogue(sprintf("%s [%s]: ", prompt, current_default)))
+            value <- if (!nzchar(entered)) current_default else suppressWarnings(as.integer(entered))
+            if (!is.na(value) && value >= 1L) return(as.integer(value))
+            cat("Please enter an integer >= 1.
+")
+          }
+        }
+
+        prompt_keeper_optional_integer <- function(prompt, default = NULL) {
+          repeat {
+            suffix <- if (is.null(default)) "optional" else as.character(default)
+            entered <- trimws(readline_with_dialogue(sprintf("%s [%s]: ", prompt, suffix)))
+            if (!nzchar(entered)) return(default)
+            value <- suppressWarnings(as.integer(entered))
+            if (!is.na(value) && value >= 1L) return(as.integer(value))
+            cat("Please enter an integer >= 1, or press Enter to leave unset.
+")
+          }
+        }
+
+        parse_keeper_review_rows <- function(selection_text, total_rows) {
+          total_rows <- suppressWarnings(as.integer(total_rows %||% 0L))
+          if (is.na(total_rows) || total_rows <= 0L) return(integer(0))
+          entered <- trimws(as.character(selection_text %||% ""))
+          if (!nzchar(entered)) return(integer(0))
+          parts <- trimws(strsplit(entered, ",", fixed = TRUE)[[1]])
+          parsed <- integer(0)
+          for (part in parts[nzchar(parts)]) {
+            if (grepl("^[0-9]+-[0-9]+$", part)) {
+              bounds <- suppressWarnings(as.integer(strsplit(part, "-", fixed = TRUE)[[1]]))
+              if (length(bounds) == 2L && !anyNA(bounds)) parsed <- c(parsed, seq.int(min(bounds), max(bounds)))
+            } else {
+              parsed <- c(parsed, suppressWarnings(as.integer(part)))
+            }
+          }
+          parsed <- parsed[!is.na(parsed)]
+          parsed <- parsed[parsed >= 1L & parsed <= total_rows]
+          unique(parsed)
+        }
+
+        inspect_keeper_review_rows <- function(review_path) {
+          if (!file.exists(review_path)) {
+            cat(sprintf("Keeper review artifact not found: %s
+", review_path))
+            return(invisible(NULL))
+          }
+          payload <- read_json(review_path)
+          reviews <- payload$reviews %||% list()
+          if (!length(reviews)) {
+            cat("No Keeper review rows have been saved yet.
+")
+            return(invisible(NULL))
+          }
+          entered <- trimws(readline_with_dialogue("Review row numbers to inspect [Enter=all selected rows, e.g. 1,3 or 1-3]: "))
+          indices <- parse_keeper_review_rows(entered, length(reviews))
+          if (!length(indices)) indices <- seq_along(reviews)
+          for (idx in indices) {
+            rec <- reviews[[idx]]
+            cat(sprintf("
+[Keeper review row %s]
+", rec$row_index %||% idx))
+            cat(sprintf("Label: %s
+", rec$label %||% "<none>"))
+            rationale <- trimws(as.character(rec$rationale %||% ""))
+            if (nzchar(rationale)) cat(sprintf("Rationale: %s
+", rationale))
+            err <- trimws(as.character(rec$error %||% ""))
+            if (nzchar(err)) cat(sprintf("Error: %s
+", err))
+          }
+          invisible(NULL)
+        }
+
+        keeper_stage_gate <- function(step, role = "", context = list()) {
+          stage_callback(step, role = role, context = context)
+          if (identical(step, "keeper_concept_set_generation_before")) {
+            cat(sprintf("
+Keeper domain gate: %s / %s
+", role, context$domain_key %||% "domain"))
+            repeat {
+              entered <- tolower(trimws(readline_with_dialogue("Keeper domain options [Enter=continue, s=skip, e=edit settings]: ")))
+              if (!nzchar(entered)) return(list(action = "continue"))
+              if (entered %in% c("s", "skip")) return(list(action = "skip_domain"))
+              if (entered %in% c("e", "edit")) {
+                keeper_candidate_limit <<- prompt_keeper_positive_integer("Keeper concept candidate limit", keeper_candidate_limit)
+                keeper_min_record_count <<- prompt_keeper_optional_integer("Keeper min record count", keeper_min_record_count)
+                return(list(action = "continue", updates = list(candidate_limit = keeper_candidate_limit, min_record_count = keeper_min_record_count)))
+              }
+              cat("Choose Enter, s, or e.
+")
+            }
+          }
+          if (identical(step, "keeper_concept_set_generation_after")) {
+            cat(sprintf("
+Keeper domain complete: %s / %s
+", role, context$domain_key %||% "domain"))
+            cat(sprintf("Generated artifact: %s
+", context$generated_concept_sets_path %||% "<missing>"))
+            repeat {
+              entered <- tolower(trimws(readline_with_dialogue("Keeper domain result options [Enter=keep, r=rerun, i=inspect/edit files]: ")))
+              if (!nzchar(entered)) return(list(action = "continue"))
+              if (entered %in% c("r", "rerun")) return(list(action = "rerun_domain"))
+              if (entered %in% c("i", "inspect")) {
+                cat(sprintf("Inspect or edit: %s
+", context$generated_concept_sets_path %||% "<missing>"))
+                readline_with_dialogue("Press Enter when you are ready to keep these domain results: ")
+                return(list(action = "continue"))
+              }
+              cat("Choose Enter, r, or i.
+")
+            }
+          }
+          if (identical(step, "keeper_case_review_before")) {
+            cat(sprintf("
+Keeper case review gate: %s
+", role))
+            cat(sprintf("Rows available: %s
+", context$row_count %||% 0L))
+            repeat {
+              entered <- tolower(trimws(readline_with_dialogue("Keeper review options [Enter=continue, e=edit review settings, i=inspect row artifacts]: ")))
+              if (!nzchar(entered)) return(list(action = "continue"))
+              if (entered %in% c("e", "edit")) {
+                keeper_review_row_limit <<- prompt_keeper_positive_integer("Keeper review row limit", keeper_review_row_limit)
+                updated_selection <- trimws(readline_with_dialogue(sprintf("Keeper row selection [%s]: ", keeper_review_row_selection %||% "default first N")))
+                if (nzchar(updated_selection)) keeper_review_row_selection <<- updated_selection
+                keeper_resume_reviews <<- prompt_yesno("Resume existing Keeper row reviews?", default = keeper_resume_reviews)
+                return(list(action = "continue", updates = list(review_row_limit = keeper_review_row_limit, review_row_selection = keeper_review_row_selection, resume_reviews = keeper_resume_reviews)))
+              }
+              if (entered %in% c("i", "inspect")) {
+                cat(sprintf("Inspect row artifacts:
+  JSON: %s
+  CSV: %s
+", context$rows_path %||% "<missing>", context$rows_csv_path %||% "<missing>"))
+                next
+              }
+              cat("Choose Enter, e, or i.
+")
+            }
+          }
+          if (identical(step, "keeper_case_review_after")) {
+            cat(sprintf("
+Keeper review saved: %s reviewed row(s)
+", context$reviewed_row_count %||% 0L))
+            repeat {
+              entered <- tolower(trimws(readline_with_dialogue("Keeper post-review options [Enter=finish, i=inspect reviewed rows]: ")))
+              if (!nzchar(entered)) return(list(action = "continue"))
+              if (entered %in% c("i", "inspect")) {
+                inspect_keeper_review_rows(context$reviews_path %||% "")
+                next
+              }
+              cat("Choose Enter or i.
+")
+            }
+          }
+          list(action = "continue")
+        }
+
         stage_callback(
-          "keeper_concept_set_generation",
+          "keeper_concept_set_generation_before",
           role = keeper_review_roles[[1]],
           context = list(review_roles = as.list(keeper_review_roles), review_status = "starting")
         )
@@ -1380,29 +1562,39 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
             intent_path = intent_split_path,
             acp_timeout_seconds = keeper_acp_timeout_seconds,
             review_roles = keeper_review_roles,
+            candidate_limit = keeper_candidate_limit,
+            min_record_count = keeper_min_record_count,
+            sample_size = keeper_sample_size,
+            review_row_limit = keeper_review_row_limit,
             overwrite_approved_concept_sets = keeper_overwrite_approved_concept_sets,
             reuse_generated_concept_sets = keeper_reuse_generated_artifacts,
             reuse_rows = keeper_reuse_generated_artifacts,
             resume_reviews = keeper_resume_reviews,
             review_row_selection = keeper_review_row_selection,
-            stage_callback = stage_callback
+            stage_callback = stage_callback,
+            stage_gate = keeper_stage_gate
           ),
           error = function(e) e
         )
 
         if (inherits(keeper_review_result, "error")) {
-          cat(sprintf("Keeper review failed: %s\n", conditionMessage(keeper_review_result)))
+          cat(sprintf("Keeper review failed: %s
+", conditionMessage(keeper_review_result)))
         } else if (identical(keeper_review_result$status %||% "ok", "error")) {
           error_count <- as.integer(keeper_review_result$error_count %||% 0L)
-          cat(sprintf("Keeper review encountered %s ACP error(s).\n", error_count))
+          cat(sprintf("Keeper review encountered %s ACP error(s).
+", error_count))
           if (length(keeper_review_result$errors %||% list())) {
             first_error <- keeper_review_result$errors[[1]]
-            cat(sprintf("First ACP error: %s\n", first_error$message %||% "unknown ACP error"))
+            cat(sprintf("First ACP error: %s
+", first_error$message %||% "unknown ACP error"))
           }
-          cat(sprintf("Keeper review state saved to: %s\n", keeper_review_state_path))
+          cat(sprintf("Keeper review state saved to: %s
+", keeper_review_state_path))
         } else {
           keeper_review_ran <- TRUE
-          cat(sprintf("Keeper review state saved to: %s\n", keeper_review_state_path))
+          cat(sprintf("Keeper review state saved to: %s
+", keeper_review_state_path))
         }
         set_dialogue_context("workflow_summary", context = list(study_intent = studyIntent, keeper_review_state_path = keeper_review_state_path))
       }
@@ -1413,6 +1605,10 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   state$keeper_review_state_path <- keeper_review_state_path
   state$keeper_review_roles <- as.list(keeper_review_roles)
   state$keeper_acp_timeout_seconds <- as.numeric(keeper_acp_timeout_seconds)
+  state$keeper_candidate_limit <- as.integer(keeper_candidate_limit)
+  state$keeper_min_record_count <- if (is.null(keeper_min_record_count)) NULL else as.integer(keeper_min_record_count)
+  state$keeper_sample_size <- as.integer(keeper_sample_size)
+  state$keeper_review_row_limit <- as.integer(keeper_review_row_limit)
   state$keeper_reuse_generated_artifacts <- isTRUE(keeper_reuse_generated_artifacts)
   state$keeper_overwrite_approved_concept_sets <- isTRUE(keeper_overwrite_approved_concept_sets)
   state$keeper_resume_reviews <- isTRUE(keeper_resume_reviews)

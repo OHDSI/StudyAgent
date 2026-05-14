@@ -14,7 +14,7 @@ This shell is provided as `slashOhdsiStrategusAssistant::runStrategusCohortMetho
 
 Usage examples for `slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell()` live in the R package README: `R/slashOhdsiStrategusAssistant/README.md`.
 
-Workflow diagrams live in `docs/COHORT_METHODS_WORKFLOW.md`.
+Workflow diagrams live in `docs/WORKFLOW_COHORT_METHODS.md`.
 
 ## Current Stage Flow
 
@@ -27,14 +27,14 @@ Workflow diagrams live in `docs/COHORT_METHODS_WORKFLOW.md`.
    - when multiple outcome statements are suggested interactively, choose the subset to keep or enter none/0 to provide a manual outcome before editing or adding statements
 3. Role-specific phenotype recommendation / cache reuse for target, comparator, and outcome cohorts.
    Interactive runs ask for short analysis labels for selected cohorts and the comparison; labels must
-   be 50 characters or fewer because downstream Strategus/Characterization result tables use short
+   be 100 characters or fewer because downstream Strategus/Characterization result tables use short
    identifier fields.
 4. Optional cohort ID remap step to avoid collisions (`remapCohortIds`).
 5. Copy cohort JSON definitions from `indexDir/definitions` into selected cohort folders.
 6. Optional negative control and covariate concept-set IDs are still captured as placeholders.
 7. Configure one analytic-settings profile through `step_by_step`, `free_text`, or cached/function-argument inputs.
    Analytic settings are always collected in this stage and confirmed before finalization.
-8. Optionally run ACP-based Keeper review inline with reuse/resume controls.
+8. Optionally run ACP-based Keeper review inline with reuse/resume controls and bounded Keeper stage gates around domain generation and case review.
 9. Generate scripts in `scripts/` for cohort generation, Keeper review, diagnostics, and CohortMethod spec/execution.
 
 ## Analytic Settings
@@ -149,8 +149,8 @@ Generated scripts that connect to the database expect these site-specific files 
   "resultsDatabaseSchema": "results_schema",
   "vocabularyDatabaseSchema": "vocab_schema",
   "cohortTable": "cohort",
-  "workFolder": "demo-strategus-cohort-incidence/work",
-  "resultsFolder": "demo-strategus-cohort-incidence/results",
+  "workFolder": "demo-strategus-cohort-method/work",
+  "resultsFolder": "demo-strategus-cohort-method/results",
   "cohortIdFieldName": "cohort_definition_id"
 }
 ```
@@ -160,6 +160,7 @@ Current Keeper specifics:
 
 - `scripts/04_keeper_review.R` uses `runKeeperReviewWorkflow(...)` and ACP flows instead of the legacy Keeper R package.
 - The script records state in `outputs/keeper_review_state.json`.
+- Inline Keeper review now exposes bounded stage gates before and after each requested concept-set domain and before and after case review.
 - The default generated script exposes `ACP_TIMEOUT`, concept-set reuse/overwrite, row reuse/resume, and explicit row selection controls such as `1-3,5`.
 - Manual editing of `keeper-case-review/concept-sets-approved/*.json` is consumable, but the concept-set approve/edit/rerun UX is still incomplete.
 
@@ -182,3 +183,5 @@ Current Keeper specifics:
 ## Notes
 
 - This stage is designed as a bridge: it combines ACP/MCP-assisted intent split, phenotype recommendation/improvement, analytic-settings recommendation, and ACP-based Keeper review with reproducible Strategus script generation.
+- Interactive runs support `/back` at major stage boundaries for study intent, target selection, comparator selection, outcome selection, study configuration, and Keeper-review entry while keeping `/ohdsi` available for contextual guidance.
+- If no Keeper artifacts exist yet, the shell suppresses the inline Keeper reuse/resume prompts instead of asking about caches unconditionally.

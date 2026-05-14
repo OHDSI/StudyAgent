@@ -14,7 +14,8 @@ generation for a CohortIncidence analysis.
 - Lets the user select accepted target/outcome phenotypes and optionally remap cohort IDs.
 - Calls `phenotype_improvements` for each selected cohort and lets the user apply improvements immediately.
 - Captures explicit time-at-risk and strata settings for the incidence analysis.
-- Optionally runs ACP-based Keeper review inline or writes a standalone Keeper script.
+- Supports `/back` at major stage boundaries while keeping `/ohdsi` dialogue available during the workflow.
+- Optionally runs ACP-based Keeper review inline or writes a standalone Keeper script. Inline Keeper runs now expose bounded review gates before and after each concept-set domain and before and after case review.
 - Writes reproducible scripts for recommendation replay, cohort generation, Keeper review, diagnostics, and incidence analysis.
 - Saves session state to `outputs/study_agent_state.json` for traceability.
 
@@ -86,5 +87,7 @@ Generated scripts that connect to the database expect these site-specific files 
 ## Notes
 
 - If improvements were applied during the shell session, the scripts are a portable record and do not need to re-apply the same changes.
-- The shell exposes a `/ohdsi` dialogue step for `time_at_risk_configuration`, so users can ask denominator-design questions while configuring TAR and strata settings.
+- The shell exposes `/ohdsi` guidance throughout the workflow and supports `/back` at the major stage boundaries for study intent, target selection, outcome selection, TAR confirmation, and Keeper-review entry.
+- Inline Keeper review uses bounded stage gates rather than a fully generic rewind. Users can skip or rerun domains, inspect generated artifacts, adjust review settings, and inspect saved reviewed rows.
+- If no Keeper artifacts exist yet, the shell now suppresses the reuse/resume prompts instead of asking about caches unconditionally.
 - If the initial phenotype recommendations are not acceptable, the shell can request a second window of candidates and then fall back to advisory guidance.

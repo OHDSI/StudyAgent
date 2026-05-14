@@ -22,6 +22,9 @@ invisible(connect_study_agent_acp())
 ### Optional reset from a prior run.
 reset_demo_output_dir(repo_file("demo-strategus-cohort-method"), prompt = TRUE)
 #
+# Note: this clears only `demo-strategus-cohort-method`. If `incidenceOutputDir` points
+# at `demo-strategus-cohort-incidence`, you may still see cache prompts for artifacts in
+# that separate directory unless you reset it too.
 # If you already ran `scripts/test_strategus_incidence_plus_keeper.R`, this shell can
 # reuse cached target and outcome artifacts from `demo-strategus-cohort-incidence`.
 slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell(
