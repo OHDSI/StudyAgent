@@ -1853,6 +1853,33 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     as.integer(ids)
   }
 
+  resolve_single_selection <- function(selected_ids,
+                                       fallback_value,
+                                       label,
+                                       recommendation_path = NULL,
+                                       statement = NULL) {
+    ids <- parse_ids(selected_ids)
+    ids <- unique(ids[!is.na(ids)])
+    if (length(ids) > 1) stop(sprintf("%s must contain exactly one cohort ID.", label))
+    if (length(ids) == 1) return(as.integer(ids[[1]]))
+
+    fallback_ids <- parse_ids(fallback_value)
+    fallback_ids <- unique(fallback_ids[!is.na(fallback_ids)])
+    if (length(fallback_ids) > 1) stop(sprintf("%s must contain exactly one cohort ID.", label))
+    if (length(fallback_ids) == 1) return(as.integer(fallback_ids[[1]]))
+
+    if (isTRUE(interactive)) {
+      return(collect_single_id(NULL, label))
+    }
+
+    details <- c(
+      sprintf("No %s cohort ID could be resolved from recommendations or cache.", tolower(label)),
+      if (!is.null(statement) && nzchar(trimws(as.character(statement)))) sprintf("Statement: %s", trimws(as.character(statement))) else NULL,
+      if (!is.null(recommendation_path) && nzchar(trimws(as.character(recommendation_path))) && file.exists(recommendation_path)) sprintf("Recommendations artifact: %s", recommendation_path) else NULL
+    )
+    stop(paste(details, collapse = " "))
+  }
+
   collect_optional_single_id <- function(value, label, prompt = NULL) {
     ids <- parse_ids(value)
     ids <- unique(ids[!is.na(ids)])
@@ -3669,6 +3696,16 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
 
   cached_inputs <- NULL
   cached_manual_intent <- NULL
+  if (isTRUE(resume) && file.exists(manual_inputs_path)) {
+    cached_inputs <- tryCatch(read_json(manual_inputs_path), error = function(e) {
+      stop(sprintf("Failed to read cached manual inputs at %s: %s", manual_inputs_path, conditionMessage(e)))
+    })
+  }
+  if (isTRUE(resume) && file.exists(manual_intent_path)) {
+    cached_manual_intent <- tryCatch(read_json(manual_intent_path), error = function(e) {
+      stop(sprintf("Failed to read cached manual intent at %s: %s", manual_intent_path, conditionMessage(e)))
+    })
+  }
   cached_cm_target_selection <- load_cached_role_selection(cohort_id_map_path, "target", selected_target_dir)
   cached_cm_comparator_selection <- load_cached_role_selection(cohort_id_map_path, "comparator", selected_comparator_dir)
   cached_cm_outcome_selection <- load_cached_role_selection(cohort_id_map_path, "outcome", selected_outcome_dir)
@@ -4120,11 +4157,13 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     exclude_metadata = list(executable_definition_status = list("codes_only"))
   )
 
-  targetCohortId <- if (length(target_rec$selected_ids) > 0) {
-    as.integer(target_rec$selected_ids[[1]])
-  } else {
-    collect_single_id(targetCohortId %||% cached_inputs$target_cohort_id, "Target")
-  }
+  targetCohortId <- resolve_single_selection(
+    selected_ids = target_rec$selected_ids,
+    fallback_value = targetCohortId %||% cached_inputs$target_cohort_id,
+    label = "Target",
+    recommendation_path = target_rec$recommendation_path,
+    statement = targetStatement
+  )
   if (!length(target_rec$selected_ids)) target_rec$selection_source <- "manual_input"
   target_validation_error <- validate_target_id(targetCohortId)
   while (!is.null(target_validation_error) && isTRUE(interactive)) {
@@ -4238,11 +4277,13 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     exclude_metadata = list(executable_definition_status = list("codes_only"))
   )
 
-  comparatorCohortId <- if (length(comparator_rec$selected_ids) > 0) {
-    as.integer(comparator_rec$selected_ids[[1]])
-  } else {
-    collect_single_id(comparatorCohortId %||% cached_inputs$comparator_cohort_id, "Comparator")
-  }
+  comparatorCohortId <- resolve_single_selection(
+    selected_ids = comparator_rec$selected_ids,
+    fallback_value = comparatorCohortId %||% cached_inputs$comparator_cohort_id,
+    label = "Comparator",
+    recommendation_path = comparator_rec$recommendation_path,
+    statement = comparatorStatement
+  )
   if (!length(comparator_rec$selected_ids)) comparator_rec$selection_source <- "manual_input"
   comparator_validation_error <- validate_comparator_id(comparatorCohortId, targetCohortId)
   while (!is.null(comparator_validation_error) && isTRUE(interactive)) {

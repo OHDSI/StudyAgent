@@ -55,6 +55,10 @@ def test_cohort_methods_analysis_label_limit_is_100_chars() -> None:
     assert 'analysis_label_max_chars <- 100L' in source
 
 
+    assert 'if (isTRUE(resume) && file.exists(manual_inputs_path)) {' in source
+    assert 'cached_inputs <- tryCatch(read_json(manual_inputs_path), error = function(e) {' in source
+    assert 'resolve_single_selection <- function(selected_ids,' in source
+
 def test_cohort_methods_shell_wires_back_at_major_stage_boundaries() -> None:
     source = COHORT_METHODS_SOURCE.read_text(encoding="utf-8")
 

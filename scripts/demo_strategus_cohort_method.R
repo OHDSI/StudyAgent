@@ -20,7 +20,7 @@ Sys.setenv(PHENOTYPE_INDEX_DIR = repo_file("data", "phenotype_index_cipher_omop"
 invisible(connect_study_agent_acp())
 
 ### Optional reset from a prior run.
-reset_demo_output_dir(repo_file("demo-strategus-cohort-method"), prompt = TRUE)
+#reset_demo_output_dir(repo_file("demo-strategus-cohort-method"), prompt = TRUE)
 #
 # Note: this clears only `demo-strategus-cohort-method`. If `incidenceOutputDir` points
 # at `demo-strategus-cohort-incidence`, you may still see cache prompts for artifacts in
@@ -41,14 +41,14 @@ slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell(
 )
 
 ## Use this to resume from cached artifacts and regenerate output scripts.
-# slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell(
-#   outputDir = "demo-strategus-cohort-method",
-#   acpUrl = "http://127.0.0.1:8765",
-#   studyAgentBaseDir = repo_root,
-#   indexDir = "data/phenotype_index_cipher_omop",
-#   incidenceOutputDir = "demo-strategus-cohort-incidence",
-#   resume = TRUE,
-#   allowCache = TRUE,
-#   promptOnCache = FALSE,
-#   interactive = FALSE
-# )
+## slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell(
+##   outputDir = "demo-strategus-cohort-method",
+##   acpUrl = "http://127.0.0.1:8765",
+##   studyAgentBaseDir = repo_root,
+##   indexDir = "data/phenotype_index_cipher_omop",
+##   incidenceOutputDir = "demo-strategus-cohort-incidence",
+##   resume = TRUE,
+##   allowCache = TRUE,
+##   promptOnCache = FALSE,
+##   interactive = FALSE
+## )
