@@ -5,6 +5,8 @@ from _repo_paths import repo_path
 
 FLOWS_SOURCE = repo_path("R", "slashOhdsiAcpClient", "R", "flows.R")
 DEMO_SOURCE = repo_path("scripts", "demo_ohdsi_dialogue.R")
+DIALOGUE_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workflow_dialogue.R")
+INCIDENCE_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_incidence_shell.R")
 
 def test_r_workflow_context_dialogue_wrapper_flattens_stage_context() -> None:
     source = FLOWS_SOURCE.read_text(encoding="utf-8")
@@ -27,3 +29,21 @@ def test_ohdsi_demo_script_exercises_shell_equivalent_handler() -> None:
     assert 'handled <- dialogue$handle_command(paste("/ohdsi", question))' in source
     assert 'workflow = "incidence"' in source
     assert 'workflow = "cohort_methods"' in source
+
+def test_workflow_dialogue_reader_supports_back_navigation() -> None:
+    source = DIALOGUE_SOURCE.read_text(encoding="utf-8")
+
+    assert 'new_workflow_navigation_signal <- function(action)' in source
+    assert 'readline_with_dialogue <- function(prompt, allow_back = FALSE)' in source
+    assert 'if (isTRUE(allow_back) && identical(trimmed, "/back")) {' in source
+
+
+def test_incidence_shell_wires_back_at_major_stage_boundaries() -> None:
+    source = INCIDENCE_SOURCE.read_text(encoding="utf-8")
+
+    assert 'readline_with_navigation <- function(prompt) readline_with_dialogue(prompt, allow_back = TRUE)' in source
+    assert 'prompt_yesno_navigation <- function(prompt, default = TRUE)' in source
+    assert 'Press Enter to continue to target cohort selection, or type /back: ' in source
+    assert 'Press Enter to continue to outcome cohort selection, or type /back: ' in source
+    assert 'run_keeper_review_now <- prompt_yesno_navigation(' in source
+    assert 'Use /ohdsi for contextual guidance. Type /back at supported stage boundaries to return to the previous step.' in source
