@@ -13,6 +13,10 @@ normalize_incidence_dialogue_step <- function(step) {
     outcome_recommendation_resume = "outcome_selection",
     outcome_advice_call = "outcome_selection",
     outcome_improvements = "phenotype_review",
+    keeper_concept_set_generation_before = "keeper_concept_set_generation",
+    keeper_concept_set_generation_after = "keeper_concept_set_generation",
+    keeper_case_review_before = "keeper_case_review",
+    keeper_case_review_after = "keeper_case_review",
     step
   )
   as.character(mapped %||% "")
@@ -85,6 +89,10 @@ normalize_cohort_methods_dialogue_step <- function(step) {
     comparator_improvements = "phenotype_review",
     outcome_improvements = "phenotype_review",
     analytic_settings_step_by_step = "analytic_settings_collection",
+    keeper_concept_set_generation_before = "keeper_concept_set_generation",
+    keeper_concept_set_generation_after = "keeper_concept_set_generation",
+    keeper_case_review_before = "keeper_case_review",
+    keeper_case_review_after = "keeper_case_review",
     step
   )
   as.character(mapped %||% "")

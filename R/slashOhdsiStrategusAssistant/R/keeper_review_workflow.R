@@ -8,6 +8,7 @@
 #' @param acp_timeout_seconds ACP HTTP timeout in seconds; defaults to ACP_TIMEOUT or 300
 #' @param review_roles cohort roles to process, defaults to outcome-first
 #' @param role_phenotypes optional named overrides by role or cohort id
+#' @param stage_gate optional interactive stage gate callback returning actions or setting updates
 #' @param domain_keys Keeper concept-set domains to request
 #' @param candidate_limit ACP concept candidate limit
 #' @param min_record_count optional minimum record count filter
@@ -34,6 +35,7 @@ runKeeperReviewWorkflow <- function(base_dir,
                                     review_roles = c("outcome"),
                                     role_phenotypes = NULL,
                                     stage_callback = NULL,
+                                    stage_gate = NULL,
                                     domain_keys = c(
                                       "doi",
                                       #"alternativeDiagnosis",
@@ -205,6 +207,67 @@ runKeeperReviewWorkflow <- function(base_dir,
     })
   }
 
+  payload_error_message <- function(payload) {
+    if (!is.list(payload)) return(NULL)
+    status <- payload$status %||% payload$result$status %||% payload$full_result$status %||% NULL
+    error_text <- payload$error %||% payload$result$error %||% payload$full_result$error %||% NULL
+    if (!is.null(error_text) && nzchar(trimws(as.character(error_text)))) {
+      return(trimws(as.character(error_text)))
+    }
+    if (!is.null(status) && identical(tolower(as.character(status)), "error")) {
+      return("ACP call returned status=error")
+    }
+    NULL
+  }
+
+  clear_workflow_errors <- function(errors,
+                                  step = NULL,
+                                  role = NULL,
+                                  cohort_id = NULL,
+                                  row_index = NULL,
+                                  domain_key = NULL) {
+    if (!length(errors)) return(errors)
+    keep_error <- function(item) {
+      if (!is.null(step) && identical(as.character(item$step %||% ""), as.character(step))) {
+        if (!is.null(role) && !identical(as.character(item$role %||% ""), as.character(role %||% ""))) return(TRUE)
+        if (!is.null(cohort_id) && !identical(item$cohort_definition_id %||% NULL, cohort_id)) return(TRUE)
+        if (!is.null(row_index) && !identical(item$row_index %||% NULL, row_index)) return(TRUE)
+        if (!is.null(domain_key) && !identical(as.character(item$domain_key %||% ""), as.character(domain_key %||% ""))) return(TRUE)
+        return(FALSE)
+      }
+      TRUE
+    }
+    Filter(keep_error, errors)
+  }
+
+  append_workflow_error <- function(errors,
+                                    step,
+                                    role,
+                                    cohort_id,
+                                    cohort_name,
+                                    phenotype_name,
+                                    message,
+                                    path = NULL,
+                                    row_index = NULL,
+                                    domain_key = NULL) {
+    if (is.null(message) || !nzchar(trimws(as.character(message)))) return(errors)
+    errors[[length(errors) + 1L]] <- Filter(
+      Negate(is.null),
+      list(
+        step = as.character(step),
+        role = as.character(role %||% ""),
+        cohort_definition_id = cohort_id,
+        cohort_name = as.character(cohort_name %||% ""),
+        phenotype_name = as.character(phenotype_name %||% ""),
+        domain_key = as.character(domain_key %||% ""),
+        row_index = row_index,
+        message = trimws(as.character(message)),
+        artifact_path = path
+      )
+    )
+    errors
+  }
+
   emit_stage <- function(step, role = "", context = list()) {
     if (!is.function(stage_callback)) return(invisible(NULL))
     stage_callback(
@@ -213,6 +276,145 @@ runKeeperReviewWorkflow <- function(base_dir,
       context = compact_workflow_dialogue_context(context %||% list())
     )
     invisible(NULL)
+  }
+
+  normalize_stage_gate_result <- function(result) {
+    if (is.null(result)) return(list(action = "continue", updates = list()))
+    if (!is.list(result)) result <- list(action = as.character(result))
+    action <- tolower(trimws(as.character(result$action %||% "continue")))
+    if (!nzchar(action)) action <- "continue"
+    updates <- result$updates %||% list()
+    if (!is.list(updates)) updates <- as.list(updates)
+    list(action = action, updates = updates)
+  }
+
+  invoke_stage_gate <- function(step, role = "", context = list()) {
+    if (!is.function(stage_gate)) return(list(action = "continue", updates = list()))
+    result <- tryCatch(
+      stage_gate(
+        step = as.character(step %||% ""),
+        role = as.character(role %||% ""),
+        context = compact_workflow_dialogue_context(context %||% list())
+      ),
+      error = function(e) list(action = "continue", error = conditionMessage(e))
+    )
+    normalize_stage_gate_result(result)
+  }
+
+  validate_keeper_positive_integer <- function(value, label, min_value = 1L) {
+    parsed <- suppressWarnings(as.integer(value))
+    if (length(parsed) == 0 || is.na(parsed) || parsed < min_value) {
+      stop(sprintf("%s must be an integer >= %s.", label, min_value))
+    }
+    as.integer(parsed)
+  }
+
+  validate_keeper_optional_integer <- function(value, label, min_value = 1L) {
+    if (is.null(value) || length(value) == 0) return(NULL)
+    if (is.character(value) && length(value) == 1L && !nzchar(trimws(value))) return(NULL)
+    parsed <- suppressWarnings(as.integer(value))
+    if (length(parsed) == 0 || is.na(parsed) || parsed < min_value) {
+      stop(sprintf("%s must be NULL or an integer >= %s.", label, min_value))
+    }
+    as.integer(parsed)
+  }
+
+  apply_domain_gate_updates <- function(current_candidate_limit, current_min_record_count, updates) {
+    if (!is.list(updates) || length(updates) == 0) {
+      return(list(candidate_limit = current_candidate_limit, min_record_count = current_min_record_count))
+    }
+    next_candidate_limit <- current_candidate_limit
+    next_min_record_count <- current_min_record_count
+    if (!is.null(updates$candidate_limit)) {
+      next_candidate_limit <- validate_keeper_positive_integer(updates$candidate_limit, "candidate_limit")
+    }
+    if ("min_record_count" %in% names(updates)) {
+      next_min_record_count <- validate_keeper_optional_integer(updates$min_record_count, "min_record_count")
+    }
+    list(candidate_limit = next_candidate_limit, min_record_count = next_min_record_count)
+  }
+
+  apply_review_gate_updates <- function(current_review_row_limit,
+                                        current_review_row_selection,
+                                        current_resume_reviews,
+                                        updates) {
+    if (!is.list(updates) || length(updates) == 0) {
+      return(list(
+        review_row_limit = current_review_row_limit,
+        review_row_selection = current_review_row_selection,
+        resume_reviews = current_resume_reviews
+      ))
+    }
+    next_review_row_limit <- current_review_row_limit
+    next_review_row_selection <- current_review_row_selection
+    next_resume_reviews <- current_resume_reviews
+    if (!is.null(updates$review_row_limit)) {
+      next_review_row_limit <- validate_keeper_positive_integer(updates$review_row_limit, "review_row_limit")
+    }
+    if ("review_row_selection" %in% names(updates)) {
+      value <- updates$review_row_selection
+      if (is.null(value) || (is.character(value) && length(value) == 1L && !nzchar(trimws(value))) || (length(value) == 0)) {
+        next_review_row_selection <- NULL
+      } else {
+        next_review_row_selection <- as.character(value)
+      }
+    }
+    if ("resume_reviews" %in% names(updates) && !is.null(updates$resume_reviews)) {
+      next_resume_reviews <- isTRUE(updates$resume_reviews)
+    }
+    list(
+      review_row_limit = next_review_row_limit,
+      review_row_selection = next_review_row_selection,
+      resume_reviews = next_resume_reviews
+    )
+  }
+
+  set_domain_run <- function(domain_runs, domain_key, run) {
+    domain_key <- as.character(domain_key %||% "")
+    existing <- which(vapply(domain_runs, function(item) {
+      identical(as.character(item$domain_key %||% ""), domain_key)
+    }, logical(1)))
+    if (length(existing) > 0) {
+      domain_runs[[existing[[1]]]] <- run
+    } else {
+      domain_runs[[length(domain_runs) + 1L]] <- run
+    }
+    domain_runs
+  }
+
+  collect_domain_concept_sets <- function(domain_runs) {
+    concept_sets <- list()
+    for (run in domain_runs) {
+      run_sets <- run$concept_sets %||% list()
+      if (length(run_sets) > 0) concept_sets <- c(concept_sets, run_sets)
+    }
+    concept_sets
+  }
+
+  write_generated_domain_payload <- function(path,
+                                             role,
+                                             cohort_id,
+                                             phenotype_name,
+                                             domain_runs,
+                                             candidate_limit,
+                                             min_record_count) {
+    concept_sets <- collect_domain_concept_sets(domain_runs)
+    has_error <- any(vapply(domain_runs, function(run) {
+      identical(as.character(run$status %||% ""), "error")
+    }, logical(1)))
+    payload <- list(
+      status = if (isTRUE(has_error)) "error" else "ok",
+      role = role,
+      cohort_definition_id = cohort_id,
+      phenotype_name = phenotype_name,
+      candidate_limit = as.integer(candidate_limit),
+      min_record_count = if (is.null(min_record_count)) NULL else as.integer(min_record_count),
+      domain_keys = as.list(vapply(domain_runs, function(run) as.character(run$domain_key %||% ""), character(1))),
+      domain_runs = domain_runs,
+      concept_sets = concept_sets
+    )
+    write_json(payload, path)
+    payload
   }
 
   previous_acp_timeout <- Sys.getenv("ACP_TIMEOUT", unset = NA_character_)
@@ -280,6 +482,7 @@ runKeeperReviewWorkflow <- function(base_dir,
 
   client <- .studyAgentSlashCreateAcpClient(url = acp_url, check = TRUE)
   summary_rows <- vector("list", nrow(selected_map))
+  workflow_errors <- list()
 
   for (i in seq_len(nrow(selected_map))) {
     role <- as.character(selected_map$role[[i]] %||% "")
@@ -295,38 +498,153 @@ runKeeperReviewWorkflow <- function(base_dir,
     review_path <- file.path(reviews_dir, sprintf("%s_reviews.json", prefix))
     review_csv_path <- file.path(reviews_dir, sprintf("%s_reviews.csv", prefix))
 
-    emit_stage(
-      "keeper_concept_set_generation",
-      role = role,
-      context = list(
-        phenotype_name = phenotype_name,
-        cohort_id = cohort_id,
-        cohort_name = cohort_name,
-        review_roles = as.list(review_roles),
-        domain_keys = as.list(domain_keys),
-        review_status = "generating_concept_sets",
-        generated_concept_sets_path = generated_path,
-        approved_concept_sets_path = approved_path
-      )
-    )
-
+    current_candidate_limit <- validate_keeper_positive_integer(candidate_limit, "candidate_limit")
+    current_min_record_count <- validate_keeper_optional_integer(min_record_count, "min_record_count")
     generated_source <- "generated"
     if (isTRUE(reuse_generated_concept_sets) && file.exists(generated_path)) {
       generated_payload <- read_json(generated_path, simplify = FALSE)
       generated_source <- "reused"
     } else {
-      generated_payload <- safe_call(
-        .studyAgentSlashAcpKeeperConceptSetsGenerate(
-          client = client,
-          phenotype = phenotype_name,
-          domain_keys = domain_keys,
-          candidate_limit = candidate_limit,
-          min_record_count = min_record_count,
-          include_diagnostics = include_diagnostics
+      domain_runs <- list()
+      for (domain_key in as.character(domain_keys)) {
+        before_domain_context <- list(
+          phenotype_name = phenotype_name,
+          cohort_id = cohort_id,
+          cohort_name = cohort_name,
+          review_roles = as.list(review_roles),
+          domain_key = domain_key,
+          domain_keys = as.list(domain_keys),
+          candidate_limit = as.integer(current_candidate_limit),
+          min_record_count = if (is.null(current_min_record_count)) NULL else as.integer(current_min_record_count),
+          generated_concept_sets_path = generated_path,
+          approved_concept_sets_path = approved_path,
+          review_status = "before_domain_generation"
         )
-      )
-      write_json(generated_payload, generated_path)
+        emit_stage("keeper_concept_set_generation_before", role = role, context = before_domain_context)
+        before_domain_gate <- invoke_stage_gate("keeper_concept_set_generation_before", role = role, context = before_domain_context)
+        domain_settings <- apply_domain_gate_updates(current_candidate_limit, current_min_record_count, before_domain_gate$updates)
+        current_candidate_limit <- domain_settings$candidate_limit
+        current_min_record_count <- domain_settings$min_record_count
+
+        if (identical(before_domain_gate$action, "skip_domain")) {
+          skipped_run <- list(
+            domain_key = domain_key,
+            status = "skipped",
+            source = "skipped_by_user",
+            candidate_limit = as.integer(current_candidate_limit),
+            min_record_count = if (is.null(current_min_record_count)) NULL else as.integer(current_min_record_count),
+            concept_set_count = 0L,
+            concept_sets = list()
+          )
+          domain_runs <- set_domain_run(domain_runs, domain_key, skipped_run)
+          generated_payload <- write_generated_domain_payload(
+            path = generated_path,
+            role = role,
+            cohort_id = cohort_id,
+            phenotype_name = phenotype_name,
+            domain_runs = domain_runs,
+            candidate_limit = current_candidate_limit,
+            min_record_count = current_min_record_count
+          )
+          after_skip_context <- c(before_domain_context, list(
+            generated_concept_set_count = 0L,
+            total_generated_concept_set_count = length(extract_concept_sets(generated_payload)),
+            generated_source = "skipped_by_user",
+            review_status = "domain_skipped"
+          ))
+          emit_stage("keeper_concept_set_generation_after", role = role, context = after_skip_context)
+          invoke_stage_gate("keeper_concept_set_generation_after", role = role, context = after_skip_context)
+          next
+        }
+
+        repeat {
+          domain_payload <- safe_call(
+            .studyAgentSlashAcpKeeperConceptSetsGenerate(
+              client = client,
+              phenotype = phenotype_name,
+              domain_keys = domain_key,
+              candidate_limit = current_candidate_limit,
+              min_record_count = current_min_record_count,
+              include_diagnostics = include_diagnostics
+            )
+          )
+          domain_error <- payload_error_message(domain_payload)
+          workflow_errors <- clear_workflow_errors(
+            workflow_errors,
+            step = "keeper_concept_set_generation",
+            role = role,
+            cohort_id = cohort_id,
+            domain_key = domain_key
+          )
+          workflow_errors <- append_workflow_error(
+            workflow_errors,
+            step = "keeper_concept_set_generation",
+            role = role,
+            cohort_id = cohort_id,
+            cohort_name = cohort_name,
+            phenotype_name = phenotype_name,
+            message = domain_error,
+            path = generated_path,
+            domain_key = domain_key
+          )
+          domain_concept_sets <- extract_concept_sets(domain_payload)
+          domain_run <- list(
+            domain_key = domain_key,
+            status = as.character(domain_payload$status %||% if (is.null(domain_error)) "ok" else "error"),
+            source = "generated",
+            candidate_limit = as.integer(current_candidate_limit),
+            min_record_count = if (is.null(current_min_record_count)) NULL else as.integer(current_min_record_count),
+            concept_set_count = length(domain_concept_sets),
+            error = domain_error,
+            concept_sets = domain_concept_sets
+          )
+          domain_runs <- set_domain_run(domain_runs, domain_key, domain_run)
+          generated_payload <- write_generated_domain_payload(
+            path = generated_path,
+            role = role,
+            cohort_id = cohort_id,
+            phenotype_name = phenotype_name,
+            domain_runs = domain_runs,
+            candidate_limit = current_candidate_limit,
+            min_record_count = current_min_record_count
+          )
+          after_domain_context <- list(
+            phenotype_name = phenotype_name,
+            cohort_id = cohort_id,
+            cohort_name = cohort_name,
+            review_roles = as.list(review_roles),
+            domain_key = domain_key,
+            domain_keys = as.list(domain_keys),
+            candidate_limit = as.integer(current_candidate_limit),
+            min_record_count = if (is.null(current_min_record_count)) NULL else as.integer(current_min_record_count),
+            generated_concept_set_count = length(domain_concept_sets),
+            total_generated_concept_set_count = length(extract_concept_sets(generated_payload)),
+            generated_concept_sets_path = generated_path,
+            approved_concept_sets_path = approved_path,
+            generated_source = "generated",
+            review_status = if (is.null(domain_error)) "domain_generated" else "domain_error"
+          )
+          emit_stage("keeper_concept_set_generation_after", role = role, context = after_domain_context)
+          after_domain_gate <- invoke_stage_gate("keeper_concept_set_generation_after", role = role, context = after_domain_context)
+          domain_settings <- apply_domain_gate_updates(current_candidate_limit, current_min_record_count, after_domain_gate$updates)
+          current_candidate_limit <- domain_settings$candidate_limit
+          current_min_record_count <- domain_settings$min_record_count
+          if (identical(after_domain_gate$action, "rerun_domain")) next
+          break
+        }
+      }
     }
+    generated_error <- payload_error_message(generated_payload)
+    workflow_errors <- append_workflow_error(
+      workflow_errors,
+      step = "keeper_concept_set_generation",
+      role = role,
+      cohort_id = cohort_id,
+      cohort_name = cohort_name,
+      phenotype_name = phenotype_name,
+      message = generated_error,
+      path = generated_path
+    )
     generated_concept_sets <- extract_concept_sets(generated_payload)
 
     approved_source <- "reused"
@@ -394,18 +712,60 @@ runKeeperReviewWorkflow <- function(base_dir,
       rows_source <- "missing_approved_concept_sets"
       list(status = "error", error = "no approved concept sets", rows = list())
     }
+    rows_error <- payload_error_message(rows_payload)
+    workflow_errors <- append_workflow_error(
+      workflow_errors,
+      step = "keeper_profile_generation",
+      role = role,
+      cohort_id = cohort_id,
+      cohort_name = cohort_name,
+      phenotype_name = phenotype_name,
+      message = rows_error,
+      path = rows_path
+    )
     row_records <- extract_rows(rows_payload)
     row_df <- records_to_data_frame(row_records)
     if (nrow(row_df) > 0) utils::write.csv(row_df, rows_csv_path, row.names = FALSE)
 
+    current_review_row_limit <- validate_keeper_positive_integer(review_row_limit, "review_row_limit")
+    current_review_row_selection <- review_row_selection
+    current_resume_reviews <- isTRUE(resume_reviews)
+    before_review_context <- list(
+      phenotype_name = phenotype_name,
+      cohort_id = cohort_id,
+      cohort_name = cohort_name,
+      review_roles = as.list(review_roles),
+      generated_concept_sets_path = generated_path,
+      approved_concept_sets_path = approved_path,
+      rows_path = rows_path,
+      rows_csv_path = if (file.exists(rows_csv_path)) rows_csv_path else NULL,
+      reviews_path = review_path,
+      row_count = length(row_records),
+      review_row_limit = as.integer(current_review_row_limit),
+      review_row_selection = if (is.null(current_review_row_selection)) NULL else as.character(current_review_row_selection),
+      resume_reviews = isTRUE(current_resume_reviews),
+      review_status = "before_case_review"
+    )
+    emit_stage("keeper_case_review_before", role = role, context = before_review_context)
+    review_gate <- invoke_stage_gate("keeper_case_review_before", role = role, context = before_review_context)
+    review_settings <- apply_review_gate_updates(
+      current_review_row_limit,
+      current_review_row_selection,
+      current_resume_reviews,
+      review_gate$updates
+    )
+    current_review_row_limit <- review_settings$review_row_limit
+    current_review_row_selection <- review_settings$review_row_selection
+    current_resume_reviews <- review_settings$resume_reviews
+
     review_source <- "generated"
     review_records <- list()
-    if (isTRUE(resume_reviews) && file.exists(review_path)) {
+    if (isTRUE(current_resume_reviews) && file.exists(review_path)) {
       existing_review_payload <- read_json(review_path, simplify = FALSE)
       review_records <- extract_reviews(existing_review_payload)
       if (length(review_records) > 0) review_source <- "resumed"
     }
-    selected_row_indices <- parse_row_selection(review_row_selection, length(row_records), review_row_limit)
+    selected_row_indices <- parse_row_selection(current_review_row_selection, length(row_records), current_review_row_limit)
     if (length(selected_row_indices) > 0) {
       reviewed_indices <- unique(vapply(review_records, function(rec) {
         suppressWarnings(as.integer(rec$row_index %||% NA_integer_))
@@ -426,7 +786,7 @@ runKeeperReviewWorkflow <- function(base_dir,
           reviews_path = review_path,
           row_count = length(row_records),
           reviewed_row_count = length(review_records),
-          review_row_limit = as.integer(review_row_limit),
+          review_row_limit = as.integer(current_review_row_limit),
           selected_row_indices = as.list(selected_row_indices),
           pending_row_indices = as.list(pending_row_indices),
           review_status = if (length(pending_row_indices)) "reviewing_rows" else "all_selected_rows_already_reviewed"
@@ -448,7 +808,7 @@ runKeeperReviewWorkflow <- function(base_dir,
             row_count = length(row_records),
             current_row_index = row_index,
             reviewed_row_count = length(review_records),
-            review_row_limit = as.integer(review_row_limit),
+            review_row_limit = as.integer(current_review_row_limit),
             selected_row_indices = as.list(selected_row_indices),
             pending_row_indices = as.list(pending_row_indices),
             review_status = "reviewing_rows"
@@ -461,6 +821,18 @@ runKeeperReviewWorkflow <- function(base_dir,
             disease_name = phenotype_name,
             keeper_row = keeper_row
           )
+        )
+        review_error <- payload_error_message(review_payload)
+        workflow_errors <- append_workflow_error(
+          workflow_errors,
+          step = "keeper_case_review",
+          role = role,
+          cohort_id = cohort_id,
+          cohort_name = cohort_name,
+          phenotype_name = phenotype_name,
+          message = review_error,
+          path = review_path,
+          row_index = row_index
         )
         review_records[[length(review_records) + 1]] <- c(
           list(
@@ -491,7 +863,7 @@ runKeeperReviewWorkflow <- function(base_dir,
           reviews_path = review_path,
           row_count = length(row_records),
           reviewed_row_count = length(review_records),
-          review_row_limit = as.integer(review_row_limit),
+          review_row_limit = as.integer(current_review_row_limit),
           selected_row_indices = list(),
           pending_row_indices = list(),
           review_status = "no_rows_selected_for_review"
@@ -504,12 +876,33 @@ runKeeperReviewWorkflow <- function(base_dir,
       cohort_definition_id = cohort_id,
       phenotype_name = phenotype_name,
       reviewed_row_count = length(review_records),
-      review_row_limit = as.integer(review_row_limit),
+      review_row_limit = as.integer(current_review_row_limit),
+      review_row_selection = if (is.null(current_review_row_selection)) NULL else as.character(current_review_row_selection),
       reviews = review_records
     )
     write_json(review_payload_out, review_path)
     review_df <- records_to_data_frame(review_records)
     if (nrow(review_df) > 0) utils::write.csv(review_df, review_csv_path, row.names = FALSE)
+
+    after_review_context <- list(
+      phenotype_name = phenotype_name,
+      cohort_id = cohort_id,
+      cohort_name = cohort_name,
+      review_roles = as.list(review_roles),
+      generated_concept_sets_path = generated_path,
+      approved_concept_sets_path = approved_path,
+      rows_path = rows_path,
+      rows_csv_path = if (file.exists(rows_csv_path)) rows_csv_path else NULL,
+      reviews_path = review_path,
+      reviews_csv_path = if (file.exists(review_csv_path)) review_csv_path else NULL,
+      row_count = length(row_records),
+      reviewed_row_count = length(review_records),
+      review_row_limit = as.integer(current_review_row_limit),
+      selected_row_indices = as.list(selected_row_indices),
+      review_status = "after_case_review"
+    )
+    emit_stage("keeper_case_review_after", role = role, context = after_review_context)
+    invoke_stage_gate("keeper_case_review_after", role = role, context = after_review_context)
 
     summary_rows[[i]] <- list(
       role = role,
@@ -520,21 +913,40 @@ runKeeperReviewWorkflow <- function(base_dir,
       approved_concept_sets_path = approved_path,
       rows_path = rows_path,
       reviews_path = review_path,
+      domain_runs = generated_payload$domain_runs %||% list(),
       generated_concept_set_count = length(generated_concept_sets),
       approved_concept_set_count = length(approved_concept_sets),
       row_count = length(row_records),
       reviewed_row_count = length(review_records),
+      review_row_limit = as.integer(current_review_row_limit),
+      review_row_selection = if (is.null(current_review_row_selection)) NULL else as.character(current_review_row_selection),
+      resume_reviews = isTRUE(current_resume_reviews),
       selected_row_indices = as.list(selected_row_indices),
       generated_concept_sets_source = generated_source,
       approved_concept_sets_source = approved_source,
       rows_source = rows_source,
       reviews_source = review_source,
       concept_generation_status = generated_payload$status %||% "ok",
-      row_generation_status = rows_payload$status %||% "ok"
+      row_generation_status = rows_payload$status %||% "ok",
+      review_error_count = sum(vapply(review_records, function(rec) {
+        err <- rec$error %||% NULL
+        !is.null(err) && nzchar(trimws(as.character(err)))
+      }, logical(1)))
     )
   }
 
+  workflow_status <- if (length(workflow_errors)) "error" else "ok"
+  workflow_message <- if (length(workflow_errors)) {
+    sprintf("Keeper review encountered %s ACP error(s).", length(workflow_errors))
+  } else {
+    "Keeper review completed without ACP errors."
+  }
+
   keeper_state <- list(
+    status = workflow_status,
+    message = workflow_message,
+    error_count = length(workflow_errors),
+    errors = workflow_errors,
     base_dir = base_dir,
     execution_settings_path = execution_settings_path,
     cohort_id_map_path = cohort_id_map_path,

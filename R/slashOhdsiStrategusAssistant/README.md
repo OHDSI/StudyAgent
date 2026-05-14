@@ -22,7 +22,8 @@ Primary entrypoints:
 Current shell details:
 
 - the incidence shell persists explicit TAR and strata settings to `analysis-settings/time_at_risk_settings.json`
-- both Strategus shells can run or generate ACP-based Keeper review with `keeper_review_state.json` reuse/resume artifacts
+- both Strategus shells support `/back` at major stage boundaries while preserving `/ohdsi` dialogue prompts inside the workflow
+- both Strategus shells can run or generate ACP-based Keeper review with `keeper_review_state.json` artifacts and bounded inline Keeper gates for domain generation and case review
 - generated Keeper scripts expose `ACP_TIMEOUT`, concept-set reuse/overwrite controls, and explicit row selection controls
 
 It depends on `slashOhdsiAcpClient` for ACP calls.

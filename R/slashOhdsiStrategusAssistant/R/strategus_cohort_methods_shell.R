@@ -1562,7 +1562,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
                                            comparisonLabel = NULL,
                                            topK = 20,
                                            maxResults = 3,
-                                           candidateLimit = 10,
+                                           candidateLimit = 5,
                                            indexDir = Sys.getenv("PHENOTYPE_INDEX_DIR", "data/phenotype_index"),
                                            negativeControlConceptSetId = NULL,
                                            includeCovariateConceptSetId = NULL,
@@ -1617,11 +1617,25 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   dialogue_state <- dialogue_session$state
   set_dialogue_context <- dialogue_session$set_context
   readline_with_dialogue <- dialogue_session$readline
+  is_back_signal <- function(value) inherits(value, "workflow_navigation_signal") && identical(value$action %||% "", "back")
+  readline_with_navigation <- function(prompt) readline_with_dialogue(prompt, allow_back = TRUE)
 
   prompt_yesno <- function(prompt, default = TRUE) {
     if (!isTRUE(interactive)) return(default)
     suffix <- if (default) "[Y/n]" else "[y/N]"
     resp <- tolower(trimws(readline_with_dialogue(sprintf("%s %s ", prompt, suffix))))
+    if (resp == "") return(default)
+    if (resp %in% c("y", "yes")) return(TRUE)
+    if (resp %in% c("n", "no")) return(FALSE)
+    default
+  }
+
+  prompt_yesno_navigation <- function(prompt, default = TRUE) {
+    if (!isTRUE(interactive)) return(default)
+    suffix <- if (default) "[Y/n]" else "[y/N]"
+    resp <- readline_with_navigation(sprintf("%s %s ", prompt, suffix))
+    if (is_back_signal(resp)) return(resp)
+    resp <- tolower(trimws(as.character(resp %||% "")))
     if (resp == "") return(default)
     if (resp %in% c("y", "yes")) return(TRUE)
     if (resp %in% c("n", "no")) return(FALSE)
@@ -1643,7 +1657,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     jsonlite::write_json(x, path, pretty = TRUE, auto_unbox = TRUE, na = "null")
   }
 
-  analysis_label_max_chars <- 50L
+  analysis_label_max_chars <- 100L
   shorten_analysis_label <- function(value, max_chars = analysis_label_max_chars) {
     value <- trimws(as.character(value %||% ""))
     if (!nzchar(value)) return(value)
@@ -1837,6 +1851,33 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     ids <- unique(ids[!is.na(ids)])
     if (length(ids) == 0) stop(sprintf("%s must include at least one cohort ID.", label))
     as.integer(ids)
+  }
+
+  resolve_single_selection <- function(selected_ids,
+                                       fallback_value,
+                                       label,
+                                       recommendation_path = NULL,
+                                       statement = NULL) {
+    ids <- parse_ids(selected_ids)
+    ids <- unique(ids[!is.na(ids)])
+    if (length(ids) > 1) stop(sprintf("%s must contain exactly one cohort ID.", label))
+    if (length(ids) == 1) return(as.integer(ids[[1]]))
+
+    fallback_ids <- parse_ids(fallback_value)
+    fallback_ids <- unique(fallback_ids[!is.na(fallback_ids)])
+    if (length(fallback_ids) > 1) stop(sprintf("%s must contain exactly one cohort ID.", label))
+    if (length(fallback_ids) == 1) return(as.integer(fallback_ids[[1]]))
+
+    if (isTRUE(interactive)) {
+      return(collect_single_id(NULL, label))
+    }
+
+    details <- c(
+      sprintf("No %s cohort ID could be resolved from recommendations or cache.", tolower(label)),
+      if (!is.null(statement) && nzchar(trimws(as.character(statement)))) sprintf("Statement: %s", trimws(as.character(statement))) else NULL,
+      if (!is.null(recommendation_path) && nzchar(trimws(as.character(recommendation_path))) && file.exists(recommendation_path)) sprintf("Recommendations artifact: %s", recommendation_path) else NULL
+    )
+    stop(paste(details, collapse = " "))
   }
 
   collect_optional_single_id <- function(value, label, prompt = NULL) {
@@ -3655,6 +3696,16 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
 
   cached_inputs <- NULL
   cached_manual_intent <- NULL
+  if (isTRUE(resume) && file.exists(manual_inputs_path)) {
+    cached_inputs <- tryCatch(read_json(manual_inputs_path), error = function(e) {
+      stop(sprintf("Failed to read cached manual inputs at %s: %s", manual_inputs_path, conditionMessage(e)))
+    })
+  }
+  if (isTRUE(resume) && file.exists(manual_intent_path)) {
+    cached_manual_intent <- tryCatch(read_json(manual_intent_path), error = function(e) {
+      stop(sprintf("Failed to read cached manual intent at %s: %s", manual_intent_path, conditionMessage(e)))
+    })
+  }
   cached_cm_target_selection <- load_cached_role_selection(cohort_id_map_path, "target", selected_target_dir)
   cached_cm_comparator_selection <- load_cached_role_selection(cohort_id_map_path, "comparator", selected_comparator_dir)
   cached_cm_outcome_selection <- load_cached_role_selection(cohort_id_map_path, "outcome", selected_outcome_dir)
@@ -3672,21 +3723,27 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
       cat(paste(readLines(banner_path, warn = FALSE), collapse = "\n"), "\n")
     }
     cat("\nStudy Agent: Strategus CohortMethod shell\n")
+    cat("Use /ohdsi for contextual guidance. Type /back at supported stage boundaries to return to the previous step.\n")
   }
 
   default_intent <- studyIntent %||% cached_inputs$study_intent %||%
     "Compare a target exposure versus a comparator exposure on one or more outcomes using a cohort method design."
-  if (isTRUE(interactive)) {
-    set_dialogue_context("study_intent", context = list(default_intent = default_intent))
-    entered <- readline_with_dialogue(sprintf("Study intent [%s]: ", default_intent))
-    if (nzchar(trimws(entered))) {
-      studyIntent <- entered
-    } else {
+  repeat {
+    if (isTRUE(interactive)) {
+      set_dialogue_context("study_intent", context = list(default_intent = default_intent))
+      entered <- readline_with_navigation(sprintf("Study intent [%s]: ", default_intent))
+      if (is_back_signal(entered)) {
+        cat("Already at the first step\n")
+        next
+      }
+      if (nzchar(trimws(entered))) {
+        studyIntent <- entered
+      } else {
+        studyIntent <- default_intent
+      }
+    } else if (is.null(studyIntent) || !nzchar(trimws(studyIntent))) {
       studyIntent <- default_intent
     }
-  } else if (is.null(studyIntent) || !nzchar(trimws(studyIntent))) {
-    studyIntent <- default_intent
-  }
 
   nonempty_string <- function(value) {
     !is.null(value) && length(value) > 0 && nzchar(trimws(as.character(value[[1]])))
@@ -4009,6 +4066,13 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     )
   }
 
+  if (isTRUE(interactive)) {
+    gate <- readline_with_navigation("Press Enter to continue to target cohort selection, or type /back: ")
+    if (is_back_signal(gate)) next
+  }
+  break
+  }
+
   validate_target_id <- function(target_id) {
     if (!cohort_json_exists(target_id, index_def_dir)) {
       return(sprintf("Target cohort ID %s was not found in %s. Please enter a valid target cohort ID.", target_id, index_def_dir))
@@ -4061,6 +4125,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   preferred_target_ids <- if (isTRUE(use_function_argument_ids_for_selection)) targetCohortId else NULL
   preferred_comparator_ids <- if (isTRUE(use_function_argument_ids_for_selection)) comparatorCohortId else NULL
 
+  repeat {
   target_rec <- run_role_recommendation(
     role_label = "Target",
     statement = targetStatement,
@@ -4092,11 +4157,13 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     exclude_metadata = list(executable_definition_status = list("codes_only"))
   )
 
-  targetCohortId <- if (length(target_rec$selected_ids) > 0) {
-    as.integer(target_rec$selected_ids[[1]])
-  } else {
-    collect_single_id(targetCohortId %||% cached_inputs$target_cohort_id, "Target")
-  }
+  targetCohortId <- resolve_single_selection(
+    selected_ids = target_rec$selected_ids,
+    fallback_value = targetCohortId %||% cached_inputs$target_cohort_id,
+    label = "Target",
+    recommendation_path = target_rec$recommendation_path,
+    statement = targetStatement
+  )
   if (!length(target_rec$selected_ids)) target_rec$selection_source <- "manual_input"
   target_validation_error <- validate_target_id(targetCohortId)
   while (!is.null(target_validation_error) && isTRUE(interactive)) {
@@ -4173,6 +4240,12 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     )
   }
 
+  if (isTRUE(interactive)) {
+    gate <- readline_with_navigation("Press Enter to continue to comparator cohort selection, or type /back: ")
+    if (is_back_signal(gate)) next
+  }
+
+  repeat {
   comparator_rec <- run_role_recommendation(
     role_label = "Comparator",
     statement = comparatorStatement,
@@ -4204,11 +4277,13 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     exclude_metadata = list(executable_definition_status = list("codes_only"))
   )
 
-  comparatorCohortId <- if (length(comparator_rec$selected_ids) > 0) {
-    as.integer(comparator_rec$selected_ids[[1]])
-  } else {
-    collect_single_id(comparatorCohortId %||% cached_inputs$comparator_cohort_id, "Comparator")
-  }
+  comparatorCohortId <- resolve_single_selection(
+    selected_ids = comparator_rec$selected_ids,
+    fallback_value = comparatorCohortId %||% cached_inputs$comparator_cohort_id,
+    label = "Comparator",
+    recommendation_path = comparator_rec$recommendation_path,
+    statement = comparatorStatement
+  )
   if (!length(comparator_rec$selected_ids)) comparator_rec$selection_source <- "manual_input"
   comparator_validation_error <- validate_comparator_id(comparatorCohortId, targetCohortId)
   while (!is.null(comparator_validation_error) && isTRUE(interactive)) {
@@ -4245,6 +4320,12 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     )
   }
 
+  if (isTRUE(interactive)) {
+    gate <- readline_with_navigation("Press Enter to continue to outcome cohort selection, or type /back: ")
+    if (is_back_signal(gate)) next
+  }
+
+  repeat {
   cached_input_outcome_ids <- normalize_selected_ids(
     cached_inputs$outcome_cohort_ids %||% NULL,
     "cached outcome cohort IDs",
@@ -4429,6 +4510,16 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
       improvements_path = improvements_outcome_path,
       role_statement = paste(unique(outcomeStatementsForSelectedCohorts), collapse = "\n")
     )
+  }
+  if (isTRUE(interactive)) {
+    gate <- readline_with_navigation("Press Enter to continue to study configuration, or type /back: ")
+    if (is_back_signal(gate)) next
+  }
+  break
+  }
+  break
+  }
+  break
   }
   do_target_improvements <- isTRUE(improvements_results$target$prompt_choice)
   do_comparator_improvements <- isTRUE(improvements_results$comparator$prompt_choice)
@@ -4986,8 +5077,13 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   }
 
   if (isTRUE(interactive)) {
-    effective_analytic_settings <- review_analytic_settings_interactively(effective_analytic_settings)
-    analytic_settings_confirmed <- TRUE
+    repeat {
+      effective_analytic_settings <- review_analytic_settings_interactively(effective_analytic_settings)
+      analytic_settings_confirmed <- TRUE
+      gate <- readline_with_navigation("Press Enter to continue to Keeper review options, or type /back: ")
+      if (is_back_signal(gate)) next
+      break
+    }
   }
 
   effective_analytic_settings$customized_sections <- names(.studyAgentAnalyticSettingsSectionPaths())[vapply(
@@ -5531,6 +5627,10 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   keeper_review_state_path <- file.path(output_dir, "keeper_review_state.json")
   keeper_review_roles <- character(0)
   keeper_acp_timeout_seconds <- as.numeric(Sys.getenv("ACP_TIMEOUT", "300"))
+  keeper_candidate_limit <- 5L
+  keeper_min_record_count <- NULL
+  keeper_sample_size <- 5L
+  keeper_review_row_limit <- 5L
   keeper_reuse_generated_artifacts <- TRUE
   keeper_overwrite_approved_concept_sets <- FALSE
   keeper_resume_reviews <- TRUE
@@ -5546,9 +5646,27 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
       keeper_review_roles <- keeper_review_roles[nzchar(keeper_review_roles)]
       keeper_review_roles <- intersect(keeper_review_roles, c("outcome", "target", "comparator"))
       if (!length(keeper_review_roles)) keeper_review_roles <- "outcome"
-      keeper_reuse_generated_artifacts <- prompt_yesno("Reuse existing Keeper generated artifacts?", default = TRUE)
-      keeper_overwrite_approved_concept_sets <- prompt_yesno("Replace approved concept sets with current generated output?", default = FALSE)
-      keeper_resume_reviews <- prompt_yesno("Resume existing Keeper row reviews?", default = TRUE)
+      keeper_generated_dir <- file.path(base_dir, "keeper-case-review", "concept-sets-generated")
+      keeper_approved_dir <- file.path(base_dir, "keeper-case-review", "concept-sets-approved")
+      keeper_rows_dir <- file.path(base_dir, "keeper-case-review", "rows")
+      keeper_reviews_dir <- file.path(base_dir, "keeper-case-review", "reviews")
+      has_keeper_generated_artifacts <- dir.exists(keeper_generated_dir) &&
+        length(list.files(keeper_generated_dir, pattern = "\\.json$", recursive = TRUE, full.names = TRUE)) > 0
+      has_keeper_approved_artifacts <- dir.exists(keeper_approved_dir) &&
+        length(list.files(keeper_approved_dir, pattern = "\\.json$", recursive = TRUE, full.names = TRUE)) > 0
+      has_keeper_rows_artifacts <- dir.exists(keeper_rows_dir) &&
+        length(list.files(keeper_rows_dir, pattern = "\\.json$", recursive = TRUE, full.names = TRUE)) > 0
+      has_keeper_review_artifacts <- dir.exists(keeper_reviews_dir) &&
+        length(list.files(keeper_reviews_dir, pattern = "\\.json$", recursive = TRUE, full.names = TRUE)) > 0
+      if (has_keeper_generated_artifacts || has_keeper_rows_artifacts) {
+        keeper_reuse_generated_artifacts <- prompt_yesno("Reuse existing Keeper generated artifacts?", default = TRUE)
+      }
+      if (has_keeper_generated_artifacts || has_keeper_approved_artifacts) {
+        keeper_overwrite_approved_concept_sets <- prompt_yesno("Replace approved concept sets with current generated output?", default = FALSE)
+      }
+      if (has_keeper_review_artifacts) {
+        keeper_resume_reviews <- prompt_yesno("Resume existing Keeper row reviews?", default = TRUE)
+      }
       entered_row_selection <- trimws(readline_with_dialogue("Keeper row selection [default first N or e.g. 1-3,5]: "))
       keeper_review_row_selection <- if (!nzchar(entered_row_selection)) NULL else entered_row_selection
 
@@ -5570,8 +5688,151 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
         set_dialogue_context(step, role, context = safe_context)
       }
 
+      parse_keeper_review_rows <- function(selection_text, total_rows) {
+        total_rows <- suppressWarnings(as.integer(total_rows %||% 0L))
+        if (is.na(total_rows) || total_rows <= 0L) return(integer(0))
+        entered <- trimws(as.character(selection_text %||% ""))
+        if (!nzchar(entered)) return(integer(0))
+        parts <- trimws(strsplit(entered, ",", fixed = TRUE)[[1]])
+        parsed <- integer(0)
+        for (part in parts[nzchar(parts)]) {
+          if (grepl("^[0-9]+-[0-9]+$", part)) {
+            bounds <- suppressWarnings(as.integer(strsplit(part, "-", fixed = TRUE)[[1]]))
+            if (length(bounds) == 2L && !anyNA(bounds)) parsed <- c(parsed, seq.int(min(bounds), max(bounds)))
+          } else {
+            parsed <- c(parsed, suppressWarnings(as.integer(part)))
+          }
+        }
+        parsed <- parsed[!is.na(parsed)]
+        parsed <- parsed[parsed >= 1L & parsed <= total_rows]
+        unique(parsed)
+      }
+
+      inspect_keeper_review_rows <- function(review_path) {
+        if (!file.exists(review_path)) {
+          cat(sprintf("Keeper review artifact not found: %s
+", review_path))
+          return(invisible(NULL))
+        }
+        payload <- read_json(review_path)
+        reviews <- payload$reviews %||% list()
+        if (!length(reviews)) {
+          cat("No Keeper review rows have been saved yet.
+")
+          return(invisible(NULL))
+        }
+        entered <- trimws(readline_with_dialogue("Review row numbers to inspect [Enter=all selected rows, e.g. 1,3 or 1-3]: "))
+        indices <- parse_keeper_review_rows(entered, length(reviews))
+        if (!length(indices)) indices <- seq_along(reviews)
+        for (idx in indices) {
+          rec <- reviews[[idx]]
+          cat(sprintf("
+[Keeper review row %s]
+", rec$row_index %||% idx))
+          cat(sprintf("Label: %s
+", rec$label %||% "<none>"))
+          rationale <- trimws(as.character(rec$rationale %||% ""))
+          if (nzchar(rationale)) cat(sprintf("Rationale: %s
+", rationale))
+          err <- trimws(as.character(rec$error %||% ""))
+          if (nzchar(err)) cat(sprintf("Error: %s
+", err))
+        }
+        invisible(NULL)
+      }
+
+      keeper_stage_gate <- function(step, role = "", context = list()) {
+        stage_callback(step, role = role, context = context)
+        if (identical(step, "keeper_concept_set_generation_before")) {
+          cat(sprintf("
+Keeper domain gate: %s / %s
+", role, context$domain_key %||% "domain"))
+          cat(sprintf("Current candidate limit: %s
+", context$candidate_limit %||% keeper_candidate_limit))
+          repeat {
+            entered <- tolower(trimws(readline_with_dialogue("Keeper domain options [Enter=continue, s=skip, e=edit settings]: ")))
+            if (!nzchar(entered)) return(list(action = "continue"))
+            if (entered %in% c("s", "skip")) return(list(action = "skip_domain"))
+            if (entered %in% c("e", "edit")) {
+              keeper_candidate_limit <<- prompt_integer("Keeper concept candidate limit", default = keeper_candidate_limit, allow_null = FALSE, must_be_positive = TRUE, allow_negative = FALSE)
+              keeper_min_record_count <<- prompt_integer("Keeper min record count", default = keeper_min_record_count, allow_null = TRUE, must_be_positive = TRUE, allow_negative = FALSE)
+              return(list(action = "continue", updates = list(candidate_limit = keeper_candidate_limit, min_record_count = keeper_min_record_count)))
+            }
+            cat("Choose Enter, s, or e.
+")
+          }
+        }
+        if (identical(step, "keeper_concept_set_generation_after")) {
+          cat(sprintf("
+Keeper domain complete: %s / %s
+", role, context$domain_key %||% "domain"))
+          cat(sprintf("Generated concept sets this domain: %s
+", context$generated_concept_set_count %||% 0L))
+          cat(sprintf("Generated artifact: %s
+", context$generated_concept_sets_path %||% "<missing>"))
+          repeat {
+            entered <- tolower(trimws(readline_with_dialogue("Keeper domain result options [Enter=keep, r=rerun, i=inspect/edit files]: ")))
+            if (!nzchar(entered)) return(list(action = "continue"))
+            if (entered %in% c("r", "rerun")) return(list(action = "rerun_domain"))
+            if (entered %in% c("i", "inspect")) {
+              cat(sprintf("Inspect or edit: %s
+", context$generated_concept_sets_path %||% "<missing>"))
+              readline_with_dialogue("Press Enter when you are ready to keep these domain results: ")
+              return(list(action = "continue"))
+            }
+            cat("Choose Enter, r, or i.
+")
+          }
+        }
+        if (identical(step, "keeper_case_review_before")) {
+          cat(sprintf("
+Keeper case review gate: %s
+", role))
+          cat(sprintf("Rows available: %s
+", context$row_count %||% 0L))
+          cat(sprintf("Rows artifact: %s
+", context$rows_path %||% "<missing>"))
+          repeat {
+            entered <- tolower(trimws(readline_with_dialogue("Keeper review options [Enter=continue, e=edit review settings, i=inspect row artifacts]: ")))
+            if (!nzchar(entered)) return(list(action = "continue"))
+            if (entered %in% c("e", "edit")) {
+              keeper_review_row_limit <<- prompt_integer("Keeper review row limit", default = keeper_review_row_limit, allow_null = FALSE, must_be_positive = TRUE, allow_negative = FALSE)
+              updated_selection <- trimws(readline_with_dialogue(sprintf("Keeper row selection [%s]: ", keeper_review_row_selection %||% "default first N")))
+              keeper_review_row_selection <<- if (!nzchar(updated_selection)) keeper_review_row_selection else updated_selection
+              keeper_resume_reviews <<- prompt_yesno_strict("Resume existing Keeper row reviews?", default = keeper_resume_reviews)
+              return(list(action = "continue", updates = list(review_row_limit = keeper_review_row_limit, review_row_selection = keeper_review_row_selection, resume_reviews = keeper_resume_reviews)))
+            }
+            if (entered %in% c("i", "inspect")) {
+              cat(sprintf("Inspect row artifacts:
+  JSON: %s
+  CSV: %s
+", context$rows_path %||% "<missing>", context$rows_csv_path %||% "<missing>"))
+              next
+            }
+            cat("Choose Enter, e, or i.
+")
+          }
+        }
+        if (identical(step, "keeper_case_review_after")) {
+          cat(sprintf("
+Keeper review saved: %s reviewed row(s)
+", context$reviewed_row_count %||% 0L))
+          repeat {
+            entered <- tolower(trimws(readline_with_dialogue("Keeper post-review options [Enter=finish, i=inspect reviewed rows]: ")))
+            if (!nzchar(entered)) return(list(action = "continue"))
+            if (entered %in% c("i", "inspect")) {
+              inspect_keeper_review_rows(context$reviews_path %||% "")
+              next
+            }
+            cat("Choose Enter or i.
+")
+          }
+        }
+        list(action = "continue")
+      }
+
       stage_callback(
-        "keeper_concept_set_generation",
+        "keeper_concept_set_generation_before",
         role = keeper_review_roles[[1]],
         context = list(review_roles = as.list(keeper_review_roles), review_status = "starting")
       )
@@ -5585,34 +5846,57 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
           intent_path = cohort_methods_intent_split_path,
           acp_timeout_seconds = keeper_acp_timeout_seconds,
           review_roles = keeper_review_roles,
+          candidate_limit = keeper_candidate_limit,
+          min_record_count = keeper_min_record_count,
+          sample_size = keeper_sample_size,
+          review_row_limit = keeper_review_row_limit,
           overwrite_approved_concept_sets = keeper_overwrite_approved_concept_sets,
           reuse_generated_concept_sets = keeper_reuse_generated_artifacts,
           reuse_rows = keeper_reuse_generated_artifacts,
           resume_reviews = keeper_resume_reviews,
           review_row_selection = keeper_review_row_selection,
-          stage_callback = stage_callback
+          stage_callback = stage_callback,
+          stage_gate = keeper_stage_gate
         ),
         error = function(e) e
       )
 
       if (inherits(keeper_review_result, "error")) {
-        cat(sprintf("Keeper review failed: %s\n", conditionMessage(keeper_review_result)))
+        cat(sprintf("Keeper review failed: %s
+", conditionMessage(keeper_review_result)))
+      } else if (identical(keeper_review_result$status %||% "ok", "error")) {
+        error_count <- as.integer(keeper_review_result$error_count %||% 0L)
+        cat(sprintf("Keeper review encountered %s ACP error(s).
+", error_count))
+        if (length(keeper_review_result$errors %||% list())) {
+          first_error <- keeper_review_result$errors[[1]]
+          cat(sprintf("First ACP error: %s
+", first_error$message %||% "unknown ACP error"))
+        }
+        cat(sprintf("Keeper review state saved to: %s
+", keeper_review_state_path))
       } else {
         keeper_review_ran <- TRUE
-        cat(sprintf("Keeper review state saved to: %s\n", keeper_review_state_path))
+        cat(sprintf("Keeper review state saved to: %s
+", keeper_review_state_path))
       }
       set_dialogue_context("workflow_summary", context = list(study_intent = studyIntent, keeper_review_state_path = keeper_review_state_path))
     }
   }
-
   state$keeper_review_state_path <- keeper_review_state_path
   state$keeper_review_roles <- as.list(keeper_review_roles)
   state$keeper_acp_timeout_seconds <- as.numeric(keeper_acp_timeout_seconds)
+  state$keeper_candidate_limit <- as.integer(keeper_candidate_limit)
+  state$keeper_min_record_count <- json_int_or_null(keeper_min_record_count)
+  state$keeper_sample_size <- as.integer(keeper_sample_size)
+  state$keeper_review_row_limit <- as.integer(keeper_review_row_limit)
   state$keeper_reuse_generated_artifacts <- isTRUE(keeper_reuse_generated_artifacts)
   state$keeper_overwrite_approved_concept_sets <- isTRUE(keeper_overwrite_approved_concept_sets)
   state$keeper_resume_reviews <- isTRUE(keeper_resume_reviews)
   state$keeper_review_row_selection <- keeper_review_row_selection
   state$keeper_review_ran <- isTRUE(keeper_review_ran)
+  state$keeper_review_status <- if (inherits(keeper_review_result, "error")) "error" else as.character(keeper_review_result$status %||% if (isTRUE(keeper_review_ran)) "ok" else "not_run")
+  state$keeper_review_error_count <- if (inherits(keeper_review_result, "error")) 1L else as.integer(keeper_review_result$error_count %||% 0L)
   write_json(state, state_path)
 
   package_root <- resolve_path("R/slashOhdsiStrategusAssistant", study_base_dir)
@@ -5866,8 +6150,8 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     "  'doi', 'alternativeDiagnosis', 'symptoms', 'drugs',",
     "  'diagnosticProcedures', 'measurements', 'treatmentProcedures', 'complications'",
     ")",
-    "candidate_limit <- 50",
-    "sample_size <- 20",
+    "candidate_limit <- 5",
+    "sample_size <- 5",
     "review_row_limit <- 5",
     "acp_timeout_seconds <- as.numeric(Sys.getenv('ACP_TIMEOUT', '300'))",
     "Sys.setenv(ACP_TIMEOUT = as.character(acp_timeout_seconds))",
@@ -5899,6 +6183,9 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     "  remove_pii = TRUE",
     ")",
     "keeper_state_path <- file.path(output_dir, 'keeper_review_state.json')",
+    "if (identical(result$status %||% 'ok', 'error')) {",
+    "  stop(sprintf('Keeper review encountered %s ACP error(s). See %s for details.', as.integer(result$error_count %||% 0L), keeper_state_path))",
+    "}",
     "message('Keeper review state saved to: ', keeper_state_path)",
     "print(result)",
     ""

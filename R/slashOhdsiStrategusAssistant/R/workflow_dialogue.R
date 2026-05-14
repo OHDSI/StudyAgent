@@ -12,6 +12,10 @@ compact_workflow_dialogue_context <- function(value) {
   value[keep_idx]
 }
 
+new_workflow_navigation_signal <- function(action) {
+  structure(list(action = as.character(action %||% "")), class = "workflow_navigation_signal")
+}
+
 #' Construct mutable dialogue state for interactive workflow guidance
 #' @return environment storing current step, role, and compact context
 #' @export
@@ -124,9 +128,13 @@ new_workflow_dialogue_session <- function(interactive = TRUE,
     list(handled = TRUE, value = "")
   }
 
-  readline_with_dialogue <- function(prompt) {
+  readline_with_dialogue <- function(prompt, allow_back = FALSE) {
     repeat {
       entered <- readline(prompt)
+      trimmed <- trimws(as.character(entered %||% ""))
+      if (isTRUE(allow_back) && identical(trimmed, "/back")) {
+        return(new_workflow_navigation_signal("back"))
+      }
       handled <- handle_command(entered)
       if (isTRUE(handled$handled)) next
       return(handled$value)
