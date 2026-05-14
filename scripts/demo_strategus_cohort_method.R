@@ -15,12 +15,12 @@ source(file.path(script_dir, "demo_setup.R"))
 repo_root <- set_study_agent_repo_root(start = dirname(script_dir))
 load_study_agent_r_packages(include_strategus = TRUE)
 
-Sys.setenv(ACP_TIMEOUT = "180")
+Sys.setenv(ACP_TIMEOUT = "1800") # set high because of detailed keeper concept set extraction 
 Sys.setenv(PHENOTYPE_INDEX_DIR = repo_file("data", "phenotype_index_cipher_omop"))
 invisible(connect_study_agent_acp())
 
 ### Optional reset from a prior run.
-#reset_demo_output_dir(repo_file("demo-strategus-cohort-method"), prompt = TRUE)
+reset_demo_output_dir(repo_file("demo-strategus-cohort-method"), prompt = TRUE)
 #
 # If you already ran `scripts/test_strategus_incidence_plus_keeper.R`, this shell can
 # reuse cached target and outcome artifacts from `demo-strategus-cohort-incidence`.
@@ -31,9 +31,9 @@ slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell(
   indexDir = "data/phenotype_index_cipher_omop",
   incidenceOutputDir = "demo-strategus-cohort-incidence",
   studyIntent = paste(
-    "Compare thiazide or thiazide-like diuretic new users vs angiotensin-converting enzyme inhibitors new users for acute myocardial infarction.",
-    "Use a 365-day washout, intent-to-treat follow-up, 1:1 propensity score matching",
-    "on standardized logit with a caliper of 0.2, and a Cox model."
+    "Compare new users of GLP-1RA medications vs new users of DPP4-i medications for chronic lower respiratory disease outcomes.",
+    "Use data from 2006 to 2025. A 365-day washout, intent-to-treat with 365 days follow-up, sIPTW confounder balancing",
+    "and a Cox model to estimate time-to-event for the primary outcome."
   )
 )
 

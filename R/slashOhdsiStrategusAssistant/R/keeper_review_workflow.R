@@ -205,6 +205,45 @@ runKeeperReviewWorkflow <- function(base_dir,
     })
   }
 
+  payload_error_message <- function(payload) {
+    if (!is.list(payload)) return(NULL)
+    status <- payload$status %||% payload$result$status %||% payload$full_result$status %||% NULL
+    error_text <- payload$error %||% payload$result$error %||% payload$full_result$error %||% NULL
+    if (!is.null(error_text) && nzchar(trimws(as.character(error_text)))) {
+      return(trimws(as.character(error_text)))
+    }
+    if (!is.null(status) && identical(tolower(as.character(status)), "error")) {
+      return("ACP call returned status=error")
+    }
+    NULL
+  }
+
+  append_workflow_error <- function(errors,
+                                    step,
+                                    role,
+                                    cohort_id,
+                                    cohort_name,
+                                    phenotype_name,
+                                    message,
+                                    path = NULL,
+                                    row_index = NULL) {
+    if (is.null(message) || !nzchar(trimws(as.character(message)))) return(errors)
+    errors[[length(errors) + 1L]] <- Filter(
+      Negate(is.null),
+      list(
+        step = as.character(step),
+        role = as.character(role %||% ""),
+        cohort_definition_id = cohort_id,
+        cohort_name = as.character(cohort_name %||% ""),
+        phenotype_name = as.character(phenotype_name %||% ""),
+        row_index = row_index,
+        message = trimws(as.character(message)),
+        artifact_path = path
+      )
+    )
+    errors
+  }
+
   emit_stage <- function(step, role = "", context = list()) {
     if (!is.function(stage_callback)) return(invisible(NULL))
     stage_callback(
@@ -280,6 +319,7 @@ runKeeperReviewWorkflow <- function(base_dir,
 
   client <- .studyAgentSlashCreateAcpClient(url = acp_url, check = TRUE)
   summary_rows <- vector("list", nrow(selected_map))
+  workflow_errors <- list()
 
   for (i in seq_len(nrow(selected_map))) {
     role <- as.character(selected_map$role[[i]] %||% "")
@@ -327,6 +367,17 @@ runKeeperReviewWorkflow <- function(base_dir,
       )
       write_json(generated_payload, generated_path)
     }
+    generated_error <- payload_error_message(generated_payload)
+    workflow_errors <- append_workflow_error(
+      workflow_errors,
+      step = "keeper_concept_set_generation",
+      role = role,
+      cohort_id = cohort_id,
+      cohort_name = cohort_name,
+      phenotype_name = phenotype_name,
+      message = generated_error,
+      path = generated_path
+    )
     generated_concept_sets <- extract_concept_sets(generated_payload)
 
     approved_source <- "reused"
@@ -394,6 +445,17 @@ runKeeperReviewWorkflow <- function(base_dir,
       rows_source <- "missing_approved_concept_sets"
       list(status = "error", error = "no approved concept sets", rows = list())
     }
+    rows_error <- payload_error_message(rows_payload)
+    workflow_errors <- append_workflow_error(
+      workflow_errors,
+      step = "keeper_profile_generation",
+      role = role,
+      cohort_id = cohort_id,
+      cohort_name = cohort_name,
+      phenotype_name = phenotype_name,
+      message = rows_error,
+      path = rows_path
+    )
     row_records <- extract_rows(rows_payload)
     row_df <- records_to_data_frame(row_records)
     if (nrow(row_df) > 0) utils::write.csv(row_df, rows_csv_path, row.names = FALSE)
@@ -461,6 +523,18 @@ runKeeperReviewWorkflow <- function(base_dir,
             disease_name = phenotype_name,
             keeper_row = keeper_row
           )
+        )
+        review_error <- payload_error_message(review_payload)
+        workflow_errors <- append_workflow_error(
+          workflow_errors,
+          step = "keeper_case_review",
+          role = role,
+          cohort_id = cohort_id,
+          cohort_name = cohort_name,
+          phenotype_name = phenotype_name,
+          message = review_error,
+          path = review_path,
+          row_index = row_index
         )
         review_records[[length(review_records) + 1]] <- c(
           list(
@@ -530,11 +604,26 @@ runKeeperReviewWorkflow <- function(base_dir,
       rows_source = rows_source,
       reviews_source = review_source,
       concept_generation_status = generated_payload$status %||% "ok",
-      row_generation_status = rows_payload$status %||% "ok"
+      row_generation_status = rows_payload$status %||% "ok",
+      review_error_count = sum(vapply(review_records, function(rec) {
+        err <- rec$error %||% NULL
+        !is.null(err) && nzchar(trimws(as.character(err)))
+      }, logical(1)))
     )
   }
 
+  workflow_status <- if (length(workflow_errors)) "error" else "ok"
+  workflow_message <- if (length(workflow_errors)) {
+    sprintf("Keeper review encountered %s ACP error(s).", length(workflow_errors))
+  } else {
+    "Keeper review completed without ACP errors."
+  }
+
   keeper_state <- list(
+    status = workflow_status,
+    message = workflow_message,
+    error_count = length(workflow_errors),
+    errors = workflow_errors,
     base_dir = base_dir,
     execution_settings_path = execution_settings_path,
     cohort_id_map_path = cohort_id_map_path,

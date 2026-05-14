@@ -36,11 +36,15 @@ def test_keeper_helper_emits_metadata_only_stage_callbacks() -> None:
     assert 'pending_row_indices = as.list(pending_row_indices)' in source
     assert "keeper_row = keeper_row" in source
     assert "emit_stage(" in source
+    assert 'payload_error_message <- function(payload)' in source
+    assert 'append_workflow_error <- function(errors,' in source
+    assert 'workflow_status <- if (length(workflow_errors)) "error" else "ok"' in source
+    assert 'error_count = length(workflow_errors)' in source
 
 
 def _assert_shell_keeper_controls(source: str) -> None:
     assert 'keeper_acp_timeout_seconds <- as.numeric(Sys.getenv("ACP_TIMEOUT", "300"))' in source
-    assert 'prompt_yesno("Run ACP-based Keeper review now?", default = FALSE)' in source
+    assert 'Keeper review roles [outcome]: ' in source
     assert 'readline_with_dialogue("Keeper review roles [outcome]: ")' in source
     assert 'prompt_yesno("Reuse existing Keeper generated artifacts?", default = TRUE)' in source
     assert 'prompt_yesno("Replace approved concept sets with current generated output?", default = FALSE)' in source
@@ -58,6 +62,10 @@ def _assert_shell_keeper_controls(source: str) -> None:
     assert 'state$keeper_overwrite_approved_concept_sets <- isTRUE(keeper_overwrite_approved_concept_sets)' in source
     assert 'state$keeper_resume_reviews <- isTRUE(keeper_resume_reviews)' in source
     assert 'state$keeper_review_row_selection <- keeper_review_row_selection' in source
+    assert 'else if (identical(keeper_review_result$status %||% "ok", "error")) {' in source
+    assert 'cat(sprintf("Keeper review encountered %s ACP error(s).\\n", error_count))' in source
+    assert 'state$keeper_review_status <- if (inherits(keeper_review_result, "error")) "error" else as.character(keeper_review_result$status %||% if (isTRUE(keeper_review_ran)) "ok" else "not_run")' in source
+    assert 'state$keeper_review_error_count <- if (inherits(keeper_review_result, "error")) 1L else as.integer(keeper_review_result$error_count %||% 0L)' in source
 
 
 def test_cohort_method_shell_offers_inline_keeper_phase() -> None:

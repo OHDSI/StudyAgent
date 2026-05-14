@@ -1562,7 +1562,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
                                            comparisonLabel = NULL,
                                            topK = 20,
                                            maxResults = 3,
-                                           candidateLimit = 10,
+                                           candidateLimit = 5,
                                            indexDir = Sys.getenv("PHENOTYPE_INDEX_DIR", "data/phenotype_index"),
                                            negativeControlConceptSetId = NULL,
                                            includeCovariateConceptSetId = NULL,
@@ -5597,6 +5597,14 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
 
       if (inherits(keeper_review_result, "error")) {
         cat(sprintf("Keeper review failed: %s\n", conditionMessage(keeper_review_result)))
+      } else if (identical(keeper_review_result$status %||% "ok", "error")) {
+        error_count <- as.integer(keeper_review_result$error_count %||% 0L)
+        cat(sprintf("Keeper review encountered %s ACP error(s).\n", error_count))
+        if (length(keeper_review_result$errors %||% list())) {
+          first_error <- keeper_review_result$errors[[1]]
+          cat(sprintf("First ACP error: %s\n", first_error$message %||% "unknown ACP error"))
+        }
+        cat(sprintf("Keeper review state saved to: %s\n", keeper_review_state_path))
       } else {
         keeper_review_ran <- TRUE
         cat(sprintf("Keeper review state saved to: %s\n", keeper_review_state_path))
@@ -5613,6 +5621,8 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   state$keeper_resume_reviews <- isTRUE(keeper_resume_reviews)
   state$keeper_review_row_selection <- keeper_review_row_selection
   state$keeper_review_ran <- isTRUE(keeper_review_ran)
+  state$keeper_review_status <- if (inherits(keeper_review_result, "error")) "error" else as.character(keeper_review_result$status %||% if (isTRUE(keeper_review_ran)) "ok" else "not_run")
+  state$keeper_review_error_count <- if (inherits(keeper_review_result, "error")) 1L else as.integer(keeper_review_result$error_count %||% 0L)
   write_json(state, state_path)
 
   package_root <- resolve_path("R/slashOhdsiStrategusAssistant", study_base_dir)
@@ -5866,8 +5876,8 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     "  'doi', 'alternativeDiagnosis', 'symptoms', 'drugs',",
     "  'diagnosticProcedures', 'measurements', 'treatmentProcedures', 'complications'",
     ")",
-    "candidate_limit <- 50",
-    "sample_size <- 20",
+    "candidate_limit <- 5",
+    "sample_size <- 5",
     "review_row_limit <- 5",
     "acp_timeout_seconds <- as.numeric(Sys.getenv('ACP_TIMEOUT', '300'))",
     "Sys.setenv(ACP_TIMEOUT = as.character(acp_timeout_seconds))",
@@ -5899,6 +5909,9 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     "  remove_pii = TRUE",
     ")",
     "keeper_state_path <- file.path(output_dir, 'keeper_review_state.json')",
+    "if (identical(result$status %||% 'ok', 'error')) {",
+    "  stop(sprintf('Keeper review encountered %s ACP error(s). See %s for details.', as.integer(result$error_count %||% 0L), keeper_state_path))",
+    "}",
     "message('Keeper review state saved to: ', keeper_state_path)",
     "print(result)",
     ""
