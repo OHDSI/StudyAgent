@@ -7,6 +7,7 @@ FLOWS_SOURCE = repo_path("R", "slashOhdsiAcpClient", "R", "flows.R")
 DEMO_SOURCE = repo_path("scripts", "demo_ohdsi_dialogue.R")
 DIALOGUE_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workflow_dialogue.R")
 INCIDENCE_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_incidence_shell.R")
+COHORT_METHODS_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_cohort_methods_shell.R")
 
 def test_r_workflow_context_dialogue_wrapper_flattens_stage_context() -> None:
     source = FLOWS_SOURCE.read_text(encoding="utf-8")
@@ -47,3 +48,16 @@ def test_incidence_shell_wires_back_at_major_stage_boundaries() -> None:
     assert 'Press Enter to continue to outcome cohort selection, or type /back: ' in source
     assert 'run_keeper_review_now <- prompt_yesno_navigation(' in source
     assert 'Use /ohdsi for contextual guidance. Type /back at supported stage boundaries to return to the previous step.' in source
+
+def test_cohort_methods_shell_wires_back_at_major_stage_boundaries() -> None:
+    source = COHORT_METHODS_SOURCE.read_text(encoding="utf-8")
+
+    assert 'readline_with_navigation <- function(prompt) readline_with_dialogue(prompt, allow_back = TRUE)' in source
+    assert 'prompt_yesno_navigation <- function(prompt, default = TRUE)' in source
+    assert 'Press Enter to continue to target cohort selection, or type /back: ' in source
+    assert 'Press Enter to continue to comparator cohort selection, or type /back: ' in source
+    assert 'Press Enter to continue to outcome cohort selection, or type /back: ' in source
+    assert 'Press Enter to continue to study configuration, or type /back: ' in source
+    assert 'Press Enter to continue to Keeper review options, or type /back: ' in source
+    assert 'Use /ohdsi for contextual guidance. Type /back at supported stage boundaries to return to the previous step.' in source
+

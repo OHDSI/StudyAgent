@@ -1617,11 +1617,25 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   dialogue_state <- dialogue_session$state
   set_dialogue_context <- dialogue_session$set_context
   readline_with_dialogue <- dialogue_session$readline
+  is_back_signal <- function(value) inherits(value, "workflow_navigation_signal") && identical(value$action %||% "", "back")
+  readline_with_navigation <- function(prompt) readline_with_dialogue(prompt, allow_back = TRUE)
 
   prompt_yesno <- function(prompt, default = TRUE) {
     if (!isTRUE(interactive)) return(default)
     suffix <- if (default) "[Y/n]" else "[y/N]"
     resp <- tolower(trimws(readline_with_dialogue(sprintf("%s %s ", prompt, suffix))))
+    if (resp == "") return(default)
+    if (resp %in% c("y", "yes")) return(TRUE)
+    if (resp %in% c("n", "no")) return(FALSE)
+    default
+  }
+
+  prompt_yesno_navigation <- function(prompt, default = TRUE) {
+    if (!isTRUE(interactive)) return(default)
+    suffix <- if (default) "[Y/n]" else "[y/N]"
+    resp <- readline_with_navigation(sprintf("%s %s ", prompt, suffix))
+    if (is_back_signal(resp)) return(resp)
+    resp <- tolower(trimws(as.character(resp %||% "")))
     if (resp == "") return(default)
     if (resp %in% c("y", "yes")) return(TRUE)
     if (resp %in% c("n", "no")) return(FALSE)
@@ -3672,21 +3686,27 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
       cat(paste(readLines(banner_path, warn = FALSE), collapse = "\n"), "\n")
     }
     cat("\nStudy Agent: Strategus CohortMethod shell\n")
+    cat("Use /ohdsi for contextual guidance. Type /back at supported stage boundaries to return to the previous step.\n")
   }
 
   default_intent <- studyIntent %||% cached_inputs$study_intent %||%
     "Compare a target exposure versus a comparator exposure on one or more outcomes using a cohort method design."
-  if (isTRUE(interactive)) {
-    set_dialogue_context("study_intent", context = list(default_intent = default_intent))
-    entered <- readline_with_dialogue(sprintf("Study intent [%s]: ", default_intent))
-    if (nzchar(trimws(entered))) {
-      studyIntent <- entered
-    } else {
+  repeat {
+    if (isTRUE(interactive)) {
+      set_dialogue_context("study_intent", context = list(default_intent = default_intent))
+      entered <- readline_with_navigation(sprintf("Study intent [%s]: ", default_intent))
+      if (is_back_signal(entered)) {
+        cat("Already at the first step\n")
+        next
+      }
+      if (nzchar(trimws(entered))) {
+        studyIntent <- entered
+      } else {
+        studyIntent <- default_intent
+      }
+    } else if (is.null(studyIntent) || !nzchar(trimws(studyIntent))) {
       studyIntent <- default_intent
     }
-  } else if (is.null(studyIntent) || !nzchar(trimws(studyIntent))) {
-    studyIntent <- default_intent
-  }
 
   nonempty_string <- function(value) {
     !is.null(value) && length(value) > 0 && nzchar(trimws(as.character(value[[1]])))
@@ -4009,6 +4029,13 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     )
   }
 
+  if (isTRUE(interactive)) {
+    gate <- readline_with_navigation("Press Enter to continue to target cohort selection, or type /back: ")
+    if (is_back_signal(gate)) next
+  }
+  break
+  }
+
   validate_target_id <- function(target_id) {
     if (!cohort_json_exists(target_id, index_def_dir)) {
       return(sprintf("Target cohort ID %s was not found in %s. Please enter a valid target cohort ID.", target_id, index_def_dir))
@@ -4061,6 +4088,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   preferred_target_ids <- if (isTRUE(use_function_argument_ids_for_selection)) targetCohortId else NULL
   preferred_comparator_ids <- if (isTRUE(use_function_argument_ids_for_selection)) comparatorCohortId else NULL
 
+  repeat {
   target_rec <- run_role_recommendation(
     role_label = "Target",
     statement = targetStatement,
@@ -4173,6 +4201,12 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     )
   }
 
+  if (isTRUE(interactive)) {
+    gate <- readline_with_navigation("Press Enter to continue to comparator cohort selection, or type /back: ")
+    if (is_back_signal(gate)) next
+  }
+
+  repeat {
   comparator_rec <- run_role_recommendation(
     role_label = "Comparator",
     statement = comparatorStatement,
@@ -4245,6 +4279,12 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     )
   }
 
+  if (isTRUE(interactive)) {
+    gate <- readline_with_navigation("Press Enter to continue to outcome cohort selection, or type /back: ")
+    if (is_back_signal(gate)) next
+  }
+
+  repeat {
   cached_input_outcome_ids <- normalize_selected_ids(
     cached_inputs$outcome_cohort_ids %||% NULL,
     "cached outcome cohort IDs",
@@ -4429,6 +4469,16 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
       improvements_path = improvements_outcome_path,
       role_statement = paste(unique(outcomeStatementsForSelectedCohorts), collapse = "\n")
     )
+  }
+  if (isTRUE(interactive)) {
+    gate <- readline_with_navigation("Press Enter to continue to study configuration, or type /back: ")
+    if (is_back_signal(gate)) next
+  }
+  break
+  }
+  break
+  }
+  break
   }
   do_target_improvements <- isTRUE(improvements_results$target$prompt_choice)
   do_comparator_improvements <- isTRUE(improvements_results$comparator$prompt_choice)
@@ -4986,8 +5036,13 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   }
 
   if (isTRUE(interactive)) {
-    effective_analytic_settings <- review_analytic_settings_interactively(effective_analytic_settings)
-    analytic_settings_confirmed <- TRUE
+    repeat {
+      effective_analytic_settings <- review_analytic_settings_interactively(effective_analytic_settings)
+      analytic_settings_confirmed <- TRUE
+      gate <- readline_with_navigation("Press Enter to continue to Keeper review options, or type /back: ")
+      if (is_back_signal(gate)) next
+      break
+    }
   }
 
   effective_analytic_settings$customized_sections <- names(.studyAgentAnalyticSettingsSectionPaths())[vapply(
