@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from _repo_paths import repo_path
 
 
@@ -7,6 +5,7 @@ MAPPING_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workflow_d
 HELPER_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "keeper_review_workflow.R")
 COHORT_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_cohort_methods_shell.R")
 INCIDENCE_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_incidence_shell.R")
+
 
 def test_keeper_stage_labels_exist_for_both_shells() -> None:
     source = MAPPING_SOURCE.read_text(encoding="utf-8")
@@ -19,54 +18,34 @@ def test_keeper_stage_labels_exist_for_both_shells() -> None:
     assert 'keeper_case_review_after = "keeper_case_review"' in source
 
 
-def test_keeper_helper_emits_metadata_only_stage_callbacks() -> None:
+def test_keeper_helper_exports_split_workflows_and_stage_callbacks() -> None:
     source = HELPER_SOURCE.read_text(encoding="utf-8")
 
-    assert "acp_timeout_seconds = as.numeric(Sys.getenv(\"ACP_TIMEOUT\", \"300\"))" in source
-    assert "previous_acp_timeout <- Sys.getenv(\"ACP_TIMEOUT\", unset = NA_character_)" in source
-    assert "Sys.setenv(ACP_TIMEOUT = as.character(acp_timeout_seconds))" in source
-    assert "acp_timeout_seconds = as.numeric(acp_timeout_seconds)" in source
-    assert "stage_callback = NULL" in source
-    assert "stage_gate = NULL" in source
-    assert "overwrite_approved_concept_sets = FALSE" in source
-    assert "resume_reviews = TRUE" in source
-    assert "review_row_selection = NULL" in source
-    assert "parse_row_selection <- function(selection, total_rows, default_limit)" in source
-    assert 'tolower(selection_text) %in% c("all", "*")' in source
-    assert 'selected_row_indices <- parse_row_selection(current_review_row_selection, length(row_records), current_review_row_limit)' in source
-    assert 'pending_row_indices <- selected_row_indices[!selected_row_indices %in% reviewed_indices]' in source
-    assert 'approved_source <- "overwritten_from_generated"' in source
-    assert 'approved_concept_sets_source = approved_source' in source
-    assert 'selected_row_indices = as.list(selected_row_indices)' in source
-    assert 'pending_row_indices = as.list(pending_row_indices)' in source
-    assert "keeper_row = keeper_row" in source
-    assert "emit_stage(" in source
-    assert 'payload_error_message <- function(payload)' in source
-    assert 'append_workflow_error <- function(errors,' in source
-    assert 'clear_workflow_errors <- function(errors,' in source
-    assert 'workflow_status <- if (length(workflow_errors)) "error" else "ok"' in source
-    assert 'normalize_stage_gate_result <- function(result)' in source
-    assert 'invoke_stage_gate <- function(step, role = "", context = list())' in source
-    assert 'apply_domain_gate_updates <- function(current_candidate_limit, current_min_record_count, updates)' in source
-    assert 'apply_review_gate_updates <- function(current_review_row_limit,' in source
+    assert 'runKeeperConceptSetWorkflow <- function(' in source
+    assert 'runKeeperCaseReviewWorkflow <- function(' in source
+    assert 'keeper_concept_set_state.json' in source
+    assert 'keeper_case_review_state.json' in source
+    assert 'remove_pii = TRUE' in source
+    assert 'resume_reviews = TRUE' in source
+    assert 'review_row_selection = NULL' in source
+    assert '.studyAgentSlashParseRowSelection <- function(selection, total_rows, default_limit)' in source
+    assert '.studyAgentSlashEmitKeeperStage(' in source
     assert 'keeper_concept_set_generation_before' in source
     assert 'keeper_concept_set_generation_after' in source
     assert 'keeper_case_review_before' in source
     assert 'keeper_case_review_after' in source
-    assert 'domain_runs = domain_runs' in source
-    assert 'review_row_selection = if (is.null(current_review_row_selection)) NULL else as.character(current_review_row_selection)' in source
+    assert 'approved_source <- "overwritten_from_generated"' in source
+    assert 'pending_row_indices <- selected_row_indices[!selected_row_indices %in% reviewed_indices]' in source
     assert 'error_count = length(workflow_errors)' in source
 
 
 def _assert_shell_keeper_controls(source: str) -> None:
     assert 'keeper_acp_timeout_seconds <- as.numeric(Sys.getenv("ACP_TIMEOUT", "300"))' in source
     assert 'Keeper review roles [outcome]: ' in source
-    assert 'readline_with_dialogue("Keeper review roles [outcome]: ")' in source
-    assert 'prompt_yesno("Reuse existing Keeper generated artifacts?", default = TRUE)' in source
-    assert 'prompt_yesno("Replace approved concept sets with current generated output?", default = FALSE)' in source
-    assert 'prompt_yesno("Resume existing Keeper row reviews?", default = TRUE)' in source
-    assert 'readline_with_dialogue("Keeper row selection [default first N or e.g. 1-3,5]: ")' in source
-    assert 'runKeeperReviewWorkflow(' in source
+    assert 'prompt_yesno("Reuse existing Keeper generated artifacts?", default = TRUE)' in source or 'prompt_yesno_strict("Reuse existing Keeper generated artifacts?", default = TRUE)' in source
+    assert 'prompt_yesno("Replace approved concept sets with current generated output?", default = FALSE)' in source or 'prompt_yesno_strict("Replace approved concept sets with current generated output?", default = FALSE)' in source
+    assert 'runKeeperConceptSetWorkflow(' in source
+    assert 'runKeeperCaseReviewWorkflow(' in source
     assert 'acp_timeout_seconds = keeper_acp_timeout_seconds' in source
     assert 'overwrite_approved_concept_sets = keeper_overwrite_approved_concept_sets' in source
     assert 'reuse_generated_concept_sets = keeper_reuse_generated_artifacts' in source
@@ -82,9 +61,6 @@ def _assert_shell_keeper_controls(source: str) -> None:
     assert 'keeper_case_review_before' in source
     assert 'keeper_case_review_after' in source
     assert 'state$keeper_acp_timeout_seconds <- as.numeric(keeper_acp_timeout_seconds)' in source
-    assert 'has_keeper_generated_artifacts <- dir.exists(keeper_generated_dir) &&' in source
-    assert 'if (has_keeper_generated_artifacts || has_keeper_rows_artifacts) {' in source
-    assert 'if (has_keeper_review_artifacts) {' in source
     assert 'state$keeper_candidate_limit <- as.integer(keeper_candidate_limit)' in source
     assert 'state$keeper_sample_size <- as.integer(keeper_sample_size)' in source
     assert 'state$keeper_review_row_limit <- as.integer(keeper_review_row_limit)' in source
@@ -92,11 +68,8 @@ def _assert_shell_keeper_controls(source: str) -> None:
     assert 'state$keeper_overwrite_approved_concept_sets <- isTRUE(keeper_overwrite_approved_concept_sets)' in source
     assert 'state$keeper_resume_reviews <- isTRUE(keeper_resume_reviews)' in source
     assert 'state$keeper_review_row_selection <- keeper_review_row_selection' in source
-    assert 'else if (identical(keeper_review_result$status %||% "ok", "error")) {' in source
-    assert 'Keeper review encountered %s ACP error(s).' in source
-    assert 'error_count <- as.integer(keeper_review_result$error_count %||% 0L)' in source
-    assert 'state$keeper_review_status <- if (inherits(keeper_review_result, "error")) "error" else as.character(keeper_review_result$status %||% if (isTRUE(keeper_review_ran)) "ok" else "not_run")' in source
-    assert 'state$keeper_review_error_count <- if (inherits(keeper_review_result, "error")) 1L else as.integer(keeper_review_result$error_count %||% 0L)' in source
+    assert 'state$keeper_concept_set_status <-' in source
+    assert 'state$keeper_case_review_status <-' in source
 
 
 def test_cohort_method_shell_offers_inline_keeper_phase() -> None:
@@ -104,7 +77,8 @@ def test_cohort_method_shell_offers_inline_keeper_phase() -> None:
     _assert_shell_keeper_controls(source)
     assert 'intent_path = cohort_methods_intent_split_path' in source
     assert 'stage_callback = stage_callback' in source
-    assert 'set_dialogue_context("workflow_summary", context = list(study_intent = studyIntent, keeper_review_state_path = keeper_review_state_path))' in source
+    assert 'keeper_concept_set_state_path = keeper_concept_set_state_path' in source
+    assert 'keeper_case_review_state_path = keeper_case_review_state_path' in source
 
 
 def test_incidence_shell_offers_inline_keeper_phase() -> None:
@@ -112,4 +86,5 @@ def test_incidence_shell_offers_inline_keeper_phase() -> None:
     _assert_shell_keeper_controls(source)
     assert 'intent_path = intent_split_path' in source
     assert 'stage_callback = stage_callback' in source
-    assert 'set_dialogue_context("workflow_summary", context = list(study_intent = studyIntent, keeper_review_state_path = keeper_review_state_path))' in source
+    assert 'keeper_concept_set_state_path = keeper_concept_set_state_path' in source
+    assert 'keeper_case_review_state_path = keeper_case_review_state_path' in source

@@ -32,7 +32,7 @@ def _run_r_or_skip(expression: str) -> subprocess.CompletedProcess[str]:
 
 def test_generated_cm_spec_builds_and_executes_strategus_analysis_specification() -> None:
     source = SOURCE.read_text(encoding="utf-8")
-    block = _generated_script_block(source, "script_06", "06_cm_spec.R")
+    block = _generated_script_block(source, "script_07", "07_cm_spec.R")
 
     assert "analysisSpecification.json" in block
     assert "CharacterizationModule$new()" in block
@@ -69,11 +69,11 @@ def test_generated_cm_spec_builds_and_executes_strategus_analysis_specification(
     assert "CohortMethod::loadTargetComparatorOutcomesList(" not in block
 
 
-def test_cm_runner_is_merged_into_script_06() -> None:
+def test_cm_runner_is_merged_into_script_07() -> None:
     source = SOURCE.read_text(encoding="utf-8")
 
-    assert "script_07 <- c(" not in source
-    assert 'write_lines(file.path(scripts_dir, "07_cm_run_analyses.R")' not in source
+    assert "script_08 <- c(" not in source
+    assert 'write_lines(file.path(scripts_dir, "08_cm_run_analyses.R")' not in source
     assert 'cat("  - 07_cm_run_analyses.R\\n")' not in source
 
 

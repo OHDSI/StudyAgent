@@ -47,8 +47,8 @@ def test_time_at_risk_configuration_context_and_state_are_persisted() -> None:
 def test_generated_incidence_script_uses_persisted_time_at_risk_settings() -> None:
     source = SOURCE.read_text(encoding="utf-8")
 
-    start = source.index('script_06 <- c(')
-    end = source.index('write_lines(file.path(scripts_dir, "06_incidence_spec.R")', start)
+    start = source.index('script_07 <- c(')
+    end = source.index('write_lines(file.path(scripts_dir, "07_incidence_spec.R")', start)
     block = source[start:end]
 
     assert "time_at_risk_settings_path <- file.path(analysis_settings_dir, 'time_at_risk_settings.json')" in block
@@ -87,8 +87,8 @@ def test_shell_seeds_runtime_templates_and_generated_scripts_use_them() -> None:
     assert "createStrategusExecutionSettings(path = execution_settings_path)" in script03
     assert "<FILL IN>" not in script03
 
-    script05_start = source.index('script_05 <- c(')
-    script05_end = source.index('write_lines(file.path(scripts_dir, "05_diagnostics.R")', script05_start)
+    script05_start = source.index('script_06 <- c(')
+    script05_end = source.index('write_lines(file.path(scripts_dir, "06_diagnostics.R")', script05_start)
     script05 = source[script05_start:script05_end]
     assert "db_details_path <- file.path(base_dir, 'strategus-db-details.json')" in script05
     assert "execution_settings_path <- file.path(base_dir, 'strategus-execution-settings.json')" in script05
@@ -96,8 +96,8 @@ def test_shell_seeds_runtime_templates_and_generated_scripts_use_them() -> None:
     assert "createStrategusExecutionSettings(path = execution_settings_path)" in script05
     assert "<FILL IN>" not in script05
 
-    script06_start = source.index('script_06 <- c(')
-    script06_end = source.index('write_lines(file.path(scripts_dir, "06_incidence_spec.R")', script06_start)
+    script06_start = source.index('script_07 <- c(')
+    script06_end = source.index('write_lines(file.path(scripts_dir, "07_incidence_spec.R")', script06_start)
     script06 = source[script06_start:script06_end]
     assert "db_details_path <- file.path(base_dir, 'strategus-db-details.json')" in script06
     assert "execution_settings_path <- file.path(base_dir, 'strategus-execution-settings.json')" in script06

@@ -46,27 +46,36 @@
       produces_artifacts = c("selected-cohorts", "outputs/cohort_id_map.json")
     ),
     .studyAgentSlashNewPlanStep(
-      step_id = "keeper_review",
-      label = "Run Keeper review",
-      script_name = "04_keeper_review.R",
-      stage_context_step = "keeper_case_review",
+      step_id = "keeper_concept_sets",
+      label = "Run Keeper concept-set workflow",
+      script_name = "04_keeper_concept_sets.R",
+      stage_context_step = "keeper_concept_set_generation",
       depends_on = "generate_cohorts",
-      produces_artifacts = c("keeper-case-review/concept-sets-generated", "keeper-case-review/concept-sets-approved", "keeper-case-review/rows", "keeper-case-review/reviews"),
+      produces_artifacts = c("keeper-case-review/concept-sets-generated", "keeper-case-review/concept-sets-approved"),
+      review_required = TRUE
+    ),
+    .studyAgentSlashNewPlanStep(
+      step_id = "keeper_case_review",
+      label = "Run Keeper case review",
+      script_name = "05_keeper_case_review.R",
+      stage_context_step = "keeper_case_review",
+      depends_on = "keeper_concept_sets",
+      produces_artifacts = c("keeper-case-review/rows", "keeper-case-review/reviews"),
       review_required = TRUE
     ),
     .studyAgentSlashNewPlanStep(
       step_id = "diagnostics",
       label = "Run diagnostics",
-      script_name = "05_diagnostics.R",
+      script_name = "06_diagnostics.R",
       stage_context_step = "diagnostics_review",
-      depends_on = "generate_cohorts",
+      depends_on = "keeper_case_review",
       produces_artifacts = c("results", "work"),
       review_required = TRUE
     ),
     .studyAgentSlashNewPlanStep(
       step_id = "incidence_spec",
       label = "Run incidence specification",
-      script_name = "06_incidence_spec.R",
+      script_name = "07_incidence_spec.R",
       stage_context_step = "strategus_spec_execution",
       depends_on = "diagnostics",
       produces_artifacts = c("results", "work"),
@@ -101,27 +110,36 @@
       produces_artifacts = c("selected-cohorts", "outputs/cohort_id_map.json")
     ),
     .studyAgentSlashNewPlanStep(
-      step_id = "keeper_review",
-      label = "Run Keeper review",
-      script_name = "04_keeper_review.R",
-      stage_context_step = "keeper_case_review",
+      step_id = "keeper_concept_sets",
+      label = "Run Keeper concept-set workflow",
+      script_name = "04_keeper_concept_sets.R",
+      stage_context_step = "keeper_concept_set_generation",
       depends_on = "generate_cohorts",
-      produces_artifacts = c("keeper-case-review/concept-sets-generated", "keeper-case-review/concept-sets-approved", "keeper-case-review/rows", "keeper-case-review/reviews"),
+      produces_artifacts = c("keeper-case-review/concept-sets-generated", "keeper-case-review/concept-sets-approved"),
+      review_required = TRUE
+    ),
+    .studyAgentSlashNewPlanStep(
+      step_id = "keeper_case_review",
+      label = "Run Keeper case review",
+      script_name = "05_keeper_case_review.R",
+      stage_context_step = "keeper_case_review",
+      depends_on = "keeper_concept_sets",
+      produces_artifacts = c("keeper-case-review/rows", "keeper-case-review/reviews"),
       review_required = TRUE
     ),
     .studyAgentSlashNewPlanStep(
       step_id = "diagnostics",
       label = "Run diagnostics",
-      script_name = "05_diagnostics.R",
+      script_name = "06_diagnostics.R",
       stage_context_step = "diagnostics_review",
-      depends_on = "generate_cohorts",
+      depends_on = "keeper_case_review",
       produces_artifacts = c("results", "work"),
       review_required = TRUE
     ),
     .studyAgentSlashNewPlanStep(
       step_id = "cm_spec",
       label = "Run cohort method specification",
-      script_name = "06_cm_spec.R",
+      script_name = "07_cm_spec.R",
       stage_context_step = "strategus_spec_execution",
       depends_on = "diagnostics",
       produces_artifacts = c("results", "work"),
