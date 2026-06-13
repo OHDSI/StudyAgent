@@ -554,6 +554,121 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   ensure_dir(analysis_settings_dir)
   ensure_dir(scripts_dir)
 
+  project_state_path <- .studyAgentSlashProjectStatePath(base_dir)
+  runtime_state_path <- .studyAgentSlashRuntimeStatePath(base_dir)
+
+  print_execution_status <- function() {
+    if (!file.exists(project_state_path)) {
+      cat("No study-agent project manifest found.\n")
+      return(invisible(NULL))
+    }
+    cat("\nExecution status\n")
+    for (line in .studyAgentSlashSummarizeWorkflowStatus(base_dir)) {
+      cat(sprintf("  - %s\n", line))
+    }
+    invisible(NULL)
+  }
+
+  refresh_execution_dialogue_context <- function(step_id = NULL) {
+    if (!file.exists(project_state_path)) return(invisible(NULL))
+    project_state <- .studyAgentSlashReadProjectState(base_dir)
+    if (is.null(step_id) || !nzchar(trimws(as.character(step_id)))) {
+      step_id <- project_state$resume$current_step_id %||% NULL
+    }
+    step <- if (!is.null(step_id)) .studyAgentSlashFindPlanStep(project_state, step_id) else NULL
+    current_step <- step$stage_context_step %||% "workflow_summary"
+    set_dialogue_context(
+      current_step,
+      context = list(
+        study_intent = studyIntent,
+        project_state_path = project_state_path,
+        runtime_state_path = runtime_state_path,
+        execution_step_id = step$step_id %||% NULL,
+        execution_label = step$label %||% NULL,
+        execution_script = step$script_path %||% NULL,
+        execution_status = step$status %||% NULL,
+        execution_plan_summary = as.list(.studyAgentSlashSummarizeWorkflowStatus(base_dir))
+      )
+    )
+    invisible(NULL)
+  }
+
+  inspect_execution_outputs <- function(step_id) {
+    outputs <- .studyAgentSlashInspectWorkflowStepOutputs(base_dir, step_id)
+    if (length(outputs) == 0) {
+      cat("No registered outputs for that step.\n")
+      return(invisible(NULL))
+    }
+    cat(sprintf("\nOutputs for %s\n", step_id))
+    for (name in names(outputs)) {
+      item <- outputs[[name]]
+      cat(sprintf("  - %s: %s%s\n", name, item$absolute_path %||% item$path %||% "<missing>", if (isTRUE(item$exists)) "" else " (missing)"))
+    }
+    invisible(NULL)
+  }
+
+  run_execution_menu <- function(prompt_first = TRUE) {
+    if (!isTRUE(interactive)) return(invisible(NULL))
+    if (!file.exists(project_state_path) || !file.exists(runtime_state_path)) return(invisible(NULL))
+    if (isTRUE(prompt_first) && !prompt_yesno("Start running generated workflow steps in this shell now?", default = FALSE)) {
+      return(invisible(NULL))
+    }
+    repeat {
+      refresh_execution_dialogue_context()
+      entered <- trimws(readline_with_dialogue("Execution command [Enter=finish, n=run next, a=run all, s=status, i=inspect, run <step>]: "))
+      if (!nzchar(entered)) break
+      lowered <- tolower(entered)
+      if (lowered %in% c("s", "status")) {
+        print_execution_status()
+        next
+      }
+      if (lowered %in% c("n", "next", "r", "resume", "run next")) {
+        result <- .studyAgentSlashRunNextWorkflowPlanStep(base_dir)
+        if (identical(result$status %||% "", "failed")) {
+          cat(sprintf("Step %s failed: %s\n", result$step_id %||% "<unknown>", result$error %||% "unknown error"))
+        } else if (!is.null(result$step_id)) {
+          cat(sprintf("Step %s completed.\n", result$step_id))
+        } else {
+          cat(sprintf("%s\n", result$message %||% "No remaining runnable workflow steps."))
+        }
+        next
+      }
+      if (lowered %in% c("a", "all", "run all")) {
+        repeat {
+          result <- .studyAgentSlashRunNextWorkflowPlanStep(base_dir)
+          if (identical(result$status %||% "", "failed")) {
+            cat(sprintf("Step %s failed: %s\n", result$step_id %||% "<unknown>", result$error %||% "unknown error"))
+            break
+          }
+          if (is.null(result$step_id)) {
+            cat(sprintf("%s\n", result$message %||% "No remaining runnable workflow steps."))
+            break
+          }
+          cat(sprintf("Step %s completed.\n", result$step_id))
+        }
+        next
+      }
+      if (startsWith(lowered, "run ")) {
+        step_id <- trimws(sub("^run\\s+", "", lowered))
+        result <- .studyAgentSlashRunWorkflowPlanStep(base_dir, step_id = step_id)
+        if (identical(result$status %||% "", "failed")) {
+          cat(sprintf("Step %s failed: %s\n", step_id, result$error %||% "unknown error"))
+        } else {
+          cat(sprintf("Step %s completed.\n", step_id))
+        }
+        next
+      }
+      if (lowered %in% c("i", "inspect") || startsWith(lowered, "inspect ")) {
+        step_id <- if (startsWith(lowered, "inspect ")) trimws(sub("^inspect\\s+", "", lowered)) else trimws(readline_with_dialogue("Step id to inspect: "))
+        if (!nzchar(step_id)) next
+        inspect_execution_outputs(step_id)
+        next
+      }
+      cat("Choose Enter, n, a, s, i, or run <step>.\n")
+    }
+    invisible(NULL)
+  }
+
   if (interactive) {
     banner_path <- resolve_path(bannerPath, study_base_dir)
     banner_path <- normalizePath(banner_path, winslash = "/", mustWork = FALSE)
@@ -568,6 +683,20 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     cat("Use /ohdsi for contextual guidance. Type /back at supported stage boundaries to return to the previous step.\n")
   }
 
+  if (isTRUE(resume) && file.exists(project_state_path) && file.exists(runtime_state_path)) {
+    cat("\nExisting study-agent project detected.\n")
+    print_execution_status()
+    if (isTRUE(interactive) && prompt_yesno("Resume existing generated workflow execution in this shell?", default = TRUE)) {
+      run_execution_menu(prompt_first = FALSE)
+      return(invisible(list(
+        output_dir = output_dir,
+        scripts_dir = scripts_dir,
+        state = file.path(output_dir, "study_agent_state.json"),
+        project_state = project_state_path,
+        runtime_state = runtime_state_path
+      )))
+    }
+  }
   default_intent <- studyIntent %||% "What is the risk of GI bleed in new users of Celecoxib compared to new users of Diclofenac?"
   repeat {
     if (interactive) {
@@ -1960,7 +2089,7 @@ Keeper review saved: %s reviewed row(s)
     "candidate_limit <- 5",
     "sample_size <- 5",
     "review_row_limit <- 5",
-    "acp_timeout_seconds <- as.numeric(Sys.getenv('ACP_TIMEOUT', '600'))",
+    "acp_timeout_seconds <- as.numeric(Sys.getenv('ACP_TIMEOUT', '300'))",
     "Sys.setenv(ACP_TIMEOUT = as.character(acp_timeout_seconds))",
     "reuse_generated_concept_sets <- TRUE",
     "overwrite_approved_concept_sets <- FALSE",
@@ -2200,6 +2329,40 @@ Keeper review saved: %s reviewed row(s)
   )
   write_lines(file.path(scripts_dir, "06_incidence_spec.R"), script_06)
 
+  project_init <- .studyAgentSlashInitializeProjectFiles(
+    workflow_type = "strategus_incidence",
+    base_dir = base_dir,
+    output_dir = output_dir,
+    scripts_dir = scripts_dir,
+    execution_plan = .studyAgentSlashBuildIncidenceExecutionPlan(),
+    study_context = list(
+      study_intent = studyIntent,
+      target_statement = target_statement,
+      outcome_statement = outcome_statement,
+      selected_target_ids = as.list(new_ids_target),
+      selected_outcome_ids = as.list(new_ids_outcome),
+      time_at_risk_settings_path = time_at_risk_settings_path,
+      improvements_applied = improvements_applied
+    ),
+    dialogue_context = list(
+      current_step = "workflow_summary",
+      study_intent = studyIntent,
+      target_statement = target_statement,
+      outcome_statement = outcome_statement
+    ),
+    artifact_specs = list(
+      list(id = "legacy_state", path = state_path, type = "legacy_state", status = "written"),
+      list(id = "db_details", path = db_details_path, type = "config", status = "written"),
+      list(id = "execution_settings", path = execution_settings_path, type = "config", status = "written"),
+      list(id = "cohort_roles", path = roles_path, type = "metadata", status = "written"),
+      list(id = "time_at_risk_settings", path = time_at_risk_settings_path, type = "analysis_settings", status = "written")
+    ),
+    shell_session_metadata = list(shell = "runStrategusIncidenceShell", interactive = interactive)
+  )
+  state$project_state_path <- project_state_path
+  state$runtime_state_path <- runtime_state_path
+  write_json(state, state_path)
+
   if (interactive) {
     cat("\n== Session Summary ==\n")
     cat("Target cohort statement:\n")
@@ -2242,7 +2405,10 @@ Keeper review saved: %s reviewed row(s)
       cat("  - Improvements were not applied; see scripts/02_apply_improvements.R if desired.\n")
     }
     cat(sprintf("Session state saved to %s\n", state_path))
+    cat(sprintf("Project manifest saved to %s\n", project_state_path))
+    cat(sprintf("Runtime state saved to %s\n", runtime_state_path))
   }
+  run_execution_menu(prompt_first = interactive)
   message("Study agent shell complete. Scripts written to: ", scripts_dir)
   invisible(list(
     output_dir = output_dir,
@@ -2252,6 +2418,8 @@ Keeper review saved: %s reviewed row(s)
     recommendations_outcome = recs_outcome_path,
     improvements_target = improvements_target_path,
     improvements_outcome = improvements_outcome_path,
-    cohort_csv = cohort_csv
+    cohort_csv = cohort_csv,
+    project_state = project_state_path,
+    runtime_state = runtime_state_path
   ))
 }

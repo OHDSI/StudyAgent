@@ -15,6 +15,9 @@ workflow_stage_step_choices <- function() {
     "cohort_method_spec_confirmation",
     "incidence_design_setup",
     "time_at_risk_configuration",
+    "diagnostics_review",
+    "strategus_spec_execution",
+    "workflow_execution",
     "workflow_summary"
   )
 }
