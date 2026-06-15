@@ -10,7 +10,8 @@
   if (length(deps) == 0) return(TRUE)
   for (dep in deps) {
     dep_step <- .studyAgentSlashFindPlanStep(project_state, dep)
-    if (is.null(dep_step) || !identical(as.character(dep_step$status %||% "not_started"), "completed")) {
+    dep_status <- as.character(dep_step$status %||% "not_started")
+    if (is.null(dep_step) || !(dep_status %in% c("completed", "skipped"))) {
       return(FALSE)
     }
   }

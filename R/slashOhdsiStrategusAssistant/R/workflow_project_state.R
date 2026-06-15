@@ -220,6 +220,48 @@
   runtime_state
 }
 
+.studyAgentSlashFinalizeBuildProjectState <- function(base_dir,
+                                                      completed_steps = character(0),
+                                                      skipped_steps = character(0),
+                                                      failed_steps = character(0)) {
+  project_state <- .studyAgentSlashReadProjectState(base_dir)
+  runtime_state <- .studyAgentSlashReadRuntimeState(base_dir)
+  if (is.null(runtime_state$step_status) || !is.list(runtime_state$step_status)) {
+    runtime_state$step_status <- list()
+  }
+
+  set_runtime_status <- function(step_id, status, error = NULL) {
+    runtime_state$step_status[[as.character(step_id)]] <<- list(
+      status = as.character(status),
+      updated_at = .studyAgentSlashNowTimestamp(),
+      error = if (is.null(error) || !nzchar(trimws(as.character(error)))) NULL else as.character(error)
+    )
+  }
+
+  for (step_id in as.character(completed_steps %||% character(0))) {
+    if (!nzchar(step_id)) next
+    project_state <- .studyAgentSlashSetProjectStepStatus(project_state, step_id, "completed")
+    set_runtime_status(step_id, "completed")
+  }
+  for (step_id in as.character(skipped_steps %||% character(0))) {
+    if (!nzchar(step_id)) next
+    project_state <- .studyAgentSlashSetProjectStepStatus(project_state, step_id, "skipped")
+    set_runtime_status(step_id, "skipped")
+  }
+  for (step_id in as.character(failed_steps %||% character(0))) {
+    if (!nzchar(step_id)) next
+    project_state <- .studyAgentSlashSetProjectStepStatus(project_state, step_id, "failed")
+    set_runtime_status(step_id, "failed")
+  }
+
+  project_state <- .studyAgentSlashAdvanceResumePointer(project_state)
+  runtime_state$current_step <- project_state$resume$current_step_id %||% NULL
+  runtime_state <- .studyAgentSlashUpdateArtifactDetection(runtime_state, project_state, base_dir)
+  .studyAgentSlashWriteProjectState(project_state, base_dir)
+  .studyAgentSlashWriteRuntimeState(runtime_state, base_dir)
+  invisible(list(project_state = project_state, runtime_state = runtime_state))
+}
+
 .studyAgentSlashInitializeProjectFiles <- function(workflow_type,
                                                   base_dir,
                                                   output_dir,
@@ -242,11 +284,12 @@
   for (step in execution_plan %||% list()) {
     step_id <- as.character(step$step_id %||% "")
     script_name <- as.character(step$script_name %||% "")
-    if (nzchar(script_name)) {
+    script_path <- if (nzchar(script_name)) file.path(scripts_dir, script_name) else NULL
+    if (!is.null(script_path) && isTRUE(file.exists(script_path))) {
       project_state <- .studyAgentSlashRegisterProjectArtifact(
         project_state = project_state,
         artifact_id = paste0(step_id, "_script"),
-        path = file.path(scripts_dir, script_name),
+        path = script_path,
         base_dir = base_dir,
         type = "script",
         step_id = step_id,

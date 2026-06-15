@@ -119,7 +119,6 @@ The following directories are created under `outputDir`:
 
 ## Generated Scripts
 
-- `scripts/01_recommend_and_select.R`
 - `scripts/02_apply_improvements.R`
 - `scripts/03_generate_cohorts.R`
 - `scripts/04_keeper_concept_sets.R`

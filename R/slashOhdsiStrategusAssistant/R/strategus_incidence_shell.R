@@ -2455,6 +2455,30 @@ Keeper review saved: %s reviewed row(s)
     ),
     shell_session_metadata = list(shell = "runStrategusIncidenceShell", interactive = interactive)
   )
+  build_completed_steps <- c("recommend_and_select")
+  build_skipped_steps <- character(0)
+  build_failed_steps <- character(0)
+  if (isTRUE(improvements_applied)) {
+    build_completed_steps <- c(build_completed_steps, "apply_improvements")
+  } else {
+    build_skipped_steps <- c(build_skipped_steps, "apply_improvements")
+  }
+  if (identical(state$keeper_concept_set_status %||% "not_run", "ok")) {
+    build_completed_steps <- c(build_completed_steps, "keeper_concept_sets")
+  } else if (identical(state$keeper_concept_set_status %||% "not_run", "error")) {
+    build_failed_steps <- c(build_failed_steps, "keeper_concept_sets")
+  }
+  if (identical(state$keeper_case_review_status %||% "not_run", "ok")) {
+    build_completed_steps <- c(build_completed_steps, "keeper_case_review")
+  } else if (identical(state$keeper_case_review_status %||% "not_run", "error")) {
+    build_failed_steps <- c(build_failed_steps, "keeper_case_review")
+  }
+  project_init <- .studyAgentSlashFinalizeBuildProjectState(
+    base_dir = base_dir,
+    completed_steps = build_completed_steps,
+    skipped_steps = build_skipped_steps,
+    failed_steps = build_failed_steps
+  )
   state$project_state_path <- project_state_path
   state$runtime_state_path <- runtime_state_path
   write_json(state, state_path)

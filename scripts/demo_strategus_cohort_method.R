@@ -20,7 +20,7 @@ Sys.setenv(PHENOTYPE_INDEX_DIR = repo_file("data", "phenotype_index_cipher_omop"
 invisible(connect_study_agent_acp())
 
 ### Optional reset from a prior run.
-#reset_demo_output_dir(repo_file("demo-strategus-cohort-method"), prompt = TRUE)
+reset_demo_output_dir(repo_file("demo-strategus-cohort-method"), prompt = TRUE)
 #
 # Note: this clears only `demo-strategus-cohort-method`. If `incidenceOutputDir` points
 # at `demo-strategus-cohort-incidence`, you may still see cache prompts for artifacts in
@@ -34,11 +34,10 @@ slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell(
   indexDir = "data/phenotype_index_cipher_omop",
   incidenceOutputDir = "demo-strategus-cohort-incidence",
   studyIntent = paste(
-    "Compare new users of GLP-1RA medications vs new users of DPP4-i medications for chronic lower respiratory disease outcomes.",
-    "Use data from 2006 to 2025. A 365-day washout, intent-to-treat with 365 days follow-up, sIPTW confounder balancing",
-    "and a Cox model to estimate time-to-event for the primary outcome."
+    "Compare new users of GLP-1RA medications vs new users of DPP4-i medications for chronic lower respiratory disease outcomes."
   )
 )
+    ## possible methods statement: "Use data from 2006 to 2025. A 365-day washout, intent-to-treat with 365 days follow-up, sIPTW confounder balancing and a Cox model to estimate time-to-event for the primary outcome."
 
 ## Use this to resume from cached artifacts and regenerate output scripts.
 ## slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell(
