@@ -539,9 +539,9 @@ def task_smoke_phenotype_improvements_flow():
             print("Running phenotype improvements flow smoke test...")
             payload = json.dumps(
                 {
-                    "protocol_path": "demo/protocol.md",
+                    "protocol_path": "tests/demo-data/protocol.md",
                     "cohort_paths": [
-                        "demo/test_git_event_cohort.json"
+                        "tests/demo-data/test_git_event_cohort.json"
                     ],
                 }
             ).encode("utf-8")
@@ -652,7 +652,7 @@ def task_smoke_concept_sets_review_flow():
             print("Running concept sets review flow smoke test...")
             payload = json.dumps(
                 {
-                    "concept_set_path": "demo/concept_set.json",
+                    "concept_set_path": "tests/demo-data/concept_set.json",
                     "study_intent": "Identify clinical risk factors for older adult patients who experience an adverse event of acute gastro-intenstinal (GI) bleeding. The GI bleed has to be detected in the hospital setting. Risk factors can include concomitant medications or chronic and acute conditions.",
                 }
             ).encode("utf-8")
