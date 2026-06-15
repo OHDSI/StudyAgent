@@ -110,17 +110,22 @@ The following directories are created under `outputDir`:
 - `improvements_outcome.json`
 - `improvements_status.json`
 - `cm_evaluation_todo.json`
-- `cm_analysis_state.json` (written by `scripts/06_cm_spec.R`)
-- `keeper_review_state.json` (written by inline or standalone ACP Keeper review)
+- `cm_analysis_state.json` (written by `scripts/07_cm_spec.R`)
+- `keeper_concept_set_state.json` (written by inline or standalone ACP Keeper concept-set workflow)
+- `keeper_case_review_state.json` (written by inline or standalone ACP Keeper case-review workflow)
 - `study_agent_state.json`
+- `study-agent-project.json`
+- `outputs/study_agent_runtime_state.json`
 
 ## Generated Scripts
 
+- `scripts/01_recommend_and_select.R`
 - `scripts/02_apply_improvements.R`
 - `scripts/03_generate_cohorts.R`
-- `scripts/04_keeper_review.R`
-- `scripts/05_diagnostics.R`
-- `scripts/06_cm_spec.R`
+- `scripts/04_keeper_concept_sets.R`
+- `scripts/05_keeper_case_review.R`
+- `scripts/06_diagnostics.R`
+- `scripts/07_cm_spec.R`
 
 
 Generated scripts that connect to the database expect these site-specific files at the root of
@@ -158,10 +163,10 @@ Generated scripts that connect to the database expect these site-specific files 
 
 Current Keeper specifics:
 
-- `scripts/04_keeper_review.R` uses `runKeeperReviewWorkflow(...)` and ACP flows instead of the legacy Keeper R package.
-- The script records state in `outputs/keeper_review_state.json`.
+- `scripts/04_keeper_concept_sets.R` uses `runKeeperConceptSetWorkflow(...)` and writes `outputs/keeper_concept_set_state.json`.
+- `scripts/05_keeper_case_review.R` uses `runKeeperCaseReviewWorkflow(...)` and writes `outputs/keeper_case_review_state.json`.
 - Inline Keeper review now exposes bounded stage gates before and after each requested concept-set domain and before and after case review.
-- The default generated script exposes `ACP_TIMEOUT`, concept-set reuse/overwrite, row reuse/resume, and explicit row selection controls such as `1-3,5`.
+- The generated Keeper scripts expose `ACP_TIMEOUT`, concept-set reuse/overwrite, row reuse/resume, and explicit row selection controls such as `1-3,5`.
 - Manual editing of `keeper-case-review/concept-sets-approved/*.json` is consumable, but the concept-set approve/edit/rerun UX is still incomplete.
 
 ## Current Boundaries

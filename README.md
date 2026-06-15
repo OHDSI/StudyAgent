@@ -95,7 +95,7 @@ Current characteristics:
 - concept generation can use Hecate-backed, generic-search, or DB-backed vocabulary tooling
 - profile extraction is deterministic only and does not call an LLM
 - downstream adjudication is constrained by fail-closed sanitization and a small label set
-- the R Strategus shells now generate ACP-based `04_keeper_review.R` scripts that persist Keeper workflow state for reuse and resume
+- the R Strategus shells now generate split ACP-based Keeper scripts, `04_keeper_concept_sets.R` and `05_keeper_case_review.R`, that persist concept-set and case-review state for reuse and resume
 
 Primary references:
 

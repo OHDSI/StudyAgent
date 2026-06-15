@@ -252,7 +252,8 @@ Incidence-specific examples:
 - `denominator_guidance`
 - `time_at_risk_settings_path`
 - `incidence_time_at_risk`
-- `keeper_review_state_path`
+- `keeper_concept_set_state_path`
+- `keeper_case_review_state_path`
 - `review_roles`
 - `review_status`
 

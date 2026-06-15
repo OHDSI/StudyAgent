@@ -26,5 +26,6 @@ Current shell details:
 - both Strategus shells support `/back` at major stage boundaries while preserving `/ohdsi` dialogue prompts inside the workflow
 - both Strategus shells can run or generate ACP-based Keeper concept-set and case-review workflows with `keeper_concept_set_state.json` and `keeper_case_review_state.json` artifacts plus bounded inline Keeper gates for domain generation and case review
 - generated Keeper scripts expose `ACP_TIMEOUT`, concept-set reuse/overwrite controls, and explicit row selection controls
+- both Strategus shells now also persist `study-agent-project.json` and `outputs/study_agent_runtime_state.json` so generated workflow steps can be run and resumed inside the same shell
 
 It depends on `slashOhdsiAcpClient` for ACP calls.

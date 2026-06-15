@@ -4,7 +4,7 @@ This document summarizes the interactive Strategus incidence shell provided by
 `slashOhdsiStrategusAssistant::runStrategusIncidenceShell()`. The shell is intended for
 interactive use in R/RStudio and guides users through phenotype selection,
 improvement review, time-at-risk configuration, ACP-based Keeper review, and script
-generation for a CohortIncidence analysis.
+generation plus in-shell execution for a CohortIncidence analysis.
 
 ## What the shell does
 
@@ -15,9 +15,10 @@ generation for a CohortIncidence analysis.
 - Calls `phenotype_improvements` for each selected cohort and lets the user apply improvements immediately.
 - Captures explicit time-at-risk and strata settings for the incidence analysis.
 - Supports `/back` at major stage boundaries while keeping `/ohdsi` dialogue available during the workflow.
-- Optionally runs ACP-based Keeper review inline or writes a standalone Keeper script. Inline Keeper runs now expose bounded review gates before and after each concept-set domain and before and after case review.
+- Optionally runs ACP-based Keeper concept-set and case-review phases inline or writes standalone Keeper scripts. Inline Keeper runs now expose bounded review gates before and after each concept-set domain and before and after case review.
 - Writes reproducible scripts for recommendation replay, cohort generation, Keeper review, diagnostics, and incidence analysis.
 - Saves session state to `outputs/study_agent_state.json` for traceability.
+- Persists `study-agent-project.json` and `outputs/study_agent_runtime_state.json` so generated workflow steps can be run and resumed in the same shell.
 
 ## Output folder layout
 
@@ -32,7 +33,7 @@ Default output directory: `demo-strategus-cohort-incidence/`
 - `patched-outcome-cohorts/`: improved outcome cohort JSON (if applied).
 - `keeper-case-review/`: ACP Keeper artifacts, generated/approved concept sets, sampled rows, and review outputs.
 - `analysis-settings/`: analysis artifacts including `time_at_risk_settings.json` and the generated Strategus specification.
-- `scripts/`: generated R scripts (`01` through `06`).
+- `scripts/`: generated R scripts (`01` through `07`).
 
 ## Generated scripts
 
@@ -41,15 +42,17 @@ The shell writes scripts under `scripts/` for reproducibility:
 1. `01_recommend_and_select.R`
 2. `02_apply_improvements.R`
 3. `03_generate_cohorts.R`
-4. `04_keeper_review.R`
-5. `05_diagnostics.R`
-6. `06_incidence_spec.R`
+4. `04_keeper_concept_sets.R`
+5. `05_keeper_case_review.R`
+6. `06_diagnostics.R`
+7. `07_incidence_spec.R`
 
 Current runtime expectations:
 
-- `03_generate_cohorts.R`, `05_diagnostics.R`, and `06_incidence_spec.R` expect site-specific Strategus connection/execution settings files under `outputDir`.
-- `04_keeper_review.R` uses the ACP-based Keeper workflow helper and writes `outputs/keeper_review_state.json`.
-- `06_incidence_spec.R` reads `analysis-settings/time_at_risk_settings.json` instead of hard-coding TAR definitions.
+- `03_generate_cohorts.R`, `06_diagnostics.R`, and `07_incidence_spec.R` expect site-specific Strategus connection/execution settings files under `outputDir`.
+- `04_keeper_concept_sets.R` uses the ACP-based Keeper concept-set helper and writes `outputs/keeper_concept_set_state.json`.
+- `05_keeper_case_review.R` uses the ACP-based Keeper case-review helper and writes `outputs/keeper_case_review_state.json`.
+- `07_incidence_spec.R` reads `analysis-settings/time_at_risk_settings.json` instead of hard-coding TAR definitions.
 
 Generated scripts that connect to the database expect these site-specific files at the root of
 `outputDir`:
