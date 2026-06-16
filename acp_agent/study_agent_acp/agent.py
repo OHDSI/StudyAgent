@@ -2379,7 +2379,7 @@ class StudyAgent:
         self._log_debug("workflow_context_dialogue: calling LLM")
         llm_result = self._call_llm(
             prompt,
-            required_keys=["answer", "current_step_guidance", "cautions", "suggested_next_actions"],
+            required_keys=["answer", "current_step_guidance", "cautions", "suggested_next_actions", "follow_up_plan", "artifact_requests"],
         )
         self._log_debug(
             "workflow_context_dialogue: LLM returned "

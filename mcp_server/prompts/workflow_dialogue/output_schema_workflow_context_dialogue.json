@@ -26,6 +26,35 @@
       "items": {
         "type": "string"
       }
+    },
+    "follow_up_plan": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "artifact_requests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "artifact_id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "permission_required": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "artifact_id",
+          "reason",
+          "permission_required"
+        ],
+        "additionalProperties": false
+      }
     }
   },
   "required": [
@@ -33,7 +62,9 @@
     "answer",
     "current_step_guidance",
     "cautions",
-    "suggested_next_actions"
+    "suggested_next_actions",
+    "follow_up_plan",
+    "artifact_requests"
   ],
   "additionalProperties": false
 }

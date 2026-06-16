@@ -44,6 +44,16 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
 
   dialogue_acp_client <- new.env(parent = emptyenv())
   dialogue_acp_client$client <- NULL
+  current_study_intent <- function() {
+    intent <- trimws(as.character(studyIntent %||% ""))
+    if (nzchar(intent)) return(intent)
+    if (exists("project_state_path") && file.exists(project_state_path)) {
+      project_state <- tryCatch(.studyAgentSlashReadProjectState(base_dir), error = function(e) NULL)
+      intent <- trimws(as.character((project_state$study_context %||% list())$study_intent %||% ""))
+      if (nzchar(intent)) return(intent)
+    }
+    ""
+  }
   build_workflow_stage_context <- function(studyIntent, dialogue_state) {
     .studyAgentSlashBuildIncidenceWorkflowStageContext(
       study_intent = studyIntent,
@@ -85,7 +95,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
 
   dialogue_session <- .studyAgentSlashNewWorkflowDialogueSession(
     interactive = interactive,
-    study_intent_getter = function() studyIntent,
+    study_intent_getter = current_study_intent,
     build_stage_context = build_workflow_stage_context,
     call_dialogue = function(stage_context, message) {
       if (!ensure_workflow_dialogue_client(acpUrl)) {
@@ -579,15 +589,11 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     current_step <- step$stage_context_step %||% "workflow_summary"
     set_dialogue_context(
       current_step,
-      context = list(
-        study_intent = studyIntent,
-        project_state_path = project_state_path,
-        runtime_state_path = runtime_state_path,
-        execution_step_id = step$step_id %||% NULL,
-        execution_label = step$label %||% NULL,
-        execution_script = step$script_path %||% NULL,
-        execution_status = step$status %||% NULL,
-        execution_plan_summary = as.list(.studyAgentSlashSummarizeWorkflowStatus(base_dir))
+      context = .studyAgentSlashBuildExecutionDialogueContext(
+        project_state = project_state,
+        base_dir = base_dir,
+        step = step,
+        runtime_state = .studyAgentSlashReadRuntimeState(base_dir)
       )
     )
     invisible(NULL)
@@ -607,6 +613,24 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     invisible(NULL)
   }
 
+  current_execution_step_id <- function() {
+    if (!file.exists(project_state_path)) return(NULL)
+    project_state <- .studyAgentSlashReadProjectState(base_dir)
+    step_id <- as.character(project_state$resume$current_step_id %||% "")
+    if (!nzchar(step_id)) return(NULL)
+    step_id
+  }
+
+  available_exploration_commands <- function() {
+    if (!file.exists(project_state_path)) return(list())
+    project_state <- .studyAgentSlashReadProjectState(base_dir)
+    .studyAgentSlashListExplorationCommands(
+      base_dir = base_dir,
+      workflow_type = project_state$workflow_type %||% "",
+      step_id = project_state$resume$current_step_id %||% NULL
+    )
+  }
+
   print_execution_help <- function() {
     cat("\nExecution commands\n")
     cat("  - Enter: finish this execution menu")
@@ -616,6 +640,10 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     cat("\n")
     cat("  - h or help: show this help\n")
     cat("  - s or status: show execution status\n")
+    cat("  - art or artifacts: list current known artifacts\n")
+    cat("  - x or explore: list available approved exploration commands\n")
+    cat("  - explore <command-id>: run an approved exploration command\n")
+    cat("  - number: run the numbered exploration command shown by x\n")
     cat("  - n or run next: run the next runnable step\n")
     cat("  - a or run all: keep running until blocked, failed, or complete\n")
     cat("  - i or inspect <step>: inspect outputs for a step\n")
@@ -625,6 +653,56 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     for (line in .studyAgentSlashFormatWorkflowStepChoices(base_dir)) {
       cat(sprintf("  - %s\n", line))
     }
+    print_explore_help()
+    invisible(NULL)
+  }
+
+  print_artifact_help <- function() {
+    cat("\nArtifacts\n")
+    cat("  - art or artifacts: list artifacts known to the current workflow project\n")
+    cat("  - These include manifest artifacts plus inferred cohort-generation outputs when available\n")
+    invisible(NULL)
+  }
+
+  print_explore_help <- function() {
+    commands <- available_exploration_commands()
+    table <- .studyAgentSlashExplorationCommandTable(commands)
+    cat("\nExploration commands\n")
+    cat("  - x or explore: list available approved exploration commands\n")
+    cat("  - explore <command-id>: run one approved exploration command\n")
+    if (nrow(table) == 0) {
+      cat("  - No exploration commands are currently available for this workflow state\n")
+      return(invisible(NULL))
+    }
+    for (row in seq_len(nrow(table))) {
+      cat(sprintf("  - %s: %s\n", table$command_id[[row]], table$purpose[[row]]))
+    }
+    invisible(NULL)
+  }
+
+  print_artifact_inventory <- function() {
+    registry <- .studyAgentSlashBuildArtifactRegistry(base_dir)
+    table <- .studyAgentSlashArtifactRegistryTable(registry)
+    if (nrow(table) == 0) {
+      cat("No artifacts are available for the current workflow project.\n")
+      return(invisible(NULL))
+    }
+    cat("\nArtifact inventory\n")
+    print(.studyAgentSlashCompactPreviewTable(table, max_rows = 40L, max_cols = 5L))
+    cat("\n")
+    invisible(NULL)
+  }
+
+  print_exploration_commands <- function() {
+    commands <- available_exploration_commands()
+    table <- .studyAgentSlashExplorationCommandTable(commands)
+    if (nrow(table) == 0) {
+      cat("No approved exploration commands are available for the current workflow state.\n")
+      return(invisible(NULL))
+    }
+    cat("\nAvailable exploration commands\n")
+    print(table)
+    cat("\n")
     invisible(NULL)
   }
 
@@ -636,6 +714,22 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     for (line in .studyAgentSlashFormatWorkflowStepChoices(base_dir)) {
       cat(sprintf("  - %s\n", line))
     }
+    NULL
+  }
+
+  resolve_exploration_command_id <- function(command_ref) {
+    command_ref <- trimws(as.character(command_ref %||% ""))
+    commands <- available_exploration_commands()
+    command_ids <- vapply(commands, function(cmd) as.character(cmd$command_id %||% ""), character(1))
+    if (grepl("^[0-9]+$", command_ref) && length(commands) > 0) {
+      idx <- suppressWarnings(as.integer(command_ref))
+      if (!is.na(idx) && idx >= 1L && idx <= length(commands)) {
+        return(command_ids[[idx]])
+      }
+    }
+    if (nzchar(command_ref) && command_ref %in% command_ids) return(command_ref)
+    cat(sprintf("Unknown exploration command '%s'.\n", command_ref))
+    print_explore_help()
     NULL
   }
 
@@ -652,7 +746,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     }
     repeat {
       refresh_execution_dialogue_context()
-      entered <- trimws(readline_with_dialogue("Execution command [Enter=finish, h=help, n=run next, a=run all, s=status, i=inspect, run <step>]: "))
+      entered <- trimws(readline_with_dialogue("Execution command [Enter=finish, h=help, art=artifacts, x=explore, n=run next, a=run all, s=status, i=inspect, run <step>]: "))
       if (!nzchar(entered)) {
         if (isTRUE(confirm_execution_menu_exit())) break
         next
@@ -660,6 +754,36 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
       lowered <- tolower(entered)
       if (lowered %in% c("h", "help", "?")) {
         print_execution_help()
+        next
+      }
+      if (identical(lowered, "help artifacts")) {
+        print_artifact_help()
+        next
+      }
+      if (identical(lowered, "help explore")) {
+        print_explore_help()
+        next
+      }
+      if (lowered %in% c("art", "artifact", "artifacts")) {
+        print_artifact_inventory()
+        next
+      }
+      if (lowered %in% c("x", "explore")) {
+        print_exploration_commands()
+        next
+      }
+      if (grepl("^[0-9]+$", lowered)) {
+        command_id <- resolve_exploration_command_id(lowered)
+        if (is.null(command_id)) next
+        result <- .studyAgentSlashRunExplorationCommand(base_dir, command_id = command_id)
+        .studyAgentSlashRenderExplorationResult(result)
+        next
+      }
+      if (startsWith(lowered, "explore ")) {
+        command_id <- resolve_exploration_command_id(sub("^explore\\s+", "", lowered))
+        if (is.null(command_id)) next
+        result <- .studyAgentSlashRunExplorationCommand(base_dir, command_id = command_id)
+        .studyAgentSlashRenderExplorationResult(result)
         next
       }
       if (lowered %in% c("q", "quit", "exit")) {
@@ -717,7 +841,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
         inspect_execution_outputs(step_id)
         next
       }
-      cat("Choose h, s, n, a, i, run <step>, q, or Enter. Type h for valid step values.\n")
+      cat("Choose h, s, art, x, n, a, i, run <step>, q, or Enter. Type h for valid steps and explore for approved commands.\n")
     }
     invisible(NULL)
   }

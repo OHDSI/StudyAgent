@@ -219,3 +219,5 @@ def test_workflow_context_dialogue_bundle_schema() -> None:
     assert "spec" in payload
     assert "output_schema" in payload
     assert payload["output_schema"]["title"] == "workflow_context_dialogue_output"
+    assert "artifact_requests" in payload["output_schema"]["properties"]
+    assert "follow_up_plan" in payload["output_schema"]["properties"]

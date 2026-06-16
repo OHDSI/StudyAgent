@@ -625,6 +625,8 @@ def workflow_context_dialogue(
     current_step_guidance: List[str] = []
     cautions: List[str] = []
     suggested_next_actions: List[str] = []
+    follow_up_plan: List[str] = []
+    artifact_requests: List[Dict[str, Any]] = []
     mode = "llm"
 
     if payload.llm_result:
@@ -637,6 +639,18 @@ def workflow_context_dialogue(
             cautions = [str(item) for item in payload.llm_result["cautions"]]
         if isinstance(payload.llm_result.get("suggested_next_actions"), list):
             suggested_next_actions = [str(item) for item in payload.llm_result["suggested_next_actions"]]
+        if isinstance(payload.llm_result.get("follow_up_plan"), list):
+            follow_up_plan = [str(item) for item in payload.llm_result["follow_up_plan"]]
+        if isinstance(payload.llm_result.get("artifact_requests"), list):
+            artifact_requests = []
+            for item in payload.llm_result["artifact_requests"]:
+                if not isinstance(item, dict):
+                    next
+                artifact_requests.append({
+                    "artifact_id": str(item.get("artifact_id") or ""),
+                    "reason": str(item.get("reason") or ""),
+                    "permission_required": bool(item.get("permission_required") or False),
+                })
     else:
         mode = "stub"
         answer = "No LLM response is available for workflow guidance right now."
@@ -648,6 +662,10 @@ def workflow_context_dialogue(
             "Restate the question with more concrete study-design detail.",
             "Continue the workflow and revisit the question after gathering more context.",
         ]
+        follow_up_plan = [
+            "Answer from the compact workflow context first.",
+            "Request additional artifacts only if the compact context is not enough.",
+        ]
 
     output = WorkflowContextDialogueOutput(
         plan=plan,
@@ -655,6 +673,8 @@ def workflow_context_dialogue(
         current_step_guidance=current_step_guidance,
         cautions=cautions,
         suggested_next_actions=suggested_next_actions,
+        follow_up_plan=follow_up_plan,
+        artifact_requests=artifact_requests,
         mode=mode,
     )
     return _model_dump(output)

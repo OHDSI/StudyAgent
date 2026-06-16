@@ -1225,6 +1225,8 @@ def test_flow_workflow_context_dialogue(monkeypatch):
                 "current_step_guidance": ["Keep the existing comparator step open while you decide."],
                 "cautions": ["Do not change cohort IDs yet."],
                 "suggested_next_actions": ["Confirm whether the design is new-user or prevalent-user."],
+                "follow_up_plan": ["Inspect the compact execution context first."],
+                "artifact_requests": [{"artifact_id": "cg_cohort_count_csv", "reason": "Need the comparator count file for confirmation.", "permission_required": False}],
             },
             content_text="{}",
             parse_stage="chat_completions_content",
@@ -1245,6 +1247,8 @@ def test_flow_workflow_context_dialogue(monkeypatch):
     assert result["status"] == "ok"
     assert result["dialogue"]["answer"] == "Washout reduces prevalent-user bias."
     assert result["dialogue"]["current_step_guidance"] == ["Keep the existing comparator step open while you decide."]
+    assert result["dialogue"]["follow_up_plan"] == ["Inspect the compact execution context first."]
+    assert result["dialogue"]["artifact_requests"][0]["artifact_id"] == "cg_cohort_count_csv"
 
 
 @pytest.mark.acp

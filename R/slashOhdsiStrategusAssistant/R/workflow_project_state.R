@@ -262,6 +262,152 @@
   invisible(list(project_state = project_state, runtime_state = runtime_state))
 }
 
+.studyAgentSlashWorkflowDialogueArtifactPaths <- function(project_state, base_dir) {
+  artifacts <- project_state$artifacts %||% list()
+  collected <- list()
+  for (name in names(artifacts)) {
+    artifact <- artifacts[[name]] %||% list()
+    artifact_path <- as.character(artifact$path %||% "")
+    if (!nzchar(artifact_path)) next
+    collected[[name]] <- .studyAgentSlashResolveProjectPath(artifact_path, base_dir)
+  }
+  collected
+}
+
+.studyAgentSlashSelectExecutionDialogueArtifacts <- function(artifact_registry,
+                                                            current_step_id = NULL,
+                                                            max_items = 12L) {
+  current_step_id <- as.character(current_step_id %||% "")
+  priority_ids <- c(
+    "selected_cohorts_csv",
+    "cohort_generation_results_dir",
+    "cohort_generation_module_dir",
+    "cg_cohort_count_csv",
+    "cg_cohort_definition_csv",
+    "cg_cohort_inclusion_csv",
+    "cg_cohort_inc_result_csv",
+    "cg_cohort_inc_stats_csv",
+    "cg_cohort_summary_stats_csv",
+    "cm_analysis_json",
+    "time_at_risk_settings",
+    "db_details_json",
+    "execution_settings_json"
+  )
+  items <- Filter(function(item) isTRUE(item$exists), artifact_registry %||% list())
+  if (length(items) == 0) return(list())
+
+  score_item <- function(item, idx) {
+    item_id <- as.character(item$id %||% "")
+    item_step <- as.character(item$step_id %||% "")
+    step_rank <- if (nzchar(current_step_id) && identical(item_step, current_step_id)) {
+      0L
+    } else if (identical(item_step, "generate_cohorts")) {
+      1L
+    } else if (!nzchar(item_step)) {
+      2L
+    } else {
+      3L
+    }
+    priority_rank <- match(item_id, priority_ids)
+    if (is.na(priority_rank)) priority_rank <- 1000L + as.integer(idx)
+    c(step_rank, priority_rank, as.integer(idx))
+  }
+
+  ordered_idx <- order(vapply(seq_along(items), function(i) score_item(items[[i]], i)[1], integer(1)),
+                       vapply(seq_along(items), function(i) score_item(items[[i]], i)[2], integer(1)),
+                       vapply(seq_along(items), function(i) score_item(items[[i]], i)[3], integer(1)))
+  items[utils::head(ordered_idx, n = max_items)]
+}
+
+.studyAgentSlashCompactExecutionArtifactSummary <- function(artifact_registry,
+                                                            current_step_id = NULL,
+                                                            max_items = 12L) {
+  selected <- .studyAgentSlashSelectExecutionDialogueArtifacts(
+    artifact_registry = artifact_registry,
+    current_step_id = current_step_id,
+    max_items = max_items
+  )
+  lapply(selected, function(item) compact_workflow_dialogue_context(list(
+    artifact_id = item$id %||% NULL,
+    artifact_class = item$artifact_class %||% NULL,
+    step_id = item$step_id %||% NULL,
+    exists = item$exists %||% NULL
+  )))
+}
+
+.studyAgentSlashCompactExplorationCommandSummary <- function(commands, max_items = 6L) {
+  commands <- commands %||% list()
+  if (length(commands) == 0) return(list())
+  commands <- utils::head(commands, n = max_items)
+  lapply(commands, function(cmd) compact_workflow_dialogue_context(list(
+    command_id = cmd$command_id %||% NULL,
+    label = cmd$label %||% NULL,
+    purpose = cmd$purpose %||% NULL
+  )))
+}
+
+.studyAgentSlashBuildExecutionDialogueContext <- function(project_state,
+                                                          base_dir,
+                                                          step = NULL,
+                                                          runtime_state = NULL) {
+  study_context <- project_state$study_context %||% list()
+  step <- step %||% list()
+  runtime_state <- runtime_state %||% list()
+
+  selected_target_ids <- study_context$selected_target_ids %||% study_context$selected_target_id %||% list()
+  selected_comparator_ids <- study_context$selected_comparator_ids %||% study_context$selected_comparator_id %||% list()
+  selected_outcome_ids <- study_context$selected_outcome_ids %||% list()
+  if (!is.list(selected_target_ids)) selected_target_ids <- as.list(selected_target_ids)
+  if (!is.list(selected_comparator_ids)) selected_comparator_ids <- as.list(selected_comparator_ids)
+  if (!is.list(selected_outcome_ids)) selected_outcome_ids <- as.list(selected_outcome_ids)
+
+  current_step_id <- step$step_id %||% project_state$resume$current_step_id %||% NULL
+  artifact_registry <- .studyAgentSlashBuildArtifactRegistry(base_dir)
+  artifact_summary <- .studyAgentSlashCompactExecutionArtifactSummary(
+    artifact_registry = artifact_registry,
+    current_step_id = current_step_id,
+    max_items = 12L
+  )
+  requestable_artifact_ids <- as.list(vapply(artifact_summary, function(item) {
+    as.character(item$artifact_id %||% "")
+  }, character(1)))
+  available_exploration_commands <- .studyAgentSlashCompactExplorationCommandSummary(
+    .studyAgentSlashListExplorationCommands(
+      base_dir = base_dir,
+      workflow_type = project_state$workflow_type %||% "",
+      step_id = current_step_id
+    ),
+    max_items = 6L
+  )
+
+  compact_workflow_dialogue_context(list(
+    study_intent = study_context$study_intent %||% NULL,
+    target_statement = study_context$target_statement %||% NULL,
+    comparator_statement = study_context$comparator_statement %||% NULL,
+    outcome_statement = study_context$outcome_statement %||% NULL,
+    outcome_statements = study_context$outcome_statements %||% NULL,
+    comparison_label = study_context$comparison_label %||% NULL,
+    analytic_settings_mode = study_context$analytic_settings_mode %||% NULL,
+    analysis_settings_path = study_context$cm_analysis_json_path %||% study_context$analysis_settings_path %||% study_context$time_at_risk_settings_path %||% NULL,
+    selected_target_ids = selected_target_ids,
+    selected_comparator_ids = selected_comparator_ids,
+    selected_outcome_ids = selected_outcome_ids,
+    execution_step_id = current_step_id,
+    execution_label = step$label %||% NULL,
+    execution_status = step$status %||% NULL,
+    execution_plan_summary = as.list(.studyAgentSlashSummarizeWorkflowStatus(base_dir)),
+    available_exploration_commands = available_exploration_commands,
+    artifact_summary = artifact_summary,
+    requestable_artifact_ids = requestable_artifact_ids,
+    artifact_request_policy = compact_workflow_dialogue_context(list(
+      use_logical_artifact_ids = TRUE,
+      ask_before_loading_more = TRUE,
+      max_artifacts_per_request = 3L
+    )),
+    last_error = runtime_state$last_error %||% NULL
+  ))
+}
+
 .studyAgentSlashInitializeProjectFiles <- function(workflow_type,
                                                   base_dir,
                                                   output_dir,
