@@ -37,3 +37,24 @@ def test_cohort_method_shell_finalizes_build_phase_steps_before_run_mode() -> No
 
 def test_incidence_shell_finalizes_build_phase_steps_before_run_mode() -> None:
     _assert_shell_finalizes_build_phase_steps(INCIDENCE_SOURCE.read_text(encoding="utf-8"))
+
+
+def _assert_execution_menu_help_and_exit_guards(source: str) -> None:
+    assert 'print_execution_help <- function() {' in source
+    assert '.studyAgentSlashFormatWorkflowStepChoices(base_dir)' in source
+    assert '.studyAgentSlashResolveWorkflowStepId(base_dir, step_ref)' in source
+    assert 'confirm_execution_menu_exit <- function() {' in source
+    assert '.studyAgentSlashWorkflowIsComplete(base_dir)' in source
+    assert 'Exit execution menu and return to the R prompt?' in source
+    assert 'h=help' in source
+    assert 'q or quit' in source
+    assert 'Step number or step id to inspect:' in source
+    assert 'Step %s could not be run: %s' in source
+
+
+def test_cohort_method_shell_execution_menu_has_help_and_exit_confirmation() -> None:
+    _assert_execution_menu_help_and_exit_guards(COHORT_SOURCE.read_text(encoding="utf-8"))
+
+
+def test_incidence_shell_execution_menu_has_help_and_exit_confirmation() -> None:
+    _assert_execution_menu_help_and_exit_guards(INCIDENCE_SOURCE.read_text(encoding="utf-8"))

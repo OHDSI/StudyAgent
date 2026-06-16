@@ -5,6 +5,45 @@
   NULL
 }
 
+.studyAgentSlashWorkflowPlanSteps <- function(base_dir) {
+  project_state <- .studyAgentSlashReadProjectState(base_dir)
+  project_state$execution_plan %||% list()
+}
+
+.studyAgentSlashWorkflowIsComplete <- function(base_dir) {
+  steps <- .studyAgentSlashWorkflowPlanSteps(base_dir)
+  if (length(steps) == 0) return(FALSE)
+  all(vapply(steps, function(step) {
+    as.character(step$status %||% "not_started") %in% c("completed", "skipped")
+  }, logical(1)))
+}
+
+.studyAgentSlashResolveWorkflowStepId <- function(base_dir, step_ref) {
+  entered <- trimws(as.character(step_ref %||% ""))
+  if (!nzchar(entered)) return(NULL)
+  steps <- .studyAgentSlashWorkflowPlanSteps(base_dir)
+  if (grepl("^[0-9]+$", entered)) {
+    idx <- suppressWarnings(as.integer(entered))
+    if (!is.na(idx) && idx >= 1L && idx <= length(steps)) {
+      return(as.character(steps[[idx]]$step_id %||% ""))
+    }
+  }
+  for (step in steps) {
+    if (identical(as.character(step$step_id %||% ""), entered)) {
+      return(as.character(step$step_id %||% ""))
+    }
+  }
+  NULL
+}
+
+.studyAgentSlashFormatWorkflowStepChoices <- function(base_dir) {
+  steps <- .studyAgentSlashWorkflowPlanSteps(base_dir)
+  vapply(seq_along(steps), function(i) {
+    step <- steps[[i]]
+    sprintf("%s. %s [%s] - run %s", i, as.character(step$label %||% step$step_id %||% ""), as.character(step$status %||% "not_started"), as.character(step$step_id %||% ""))
+  }, character(1))
+}
+
 .studyAgentSlashStepDependenciesSatisfied <- function(project_state, step) {
   deps <- as.character(unlist(step$depends_on %||% character(0), use.names = FALSE))
   if (length(deps) == 0) return(TRUE)

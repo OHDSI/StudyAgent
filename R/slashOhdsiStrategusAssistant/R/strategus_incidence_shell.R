@@ -607,6 +607,43 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     invisible(NULL)
   }
 
+  print_execution_help <- function() {
+    cat("\nExecution commands\n")
+    cat("  - Enter: finish this execution menu")
+    if (!isTRUE(.studyAgentSlashWorkflowIsComplete(base_dir))) {
+      cat(" (confirmation required)")
+    }
+    cat("\n")
+    cat("  - h or help: show this help\n")
+    cat("  - s or status: show execution status\n")
+    cat("  - n or run next: run the next runnable step\n")
+    cat("  - a or run all: keep running until blocked, failed, or complete\n")
+    cat("  - i or inspect <step>: inspect outputs for a step\n")
+    cat("  - run <step>: run a specific step by number or step id\n")
+    cat("  - q or quit: leave the execution menu\n")
+    cat("\nValid step values\n")
+    for (line in .studyAgentSlashFormatWorkflowStepChoices(base_dir)) {
+      cat(sprintf("  - %s\n", line))
+    }
+    invisible(NULL)
+  }
+
+  resolve_execution_step_id <- function(step_ref) {
+    resolved <- .studyAgentSlashResolveWorkflowStepId(base_dir, step_ref)
+    if (!is.null(resolved) && nzchar(trimws(resolved))) return(resolved)
+    cat(sprintf("Unknown step '%s'.\n", trimws(as.character(step_ref %||% ""))))
+    cat("Valid step values are:\n")
+    for (line in .studyAgentSlashFormatWorkflowStepChoices(base_dir)) {
+      cat(sprintf("  - %s\n", line))
+    }
+    NULL
+  }
+
+  confirm_execution_menu_exit <- function() {
+    if (isTRUE(.studyAgentSlashWorkflowIsComplete(base_dir))) return(TRUE)
+    prompt_yesno("Exit execution menu and return to the R prompt?", default = FALSE)
+  }
+
   run_execution_menu <- function(prompt_first = TRUE) {
     if (!isTRUE(interactive)) return(invisible(NULL))
     if (!file.exists(project_state_path) || !file.exists(runtime_state_path)) return(invisible(NULL))
@@ -615,9 +652,20 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     }
     repeat {
       refresh_execution_dialogue_context()
-      entered <- trimws(readline_with_dialogue("Execution command [Enter=finish, n=run next, a=run all, s=status, i=inspect, run <step>]: "))
-      if (!nzchar(entered)) break
+      entered <- trimws(readline_with_dialogue("Execution command [Enter=finish, h=help, n=run next, a=run all, s=status, i=inspect, run <step>]: "))
+      if (!nzchar(entered)) {
+        if (isTRUE(confirm_execution_menu_exit())) break
+        next
+      }
       lowered <- tolower(entered)
+      if (lowered %in% c("h", "help", "?")) {
+        print_execution_help()
+        next
+      }
+      if (lowered %in% c("q", "quit", "exit")) {
+        if (isTRUE(confirm_execution_menu_exit())) break
+        next
+      }
       if (lowered %in% c("s", "status")) {
         print_execution_status()
         next
@@ -649,22 +697,27 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
         next
       }
       if (startsWith(lowered, "run ")) {
-        step_id <- trimws(sub("^run\\s+", "", lowered))
-        result <- .studyAgentSlashRunWorkflowPlanStep(base_dir, step_id = step_id)
-        if (identical(result$status %||% "", "failed")) {
-          cat(sprintf("Step %s failed: %s\n", step_id, result$error %||% "unknown error"))
-        } else {
+        step_id <- resolve_execution_step_id(sub("^run\\s+", "", lowered))
+        if (is.null(step_id)) next
+        result <- tryCatch(
+          .studyAgentSlashRunWorkflowPlanStep(base_dir, step_id = step_id),
+          error = function(e) list(status = "error", error = conditionMessage(e))
+        )
+        if (identical(result$status %||% "", "completed")) {
           cat(sprintf("Step %s completed.\n", step_id))
+        } else {
+          cat(sprintf("Step %s could not be run: %s\n", step_id, result$error %||% "unknown error"))
         }
         next
       }
       if (lowered %in% c("i", "inspect") || startsWith(lowered, "inspect ")) {
-        step_id <- if (startsWith(lowered, "inspect ")) trimws(sub("^inspect\\s+", "", lowered)) else trimws(readline_with_dialogue("Step id to inspect: "))
-        if (!nzchar(step_id)) next
+        step_ref <- if (startsWith(lowered, "inspect ")) sub("^inspect\\s+", "", lowered) else trimws(readline_with_dialogue("Step number or step id to inspect: "))
+        step_id <- resolve_execution_step_id(step_ref)
+        if (is.null(step_id)) next
         inspect_execution_outputs(step_id)
         next
       }
-      cat("Choose Enter, n, a, s, i, or run <step>.\n")
+      cat("Choose h, s, n, a, i, run <step>, q, or Enter. Type h for valid step values.\n")
     }
     invisible(NULL)
   }
