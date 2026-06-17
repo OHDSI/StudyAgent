@@ -36,11 +36,61 @@
   NULL
 }
 
+.studyAgentSlashWorkflowBuildOnlyStepIds <- function() {
+  c("recommend_and_select")
+}
+
+.studyAgentSlashWorkflowStepRunAvailability <- function(base_dir, step) {
+  step_id <- as.character(step$step_id %||% "")
+  script_rel_path <- as.character(step$script_path %||% "")
+  script_exists <- nzchar(script_rel_path) &&
+    file.exists(.studyAgentSlashResolveProjectPath(script_rel_path, base_dir))
+  if (isTRUE(script_exists)) {
+    return(list(
+      runnable = TRUE,
+      mode = "script",
+      message = NULL
+    ))
+  }
+  if (step_id %in% .studyAgentSlashWorkflowBuildOnlyStepIds()) {
+    return(list(
+      runnable = FALSE,
+      mode = "build_only",
+      message = sprintf(
+        "Step %s was completed interactively during build mode and cannot be rerun from the execution menu. Use 'revise' to return to build mode.",
+        step_id
+      )
+    ))
+  }
+  list(
+    runnable = FALSE,
+    mode = "missing_script",
+    message = sprintf(
+      "Workflow script not found: %s",
+      .studyAgentSlashResolveProjectPath(script_rel_path, base_dir)
+    )
+  )
+}
+
 .studyAgentSlashFormatWorkflowStepChoices <- function(base_dir) {
   steps <- .studyAgentSlashWorkflowPlanSteps(base_dir)
   vapply(seq_along(steps), function(i) {
     step <- steps[[i]]
-    sprintf("%s. %s [%s] - run %s", i, as.character(step$label %||% step$step_id %||% ""), as.character(step$status %||% "not_started"), as.character(step$step_id %||% ""))
+    availability <- .studyAgentSlashWorkflowStepRunAvailability(base_dir, step)
+    action_text <- if (isTRUE(availability$runnable)) {
+      sprintf("run %s", as.character(step$step_id %||% ""))
+    } else if (identical(availability$mode, "build_only")) {
+      "build-only; use revise"
+    } else {
+      sprintf("script missing for %s", as.character(step$step_id %||% ""))
+    }
+    sprintf(
+      "%s. %s [%s] - %s",
+      i,
+      as.character(step$label %||% step$step_id %||% ""),
+      as.character(step$status %||% "not_started"),
+      action_text
+    )
   }, character(1))
 }
 
@@ -98,8 +148,9 @@
     stop(sprintf("Dependencies are not satisfied for step: %s", step_id))
   }
 
+  availability <- .studyAgentSlashWorkflowStepRunAvailability(base_dir, step)
+  if (!isTRUE(availability$runnable)) stop(as.character(availability$message %||% "Workflow step is not runnable."))
   script_path <- .studyAgentSlashResolveProjectPath(step$script_path %||% "", base_dir)
-  if (!file.exists(script_path)) stop(sprintf("Workflow script not found: %s", script_path))
 
   started_at <- .studyAgentSlashNowTimestamp()
   project_state <- .studyAgentSlashSetProjectStepStatus(project_state, step_id, "running")

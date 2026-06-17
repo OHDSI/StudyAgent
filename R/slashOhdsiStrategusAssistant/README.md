@@ -27,5 +27,8 @@ Current shell details:
 - both Strategus shells can run or generate ACP-based Keeper concept-set and case-review workflows with `keeper_concept_set_state.json` and `keeper_case_review_state.json` artifacts plus bounded inline Keeper gates for domain generation and case review
 - generated Keeper scripts expose `ACP_TIMEOUT`, concept-set reuse/overwrite controls, and explicit row selection controls
 - both Strategus shells now also persist `study-agent-project.json` and `outputs/study_agent_runtime_state.json` so generated workflow steps can be run and resumed inside the same shell
+- both Strategus shells expose an execution menu for run/resume mode with step status, `run <step>`, `inspect[_v] <step>`, artifact inventory, approved exploration commands via `x` / `explore[_v]`, and `/ohdsi` guidance
+- execution mode now supports `rev` / `revise ...` commands so users can leave run mode and return to build mode, optionally switch to a temporary revision cache mode, and intentionally reopen a target/comparator/outcome decision point when a phenotype or study configuration needs to be changed
+- build-only steps such as initial recommend/select are tracked in the workflow status but are not treated as runnable generated scripts during execution mode
 
 It depends on `slashOhdsiAcpClient` for ACP calls.

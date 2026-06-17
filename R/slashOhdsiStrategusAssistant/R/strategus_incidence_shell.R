@@ -134,10 +134,35 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     default
   }
 
+  cache_policy <- new.env(parent = emptyenv())
+  cache_policy$allowCache <- isTRUE(allowCache)
+  cache_policy$promptOnCache <- isTRUE(promptOnCache)
+
   maybe_use_cache <- function(path, label) {
-    if (!allowCache || !file.exists(path)) return(FALSE)
-    if (!promptOnCache) return(TRUE)
+    if (!isTRUE(cache_policy$allowCache) || !file.exists(path)) return(FALSE)
+    if (!isTRUE(cache_policy$promptOnCache)) return(TRUE)
     prompt_yesno(sprintf("Use cached %s at %s?", label, path), default = TRUE)
+  }
+
+  configure_revision_mode <- function(scope) {
+    cat("\nRevision cache posture\n")
+    cat(sprintf("  - allowCache: %s\n", if (isTRUE(cache_policy$allowCache)) "TRUE" else "FALSE"))
+    cat(sprintf("  - promptOnCache: %s\n", if (isTRUE(cache_policy$promptOnCache)) "TRUE" else "FALSE"))
+    if (isTRUE(cache_policy$allowCache) && !isTRUE(cache_policy$promptOnCache)) {
+      cat("Current settings will silently reuse cached decisions when available.\n")
+    }
+    if (isTRUE(interactive) && (!isTRUE(cache_policy$allowCache) || !isTRUE(cache_policy$promptOnCache))) {
+      switch_mode <- prompt_yesno(
+        "Switch to temporary revision cache mode for this pass? (allowCache=TRUE, promptOnCache=TRUE)",
+        default = TRUE
+      )
+      if (isTRUE(switch_mode)) {
+        cache_policy$allowCache <- TRUE
+        cache_policy$promptOnCache <- TRUE
+        cat("Revision cache mode enabled for this pass. Cached artifacts may still be reused, but the shell will prompt before doing so.\n")
+      }
+    }
+    invisible(NULL)
   }
 
   if (is.na(autoApplyImprovements)) {
@@ -599,18 +624,31 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     invisible(NULL)
   }
 
-  inspect_execution_outputs <- function(step_id) {
+  inspect_execution_outputs <- function(step_id, viewer = FALSE) {
     outputs <- .studyAgentSlashInspectWorkflowStepOutputs(base_dir, step_id)
     if (length(outputs) == 0) {
       cat("No registered outputs for that step.\n")
       return(invisible(NULL))
     }
-    cat(sprintf("\nOutputs for %s\n", step_id))
-    for (name in names(outputs)) {
+    output_table <- do.call(rbind, lapply(names(outputs), function(name) {
       item <- outputs[[name]]
-      cat(sprintf("  - %s: %s%s\n", name, item$absolute_path %||% item$path %||% "<missing>", if (isTRUE(item$exists)) "" else " (missing)"))
+      data.frame(
+        output_id = name,
+        path = as.character(item$absolute_path %||% item$path %||% "<missing>"),
+        exists = isTRUE(item$exists),
+        stringsAsFactors = FALSE
+      )
+    }))
+    cat(sprintf("\nOutputs for %s\n", step_id))
+    print(output_table)
+    if (isTRUE(viewer)) {
+      if (isTRUE(.studyAgentSlashSupportsDataViewer())) {
+        .studyAgentSlashOpenTableViewer(output_table, title = sprintf("Outputs for %s", step_id))
+      } else {
+        cat("Viewer mode is not available in this R session; showing the compact console table instead.\n")
+      }
     }
-    invisible(NULL)
+    invisible(output_table)
   }
 
   current_execution_step_id <- function() {
@@ -631,6 +669,14 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     )
   }
 
+  print_execution_step_choices <- function() {
+    cat("Valid step values are:\n")
+    for (line in .studyAgentSlashFormatWorkflowStepChoices(base_dir)) {
+      cat(sprintf("  - %s\n", line))
+    }
+    invisible(NULL)
+  }
+
   print_execution_help <- function() {
     cat("\nExecution commands\n")
     cat("  - Enter: finish this execution menu")
@@ -641,18 +687,19 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     cat("  - h or help: show this help\n")
     cat("  - s or status: show execution status\n")
     cat("  - art or artifacts: list current known artifacts\n")
-    cat("  - x or explore: list available approved exploration commands\n")
-    cat("  - explore <command-id>: run an approved exploration command\n")
+    cat("  - x or explore[_v]: list available approved exploration commands\n")
+    cat("  - x <command-id> or explore <command-id>: run an approved exploration command\n")
+    cat("  - x_v <command-id> or explore_v <command-id>: run an approved exploration command and try to open tabular output in a viewer\n")
     cat("  - number: run the numbered exploration command shown by x\n")
     cat("  - n or run next: run the next runnable step\n")
     cat("  - a or run all: keep running until blocked, failed, or complete\n")
-    cat("  - i or inspect <step>: inspect outputs for a step\n")
+    cat("  - i or inspect[_v] <step>: inspect outputs for a step\n")
     cat("  - run <step>: run a specific step by number or step id\n")
+    cat("  - rev or revise [build|intent|target|outcome]: return to build mode for intentional revision\n")
+    cat("  - /ohdsi <question>: ask a contextualized OHDSI workflow question\n")
     cat("  - q or quit: leave the execution menu\n")
     cat("\nValid step values\n")
-    for (line in .studyAgentSlashFormatWorkflowStepChoices(base_dir)) {
-      cat(sprintf("  - %s\n", line))
-    }
+    print_execution_step_choices()
     print_explore_help()
     invisible(NULL)
   }
@@ -668,8 +715,9 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     commands <- available_exploration_commands()
     table <- .studyAgentSlashExplorationCommandTable(commands)
     cat("\nExploration commands\n")
-    cat("  - x or explore: list available approved exploration commands\n")
-    cat("  - explore <command-id>: run one approved exploration command\n")
+    cat("  - x or explore[_v]: list available approved exploration commands\n")
+    cat("  - x <command-id> or explore <command-id>: run one approved exploration command\n")
+    cat("  - x_v <command-id> or explore_v <command-id>: run one approved exploration command and try to open tabular output in a viewer\n")
     if (nrow(table) == 0) {
       cat("  - No exploration commands are currently available for this workflow state\n")
       return(invisible(NULL))
@@ -710,10 +758,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     resolved <- .studyAgentSlashResolveWorkflowStepId(base_dir, step_ref)
     if (!is.null(resolved) && nzchar(trimws(resolved))) return(resolved)
     cat(sprintf("Unknown step '%s'.\n", trimws(as.character(step_ref %||% ""))))
-    cat("Valid step values are:\n")
-    for (line in .studyAgentSlashFormatWorkflowStepChoices(base_dir)) {
-      cat(sprintf("  - %s\n", line))
-    }
+    print_execution_step_choices()
     NULL
   }
 
@@ -738,17 +783,50 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     prompt_yesno("Exit execution menu and return to the R prompt?", default = FALSE)
   }
 
+  prompt_for_inspect_step <- function(viewer = FALSE) {
+    prompt <- if (isTRUE(viewer)) {
+      "Step number or step id to inspect in viewer (? for choices): "
+    } else {
+      "Step number or step id to inspect (? for choices): "
+    }
+    repeat {
+      step_ref <- trimws(readline_with_dialogue(prompt))
+      lowered <- tolower(step_ref)
+      if (lowered %in% c("h", "help", "?")) {
+        print_execution_step_choices()
+        next
+      }
+      return(step_ref)
+    }
+  }
+
+  run_exploration_command <- function(command_ref, viewer = FALSE) {
+    command_id <- resolve_exploration_command_id(command_ref)
+    if (is.null(command_id)) return(invisible(FALSE))
+    result <- .studyAgentSlashRunExplorationCommand(base_dir, command_id = command_id)
+    .studyAgentSlashRenderExplorationResult(result, viewer = viewer)
+    invisible(TRUE)
+  }
+
   run_execution_menu <- function(prompt_first = TRUE) {
-    if (!isTRUE(interactive)) return(invisible(NULL))
-    if (!file.exists(project_state_path) || !file.exists(runtime_state_path)) return(invisible(NULL))
+    if (!isTRUE(interactive)) return(invisible(list(action = "exit")))
+    if (!file.exists(project_state_path) || !file.exists(runtime_state_path)) return(invisible(list(action = "exit")))
+    valid_revise_scopes <- c("build", "intent", "target", "outcome")
+    normalize_revise_scope <- function(command_text) {
+      if (command_text %in% c("rev", "revise")) return("build")
+      scope <- trimws(sub("^rev(?:ise)?\\s+", "", command_text))
+      if (!nzchar(scope)) return("build")
+      if (scope %in% valid_revise_scopes) return(scope)
+      NULL
+    }
     if (isTRUE(prompt_first) && !prompt_yesno("Start running generated workflow steps in this shell now?", default = FALSE)) {
-      return(invisible(NULL))
+      return(invisible(list(action = "exit")))
     }
     repeat {
       refresh_execution_dialogue_context()
-      entered <- trimws(readline_with_dialogue("Execution command [Enter=finish, h=help, art=artifacts, x=explore, n=run next, a=run all, s=status, i=inspect, run <step>]: "))
+      entered <- trimws(readline_with_dialogue("Execution command [Enter=finish, h=help, art=artifacts, x=explore[_v], rev=revise, n=run next, a=run all, s=status, i=inspect[_v], run <step>]: "))
       if (!nzchar(entered)) {
-        if (isTRUE(confirm_execution_menu_exit())) break
+        if (isTRUE(confirm_execution_menu_exit())) return(invisible(list(action = "exit")))
         next
       }
       lowered <- tolower(entered)
@@ -768,26 +846,42 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
         print_artifact_inventory()
         next
       }
-      if (lowered %in% c("x", "explore")) {
+      if (lowered %in% c("x", "explore", "x_v", "explore_v")) {
         print_exploration_commands()
         next
       }
       if (grepl("^[0-9]+$", lowered)) {
-        command_id <- resolve_exploration_command_id(lowered)
-        if (is.null(command_id)) next
-        result <- .studyAgentSlashRunExplorationCommand(base_dir, command_id = command_id)
-        .studyAgentSlashRenderExplorationResult(result)
+        run_exploration_command(lowered, viewer = FALSE)
         next
       }
-      if (startsWith(lowered, "explore ")) {
-        command_id <- resolve_exploration_command_id(sub("^explore\\s+", "", lowered))
-        if (is.null(command_id)) next
-        result <- .studyAgentSlashRunExplorationCommand(base_dir, command_id = command_id)
-        .studyAgentSlashRenderExplorationResult(result)
+      if (startsWith(lowered, "x_v ") || startsWith(lowered, "explore_v ")) {
+        command_ref <- sub("^(?:x_v|explore_v)\\s+", "", lowered)
+        run_exploration_command(command_ref, viewer = TRUE)
+        next
+      }
+      if (startsWith(lowered, "x ") || startsWith(lowered, "explore ")) {
+        command_ref <- sub("^(?:x|explore)\\s+", "", lowered)
+        run_exploration_command(command_ref, viewer = FALSE)
+        next
+      }
+      if (lowered %in% c("rev", "revise") || startsWith(lowered, "revise ")) {
+        revise_scope <- normalize_revise_scope(lowered)
+        if (is.null(revise_scope)) {
+          cat("Choose revise build, revise intent, revise target, or revise outcome.\n")
+          next
+        }
+        revise_label <- if (identical(revise_scope, "build")) {
+          "the build workflow"
+        } else {
+          sprintf("the %s selection", revise_scope)
+        }
+        if (isTRUE(prompt_yesno(sprintf("Leave execution mode and return to build mode to revise %s?", revise_label), default = FALSE))) {
+          return(invisible(list(action = "revise", scope = revise_scope)))
+        }
         next
       }
       if (lowered %in% c("q", "quit", "exit")) {
-        if (isTRUE(confirm_execution_menu_exit())) break
+        if (isTRUE(confirm_execution_menu_exit())) return(invisible(list(action = "exit")))
         next
       }
       if (lowered %in% c("s", "status")) {
@@ -834,16 +928,24 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
         }
         next
       }
-      if (lowered %in% c("i", "inspect") || startsWith(lowered, "inspect ")) {
-        step_ref <- if (startsWith(lowered, "inspect ")) sub("^inspect\\s+", "", lowered) else trimws(readline_with_dialogue("Step number or step id to inspect: "))
+      if (lowered %in% c("i", "inspect", "i_v", "inspect_v") || startsWith(lowered, "inspect ") || startsWith(lowered, "inspect_v ") || startsWith(lowered, "i_v ")) {
+        viewer <- lowered %in% c("i_v", "inspect_v") || startsWith(lowered, "inspect_v ") || startsWith(lowered, "i_v ")
+        step_ref <- if (startsWith(lowered, "inspect_v ")) {
+          sub("^inspect_v\\s+", "", lowered)
+        } else if (startsWith(lowered, "inspect ")) {
+          sub("^inspect\\s+", "", lowered)
+        } else if (startsWith(lowered, "i_v ")) {
+          sub("^i_v\\s+", "", lowered)
+        } else {
+          prompt_for_inspect_step(viewer = viewer)
+        }
         step_id <- resolve_execution_step_id(step_ref)
         if (is.null(step_id)) next
-        inspect_execution_outputs(step_id)
+        inspect_execution_outputs(step_id, viewer = viewer)
         next
       }
-      cat("Choose h, s, art, x, n, a, i, run <step>, q, or Enter. Type h for valid steps and explore for approved commands.\n")
+      cat("Choose h, s, art, x[_v], rev, n, a, i[_v], run <step>, /ohdsi <question>, q, or Enter. Type h for valid steps and explore for approved commands.\n")
     }
-    invisible(NULL)
   }
 
   if (interactive) {
@@ -864,16 +966,29 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     cat("\nExisting study-agent project detected.\n")
     print_execution_status()
     if (isTRUE(interactive) && prompt_yesno("Resume existing generated workflow execution in this shell?", default = TRUE)) {
-      run_execution_menu(prompt_first = FALSE)
-      return(invisible(list(
-        output_dir = output_dir,
-        scripts_dir = scripts_dir,
-        state = file.path(output_dir, "study_agent_state.json"),
-        project_state = project_state_path,
-        runtime_state = runtime_state_path
-      )))
+      menu_result <- run_execution_menu(prompt_first = FALSE)
+      if (!identical(as.character(menu_result$action %||% "exit"), "revise")) {
+        return(invisible(list(
+          output_dir = output_dir,
+          scripts_dir = scripts_dir,
+          state = file.path(output_dir, "study_agent_state.json"),
+          project_state = project_state_path,
+          runtime_state = runtime_state_path
+        )))
+      }
+      revise_scope <- as.character(menu_result$scope %||% "build")
+      revise_label <- if (identical(revise_scope, "build")) {
+        "the workflow"
+      } else {
+        sprintf("the %s selection", revise_scope)
+      }
+      configure_revision_mode(revise_scope)
+      cat(sprintf("\nRe-entering build mode to revise %s. Saved answers will be reused as defaults where available.\n", revise_label))
+      studyIntent <- current_study_intent() %||% studyIntent
+      resume <- FALSE
     }
   }
+
   default_intent <- studyIntent %||% "What is the risk of GI bleed in new users of Celecoxib compared to new users of Diclofenac?"
   repeat {
     if (interactive) {

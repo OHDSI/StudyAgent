@@ -15,6 +15,30 @@
   utils::head(data, n = max_rows)
 }
 
+
+.studyAgentSlashSupportsDataViewer <- function() {
+  isTRUE(interactive()) &&
+    exists("View", where = asNamespace("utils"), mode = "function", inherits = FALSE)
+}
+
+.studyAgentSlashOpenTableViewer <- function(data, title = "Study Agent") {
+  if (!isTRUE(.studyAgentSlashSupportsDataViewer()) || is.null(data)) return(FALSE)
+  if (!is.data.frame(data)) data <- as.data.frame(data, stringsAsFactors = FALSE)
+  utils::View(data, title = as.character(title %||% "Study Agent"))
+  TRUE
+}
+
+.studyAgentSlashExplorationTableSection <- function(data,
+                                                    title,
+                                                    preview_data = NULL) {
+  list(
+    kind = "table",
+    data = preview_data %||% data,
+    view_data = data,
+    view_title = as.character(title %||% "Study Agent")
+  )
+}
+
 .studyAgentSlashResolveArtifactPath <- function(path, base_dir) {
   path <- as.character(path %||% "")
   if (!nzchar(trimws(path))) {
@@ -251,7 +275,11 @@
           status = "ok",
           title = "Artifact inventory",
           sections = list(
-            list(kind = "table", data = .studyAgentSlashCompactPreviewTable(context$artifact_registry_table, max_rows = 40L, max_cols = 5L))
+            .studyAgentSlashExplorationTableSection(
+              data = context$artifact_registry_table,
+              title = "Artifact inventory",
+              preview_data = .studyAgentSlashCompactPreviewTable(context$artifact_registry_table, max_rows = 40L, max_cols = 5L)
+            )
           )
         )
       }
@@ -284,7 +312,17 @@
             stringsAsFactors = FALSE
           )
         }
-        list(status = "ok", title = "Cohort generation results inventory", sections = list(list(kind = "table", data = .studyAgentSlashCompactPreviewTable(table, max_rows = 40L, max_cols = 3L))))
+        list(
+          status = "ok",
+          title = "Cohort generation results inventory",
+          sections = list(
+            .studyAgentSlashExplorationTableSection(
+              data = table,
+              title = "Cohort generation results inventory",
+              preview_data = .studyAgentSlashCompactPreviewTable(table, max_rows = 40L, max_cols = 3L)
+            )
+          )
+        )
       }
     ),
     list(
@@ -303,7 +341,18 @@
         data <- .studyAgentSlashReadCsvSafe(path)
         if (is.null(data)) stop("Selected cohort definition file is not available.")
         keep <- intersect(c("atlas_id", "cohort_id", "cohort_name", "cohort_type", "logic_description", "generate_stats"), names(data))
-        list(status = "ok", title = "Selected cohort definitions", sections = list(list(kind = "table", data = .studyAgentSlashCompactPreviewTable(data[, keep, drop = FALSE], max_rows = 20L, max_cols = 6L))))
+        selected <- data[, keep, drop = FALSE]
+        list(
+          status = "ok",
+          title = "Selected cohort definitions",
+          sections = list(
+            .studyAgentSlashExplorationTableSection(
+              data = selected,
+              title = "Selected cohort definitions",
+              preview_data = .studyAgentSlashCompactPreviewTable(selected, max_rows = 20L, max_cols = 6L)
+            )
+          )
+        )
       }
     ),
     list(
@@ -328,7 +377,18 @@
         }
         keep <- intersect(c("cohort_id", "cohort_name", "cohort_entries", "cohort_subjects", "database_id"), names(counts))
         if ("cohort_entries" %in% names(counts)) counts <- counts[order(-counts$cohort_entries, counts$cohort_id), , drop = FALSE]
-        list(status = "ok", title = "Generated cohort counts", sections = list(list(kind = "table", data = .studyAgentSlashCompactPreviewTable(counts[, keep, drop = FALSE], max_rows = 20L, max_cols = 5L))))
+        selected <- counts[, keep, drop = FALSE]
+        list(
+          status = "ok",
+          title = "Generated cohort counts",
+          sections = list(
+            .studyAgentSlashExplorationTableSection(
+              data = selected,
+              title = "Generated cohort counts",
+              preview_data = .studyAgentSlashCompactPreviewTable(selected, max_rows = 20L, max_cols = 5L)
+            )
+          )
+        )
       }
     ),
     list(
@@ -353,7 +413,18 @@
           merged <- merge(merged, unique(selected[, c("cohort_id", "cohort_name"), drop = FALSE]), by.x = "cohort_definition_id", by.y = "cohort_id", all.x = TRUE, sort = FALSE)
         }
         keep <- intersect(c("cohort_definition_id", "cohort_name", "rule_sequence", "name", "person_count", "gain_count", "person_total"), names(merged))
-        list(status = "ok", title = "Inclusion rule attrition", sections = list(list(kind = "table", data = .studyAgentSlashCompactPreviewTable(merged[, keep, drop = FALSE], max_rows = 20L, max_cols = 7L))))
+        selected <- merged[, keep, drop = FALSE]
+        list(
+          status = "ok",
+          title = "Inclusion rule attrition",
+          sections = list(
+            .studyAgentSlashExplorationTableSection(
+              data = selected,
+              title = "Inclusion rule attrition",
+              preview_data = .studyAgentSlashCompactPreviewTable(selected, max_rows = 20L, max_cols = 7L)
+            )
+          )
+        )
       }
     ),
     list(
@@ -377,7 +448,11 @@
           data <- .studyAgentSlashReadCsvSafe(item$absolute_path)
           if (is.null(data)) next
           sections[[length(sections) + 1L]] <- list(kind = "text", text = sprintf("%s: %s", labels[[i]], item$path))
-          sections[[length(sections) + 1L]] <- list(kind = "table", data = .studyAgentSlashCompactPreviewTable(data, max_rows = 6L, max_cols = 6L))
+          sections[[length(sections) + 1L]] <- .studyAgentSlashExplorationTableSection(
+            data = data,
+            title = basename(item$path %||% item$absolute_path %||% labels[[i]]),
+            preview_data = .studyAgentSlashCompactPreviewTable(data, max_rows = 6L, max_cols = 6L)
+          )
         }
         if (length(sections) == 0) stop("No cohort generation statistics files are available.")
         list(status = "ok", title = "Cohort generation statistics preview", sections = sections)
@@ -425,7 +500,7 @@
   do.call(rbind, rows)
 }
 
-.studyAgentSlashRenderExplorationResult <- function(result) {
+.studyAgentSlashRenderExplorationResult <- function(result, viewer = FALSE) {
   if (!identical(as.character(result$status %||% ""), "ok")) {
     cat(sprintf("Exploration failed: %s\n", as.character(result$error %||% "unknown error")))
     return(invisible(NULL))
@@ -439,6 +514,12 @@
     }
     if (identical(kind, "table")) {
       print(section$data)
+      if (isTRUE(viewer) && isTRUE(.studyAgentSlashSupportsDataViewer())) {
+        .studyAgentSlashOpenTableViewer(
+          data = section$view_data %||% section$data,
+          title = section$view_title %||% result$title %||% "Study Agent"
+        )
+      }
       next
     }
   }

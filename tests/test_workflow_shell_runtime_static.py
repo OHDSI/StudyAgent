@@ -14,6 +14,13 @@ def test_dependency_check_treats_skipped_steps_as_satisfied() -> None:
     assert 'dep_status %in% c("completed", "skipped")' in source
 
 
+def test_runner_marks_build_only_steps_as_non_runnable() -> None:
+    source = RUNNER_SOURCE.read_text(encoding="utf-8")
+    assert '.studyAgentSlashWorkflowBuildOnlyStepIds <- function() {' in source
+    assert 'build-only; use revise' in source
+    assert "completed interactively during build mode and cannot be rerun from the execution menu" in source
+
+
 def test_project_state_supports_build_phase_status_finalization() -> None:
     source = STATE_SOURCE.read_text(encoding="utf-8")
     assert '.studyAgentSlashFinalizeBuildProjectState <- function(' in source
@@ -51,9 +58,16 @@ def _assert_execution_menu_help_and_exit_guards(source: str) -> None:
     assert '.studyAgentSlashWorkflowIsComplete(base_dir)' in source
     assert 'Exit execution menu and return to the R prompt?' in source
     assert 'h=help' in source
+    assert 'rev=revise' in source
+    assert 'rev or revise' in source
+    assert '/ohdsi <question>' in source
     assert 'q or quit' in source
-    assert 'Step number or step id to inspect:' in source
+    assert 'Step number or step id to inspect (? for choices):' in source
+    assert 'Step number or step id to inspect in viewer (? for choices):' in source
     assert 'Step %s could not be run: %s' in source
+    assert 'Leave execution mode and return to build mode to revise' in source
+    assert 'Revision cache posture' in source
+    assert 'Switch to temporary revision cache mode for this pass?' in source
 
 
 def test_cohort_method_shell_execution_menu_has_help_and_exit_confirmation() -> None:
@@ -88,14 +102,19 @@ def test_shells_use_shared_enriched_execution_dialogue_context() -> None:
 
 def _assert_exploration_menu_surface(source: str) -> None:
     assert 'art=artifacts' in source
-    assert 'x=explore' in source
-    assert 'Execution command [Enter=finish, h=help, art=artifacts, x=explore, n=run next, a=run all, s=status, i=inspect, run <step>]: ' in source
-    assert 'Choose h, s, art, x, n, a, i, run <step>, q, or Enter.' in source
+    assert 'x=explore[_v]' in source
+    assert 'i=inspect[_v]' in source
+    assert 'Execution command [Enter=finish, h=help, art=artifacts, x=explore[_v], rev=revise, n=run next, a=run all, s=status, i=inspect[_v], run <step>]: ' in source
+    assert 'Choose h, s, art, x[_v], rev, n, a, i[_v], run <step>, /ohdsi <question>, q, or Enter.' in source
     assert 'number: run the numbered exploration command shown by x' in source
+    assert 'x <command-id> or explore <command-id>: run an approved exploration command' in source
+    assert 'x_v <command-id> or explore_v <command-id>: run an approved exploration command and try to open tabular output in a viewer' in source
     assert 'if (grepl("^[0-9]+$", lowered)) {' in source
     assert 'print_artifact_inventory <- function() {' in source
     assert 'print_exploration_commands <- function() {' in source
+    assert 'run_exploration_command <- function(command_ref, viewer = FALSE) {' in source
     assert '.studyAgentSlashRunExplorationCommand(base_dir, command_id = command_id)' in source
+    assert 'inspect_execution_outputs <- function(step_id, viewer = FALSE) {' in source
     assert 'artifacts known to the current workflow project' in source
 
 
@@ -105,6 +124,16 @@ def test_cohort_method_shell_exposes_exploration_menu_surface() -> None:
 
 def test_incidence_shell_exposes_exploration_menu_surface() -> None:
     _assert_exploration_menu_surface(INCIDENCE_SOURCE.read_text(encoding="utf-8"))
+
+
+def test_cohort_method_shell_revision_mode_can_force_stage_reselection() -> None:
+    source = COHORT_SOURCE.read_text(encoding="utf-8")
+    assert 'revision_state <- new.env(parent = emptyenv())' in source
+    assert 'should_force_role_reselection <- function(role_key) {' in source
+    assert 'Revision will force reopening of:' in source
+    assert 'should_force_role_reselection("comparator")' in source
+    assert 'should_force_role_reselection("target")' in source
+    assert 'should_force_role_reselection("outcome")' in source
 
 
 def test_dialogue_session_supports_reusable_ask_method() -> None:
@@ -118,6 +147,9 @@ def test_exploration_registry_defines_first_slice_commands() -> None:
     assert '.studyAgentSlashBuildArtifactRegistry <- function(base_dir) {' in source
     assert '.studyAgentSlashResolveArtifactPath <- function(path, base_dir) {' in source
     assert '.studyAgentSlashRunExplorationCommand <- function(base_dir, command_id) {' in source
+    assert '.studyAgentSlashSupportsDataViewer <- function() {' in source
+    assert '.studyAgentSlashOpenTableViewer <- function(data, title = "Study Agent") {' in source
+    assert '.studyAgentSlashRenderExplorationResult <- function(result, viewer = FALSE) {' in source
     assert 'command_id = "artifact_inventory"' in source
     assert 'command_id = "cohort_counts_summary"' in source
     assert 'command_id = "inclusion_rules_preview"' in source

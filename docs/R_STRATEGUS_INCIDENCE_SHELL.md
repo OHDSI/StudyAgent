@@ -19,6 +19,7 @@ generation plus in-shell execution for a CohortIncidence analysis.
 - Writes reproducible scripts for recommendation replay, cohort generation, Keeper review, diagnostics, and incidence analysis.
 - Saves session state to `outputs/study_agent_state.json` for traceability.
 - Persists `study-agent-project.json` and `outputs/study_agent_runtime_state.json` so generated workflow steps can be run and resumed in the same shell.
+- Supports in-shell artifact exploration and controlled return from run mode back to build mode when a revision is needed.
 
 ## Output folder layout
 
@@ -46,6 +47,29 @@ The shell writes scripts under `scripts/` for reproducibility:
 5. `05_keeper_case_review.R`
 6. `06_diagnostics.R`
 7. `07_incidence_spec.R`
+
+## Execution Menu
+
+After script generation or during `resume = TRUE`, the shell can re-enter run mode inside the same R session.
+
+Current execution-menu capabilities:
+
+- `n` / `run next`: run the next runnable generated step
+- `a` / `run all`: keep running until blocked, failed, or complete
+- `run <step>`: run a specific runnable step by step number or step id
+- `i` / `inspect <step>`: inspect registered outputs for a workflow step in the console
+- `art` / `artifacts`: list known workflow artifacts
+- `x` / `explore[_v]`: list approved exploration commands for the current workflow state
+- `x <command-id>` or `explore <command-id>` or a listed command number: run one approved artifact-exploration command
+- `/ohdsi <question>`: ask a contextualized workflow question using the current workflow state
+- `rev` / `revise [build|intent|target|outcome]`: leave execution mode and return to build mode, with an option to switch to temporary revision cache mode for this pass
+
+Current behavior notes:
+
+- Exiting the execution menu asks for confirmation unless the workflow is already complete.
+- Invalid step or exploration input no longer exits the shell; the menu stays active and prints valid choices.
+- `inspect_v <step>` and `explore_v <command-id>` try to open tabular results with `utils::View(...)` when an interactive viewer is available, while leaving the default CLI-first commands unchanged.
+- Build-only steps are tracked in workflow status, but if a step has no generated script it is not treated as runnable during execution mode.
 
 Current runtime expectations:
 
@@ -90,7 +114,7 @@ Generated scripts that connect to the database expect these site-specific files 
 ## Notes
 
 - If improvements were applied during the shell session, the scripts are a portable record and do not need to re-apply the same changes.
-- The shell exposes `/ohdsi` guidance throughout the workflow and supports `/back` at the major stage boundaries for study intent, target selection, outcome selection, TAR confirmation, and Keeper-review entry.
+- The shell exposes `/ohdsi` guidance throughout the workflow and supports `/back` at the major stage boundaries for study intent, target selection, outcome selection, TAR confirmation, and Keeper-review entry. The execution menu help also reminds users that `/ohdsi` remains available during run/resume mode.
 - Inline Keeper review uses bounded stage gates rather than a fully generic rewind. Users can skip or rerun domains, inspect generated artifacts, adjust review settings, and inspect saved reviewed rows.
 - If no Keeper artifacts exist yet, the shell now suppresses the reuse/resume prompts instead of asking about caches unconditionally.
 - If the initial phenotype recommendations are not acceptable, the shell can request a second window of candidates and then fall back to advisory guidance.

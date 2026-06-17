@@ -6,6 +6,7 @@ Current stage scope:
 - The shell can derive target/comparator/outcome statements from a study intent.
 - The shell can configure one effective analytic-settings profile through `step_by_step` prompts or `free_text` ACP recommendation.
 - The shell writes reproducible R scripts, a Strategus analysis specification, and a merged CohortMethod execution script.
+- The shell also supports in-shell run/resume mode for generated workflow steps, artifact exploration, and controlled return to build mode when revisions are needed.
 - The Keeper review step is now ACP-based and does not call the legacy Keeper R package.
 
 This shell is provided as `slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell()`.
@@ -36,6 +37,7 @@ Workflow diagrams live in `docs/WORKFLOW_COHORT_METHODS.md`.
    Analytic settings are always collected in this stage and confirmed before finalization.
 8. Optionally run ACP-based Keeper review inline with reuse/resume controls and bounded Keeper stage gates around domain generation and case review.
 9. Generate scripts in `scripts/` for cohort generation, Keeper review, diagnostics, and CohortMethod spec/execution.
+10. Optionally enter run/resume mode in the same shell to execute generated steps, inspect artifacts, ask `/ohdsi` questions, or return to build mode with `revise ...`.
 
 ## Analytic Settings
 
@@ -126,6 +128,33 @@ The following directories are created under `outputDir`:
 - `scripts/06_diagnostics.R`
 - `scripts/07_cm_spec.R`
 
+Build vs run note:
+
+- `recommend_and_select` is completed interactively during build mode and is tracked in `study-agent-project.json`, but there is no standalone `scripts/01_recommend_and_select.R`.
+- In execution mode, build-only steps are shown in workflow status but are not treated as runnable generated scripts.
+
+## Execution Menu
+
+After script generation or during `resume = TRUE`, the shell can re-enter run mode inside the same R session.
+
+Current execution-menu capabilities:
+
+- `n` / `run next`: run the next runnable generated step
+- `a` / `run all`: keep running until blocked, failed, or complete
+- `run <step>`: run a specific runnable step by step number or step id
+- `i` / `inspect <step>`: inspect registered outputs for a workflow step in the console
+- `art` / `artifacts`: list known workflow artifacts
+- `x` / `explore[_v]`: list approved exploration commands for the current workflow state
+- `x <command-id>` or `explore <command-id>` or a listed command number: run one approved artifact-exploration command
+- `/ohdsi <question>`: ask a contextualized workflow question using the current workflow state
+- `rev` / `revise [build|intent|target|comparator|outcome]`: leave execution mode and return to build mode, with an option to switch to temporary revision cache mode for this pass
+
+Current behavior notes:
+
+- Exiting the execution menu asks for confirmation unless the workflow is already complete.
+- Invalid step or exploration input no longer exits the shell; the menu stays active and prints valid choices.
+- `inspect_v <step>` and `explore_v <command-id>` try to open tabular results with `utils::View(...)` when an interactive viewer is available, while leaving the default CLI-first commands unchanged.
+
 
 Generated scripts that connect to the database expect these site-specific files at the root of
 `outputDir`:
@@ -187,5 +216,5 @@ Current Keeper specifics:
 ## Notes
 
 - This stage is designed as a bridge: it combines ACP/MCP-assisted intent split, phenotype recommendation/improvement, analytic-settings recommendation, and ACP-based Keeper review with reproducible Strategus script generation.
-- Interactive runs support `/back` at major stage boundaries for study intent, target selection, comparator selection, outcome selection, study configuration, and Keeper-review entry while keeping `/ohdsi` available for contextual guidance.
+- Interactive runs support `/back` at major stage boundaries for study intent, target selection, comparator selection, outcome selection, study configuration, and Keeper-review entry while keeping `/ohdsi` available for contextual guidance. The execution menu help now also reminds users that `/ohdsi` is available during run/resume mode.
 - If no Keeper artifacts exist yet, the shell suppresses the inline Keeper reuse/resume prompts instead of asking about caches unconditionally.
