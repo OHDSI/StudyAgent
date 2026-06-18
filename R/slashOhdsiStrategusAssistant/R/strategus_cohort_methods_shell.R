@@ -3793,18 +3793,25 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     }
     output_table <- do.call(rbind, lapply(names(outputs), function(name) {
       item <- outputs[[name]]
+      absolute_path <- as.character(item$absolute_path %||% item$path %||% "<missing>")
+      relative_path <- as.character(item$path %||% absolute_path)
       data.frame(
         output_id = name,
-        path = as.character(item$absolute_path %||% item$path %||% "<missing>"),
         exists = isTRUE(item$exists),
+        relative_path = relative_path,
+        path = absolute_path,
         stringsAsFactors = FALSE
       )
     }))
+    viewer_table <- .studyAgentSlashPrepareViewerTable(
+      output_table,
+      preferred_order = c("output_id", "exists", "relative_path", "path")
+    )
     cat(sprintf("\nOutputs for %s\n", step_id))
     print(output_table)
     if (isTRUE(viewer)) {
       if (isTRUE(.studyAgentSlashSupportsDataViewer())) {
-        .studyAgentSlashOpenTableViewer(output_table, title = sprintf("Outputs for %s", step_id))
+        .studyAgentSlashOpenTableViewer(viewer_table, title = sprintf("Outputs for %s", step_id))
       } else {
         cat("Viewer mode is not available in this R session; showing the compact console table instead.\n")
       }
@@ -3889,7 +3896,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     invisible(NULL)
   }
 
-  print_artifact_inventory <- function() {
+  print_artifact_inventory <- function(viewer = FALSE) {
     registry <- .studyAgentSlashBuildArtifactRegistry(base_dir)
     table <- .studyAgentSlashArtifactRegistryTable(registry)
     if (nrow(table) == 0) {
@@ -3898,11 +3905,21 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     }
     cat("\nArtifact inventory\n")
     print(.studyAgentSlashCompactPreviewTable(table, max_rows = 40L, max_cols = 5L))
+    if (isTRUE(viewer)) {
+      if (isTRUE(.studyAgentSlashSupportsDataViewer())) {
+        .studyAgentSlashOpenTableViewer(
+          .studyAgentSlashArtifactRegistryTable(registry, viewer = TRUE),
+          title = "Artifact inventory"
+        )
+      } else {
+        cat("Viewer mode is not available in this R session; showing the compact console table instead.\n")
+      }
+    }
     cat("\n")
     invisible(NULL)
   }
 
-  print_exploration_commands <- function() {
+  print_exploration_commands <- function(viewer = FALSE) {
     commands <- available_exploration_commands()
     table <- .studyAgentSlashExplorationCommandTable(commands)
     if (nrow(table) == 0) {
@@ -3911,6 +3928,16 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     }
     cat("\nAvailable exploration commands\n")
     print(table)
+    if (isTRUE(viewer)) {
+      if (isTRUE(.studyAgentSlashSupportsDataViewer())) {
+        .studyAgentSlashOpenTableViewer(
+          .studyAgentSlashPrepareViewerTable(table, preferred_order = c("command_id", "label", "purpose")),
+          title = "Available exploration commands"
+        )
+      } else {
+        cat("Viewer mode is not available in this R session; showing the compact console table instead.\n")
+      }
+    }
     cat("\n")
     invisible(NULL)
   }
@@ -3976,6 +4003,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     normalize_revise_scope <- function(command_text) {
       if (command_text %in% c("rev", "revise")) return("build")
       scope <- trimws(sub("^rev(?:ise)?\\s+", "", command_text))
+      if (identical(scope, command_text)) scope <- trimws(sub("^rev\\s+", "", command_text))
       if (!nzchar(scope)) return("build")
       if (scope %in% valid_revise_scopes) return(scope)
       NULL
@@ -4007,8 +4035,16 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
         print_artifact_inventory()
         next
       }
-      if (lowered %in% c("x", "explore", "x_v", "explore_v")) {
+      if (lowered %in% c("art_v", "artifact_v", "artifacts_v")) {
+        print_artifact_inventory(viewer = TRUE)
+        next
+      }
+      if (lowered %in% c("x", "explore")) {
         print_exploration_commands()
+        next
+      }
+      if (lowered %in% c("x_v", "explore_v")) {
+        print_exploration_commands(viewer = TRUE)
         next
       }
       if (grepl("^[0-9]+$", lowered)) {
@@ -4025,7 +4061,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
         run_exploration_command(command_ref, viewer = FALSE)
         next
       }
-      if (lowered %in% c("rev", "revise") || startsWith(lowered, "revise ")) {
+      if (lowered %in% c("rev", "revise") || startsWith(lowered, "rev ") || startsWith(lowered, "revise ")) {
         revise_scope <- normalize_revise_scope(lowered)
         if (is.null(revise_scope)) {
           cat("Choose revise build, revise intent, revise target, revise comparator, or revise outcome.\n")

@@ -60,6 +60,7 @@ def _assert_execution_menu_help_and_exit_guards(source: str) -> None:
     assert 'h=help' in source
     assert 'rev=revise' in source
     assert 'rev or revise' in source
+    assert 'startsWith(lowered, "rev " )' not in source
     assert '/ohdsi <question>' in source
     assert 'q or quit' in source
     assert 'Step number or step id to inspect (? for choices):' in source
@@ -110,8 +111,8 @@ def _assert_exploration_menu_surface(source: str) -> None:
     assert 'x <command-id> or explore <command-id>: run an approved exploration command' in source
     assert 'x_v <command-id> or explore_v <command-id>: run an approved exploration command and try to open tabular output in a viewer' in source
     assert 'if (grepl("^[0-9]+$", lowered)) {' in source
-    assert 'print_artifact_inventory <- function() {' in source
-    assert 'print_exploration_commands <- function() {' in source
+    assert 'print_artifact_inventory <- function(viewer = FALSE) {' in source
+    assert 'print_exploration_commands <- function(viewer = FALSE) {' in source
     assert 'run_exploration_command <- function(command_ref, viewer = FALSE) {' in source
     assert '.studyAgentSlashRunExplorationCommand(base_dir, command_id = command_id)' in source
     assert 'inspect_execution_outputs <- function(step_id, viewer = FALSE) {' in source
@@ -149,6 +150,7 @@ def test_exploration_registry_defines_first_slice_commands() -> None:
     assert '.studyAgentSlashRunExplorationCommand <- function(base_dir, command_id) {' in source
     assert '.studyAgentSlashSupportsDataViewer <- function() {' in source
     assert '.studyAgentSlashOpenTableViewer <- function(data, title = "Study Agent") {' in source
+    assert '.studyAgentSlashPrepareViewerTable <- function(data, preferred_order = NULL) {' in source
     assert '.studyAgentSlashRenderExplorationResult <- function(result, viewer = FALSE) {' in source
     assert 'command_id = "artifact_inventory"' in source
     assert 'command_id = "cohort_counts_summary"' in source

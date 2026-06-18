@@ -24,6 +24,9 @@
 .studyAgentSlashOpenTableViewer <- function(data, title = "Study Agent") {
   if (!isTRUE(.studyAgentSlashSupportsDataViewer()) || is.null(data)) return(FALSE)
   if (!is.data.frame(data)) data <- as.data.frame(data, stringsAsFactors = FALSE)
+  if (exists(".studyAgentSlashPrepareViewerTable", mode = "function")) {
+    data <- .studyAgentSlashPrepareViewerTable(data)
+  }
   utils::View(data, title = as.character(title %||% "Study Agent"))
   TRUE
 }
@@ -224,21 +227,40 @@
   }, registry)
 }
 
-.studyAgentSlashArtifactRegistryTable <- function(registry) {
+.studyAgentSlashPrepareViewerTable <- function(data, preferred_order = NULL) {
+  if (is.null(data)) return(NULL)
+  if (!is.data.frame(data)) data <- as.data.frame(data, stringsAsFactors = FALSE)
+  if (!is.null(preferred_order)) {
+    preferred_order <- intersect(as.character(preferred_order), names(data))
+    remaining <- setdiff(names(data), preferred_order)
+    data <- data[, c(preferred_order, remaining), drop = FALSE]
+  }
+  rownames(data) <- NULL
+  data
+}
+
+.studyAgentSlashArtifactRegistryTable <- function(registry, viewer = FALSE) {
   rows <- lapply(registry, function(item) {
+    absolute_path <- as.character(item$absolute_path %||% item$path %||% "")
+    relative_path <- as.character(item$path %||% absolute_path)
     data.frame(
       artifact_id = as.character(item$id %||% ""),
       artifact_class = as.character(item$artifact_class %||% ""),
       exists = isTRUE(item$exists),
       step_id = as.character(item$step_id %||% ""),
-      path = as.character(item$path %||% item$absolute_path %||% ""),
+      relative_path = relative_path,
+      path = absolute_path,
       stringsAsFactors = FALSE
     )
   })
   if (length(rows) == 0) {
-    return(data.frame(artifact_id = character(0), artifact_class = character(0), exists = logical(0), step_id = character(0), path = character(0), stringsAsFactors = FALSE))
+    return(data.frame(artifact_id = character(0), artifact_class = character(0), exists = logical(0), step_id = character(0), relative_path = character(0), path = character(0), stringsAsFactors = FALSE))
   }
-  do.call(rbind, rows)
+  table <- do.call(rbind, rows)
+  if (isTRUE(viewer)) {
+    return(.studyAgentSlashPrepareViewerTable(table, preferred_order = c("artifact_id", "artifact_class", "exists", "step_id", "relative_path", "path")))
+  }
+  table
 }
 
 .studyAgentSlashBuildExplorationContext <- function(base_dir, project_state, runtime_state, step = NULL) {
