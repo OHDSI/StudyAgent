@@ -280,6 +280,8 @@
   current_step_id <- as.character(current_step_id %||% "")
   priority_ids <- c(
     "selected_cohorts_csv",
+    "cm_diagnostics_dir",
+    "cm_results_dir",
     "cohort_generation_results_dir",
     "cohort_generation_module_dir",
     "cg_cohort_count_csv",
@@ -379,6 +381,11 @@
     ),
     max_items = 6L
   )
+  diagnostics_summary <- if (exists(".studyAgentSlashCompactDiagnosticsDialogueSummary", mode = "function")) {
+    .studyAgentSlashCompactDiagnosticsDialogueSummary(base_dir = base_dir, project_state = project_state, max_items = 6L)
+  } else {
+    list()
+  }
 
   compact_workflow_dialogue_context(list(
     study_intent = study_context$study_intent %||% NULL,
@@ -397,6 +404,7 @@
     execution_status = step$status %||% NULL,
     execution_plan_summary = as.list(.studyAgentSlashSummarizeWorkflowStatus(base_dir)),
     available_exploration_commands = available_exploration_commands,
+    diagnostics_summary = diagnostics_summary,
     artifact_summary = artifact_summary,
     requestable_artifact_ids = requestable_artifact_ids,
     artifact_request_policy = compact_workflow_dialogue_context(list(

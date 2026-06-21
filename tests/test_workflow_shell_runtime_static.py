@@ -188,6 +188,11 @@ def test_exploration_registry_defines_first_slice_commands() -> None:
     assert '.studyAgentSlashRenderExplorationResult <- function(result, viewer = FALSE) {' in source
     assert 'command_id = "artifact_inventory"' in source
     assert 'command_id = "cohort_counts_summary"' in source
+    assert 'command_id = "diagnostics_inventory"' in source
+    assert 'command_id = "diagnostics_run_settings"' in source
+    assert 'command_id = "diagnostics_orphan_concepts_summary"' in source
+    assert 'command_id = "diagnostics_source_concepts_summary"' in source
+    assert 'command_id = "diagnostics_visit_context_summary"' in source
     assert 'command_id = "keeper_case_review_metrics"' in source
     assert 'command_id = "inclusion_rules_preview"' in source
     assert 'command_id = "cohort_stats_preview"' in source
@@ -198,5 +203,7 @@ def test_execution_dialogue_context_includes_exploration_fields() -> None:
     assert 'artifact_registry <- .studyAgentSlashBuildArtifactRegistry(base_dir)' in source
     assert '.studyAgentSlashCompactExecutionArtifactSummary(' in source
     assert '.studyAgentSlashCompactExplorationCommandSummary(' in source
+    assert 'diagnostics_summary <- if (exists(".studyAgentSlashCompactDiagnosticsDialogueSummary", mode = "function")) {' in source
+    assert 'diagnostics_summary = diagnostics_summary' in source
     assert 'artifact_summary = artifact_summary' in source
     assert 'available_exploration_commands = available_exploration_commands' in source

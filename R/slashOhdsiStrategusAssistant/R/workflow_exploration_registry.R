@@ -72,6 +72,142 @@
   )
 }
 
+
+.studyAgentSlashDiscoverDiagnosticsRoots <- function(base_dir, project_state = NULL) {
+  project_state <- project_state %||% tryCatch(.studyAgentSlashReadProjectState(base_dir), error = function(e) list())
+  study_context <- project_state$study_context %||% list()
+  candidates <- c(
+    as.character(study_context$cm_diagnostics_dir %||% ""),
+    as.character(study_context$cm_results_dir %||% ""),
+    file.path(base_dir, "cm-diagnostics"),
+    file.path(base_dir, "cm-results")
+  )
+  exec_settings_path <- file.path(base_dir, "strategus-execution-settings.json")
+  if (file.exists(exec_settings_path)) {
+    exec_cfg <- tryCatch(readStrategusExecutionSettings(exec_settings_path), error = function(e) NULL)
+    if (is.list(exec_cfg)) {
+      candidates <- c(
+        candidates,
+        as.character(exec_cfg$resultsFolder %||% ""),
+        as.character(exec_cfg$workFolder %||% "")
+      )
+    }
+  }
+  candidates <- unique(Filter(nzchar, trimws(as.character(candidates))))
+  roots <- unique(vapply(candidates, function(item) {
+    .studyAgentSlashResolveArtifactPath(item, base_dir)
+  }, character(1)))
+  Filter(dir.exists, roots)
+}
+
+.studyAgentSlashClassifyDiagnosticsArtifact <- function(path) {
+  name <- tolower(basename(as.character(path %||% "")))
+  if (grepl("orphan", name)) return("orphan_concepts")
+  if (grepl("visit", name) && grepl("context", name)) return("visit_context")
+  if (grepl("source", name) && grepl("concept", name)) return("source_concepts")
+  if (grepl("index", name) && grepl("break", name)) return("index_event_breakdown")
+  if (grepl("incidence", name) && grepl("rate", name)) return("incidence_rate")
+  if (grepl("relationship", name)) return("cohort_relationship")
+  if (grepl("temporal", name) || grepl("time", name) || grepl("series", name)) return("temporal_characterization")
+  if (grepl("inclusion", name)) return("inclusion_statistics")
+  "other"
+}
+
+.studyAgentSlashDiagnosticsInventoryTable <- function(base_dir, project_state = NULL) {
+  roots <- .studyAgentSlashDiscoverDiagnosticsRoots(base_dir, project_state = project_state)
+  if (length(roots) == 0) {
+    return(data.frame(
+      root = character(0),
+      relative_path = character(0),
+      artifact_class = character(0),
+      size_bytes = numeric(0),
+      modified_at = character(0),
+      stringsAsFactors = FALSE
+    ))
+  }
+  rows <- list()
+  for (root in roots) {
+    paths <- list.files(root, recursive = TRUE, full.names = TRUE, all.files = FALSE, no.. = TRUE)
+    if (length(paths) == 0) next
+    info <- file.info(paths)
+    root_prefix <- paste0(normalizePath(root, winslash = "/", mustWork = FALSE), "/")
+    normalized_paths <- normalizePath(paths, winslash = "/", mustWork = FALSE)
+    rel <- ifelse(startsWith(normalized_paths, root_prefix), substr(normalized_paths, nchar(root_prefix) + 1L, nchar(normalized_paths)), normalized_paths)
+    rows[[length(rows) + 1L]] <- data.frame(
+      root = basename(root),
+      relative_path = rel,
+      artifact_class = vapply(paths, .studyAgentSlashClassifyDiagnosticsArtifact, character(1)),
+      size_bytes = as.numeric(info$size),
+      modified_at = as.character(info$mtime),
+      absolute_path = normalizePath(paths, winslash = "/", mustWork = FALSE),
+      stringsAsFactors = FALSE
+    )
+  }
+  if (length(rows) == 0) {
+    return(data.frame(
+      root = character(0),
+      relative_path = character(0),
+      artifact_class = character(0),
+      size_bytes = numeric(0),
+      modified_at = character(0),
+      absolute_path = character(0),
+      stringsAsFactors = FALSE
+    ))
+  }
+  do.call(rbind, rows)
+}
+
+.studyAgentSlashDiagnosticsFilesByClass <- function(base_dir, classes, project_state = NULL) {
+  inventory <- .studyAgentSlashDiagnosticsInventoryTable(base_dir, project_state = project_state)
+  if (nrow(inventory) == 0) return(inventory)
+  inventory[inventory$artifact_class %in% as.character(classes %||% character(0)), , drop = FALSE]
+}
+
+.studyAgentSlashDiagnosticsPreviewSections <- function(inventory, title_prefix = "Diagnostics artifact") {
+  if (is.null(inventory) || !is.data.frame(inventory) || nrow(inventory) == 0) return(list())
+  sections <- list(
+    .studyAgentSlashExplorationTableSection(
+      data = inventory[, intersect(c("root", "relative_path", "artifact_class", "size_bytes", "modified_at"), names(inventory)), drop = FALSE],
+      title = paste(title_prefix, "inventory"),
+      preview_data = .studyAgentSlashCompactPreviewTable(inventory[, intersect(c("root", "relative_path", "artifact_class", "size_bytes", "modified_at"), names(inventory)), drop = FALSE], max_rows = 20L, max_cols = 5L)
+    )
+  )
+  preview_paths <- utils::head(as.character(inventory$absolute_path %||% character(0)), n = 3L)
+  for (preview_path in preview_paths) {
+    data <- .studyAgentSlashReadCsvSafe(preview_path)
+    if (is.null(data)) next
+    sections[[length(sections) + 1L]] <- list(kind = "text", text = sprintf("%s: %s", title_prefix, preview_path))
+    sections[[length(sections) + 1L]] <- .studyAgentSlashExplorationTableSection(
+      data = data,
+      title = basename(preview_path),
+      preview_data = .studyAgentSlashCompactPreviewTable(data, max_rows = 8L, max_cols = 8L)
+    )
+  }
+  sections
+}
+
+.studyAgentSlashCompactDiagnosticsDialogueSummary <- function(base_dir, project_state = NULL, max_items = 6L) {
+  inventory <- .studyAgentSlashDiagnosticsInventoryTable(base_dir, project_state = project_state)
+  if (nrow(inventory) == 0) return(list())
+  counts <- stats::aggregate(list(file_count = inventory$relative_path), by = list(artifact_class = inventory$artifact_class), FUN = length)
+  counts <- counts[order(-counts$file_count, counts$artifact_class), , drop = FALSE]
+  top_counts <- utils::head(counts, n = max_items)
+  top_files <- utils::head(inventory[, intersect(c("artifact_class", "root", "relative_path"), names(inventory)), drop = FALSE], n = max_items)
+  compact_workflow_dialogue_context(list(
+    diagnostics_roots = as.list(unique(as.character(inventory$root %||% character(0)))),
+    diagnostics_file_count = nrow(inventory),
+    diagnostics_artifact_counts = lapply(seq_len(nrow(top_counts)), function(i) compact_workflow_dialogue_context(list(
+      artifact_class = top_counts$artifact_class[[i]],
+      file_count = as.integer(top_counts$file_count[[i]])
+    ))),
+    diagnostics_top_files = lapply(seq_len(nrow(top_files)), function(i) compact_workflow_dialogue_context(list(
+      artifact_class = top_files$artifact_class[[i]],
+      root = top_files$root[[i]],
+      relative_path = top_files$relative_path[[i]]
+    )))
+  ))
+}
+
 .studyAgentSlashResolveArtifactPath <- function(path, base_dir) {
   path <- as.character(path %||% "")
   if (!nzchar(trimws(path))) {
@@ -139,6 +275,8 @@
   if (identical(base_name, "cg_cohort_inc_stats.csv")) return("cohort_inclusion_stats_csv")
   if (identical(base_name, "cg_cohort_summary_stats.csv")) return("cohort_summary_stats_csv")
   if (grepl("/keeper-case-review/", path, fixed = TRUE)) return("keeper_artifact")
+  if (dir.exists(path) && identical(base_name, "cm-diagnostics")) return("cohort_method_diagnostics_dir")
+  if (dir.exists(path) && identical(base_name, "cm-results")) return("cohort_method_results_dir")
   if (grepl("/scripts/", path, fixed = TRUE) || endsWith(path, ".R")) return("script")
   if (dir.exists(path) && identical(base_name, "CohortGeneratorModule")) return("cohort_generation_module_dir")
   if (dir.exists(path) && identical(base_name, "cohort-generation-results")) return("cohort_generation_results_dir")
@@ -225,6 +363,10 @@
   registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "db_details_json", file.path(base_dir, "strategus-db-details.json"), base_dir, tags = c("config", "db"), preview_kind = "json")
   registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "execution_settings_json", file.path(base_dir, "strategus-execution-settings.json"), base_dir, tags = c("config", "execution"), preview_kind = "json")
   registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "selected_cohorts_csv", file.path(base_dir, "selected-cohorts", "Cohorts.csv"), base_dir, step_id = "generate_cohorts", tags = c("cohort", "selection"))
+  diagnostics_dir <- project_state$study_context$cm_diagnostics_dir %||% file.path(base_dir, "cm-diagnostics")
+  results_dir <- project_state$study_context$cm_results_dir %||% file.path(base_dir, "cm-results")
+  registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cm_diagnostics_dir", diagnostics_dir, base_dir, step_id = "diagnostics", tags = c("diagnostics", "results"), preview_kind = "dir")
+  registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cm_results_dir", results_dir, base_dir, step_id = "cm_spec", tags = c("cohort_method", "results"), preview_kind = "dir")
 
   exec_settings_path <- file.path(base_dir, "strategus-execution-settings.json")
   if (file.exists(exec_settings_path)) {
@@ -508,6 +650,144 @@
         }
         if (length(sections) == 0) stop("No cohort generation statistics files are available.")
         list(status = "ok", title = "Cohort generation statistics preview", sections = sections)
+      }
+    ),
+    list(
+      command_id = "diagnostics_inventory",
+      label = "Inventory diagnostics artifacts",
+      purpose = "List discovered diagnostics result files, inferred classes, sizes, and modified times.",
+      workflow_types = c("strategus_incidence", "strategus_cohort_methods"),
+      step_ids = c("diagnostics", "incidence_spec", "cm_spec"),
+      required_packages = character(0),
+      artifact_requirements = character(0),
+      input_parameters = list(),
+      output_kind = "table",
+      safe = TRUE,
+      executor = function(context) {
+        inventory <- .studyAgentSlashDiagnosticsInventoryTable(context$base_dir, project_state = context$project_state)
+        if (nrow(inventory) == 0) stop("No diagnostics artifacts were discovered yet.")
+        display <- inventory[, intersect(c("root", "relative_path", "artifact_class", "size_bytes", "modified_at"), names(inventory)), drop = FALSE]
+        list(
+          status = "ok",
+          title = "Diagnostics artifact inventory",
+          sections = list(
+            .studyAgentSlashExplorationTableSection(
+              data = display,
+              title = "Diagnostics artifact inventory",
+              preview_data = .studyAgentSlashCompactPreviewTable(display, max_rows = 30L, max_cols = 5L)
+            )
+          )
+        )
+      }
+    ),
+    list(
+      command_id = "diagnostics_run_settings",
+      label = "Show diagnostics run settings",
+      purpose = "Show configured diagnostics output roots and enabled CohortDiagnostics module options from the generated shell script.",
+      workflow_types = c("strategus_incidence", "strategus_cohort_methods"),
+      step_ids = c("diagnostics", "incidence_spec", "cm_spec"),
+      required_packages = character(0),
+      artifact_requirements = character(0),
+      input_parameters = list(),
+      output_kind = "table",
+      safe = TRUE,
+      executor = function(context) {
+        exec_path <- file.path(context$base_dir, "strategus-execution-settings.json")
+        exec_cfg <- if (file.exists(exec_path)) tryCatch(readStrategusExecutionSettings(exec_path), error = function(e) NULL) else NULL
+        roots <- .studyAgentSlashDiscoverDiagnosticsRoots(context$base_dir, project_state = context$project_state)
+        data <- data.frame(
+          setting = c(
+            "diagnostics_roots",
+            "execution_resultsFolder",
+            "execution_workFolder",
+            "runInclusionStatistics",
+            "runIncludedSourceConcepts",
+            "runOrphanConcepts",
+            "runTimeSeries",
+            "runVisitContext",
+            "runBreakdownIndexEvents",
+            "runIncidenceRate",
+            "runCohortRelationship",
+            "runTemporalCohortCharacterization"
+          ),
+          value = c(
+            paste(basename(roots), collapse = "; "),
+            as.character(exec_cfg$resultsFolder %||% ""),
+            as.character(exec_cfg$workFolder %||% ""),
+            "TRUE",
+            "TRUE",
+            "TRUE",
+            "FALSE",
+            "TRUE",
+            "TRUE",
+            "TRUE",
+            "TRUE",
+            "TRUE"
+          ),
+          stringsAsFactors = FALSE
+        )
+        list(
+          status = "ok",
+          title = "Diagnostics run settings",
+          sections = list(
+            .studyAgentSlashExplorationTableSection(
+              data = data,
+              title = "Diagnostics run settings",
+              preview_data = data
+            )
+          )
+        )
+      }
+    ),
+    list(
+      command_id = "diagnostics_orphan_concepts_summary",
+      label = "Preview orphan concept diagnostics",
+      purpose = "Preview discovered orphan concept diagnostics artifacts and compact row samples.",
+      workflow_types = c("strategus_incidence", "strategus_cohort_methods"),
+      step_ids = c("diagnostics", "incidence_spec", "cm_spec"),
+      required_packages = character(0),
+      artifact_requirements = character(0),
+      input_parameters = list(),
+      output_kind = "mixed",
+      safe = TRUE,
+      executor = function(context) {
+        inventory <- .studyAgentSlashDiagnosticsFilesByClass(context$base_dir, classes = c("orphan_concepts"), project_state = context$project_state)
+        if (nrow(inventory) == 0) stop("No orphan concept diagnostics artifacts were discovered.")
+        list(status = "ok", title = "Orphan concept diagnostics", sections = .studyAgentSlashDiagnosticsPreviewSections(inventory, title_prefix = "Orphan concept artifact"))
+      }
+    ),
+    list(
+      command_id = "diagnostics_source_concepts_summary",
+      label = "Preview included source concept diagnostics",
+      purpose = "Preview discovered included source concept artifacts and compact row samples.",
+      workflow_types = c("strategus_incidence", "strategus_cohort_methods"),
+      step_ids = c("diagnostics", "incidence_spec", "cm_spec"),
+      required_packages = character(0),
+      artifact_requirements = character(0),
+      input_parameters = list(),
+      output_kind = "mixed",
+      safe = TRUE,
+      executor = function(context) {
+        inventory <- .studyAgentSlashDiagnosticsFilesByClass(context$base_dir, classes = c("source_concepts"), project_state = context$project_state)
+        if (nrow(inventory) == 0) stop("No included source concept diagnostics artifacts were discovered.")
+        list(status = "ok", title = "Included source concept diagnostics", sections = .studyAgentSlashDiagnosticsPreviewSections(inventory, title_prefix = "Source concept artifact"))
+      }
+    ),
+    list(
+      command_id = "diagnostics_visit_context_summary",
+      label = "Preview visit context diagnostics",
+      purpose = "Preview discovered visit context artifacts and compact row samples.",
+      workflow_types = c("strategus_incidence", "strategus_cohort_methods"),
+      step_ids = c("diagnostics", "incidence_spec", "cm_spec"),
+      required_packages = character(0),
+      artifact_requirements = character(0),
+      input_parameters = list(),
+      output_kind = "mixed",
+      safe = TRUE,
+      executor = function(context) {
+        inventory <- .studyAgentSlashDiagnosticsFilesByClass(context$base_dir, classes = c("visit_context"), project_state = context$project_state)
+        if (nrow(inventory) == 0) stop("No visit context diagnostics artifacts were discovered.")
+        list(status = "ok", title = "Visit context diagnostics", sections = .studyAgentSlashDiagnosticsPreviewSections(inventory, title_prefix = "Visit context artifact"))
       }
     ),
     list(
