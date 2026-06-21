@@ -3767,7 +3767,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
 
   refresh_execution_dialogue_context <- function(step_id = NULL) {
     if (!file.exists(project_state_path)) return(invisible(NULL))
-    project_state <- .studyAgentSlashReadProjectState(base_dir)
+    project_state <- .studyAgentSlashReconcileProjectState(base_dir, write = TRUE)$project_state
     if (is.null(step_id) || !nzchar(trimws(as.character(step_id)))) {
       step_id <- project_state$resume$current_step_id %||% NULL
     }
@@ -3821,7 +3821,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
 
   current_execution_step_id <- function() {
     if (!file.exists(project_state_path)) return(NULL)
-    project_state <- .studyAgentSlashReadProjectState(base_dir)
+    project_state <- .studyAgentSlashReconcileProjectState(base_dir, write = TRUE)$project_state
     step_id <- as.character(project_state$resume$current_step_id %||% "")
     if (!nzchar(step_id)) return(NULL)
     step_id
@@ -3829,7 +3829,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
 
   available_exploration_commands <- function() {
     if (!file.exists(project_state_path)) return(list())
-    project_state <- .studyAgentSlashReadProjectState(base_dir)
+    project_state <- .studyAgentSlashReconcileProjectState(base_dir, write = TRUE)$project_state
     .studyAgentSlashListExplorationCommands(
       base_dir = base_dir,
       workflow_type = project_state$workflow_type %||% "",
@@ -3853,15 +3853,15 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     }
     cat("\n")
     cat("  - h or help: show this help\n")
-    cat("  - s or status: show execution status\n")
-    cat("  - art or artifacts: list current known artifacts\n")
+    cat("  - s or status: show execution status (derived from step state and artifacts)\n")
+    cat("  - art or artifacts: list current known artifacts\n  - b or backup: create a workflow state snapshot\n  - bk or backups: list available workflow state snapshots\n")
     cat("  - x or explore[_v]: list available approved exploration commands\n")
     cat("  - x <command-id> or explore <command-id>: run an approved exploration command\n")
     cat("  - x_v <command-id> or explore_v <command-id>: run an approved exploration command and try to open tabular output in a viewer\n")
     cat("  - number: run the numbered exploration command shown by x\n")
     cat("  - n or run next: run the next runnable step\n")
     cat("  - a or run all: keep running until blocked, failed, or complete\n")
-    cat("  - i or inspect[_v] <step>: inspect outputs for a step\n")
+    cat("  - i or inspect[_v] <step>: inspect outputs for a step\n  - reset <step>: reset a step and downstream workflow state\n  - restore <snapshot-id>: restore a saved workflow state snapshot\n")
     cat("  - run <step>: run a specific step by number or step id\n")
     cat("  - rev or revise [build|intent|target|comparator|outcome]: return to build mode for intentional revision\n")
     cat("  - /ohdsi <question>: ask a contextualized OHDSI workflow question\n")
@@ -4012,8 +4012,9 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
       return(invisible(list(action = "exit")))
     }
     repeat {
+      .studyAgentSlashReconcileProjectState(base_dir, write = TRUE)
       refresh_execution_dialogue_context()
-      entered <- trimws(readline_with_dialogue("Execution command [Enter=finish, h=help, art=artifacts, x=explore[_v], rev=revise, n=run next, a=run all, s=status, i=inspect[_v], run <step>]: "))
+      entered <- trimws(readline_with_dialogue("Execution command [Enter=finish, x=explore[_v], s=status, h=help/show commands, /ohdsi=AI assistance]: "))
       if (!nzchar(entered)) {
         if (isTRUE(confirm_execution_menu_exit())) return(invisible(list(action = "exit")))
         next
@@ -4059,6 +4060,62 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
       if (startsWith(lowered, "x ") || startsWith(lowered, "explore ")) {
         command_ref <- sub("^(?:x|explore)\\s+", "", lowered)
         run_exploration_command(command_ref, viewer = FALSE)
+        next
+      }
+      if (lowered %in% c("b", "backup")) {
+        backup_info <- .studyAgentSlashBackupWorkflowState(base_dir, label = "manual")
+        cat(sprintf("Workflow state snapshot saved: %s\n", backup_info$snapshot_id %||% backup_info$snapshot_dir %||% "<unknown>"))
+        next
+      }
+      if (lowered %in% c("bk", "backups", "snapshot", "snapshots")) {
+        snapshot_ids <- rev(.studyAgentSlashListWorkflowBackups(base_dir))
+        if (length(snapshot_ids) == 0) {
+          cat("No workflow snapshots are available for this project.\n")
+        } else {
+          cat("\nWorkflow snapshots\n")
+          for (snapshot_id in snapshot_ids) cat(sprintf("  - %s\n", snapshot_id))
+        }
+        next
+      }
+      if (startsWith(lowered, "restore ")) {
+        snapshot_id <- trimws(sub("^restore\\s+", "", entered))
+        if (!nzchar(snapshot_id)) {
+          cat("Choose restore <snapshot-id>. Use backups to list available snapshots.\n")
+          next
+        }
+        if (!isTRUE(prompt_yesno(sprintf("Restore workflow state snapshot %s?", snapshot_id), default = FALSE))) {
+          next
+        }
+        result <- tryCatch(
+          .studyAgentSlashRestoreWorkflowState(base_dir, snapshot_id = snapshot_id, restore_artifacts = TRUE, backup_current = TRUE),
+          error = function(e) e
+        )
+        if (inherits(result, "error")) {
+          cat(sprintf("Restore failed: %s\n", conditionMessage(result)))
+        } else {
+          cat(sprintf("Workflow state restored from snapshot: %s\n", snapshot_id))
+        }
+        next
+      }
+      if (startsWith(lowered, "reset ")) {
+        step_id <- resolve_execution_step_id(sub("^reset\\s+", "", lowered))
+        if (is.null(step_id)) next
+        if (!isTRUE(prompt_yesno(sprintf("Reset step %s and downstream workflow state?", step_id), default = FALSE))) {
+          next
+        }
+        result <- tryCatch(
+          .studyAgentSlashResetWorkflowStepState(base_dir, step_id = step_id, cascade = TRUE, backup = TRUE, delete_outputs = TRUE),
+          error = function(e) e
+        )
+        if (inherits(result, "error")) {
+          cat(sprintf("Reset failed: %s\n", conditionMessage(result)))
+        } else {
+          affected <- as.character(unlist(result$affected_steps %||% list(), use.names = FALSE))
+          cat(sprintf("Reset workflow state for: %s\n", paste(affected, collapse = ", ")))
+          if (!is.null(result$snapshot_id) && nzchar(as.character(result$snapshot_id))) {
+            cat(sprintf("Backup snapshot saved: %s\n", as.character(result$snapshot_id)))
+          }
+        }
         next
       }
       if (lowered %in% c("rev", "revise") || startsWith(lowered, "rev ") || startsWith(lowered, "revise ")) {
@@ -4141,10 +4198,9 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
         inspect_execution_outputs(step_id, viewer = viewer)
         next
       }
-      cat("Choose h, s, art, x[_v], rev, n, a, i[_v], run <step>, /ohdsi <question>, q, or Enter. Type h for valid steps and explore for approved commands.\n")
+      cat("Choose h, s, art, x[_v], b, bk, reset <step>, restore <snapshot-id>, rev, n, a, i[_v], run <step>, /ohdsi <question>, q, or Enter. Type h for valid steps and explore for approved commands.\n")
     }
   }
-
   cached_inputs <- NULL
   cached_inputs <- NULL
   cached_inputs <- NULL
@@ -6087,7 +6143,8 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
         workFolder = file.path(base_dir, "work"),
         resultsFolder = file.path(base_dir, "results"),
         cohortIdFieldName = "cohort_definition_id",
-        maxCores = 4
+        maxCores = 4,
+        incremental = FALSE
       ), execution_settings_path)
     }
 
@@ -6663,6 +6720,7 @@ Keeper review saved: %s reviewed row(s)
   script_04 <- c(
     script_header,
     "library(jsonlite)",
+    "`%||%` <- function(x, y) if (is.null(x)) y else x",
     "",
     package_loader_lines,
     "",
@@ -6713,6 +6771,7 @@ Keeper review saved: %s reviewed row(s)
   script_05 <- c(
     script_header,
     "library(jsonlite)",
+    "`%||%` <- function(x, y) if (is.null(x)) y else x",
     "",
     package_loader_lines,
     "",
@@ -6728,7 +6787,7 @@ Keeper review saved: %s reviewed row(s)
     "review_row_limit <- 5",
     "acp_timeout_seconds <- as.numeric(Sys.getenv('ACP_TIMEOUT', '300'))",
     "Sys.setenv(ACP_TIMEOUT = as.character(acp_timeout_seconds))",
-    "reuse_rows <- TRUE",
+    "reuse_rows <- FALSE",
     "resume_reviews <- TRUE",
     "review_row_selection <- NULL  # e.g. '1-3,5'",
     "acp_url <- Sys.getenv('ACP_URL', 'http://127.0.0.1:8765')",

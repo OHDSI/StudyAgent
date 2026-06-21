@@ -852,7 +852,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     }
     repeat {
       refresh_execution_dialogue_context()
-      entered <- trimws(readline_with_dialogue("Execution command [Enter=finish, h=help, art=artifacts, x=explore[_v], rev=revise, n=run next, a=run all, s=status, i=inspect[_v], run <step>]: "))
+      entered <- trimws(readline_with_dialogue("Execution command [Enter=finish, x=explore[_v], s=status, h=help/show commands, /ohdsi=AI assistance]: "))
       if (!nzchar(entered)) {
         if (isTRUE(confirm_execution_menu_exit())) return(invisible(list(action = "exit")))
         next
@@ -1748,7 +1748,8 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
         workFolder = file.path(base_dir, "work"),
         resultsFolder = file.path(base_dir, "results"),
         cohortIdFieldName = "cohort_definition_id",
-        maxCores = 4
+        maxCores = 4,
+        incremental = FALSE
       ), execution_settings_path)
     }
 
@@ -2440,6 +2441,7 @@ Keeper review saved: %s reviewed row(s)
   script_04 <- c(
     script_header,
     "library(jsonlite)",
+    "`%||%` <- function(x, y) if (is.null(x)) y else x",
     "",
     "# loads the Strategus workflow assistant package when working from the repo",
     "if (!requireNamespace('slashOhdsiStrategusAssistant', quietly = TRUE)) {",
@@ -2498,6 +2500,7 @@ Keeper review saved: %s reviewed row(s)
   script_05 <- c(
     script_header,
     "library(jsonlite)",
+    "`%||%` <- function(x, y) if (is.null(x)) y else x",
     "",
     "# loads the Strategus workflow assistant package when working from the repo",
     "if (!requireNamespace('slashOhdsiStrategusAssistant', quietly = TRUE)) {",
@@ -2521,7 +2524,7 @@ Keeper review saved: %s reviewed row(s)
     "review_row_limit <- 5",
     "acp_timeout_seconds <- as.numeric(Sys.getenv('ACP_TIMEOUT', '300'))",
     "Sys.setenv(ACP_TIMEOUT = as.character(acp_timeout_seconds))",
-    "reuse_rows <- TRUE",
+    "reuse_rows <- FALSE",
     "resume_reviews <- TRUE",
     "review_row_selection <- NULL  # e.g. '1-3,5'",
     "acp_url <- Sys.getenv('ACP_URL', 'http://127.0.0.1:8765')",

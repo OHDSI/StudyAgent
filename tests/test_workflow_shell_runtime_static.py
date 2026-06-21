@@ -3,6 +3,7 @@ from _repo_paths import repo_path
 
 RUNNER_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workflow_script_runner.R")
 STATE_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workflow_project_state.R")
+STEP_STATE_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workflow_step_state.R")
 COHORT_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_cohort_methods_shell.R")
 INCIDENCE_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_incidence_shell.R")
 DIALOGUE_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workflow_dialogue.R")
@@ -21,6 +22,14 @@ def test_runner_marks_build_only_steps_as_non_runnable() -> None:
     assert "completed interactively during build mode and cannot be rerun from the execution menu" in source
 
 
+def test_runner_reconciles_derived_state_and_persists_step_state() -> None:
+    source = RUNNER_SOURCE.read_text(encoding="utf-8")
+    assert '.studyAgentSlashReconcileProjectState(base_dir, write = TRUE)' in source
+    assert '.studyAgentSlashWriteStepState(' in source
+    assert 'status = "running"' in source
+    assert 'status = result$status' in source
+
+
 def test_project_state_supports_build_phase_status_finalization() -> None:
     source = STATE_SOURCE.read_text(encoding="utf-8")
     assert '.studyAgentSlashFinalizeBuildProjectState <- function(' in source
@@ -28,6 +37,19 @@ def test_project_state_supports_build_phase_status_finalization() -> None:
     assert 'skipped_steps = character(0)' in source
     assert 'failed_steps = character(0)' in source
     assert 'runtime_state$current_step <- project_state$resume$current_step_id %||% NULL' in source
+
+
+def test_step_state_module_defines_backup_restore_reset_primitives() -> None:
+    source = STEP_STATE_SOURCE.read_text(encoding="utf-8")
+    assert '.studyAgentSlashStepStateDir <- function(base_dir) {' in source
+    assert '.studyAgentSlashWriteStepState <- function(' in source
+    assert '.studyAgentSlashBackupWorkflowState <- function(' in source
+    assert '.studyAgentSlashRestoreWorkflowState <- function(' in source
+    assert '.studyAgentSlashResolveDerivedWorkflowStatuses <- function(' in source
+    assert '.studyAgentSlashReconcileProjectState <- function(' in source
+    assert '.studyAgentSlashResetWorkflowStepState <- function(' in source
+    assert '"stale"' in source
+    assert '"blocked"' in source
 
 
 def _assert_shell_finalizes_build_phase_steps(source: str) -> None:
@@ -58,7 +80,7 @@ def _assert_execution_menu_help_and_exit_guards(source: str) -> None:
     assert '.studyAgentSlashWorkflowIsComplete(base_dir)' in source
     assert 'Exit execution menu and return to the R prompt?' in source
     assert 'h=help' in source
-    assert 'rev=revise' in source
+    assert 'rev or revise' in source
     assert 'rev or revise' in source
     assert 'startsWith(lowered, "rev " )' not in source
     assert '/ohdsi <question>' in source
@@ -77,6 +99,18 @@ def test_cohort_method_shell_execution_menu_has_help_and_exit_confirmation() -> 
 
 def test_incidence_shell_execution_menu_has_help_and_exit_confirmation() -> None:
     _assert_execution_menu_help_and_exit_guards(INCIDENCE_SOURCE.read_text(encoding="utf-8"))
+
+
+def test_cohort_method_shell_exposes_backup_reset_restore_menu_surface() -> None:
+    source = COHORT_SOURCE.read_text(encoding="utf-8")
+    assert 'backup' in source
+    assert 'backups' in source
+    assert 'reset <step>' in source
+    assert 'restore <snapshot-id>' in source
+    assert '.studyAgentSlashBackupWorkflowState(base_dir, label = "manual")' in source
+    assert '.studyAgentSlashListWorkflowBackups(base_dir)' in source
+    assert '.studyAgentSlashRestoreWorkflowState(base_dir, snapshot_id = snapshot_id, restore_artifacts = TRUE, backup_current = TRUE)' in source
+    assert '.studyAgentSlashResetWorkflowStepState(base_dir, step_id = step_id, cascade = TRUE, backup = TRUE, delete_outputs = TRUE)' in source
 
 
 def test_project_state_builds_enriched_execution_dialogue_context() -> None:
@@ -102,11 +136,11 @@ def test_shells_use_shared_enriched_execution_dialogue_context() -> None:
 
 
 def _assert_exploration_menu_surface(source: str) -> None:
-    assert 'art=artifacts' in source
+    assert 'artifacts' in source
     assert 'x=explore[_v]' in source
-    assert 'i=inspect[_v]' in source
-    assert 'Execution command [Enter=finish, h=help, art=artifacts, x=explore[_v], rev=revise, n=run next, a=run all, s=status, i=inspect[_v], run <step>]: ' in source
-    assert 'Choose h, s, art, x[_v], rev, n, a, i[_v], run <step>, /ohdsi <question>, q, or Enter.' in source
+    assert 'inspect' in source
+    assert 'Execution command [Enter=finish, x=explore[_v], s=status, h=help/show commands, /ohdsi=AI assistance]:' in source
+    assert 'Choose h, s, art, x[_v],' in source
     assert 'number: run the numbered exploration command shown by x' in source
     assert 'x <command-id> or explore <command-id>: run an approved exploration command' in source
     assert 'x_v <command-id> or explore_v <command-id>: run an approved exploration command and try to open tabular output in a viewer' in source
@@ -154,6 +188,7 @@ def test_exploration_registry_defines_first_slice_commands() -> None:
     assert '.studyAgentSlashRenderExplorationResult <- function(result, viewer = FALSE) {' in source
     assert 'command_id = "artifact_inventory"' in source
     assert 'command_id = "cohort_counts_summary"' in source
+    assert 'command_id = "keeper_case_review_metrics"' in source
     assert 'command_id = "inclusion_rules_preview"' in source
     assert 'command_id = "cohort_stats_preview"' in source
 

@@ -2435,6 +2435,7 @@ class StudyAgent:
             study_intent=protocol_text,
             cohorts=cohorts,
         )
+        self._log_debug(f"phenotype_validation_review: final_prompt_chars={len(prompt)}")
         llm_result = coerce_llm_call_result(call_llm(prompt))
         llm_payload = llm_result_payload(llm_result)
 
@@ -2546,6 +2547,11 @@ class StudyAgent:
         if not disease_name:
             return {"status": "error", "error": "missing disease_name"}
 
+        raw_keeper_row_chars = len(json.dumps(keeper_row or {}, ensure_ascii=True))
+        self._log_debug(
+            f"phenotype_validation_review: start disease_name={disease_name} keeper_row_chars={raw_keeper_row_chars}"
+        )
+
         sanitize = self.call_tool(
             name="keeper_sanitize_row",
             arguments={"row": keeper_row},
@@ -2558,6 +2564,10 @@ class StudyAgent:
                 "details": sanitize,
             }
         sanitized_row = sanitize_full.get("sanitized_row") or {}
+        sanitized_row_chars = len(json.dumps(sanitized_row or {}, ensure_ascii=True))
+        self._log_debug(
+            f"phenotype_validation_review: sanitized_row_chars={sanitized_row_chars}"
+        )
 
         prompt_bundle = self.call_tool(
             name="keeper_prompt_bundle",
@@ -2585,6 +2595,9 @@ class StudyAgent:
 
         system_prompt = prompt_full.get("system_prompt") or ""
         main_prompt = build_full.get("prompt") or ""
+        self._log_debug(
+            f"phenotype_validation_review: main_prompt_chars={len(main_prompt)} system_prompt_chars={len(system_prompt)}"
+        )
         prompt = build_keeper_prompt(
             overview=prompt_full.get("overview", ""),
             spec=prompt_full.get("spec", ""),

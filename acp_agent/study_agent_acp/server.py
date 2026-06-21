@@ -60,6 +60,56 @@ def _log_startup_config() -> None:
     logger.info("config %s", " ".join(items))
 
 
+def _load_keeper_row_from_path(path: str, row_index: int | None = None):
+    if path.endswith(".csv"):
+        import csv
+
+        with open(path, "r", encoding="utf-8") as handle:
+            reader = list(csv.DictReader(handle))
+        if not reader:
+            return None
+        if row_index is None:
+            return reader[0]
+        idx = int(row_index) - 1
+        if idx < 0 or idx >= len(reader):
+            raise IndexError(f"row_index_out_of_bounds:{row_index}")
+        return reader[idx]
+
+    with open(path, "r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    if row_index is None:
+        if isinstance(payload, dict) and isinstance(payload.get("rows"), list):
+            rows = payload.get("rows") or []
+            return rows[0] if rows else None
+        return payload
+    idx = int(row_index) - 1
+    rows = None
+    if isinstance(payload, dict) and isinstance(payload.get("rows"), list):
+        rows = payload.get("rows") or []
+    elif isinstance(payload, list):
+        rows = payload
+    if rows is None:
+        if idx == 0 and isinstance(payload, dict):
+            return payload
+        raise IndexError(f"row_index_unsupported_for_payload:{row_index}")
+    if idx < 0 or idx >= len(rows):
+        raise IndexError(f"row_index_out_of_bounds:{row_index}")
+    return rows[idx]
+
+
+def _load_keeper_concept_sets_from_path(path: str):
+    with open(path, "r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    if isinstance(payload, dict):
+        if isinstance(payload.get("concept_sets"), list):
+            return payload.get("concept_sets") or []
+        if isinstance(payload.get("keeper_concept_sets"), list):
+            return payload.get("keeper_concept_sets") or []
+    if isinstance(payload, list):
+        return payload
+    raise ValueError(f"unsupported_keeper_concept_sets_payload:{path}")
+
+
 def _warn_on_inconsistent_llm_config() -> None:
     api_url = os.getenv("LLM_API_URL", "")
     use_responses = os.getenv("LLM_USE_RESPONSES", "0")
@@ -478,17 +528,10 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             disease_name = body.get("disease_name") or ""
             keeper_row = body.get("keeper_row")
             keeper_row_path = body.get("keeper_row_path")
+            row_index = body.get("row_index")
             if keeper_row is None and keeper_row_path:
                 try:
-                    if keeper_row_path.endswith(".csv"):
-                        import csv
-
-                        with open(keeper_row_path, "r", encoding="utf-8") as handle:
-                            reader = csv.DictReader(handle)
-                            keeper_row = next(reader, None)
-                    else:
-                        with open(keeper_row_path, "r", encoding="utf-8") as handle:
-                            keeper_row = json.load(handle)
+                    keeper_row = _load_keeper_row_from_path(keeper_row_path, row_index=row_index)
                 except Exception as exc:
                     _write_json(self, 400, {"error": f"invalid_keeper_row_path: {exc}"})
                     return
@@ -591,7 +634,12 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
                     cdm_database_schema=body.get("cdm_database_schema") or "",
                     sample_size=int(body.get("sample_size", 20)),
                     person_ids=body.get("person_ids") or [],
-                    keeper_concept_sets=body.get("keeper_concept_sets") or [],
+                    keeper_concept_sets=(
+                        body.get("keeper_concept_sets")
+                        or _load_keeper_concept_sets_from_path(body.get("keeper_concept_sets_path"))
+                        if body.get("keeper_concept_sets_path")
+                        else []
+                    ),
                     phenotype_name=body.get("phenotype_name") or "",
                     use_descendants=bool(body.get("use_descendants", True)),
                     remove_pii=bool(body.get("remove_pii", True)),

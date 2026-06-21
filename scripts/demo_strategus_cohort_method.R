@@ -9,13 +9,13 @@
 ##   /ohdsi what is weak about this comparator cohort?
 ##   /ohdsi what should I double-check before accepting these analytic settings?
 
-script_dir = "OHDSI-Study-Agent/scripts/" 
+script_dir = "OHDSI-Study-Agent/scripts/"
 
 source(file.path(script_dir, "demo_setup.R"))
 repo_root <- set_study_agent_repo_root(start = dirname(script_dir))
 load_study_agent_r_packages(include_strategus = TRUE)
 
-Sys.setenv(ACP_TIMEOUT = "1800") # set high because of detailed keeper concept set extraction 
+Sys.setenv(ACP_TIMEOUT = "1800") # set high because of detailed keeper concept set extraction
 Sys.setenv(PHENOTYPE_INDEX_DIR = repo_file("data", "phenotype_index_cipher_omop"))
 invisible(connect_study_agent_acp())
 
@@ -33,11 +33,11 @@ slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell(
   studyAgentBaseDir = repo_root,
   indexDir = "data/phenotype_index_cipher_omop",
   incidenceOutputDir = "demo-strategus-cohort-incidence",
-  studyIntent = paste(
-    "Compare new users of GLP-1RA medications vs new users of DPP4-i medications for chronic lower respiratory disease outcomes."
-  )
 )
-    ## possible methods statement: "Use data from 2010 to 2025. A 365-day washout, intent-to-treat with 365 days follow-up, sIPTW confounder balancing and a Cox model to estimate time-to-event for the primary outcome."
+## possible study intent:
+##    Compare new users of GLP-1RA medications vs new users of DPP4-i medications for chronic lower respiratory disease outcomes.
+## possible methods statement:
+##    Use data from 2010 to 2025. A 180-day washout, intent-to-treat with 180 days follow-up, sIPTW confounder balancing and a Cox model to estimate time-to-event for the primary outcome.
 
 ## Use this to resume from cached artifacts and regenerate output scripts.
 slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell(
@@ -48,7 +48,7 @@ slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell(
   incidenceOutputDir = "demo-strategus-cohort-incidence",
   resume = TRUE,
   allowCache = TRUE,
-  promptOnCache = FALSE,
+  promptOnCache = TRUE,
   interactive = TRUE
 )
 

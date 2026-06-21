@@ -17,6 +17,7 @@ def _assert_concept_set_script_contract(block: str, intent_fragment: str) -> Non
     assert "keeper_concept_set_state.json" in block
     assert "acp_timeout_seconds <- as.numeric(Sys.getenv('ACP_TIMEOUT', '300'))" in block
     assert "Sys.setenv(ACP_TIMEOUT = as.character(acp_timeout_seconds))" in block
+    assert "`%||%` <- function(x, y) if (is.null(x)) y else x" in block
     assert "acp_timeout_seconds = acp_timeout_seconds" in block
     assert "reuse_generated_concept_sets <- TRUE" in block
     assert "overwrite_approved_concept_sets <- FALSE" in block
@@ -42,10 +43,11 @@ def _assert_case_review_script_contract(block: str, intent_fragment: str) -> Non
     assert "keeper_case_review_state.json" in block
     assert "acp_timeout_seconds <- as.numeric(Sys.getenv('ACP_TIMEOUT', '300'))" in block
     assert "Sys.setenv(ACP_TIMEOUT = as.character(acp_timeout_seconds))" in block
+    assert "`%||%` <- function(x, y) if (is.null(x)) y else x" in block
     assert "acp_timeout_seconds = acp_timeout_seconds" in block
     assert "sample_size <- 5" in block
     assert "review_row_limit <- 5" in block
-    assert "reuse_rows <- TRUE" in block
+    assert "reuse_rows <- FALSE" in block
     assert "resume_reviews <- TRUE" in block
     assert "review_row_selection <- NULL  # e.g. '1-3,5'" in block
     assert "sample_size = sample_size" in block

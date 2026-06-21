@@ -166,6 +166,39 @@ acp_keeper_concept_sets_generate <- function(client,
   acp_call_flow(client, "keeper_concept_sets_generate", body)
 }
 
+.acp_minimize_keeper_row <- function(keeper_row) {
+  if (!is.list(keeper_row) || !length(keeper_row)) return(list())
+  allowed_keys <- c(
+    "age", "gender", "sex", "visitContext", "visits", "presentation",
+    "priorDisease", "symptoms", "comorbidities", "priorDrugs", "priorTreatmentProcedures",
+    "diagnosticProcedures", "measurements", "alternativeDiagnosis", "alternativeDiagnoses",
+    "afterDisease", "postDisease", "afterDrugs", "postDrugs",
+    "afterTreatmentProcedures", "postTreatmentProcedures", "death"
+  )
+  out <- keeper_row[intersect(names(keeper_row), allowed_keys)]
+  out[vapply(out, is.null, logical(1))] <- NULL
+  out
+}
+
+.acp_minimize_keeper_concept_sets <- function(keeper_concept_sets) {
+  if (!is.list(keeper_concept_sets) || !length(keeper_concept_sets)) return(list())
+  lapply(keeper_concept_sets, function(item) {
+    if (!is.list(item)) return(item)
+    Filter(
+      Negate(is.null),
+      list(
+        conceptId = item$conceptId %||% item$concept_id %||% NULL,
+        conceptName = item$conceptName %||% item$concept_name %||% NULL,
+        vocabularyId = item$vocabularyId %||% item$vocabulary_id %||% NULL,
+        domainId = item$domainId %||% item$domain_id %||% NULL,
+        conceptClassId = item$conceptClassId %||% item$concept_class_id %||% NULL,
+        conceptSetName = item$conceptSetName %||% item$concept_set_name %||% NULL,
+        target = item$target %||% NULL
+      )
+    )
+  })
+}
+
 #' Call keeper profile generation flow
 #' @param client ACP client object
 #' @param cohort_database_schema cohort results schema
@@ -173,6 +206,7 @@ acp_keeper_concept_sets_generate <- function(client,
 #' @param cohort_definition_id cohort definition ID to sample from
 #' @param cdm_database_schema CDM schema
 #' @param keeper_concept_sets list of normalized Keeper concept-set rows
+#' @param keeper_concept_sets_path optional path to a JSON artifact containing concept_sets
 #' @param sample_size requested sample size
 #' @param person_ids optional character vector of person IDs to restrict to
 #' @param phenotype_name optional phenotype label for output metadata
@@ -185,7 +219,8 @@ acp_keeper_profiles_generate <- function(client,
                                          cohort_table,
                                          cohort_definition_id,
                                          cdm_database_schema,
-                                         keeper_concept_sets,
+                                         keeper_concept_sets = NULL,
+                                         keeper_concept_sets_path = NULL,
                                          sample_size = 20,
                                          person_ids = NULL,
                                          phenotype_name = NULL,
@@ -202,9 +237,6 @@ acp_keeper_profiles_generate <- function(client,
   }
   cohort_definition_id <- suppressWarnings(as.integer(cohort_definition_id))
   if (is.na(cohort_definition_id)) stop("Provide a numeric cohort_definition_id.")
-  if (!is.list(keeper_concept_sets) || !length(keeper_concept_sets)) {
-    stop("Provide a non-empty keeper_concept_sets list.")
-  }
   person_ids <- as.character(person_ids %||% character(0))
 
   body <- list(
@@ -214,10 +246,17 @@ acp_keeper_profiles_generate <- function(client,
     cdm_database_schema = trimws(as.character(cdm_database_schema)),
     sample_size = as.integer(sample_size),
     person_ids = as.list(person_ids),
-    keeper_concept_sets = keeper_concept_sets,
     use_descendants = isTRUE(use_descendants),
     remove_pii = isTRUE(remove_pii)
   )
+  if (!is.null(keeper_concept_sets_path) && nzchar(trimws(as.character(keeper_concept_sets_path)))) {
+    body$keeper_concept_sets_path <- normalizePath(trimws(as.character(keeper_concept_sets_path)), winslash = "/", mustWork = FALSE)
+  } else {
+    if (!is.list(keeper_concept_sets) || !length(keeper_concept_sets)) {
+      stop("Provide a non-empty keeper_concept_sets list or keeper_concept_sets_path.")
+    }
+    body$keeper_concept_sets <- .acp_minimize_keeper_concept_sets(keeper_concept_sets)
+  }
   if (!is.null(phenotype_name) && nzchar(trimws(as.character(phenotype_name)))) {
     body$phenotype_name <- trimws(as.character(phenotype_name))
   }
@@ -230,19 +269,26 @@ acp_keeper_profiles_generate <- function(client,
 #' @param keeper_row sanitized Keeper-style review row
 #' @return parsed ACP response
 #' @export
-acp_phenotype_validation_review <- function(client, disease_name, keeper_row) {
+acp_phenotype_validation_review <- function(client,
+                                            disease_name,
+                                            keeper_row = NULL,
+                                            keeper_row_path = NULL,
+                                            row_index = NULL) {
   if (is.null(disease_name) || !nzchar(trimws(as.character(disease_name)))) {
     stop("Provide a non-empty disease_name.")
   }
-  if (!is.list(keeper_row) || !length(keeper_row)) {
-    stop("Provide keeper_row as a non-empty list.")
+  if ((is.null(keeper_row) || !length(keeper_row)) && (is.null(keeper_row_path) || !nzchar(trimws(as.character(keeper_row_path))))) {
+    stop("Provide keeper_row or keeper_row_path.")
   }
-  acp_call_flow(
-    client,
-    "phenotype_validation_review",
-    list(
-      disease_name = trimws(as.character(disease_name)),
-      keeper_row = keeper_row
-    )
-  )
+  body <- list(disease_name = trimws(as.character(disease_name)))
+  if (!is.null(keeper_row_path) && nzchar(trimws(as.character(keeper_row_path)))) {
+    body$keeper_row_path <- normalizePath(trimws(as.character(keeper_row_path)), winslash = "/", mustWork = FALSE)
+    if (!is.null(row_index)) body$row_index <- as.integer(row_index)
+  } else {
+    if (!is.list(keeper_row) || !length(keeper_row)) {
+      stop("Provide keeper_row as a non-empty list.")
+    }
+    body$keeper_row <- .acp_minimize_keeper_row(keeper_row)
+  }
+  acp_call_flow(client, "phenotype_validation_review", body)
 }

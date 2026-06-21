@@ -32,3 +32,16 @@ def test_keeper_sanitize_removes_dates():
     fn = mcp.tools["keeper_sanitize_row"]
     payload = fn({"age": 44, "gender": "Male", "presentation": "Dx on 2020-01-01"})
     assert "sanitized_row" in payload
+
+
+@pytest.mark.mcp
+def test_keeper_sanitize_compacts_long_semicolon_fields():
+    mcp = DummyMCP()
+    keeper_validation.register(mcp)
+    fn = mcp.tools["keeper_sanitize_row"]
+    presentation = "; ".join(f"Diagnosis {i} (day -{i})" for i in range(1, 12))
+    payload = fn({"age": 44, "gender": "Male", "presentation": presentation})
+    text = payload["sanitized_row"]["presentation"]
+    assert "Diagnosis 1" in text
+    assert "[" in text and "more]" in text
+    assert len(text) < len(presentation)

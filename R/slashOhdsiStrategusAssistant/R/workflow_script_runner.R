@@ -6,8 +6,8 @@
 }
 
 .studyAgentSlashWorkflowPlanSteps <- function(base_dir) {
-  project_state <- .studyAgentSlashReadProjectState(base_dir)
-  project_state$execution_plan %||% list()
+  reconciled <- .studyAgentSlashReconcileProjectState(base_dir, write = TRUE)
+  reconciled$project_state$execution_plan %||% list()
 }
 
 .studyAgentSlashWorkflowIsComplete <- function(base_dir) {
@@ -140,8 +140,9 @@
 .studyAgentSlashRunWorkflowPlanStep <- function(base_dir,
                                                 step_id,
                                                 env = NULL) {
-  project_state <- .studyAgentSlashReadProjectState(base_dir)
-  runtime_state <- .studyAgentSlashReadRuntimeState(base_dir)
+  reconciled <- .studyAgentSlashReconcileProjectState(base_dir, write = TRUE)
+  project_state <- reconciled$project_state
+  runtime_state <- reconciled$runtime_state
   step <- .studyAgentSlashFindPlanStep(project_state, step_id)
   if (is.null(step)) stop(sprintf("Unknown workflow step: %s", step_id))
   if (!.studyAgentSlashStepDependenciesSatisfied(project_state, step)) {
@@ -157,6 +158,14 @@
   project_state$resume$current_step_id <- as.character(step_id)
   runtime_state$last_run_started_at <- started_at
   runtime_state <- .studyAgentSlashRecordRuntimeStepStatus(runtime_state, step_id, "running")
+  .studyAgentSlashWriteStepState(
+    base_dir = base_dir,
+    step_id = step_id,
+    status = "running",
+    started_at = started_at,
+    parameters = list(script_path = .studyAgentSlashRelativizeProjectPath(script_path, base_dir)),
+    artifacts = list(required = as.list(.studyAgentSlashStepRequiredArtifacts(project_state, base_dir, step_id)))
+  )
   .studyAgentSlashWriteProjectState(project_state, base_dir)
   .studyAgentSlashWriteRuntimeState(runtime_state, base_dir)
 
@@ -189,6 +198,16 @@
   ))
   runtime_state <- .studyAgentSlashUpdateArtifactDetection(runtime_state, project_state, base_dir)
 
+  .studyAgentSlashWriteStepState(
+    base_dir = base_dir,
+    step_id = step_id,
+    status = result$status,
+    started_at = started_at,
+    finished_at = finished_at,
+    parameters = list(script_path = .studyAgentSlashRelativizeProjectPath(script_path, base_dir)),
+    artifacts = list(required = as.list(.studyAgentSlashStepRequiredArtifacts(project_state, base_dir, step_id))),
+    error = result$error
+  )
   .studyAgentSlashWriteProjectState(project_state, base_dir)
   .studyAgentSlashWriteRuntimeState(runtime_state, base_dir)
 
@@ -203,7 +222,7 @@
 }
 
 .studyAgentSlashRunNextWorkflowPlanStep <- function(base_dir, env = NULL) {
-  project_state <- .studyAgentSlashReadProjectState(base_dir)
+  project_state <- .studyAgentSlashReconcileProjectState(base_dir, write = TRUE)$project_state
   for (step in project_state$execution_plan %||% list()) {
     status <- as.character(step$status %||% "not_started")
     if (status %in% c("completed", "skipped")) next
@@ -214,7 +233,7 @@
 }
 
 .studyAgentSlashInspectWorkflowStepOutputs <- function(base_dir, step_id) {
-  project_state <- .studyAgentSlashReadProjectState(base_dir)
+  project_state <- .studyAgentSlashReconcileProjectState(base_dir, write = TRUE)$project_state
   step <- .studyAgentSlashFindPlanStep(project_state, step_id)
   if (is.null(step)) stop(sprintf("Unknown workflow step: %s", step_id))
   artifacts <- Filter(function(item) {
@@ -228,7 +247,7 @@
 }
 
 .studyAgentSlashSummarizeWorkflowStatus <- function(base_dir) {
-  project_state <- .studyAgentSlashReadProjectState(base_dir)
+  project_state <- .studyAgentSlashReconcileProjectState(base_dir, write = TRUE)$project_state
   vapply(project_state$execution_plan %||% list(), function(step) {
     sprintf("%s [%s]", as.character(step$label %||% step$step_id %||% ""), as.character(step$status %||% "not_started"))
   }, character(1))

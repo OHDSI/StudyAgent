@@ -42,6 +42,36 @@
   )
 }
 
+.studyAgentSlashDiscoverKeeperReviewCsvPaths <- function(base_dir) {
+  reviews_dir <- file.path(base_dir, "keeper-case-review", "reviews")
+  if (!dir.exists(reviews_dir)) return(character(0))
+  sort(list.files(reviews_dir, pattern = "_reviews\\.csv$", full.names = TRUE))
+}
+
+.studyAgentSlashSummarizeKeeperReviewMetrics <- function(data) {
+  if (is.null(data) || !is.data.frame(data) || nrow(data) <= 0) {
+    return(NULL)
+  }
+  labels <- tolower(trimws(as.character(data$label %||% character(nrow(data)))))
+  yes_count <- sum(labels == "yes", na.rm = TRUE)
+  no_count <- sum(labels == "no", na.rm = TRUE)
+  unknown_count <- sum(labels == "unknown" | !nzchar(labels), na.rm = TRUE)
+  reviewed_rows <- nrow(data)
+  evaluable_rows <- yes_count + no_count
+  precision_ppv <- if (evaluable_rows > 0) yes_count / evaluable_rows else NA_real_
+  data.frame(
+    reviewed_rows = reviewed_rows,
+    yes_count = yes_count,
+    no_count = no_count,
+    unknown_count = unknown_count,
+    evaluable_rows = evaluable_rows,
+    precision_ppv = precision_ppv,
+    recall_estimate = NA_real_,
+    recall_note = "Not estimable from a reviewed sample drawn only from cohort-positive rows.",
+    stringsAsFactors = FALSE
+  )
+}
+
 .studyAgentSlashResolveArtifactPath <- function(path, base_dir) {
   path <- as.character(path %||% "")
   if (!nzchar(trimws(path))) {
@@ -478,6 +508,81 @@
         }
         if (length(sections) == 0) stop("No cohort generation statistics files are available.")
         list(status = "ok", title = "Cohort generation statistics preview", sections = sections)
+      }
+    ),
+    list(
+      command_id = "keeper_case_review_metrics",
+      label = "Summarize Keeper review precision and recall limits",
+      purpose = "Compute reviewed-sample precision/PPV from Keeper labels and explain why true recall is not identifiable from this sample alone.",
+      workflow_types = c("strategus_incidence", "strategus_cohort_methods"),
+      step_ids = c("keeper_case_review", "diagnostics", "incidence_spec", "cm_spec"),
+      required_packages = character(0),
+      artifact_requirements = character(0),
+      input_parameters = list(),
+      output_kind = "mixed",
+      safe = TRUE,
+      executor = function(context) {
+        paths <- .studyAgentSlashDiscoverKeeperReviewCsvPaths(context$base_dir)
+        if (length(paths) <= 0) stop("No Keeper review CSV artifacts are available yet.")
+        rows <- lapply(paths, function(path) {
+          data <- .studyAgentSlashReadCsvSafe(path)
+          if (is.null(data) || nrow(data) <= 0) return(NULL)
+          metrics <- .studyAgentSlashSummarizeKeeperReviewMetrics(data)
+          if (is.null(metrics)) return(NULL)
+          metrics$review_file <- basename(path)
+          metrics$role <- as.character(data$role[[1]] %||% "")
+          metrics$cohort_definition_id <- as.character(data$cohort_definition_id[[1]] %||% "")
+          metrics$phenotype_name <- as.character(data$phenotype_name[[1]] %||% "")
+          metrics
+        })
+        rows <- Filter(Negate(is.null), rows)
+        if (length(rows) <= 0) stop("Keeper review artifacts were found, but none contained reviewed rows.")
+        per_file <- do.call(rbind, rows)
+        total_yes <- sum(per_file$yes_count, na.rm = TRUE)
+        total_no <- sum(per_file$no_count, na.rm = TRUE)
+        total_unknown <- sum(per_file$unknown_count, na.rm = TRUE)
+        total_reviewed <- sum(per_file$reviewed_rows, na.rm = TRUE)
+        total_evaluable <- total_yes + total_no
+        overall <- data.frame(
+          review_file = "ALL_REVIEW_FILES",
+          role = "all",
+          cohort_definition_id = "",
+          reviewed_rows = total_reviewed,
+          yes_count = total_yes,
+          no_count = total_no,
+          unknown_count = total_unknown,
+          evaluable_rows = total_evaluable,
+          precision_ppv = if (total_evaluable > 0) total_yes / total_evaluable else NA_real_,
+          recall_estimate = NA_real_,
+          recall_note = "Not estimable from a reviewed sample drawn only from cohort-positive rows.",
+          phenotype_name = "",
+          stringsAsFactors = FALSE
+        )
+        keep_cols <- c("review_file", "role", "cohort_definition_id", "reviewed_rows", "yes_count", "no_count", "unknown_count", "evaluable_rows", "precision_ppv", "recall_estimate", "recall_note", "phenotype_name")
+        per_file <- per_file[, intersect(keep_cols, names(per_file)), drop = FALSE]
+        list(
+          status = "ok",
+          title = "Keeper case-review metrics",
+          sections = list(
+            list(
+              kind = "text",
+              text = paste(
+                "Precision/PPV is estimated from reviewed Keeper labels as yes / (yes + no), excluding unknown labels.",
+                "True recall is not identifiable from this design because the reviewed sample is drawn from cohort-positive rows only and does not include a sampled set of external true positives missed by the cohort."
+              )
+            ),
+            .studyAgentSlashExplorationTableSection(
+              data = overall,
+              title = "Overall Keeper review metrics",
+              preview_data = overall
+            ),
+            .studyAgentSlashExplorationTableSection(
+              data = per_file,
+              title = "Per-file Keeper review metrics",
+              preview_data = .studyAgentSlashCompactPreviewTable(per_file, max_rows = 20L, max_cols = 10L)
+            )
+          )
+        )
       }
     )
   )

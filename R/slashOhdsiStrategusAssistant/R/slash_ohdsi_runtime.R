@@ -35,7 +35,8 @@
                                                       cohort_table,
                                                       cohort_definition_id,
                                                       cdm_database_schema,
-                                                      keeper_concept_sets,
+                                                      keeper_concept_sets = NULL,
+                                                      keeper_concept_sets_path = NULL,
                                                       sample_size = 20,
                                                       person_ids = NULL,
                                                       phenotype_name = NULL,
@@ -48,6 +49,7 @@
     cohort_definition_id = cohort_definition_id,
     cdm_database_schema = cdm_database_schema,
     keeper_concept_sets = keeper_concept_sets,
+    keeper_concept_sets_path = keeper_concept_sets_path,
     sample_size = sample_size,
     person_ids = person_ids,
     phenotype_name = phenotype_name,
@@ -56,11 +58,17 @@
   )
 }
 
-.studyAgentSlashAcpPhenotypeValidationReview <- function(client, disease_name, keeper_row) {
+.studyAgentSlashAcpPhenotypeValidationReview <- function(client,
+                                                            disease_name,
+                                                            keeper_row = NULL,
+                                                            keeper_row_path = NULL,
+                                                            row_index = NULL) {
   slashOhdsiAcpClient::acp_phenotype_validation_review(
     client = client,
     disease_name = disease_name,
-    keeper_row = keeper_row
+    keeper_row = keeper_row,
+    keeper_row_path = keeper_row_path,
+    row_index = row_index
   )
 }
 

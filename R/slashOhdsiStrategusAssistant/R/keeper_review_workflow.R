@@ -156,7 +156,7 @@ runKeeperCaseReviewWorkflow <- function(base_dir,
                                         review_row_limit = 5,
                                         use_descendants = TRUE,
                                         remove_pii = TRUE,
-                                        reuse_rows = TRUE,
+                                        reuse_rows = FALSE,
                                         resume_reviews = TRUE,
                                         review_row_selection = NULL) {
   context <- .studyAgentSlashPrepareKeeperWorkflowContext(
@@ -198,9 +198,9 @@ runKeeperCaseReviewWorkflow <- function(base_dir,
   keeper_state <- list(
     status = if (length(workflow_errors)) "error" else "ok",
     message = if (length(workflow_errors)) {
-      sprintf("Keeper case-review workflow encountered %s ACP error(s).", length(workflow_errors))
+      sprintf("Keeper case-review workflow encountered %s workflow error(s).", length(workflow_errors))
     } else {
-      "Keeper case-review workflow completed without ACP errors."
+      "Keeper case-review workflow completed successfully."
     },
     error_count = length(workflow_errors),
     errors = workflow_errors,
@@ -982,6 +982,33 @@ runKeeperCaseReviewWorkflow <- function(base_dir,
     path = rows_path
   )
   row_records <- .studyAgentSlashExtractRows(rows_payload)
+  sample_size_returned <- suppressWarnings(as.integer(rows_payload$sample_size_returned %||% rows_payload$result$sample_size_returned %||% rows_payload$full_result$sample_size_returned %||% length(row_records)))
+  if (is.na(sample_size_returned)) sample_size_returned <- length(row_records)
+  profile_record_count <- suppressWarnings(as.integer(rows_payload$diagnostics$record_count %||% rows_payload$result$diagnostics$record_count %||% rows_payload$full_result$diagnostics$record_count %||% 0L))
+  if (is.na(profile_record_count)) profile_record_count <- 0L
+  if (identical(rows_payload$status %||% "ok", "ok") && sample_size_returned <= 0L) {
+    workflow_errors <- .studyAgentSlashAppendWorkflowError(
+      workflow_errors,
+      step = "keeper_profile_generation",
+      role = role,
+      cohort_id = cohort_id,
+      cohort_name = cohort_name,
+      phenotype_name = phenotype_name,
+      message = "Keeper profile generation returned zero sampled cohort rows. Verify MCP database connectivity and cohort table contents.",
+      path = rows_path
+    )
+  } else if (identical(rows_payload$status %||% "ok", "ok") && length(row_records) <= 0L) {
+    workflow_errors <- .studyAgentSlashAppendWorkflowError(
+      workflow_errors,
+      step = "keeper_profile_generation",
+      role = role,
+      cohort_id = cohort_id,
+      cohort_name = cohort_name,
+      phenotype_name = phenotype_name,
+      message = sprintf("Keeper profile generation sampled %s cohort row(s) but produced zero review rows. Extracted profile record count: %s.", sample_size_returned, profile_record_count),
+      path = rows_path
+    )
+  }
   row_df <- .studyAgentSlashRecordsToDataFrame(row_records)
   if (nrow(row_df) > 0) utils::write.csv(row_df, rows_csv_path, row.names = FALSE)
 
@@ -1069,7 +1096,8 @@ runKeeperCaseReviewWorkflow <- function(base_dir,
         .studyAgentSlashAcpPhenotypeValidationReview(
           client = context$client,
           disease_name = phenotype_name,
-          keeper_row = keeper_row
+          keeper_row_path = rows_path,
+          row_index = row_index
         )
       )
       review_error <- .studyAgentSlashPayloadErrorMessage(review_payload)
@@ -1170,6 +1198,8 @@ runKeeperCaseReviewWorkflow <- function(base_dir,
       rows_source = rows_source,
       reviews_source = review_source,
       row_generation_status = rows_payload$status %||% "ok",
+      sample_size_returned = sample_size_returned,
+      profile_record_count = profile_record_count,
       review_error_count = sum(vapply(review_records, function(rec) {
         err <- rec$error %||% NULL
         !is.null(err) && nzchar(trimws(as.character(err)))

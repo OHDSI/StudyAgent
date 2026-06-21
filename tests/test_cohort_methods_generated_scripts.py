@@ -125,10 +125,12 @@ def test_execution_settings_falls_back_when_max_cores_is_na() -> None:
           cohortTable = 'cohort',
           workFolder = tempdir(),
           resultsFolder = tempdir(),
-          maxCores = NA
+          maxCores = NA,
+          incremental = FALSE
         ))
         stopifnot(identical(exec$maxCores, 1L))
         stopifnot(exec$executionSettings$maxCores == 1)
+        stopifnot(identical(exec$incremental, FALSE))
         """
     )
     assert result.returncode == 0, result.stderr
