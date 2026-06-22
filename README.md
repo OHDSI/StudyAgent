@@ -2,19 +2,23 @@
 
 This repository is building an agent-style interface for common OHDSI study design tasks. The fundamental use case for this project is to enable AI-assisted, but human led, observational study designs leveraging existing deterministic OHDSI tools. Initially, this is with HADES and Atlas but there no restriction on the use of study agent flows in other tooling environments (e.g., DARWIN tools).
 
-The current implementation is strongest in two areas:
+The current implementation provides:
 
 - Phenotype recommendation for target and outcome cohort selection
 - Keeper-assisted concept generation, profile extraction, and row adjudication for phenotype validation
-- R demos of using workflows that call the ACP/MCP flows to design strategus incidence rate and cohort method analyses 
+- Shells for the HADES incidence rate analysis and CohortMethod real-world evidence generation methods that call the ACP/MCP flows and provide interactive run and inspection features along with `/ohdsi` contextualized question answering. 
 
-[![Watch the video](https://github.com/user-attachments/assets/1679912f-fcbb-4dbf-830e-ce493188e8db)](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=eaaf0e5f-d60f-4b9a-a521-b42c016b1af3)
+[![Overview of Study Agent for AI-Assisted Real-world evidence generation](https://github.com/user-attachments/assets/1679912f-fcbb-4dbf-830e-ce493188e8db)](https://www.youtube.com/watch?v=rMxnmEGWoO4)
 
-A powerful feature that this project enables is the `/ohdsi` contextualized AI workflow query:
+[![AI-assisted Real-world evidence - Study Agent and R part 1 - Strategus Cohort Method overview, study intent, phenotype selection, and interactive runner shell intro](https://github.com/user-attachments/assets/1679912f-fcbb-4dbf-830e-ce493188e8db)](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=eef98905-e9eb-497f-8d07-b46e00c3702d)
 
-[![The new `/ohdsi` feature](https://github.com/user-attachments/assets/ab9d39e2-af4f-4d32-a4a4-d20df17b2f1c)](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=77e8b162-4116-4d61-9e00-b4480104b886)
+[![AI-assisted Real-world evidence - Study Agent and R part 2 - inspect cohorts and initiate keeper concept set](https://github.com/user-attachments/assets/1679912f-fcbb-4dbf-830e-ce493188e8db)](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=8f719cc9-08f4-4bea-9091-b46e00cf641e)
 
-With this approach, a researcher's open questions are sent to generative models with rich context that should enable much more targeted and actionable responses than users would get by just querying an LLM directly. See [this design document](docs/WORKFLOW_CONTEXT_DIALOGUE_SLASH_OHDSI.md) for a detailed overview.  
+[![AI-assisted Real-world Evidence - Study Agent and R Part 3 - Keeper concept set run and inspection ](https://github.com/user-attachments/assets/1679912f-fcbb-4dbf-830e-ce493188e8db)](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=c3ab5141-d7cb-4bd6-b3ec-b46f00d8f83d)
+
+[![AI-assisted Real-world evidence - Study Agent and R part 4 - case review (Keeper) ](https://github.com/user-attachments/assets/1679912f-fcbb-4dbf-830e-ce493188e8db)](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=7bd986fa-960c-493a-8417-b470001e542f)
+
+[![AI-assisted Real-world evidence - Study Agent and R part 5 - diagnostics and cohort method](https://github.com/user-attachments/assets/1679912f-fcbb-4dbf-830e-ce493188e8db)](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=7bd986fa-960c-493a-8417-b470001e542f)[![AI-assisted Real-world evidence - Study Agent and R part 4 - case review (Keeper) ](https://github.com/user-attachments/assets/1679912f-fcbb-4dbf-830e-ce493188e8db)]()
 
 -----
 

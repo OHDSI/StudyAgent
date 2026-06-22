@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from typing import Any, Dict, Optional
@@ -60,7 +61,43 @@ def _log_startup_config() -> None:
     logger.info("config %s", " ".join(items))
 
 
+def _allowed_local_request_roots() -> list[str]:
+    configured = os.getenv("STUDY_AGENT_ALLOWED_LOCAL_PATHS", "").strip()
+    raw_roots = []
+    if configured:
+        raw_roots.extend(part.strip() for part in configured.split(os.pathsep) if part.strip())
+    if not raw_roots:
+        raw_roots.append(os.getcwd())
+    roots: list[str] = []
+    for raw_root in raw_roots:
+        try:
+            resolved = os.path.realpath(raw_root)
+        except Exception:
+            continue
+        if os.path.isdir(resolved):
+            roots.append(resolved)
+    return roots
+
+
+def _resolve_safe_local_request_path(path: str) -> str:
+    if not isinstance(path, str) or not path.strip():
+        raise ValueError("path_must_be_non_empty_string")
+    candidate = os.path.realpath(path.strip())
+    allowed_roots = _allowed_local_request_roots()
+    for root in allowed_roots:
+        try:
+            if os.path.commonpath([root, candidate]) == root:
+                return candidate
+        except ValueError:
+            continue
+    raise ValueError(
+        "path_outside_allowed_roots:"
+        + ",".join(Path(root).as_posix() for root in allowed_roots)
+    )
+
+
 def _load_keeper_row_from_path(path: str, row_index: int | None = None):
+    path = _resolve_safe_local_request_path(path)
     if path.endswith(".csv"):
         import csv
 
@@ -98,6 +135,7 @@ def _load_keeper_row_from_path(path: str, row_index: int | None = None):
 
 
 def _load_keeper_concept_sets_from_path(path: str):
+    path = _resolve_safe_local_request_path(path)
     with open(path, "r", encoding="utf-8") as handle:
         payload = json.load(handle)
     if isinstance(payload, dict):
@@ -427,7 +465,7 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             protocol_path = body.get("protocol_path")
             if not protocol_text and protocol_path:
                 try:
-                    with open(protocol_path, "r", encoding="utf-8") as handle:
+                    with open(_resolve_safe_local_request_path(protocol_path), "r", encoding="utf-8") as handle:
                         protocol_text = handle.read()
                 except Exception as exc:
                     _write_json(self, 400, {"error": f"invalid_protocol_path: {exc}"})
@@ -438,7 +476,7 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
                 loaded = []
                 for path in cohort_paths:
                     try:
-                        with open(path, "r", encoding="utf-8") as handle:
+                        with open(_resolve_safe_local_request_path(path), "r", encoding="utf-8") as handle:
                             loaded.append(json.load(handle))
                     except Exception as exc:
                         _write_json(self, 400, {"error": f"invalid_cohort_path: {exc}"})
@@ -473,7 +511,7 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             concept_set_path = body.get("concept_set_path")
             if concept_set is None and concept_set_path:
                 try:
-                    with open(concept_set_path, "r", encoding="utf-8") as handle:
+                    with open(_resolve_safe_local_request_path(concept_set_path), "r", encoding="utf-8") as handle:
                         concept_set = json.load(handle)
                 except Exception as exc:
                     _write_json(self, 400, {"error": f"invalid_concept_set_path: {exc}"})
@@ -503,7 +541,7 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             cohort_path = body.get("cohort_path")
             if (not cohort or cohort == {}) and cohort_path:
                 try:
-                    with open(cohort_path, "r", encoding="utf-8") as handle:
+                    with open(_resolve_safe_local_request_path(cohort_path), "r", encoding="utf-8") as handle:
                         cohort = json.load(handle)
                 except Exception as exc:
                     _write_json(self, 400, {"error": f"invalid_cohort_path: {exc}"})

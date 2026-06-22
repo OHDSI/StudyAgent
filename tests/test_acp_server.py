@@ -1256,3 +1256,41 @@ def test_flow_workflow_context_dialogue_missing_prompt():
     agent = StudyAgent(mcp_client=StubMCPClient())
     result = agent.run_workflow_context_dialogue_flow(user_prompt="")
     assert result["error"] == "missing user_prompt"
+
+
+@pytest.mark.acp
+def test_resolve_safe_local_request_path_allows_configured_root(monkeypatch, tmp_path):
+    allowed_root = tmp_path / "allowed"
+    allowed_root.mkdir()
+    payload_path = allowed_root / "payload.json"
+    payload_path.write_text('{"ok": true}', encoding="utf-8")
+
+    monkeypatch.setenv("STUDY_AGENT_ALLOWED_LOCAL_PATHS", str(allowed_root))
+
+    assert acp_server._resolve_safe_local_request_path(str(payload_path)) == str(payload_path.resolve())
+
+
+@pytest.mark.acp
+def test_resolve_safe_local_request_path_rejects_escape(monkeypatch, tmp_path):
+    allowed_root = tmp_path / "allowed"
+    allowed_root.mkdir()
+    outside_path = tmp_path / "outside.json"
+    outside_path.write_text('{"ok": true}', encoding="utf-8")
+
+    monkeypatch.setenv("STUDY_AGENT_ALLOWED_LOCAL_PATHS", str(allowed_root))
+
+    with pytest.raises(ValueError, match="path_outside_allowed_roots"):
+        acp_server._resolve_safe_local_request_path(str(outside_path))
+
+
+@pytest.mark.acp
+def test_load_keeper_row_from_path_rejects_file_outside_allowed_root(monkeypatch, tmp_path):
+    allowed_root = tmp_path / "allowed"
+    allowed_root.mkdir()
+    outside_path = tmp_path / "rows.json"
+    outside_path.write_text('{"rows": [{"generatedId": "1"}]}', encoding="utf-8")
+
+    monkeypatch.setenv("STUDY_AGENT_ALLOWED_LOCAL_PATHS", str(allowed_root))
+
+    with pytest.raises(ValueError, match="path_outside_allowed_roots"):
+        acp_server._load_keeper_row_from_path(str(outside_path), row_index=1)
