@@ -69,7 +69,7 @@
       script_name = "06_diagnostics.R",
       stage_context_step = "diagnostics_review",
       depends_on = "keeper_case_review",
-      produces_artifacts = c("results", "work"),
+      produces_artifacts = character(0),
       review_required = TRUE
     ),
     .studyAgentSlashNewPlanStep(
@@ -78,7 +78,7 @@
       script_name = "07_incidence_spec.R",
       stage_context_step = "strategus_spec_execution",
       depends_on = "diagnostics",
-      produces_artifacts = c("results", "work"),
+      produces_artifacts = character(0),
       review_required = TRUE
     )
   )
@@ -133,7 +133,7 @@
       script_name = "06_diagnostics.R",
       stage_context_step = "diagnostics_review",
       depends_on = "keeper_case_review",
-      produces_artifacts = c("results", "work"),
+      produces_artifacts = character(0),
       review_required = TRUE
     ),
     .studyAgentSlashNewPlanStep(
@@ -142,7 +142,7 @@
       script_name = "07_cm_spec.R",
       stage_context_step = "strategus_spec_execution",
       depends_on = "diagnostics",
-      produces_artifacts = c("results", "work"),
+      produces_artifacts = character(0),
       review_required = TRUE
     )
   )

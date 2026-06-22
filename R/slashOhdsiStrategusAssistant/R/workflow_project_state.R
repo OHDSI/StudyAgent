@@ -280,6 +280,8 @@
   current_step_id <- as.character(current_step_id %||% "")
   priority_ids <- c(
     "selected_cohorts_csv",
+    "diagnostics_results_module_dir",
+    "diagnostics_work_module_dir",
     "cm_diagnostics_dir",
     "cm_results_dir",
     "cohort_generation_results_dir",

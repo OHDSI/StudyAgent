@@ -239,9 +239,24 @@
   artifacts <- Filter(function(item) {
     identical(as.character(item$step_id %||% ""), as.character(step_id))
   }, project_state$artifacts %||% list())
+  required_paths <- .studyAgentSlashStepRequiredArtifacts(project_state, base_dir, step_id)
+  existing_paths <- vapply(artifacts, function(item) as.character(item$path %||% ""), character(1))
+  supplemental_paths <- setdiff(required_paths, existing_paths)
+  if (length(supplemental_paths) > 0) {
+    for (i in seq_along(supplemental_paths)) {
+      supplemental_path <- supplemental_paths[[i]]
+      artifacts[[paste0("derived_required_artifact_", i)]] <- list(
+        id = paste0(step_id, "_derived_required_artifact_", i),
+        path = supplemental_path,
+        type = "derived_step_output",
+        step_id = step_id,
+        status = "expected"
+      )
+    }
+  }
   lapply(artifacts, function(item) {
     item$absolute_path <- .studyAgentSlashResolveProjectPath(item$path %||% "", base_dir)
-    item$exists <- isTRUE(file.exists(item$absolute_path))
+    item$exists <- isTRUE(file.exists(item$absolute_path) || dir.exists(item$absolute_path))
     item
   })
 }

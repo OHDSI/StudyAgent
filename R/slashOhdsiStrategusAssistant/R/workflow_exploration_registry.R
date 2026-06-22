@@ -2,10 +2,13 @@
   if (is.null(path) || !nzchar(trimws(as.character(path))) || !file.exists(path)) {
     return(NULL)
   }
-  tryCatch(
+  data <- tryCatch(
     utils::read.csv(path, stringsAsFactors = FALSE, check.names = FALSE),
     error = function(e) NULL
   )
+  if (is.null(data)) return(NULL)
+  names(data) <- sub("^\ufeff", "", names(data), useBytes = TRUE)
+  data
 }
 
 .studyAgentSlashCompactPreviewTable <- function(data, max_rows = 12L, max_cols = 8L) {
@@ -94,23 +97,152 @@
     }
   }
   candidates <- unique(Filter(nzchar, trimws(as.character(candidates))))
-  roots <- unique(vapply(candidates, function(item) {
+  resolved <- unique(vapply(candidates, function(item) {
     .studyAgentSlashResolveArtifactPath(item, base_dir)
   }, character(1)))
-  Filter(dir.exists, roots)
+  existing <- Filter(dir.exists, resolved)
+  expanded <- unique(unlist(lapply(existing, function(root) {
+    module_root <- file.path(root, "CohortDiagnosticsModule")
+    if (dir.exists(module_root)) {
+      return(module_root)
+    }
+    root
+  }), use.names = FALSE))
+  Filter(dir.exists, expanded)
 }
 
 .studyAgentSlashClassifyDiagnosticsArtifact <- function(path) {
   name <- tolower(basename(as.character(path %||% "")))
-  if (grepl("orphan", name)) return("orphan_concepts")
-  if (grepl("visit", name) && grepl("context", name)) return("visit_context")
-  if (grepl("source", name) && grepl("concept", name)) return("source_concepts")
-  if (grepl("index", name) && grepl("break", name)) return("index_event_breakdown")
-  if (grepl("incidence", name) && grepl("rate", name)) return("incidence_rate")
-  if (grepl("relationship", name)) return("cohort_relationship")
-  if (grepl("temporal", name) || grepl("time", name) || grepl("series", name)) return("temporal_characterization")
-  if (grepl("inclusion", name)) return("inclusion_statistics")
+  if (grepl("^cd_orphan_concept\\.csv$", name)) return("orphan_concepts")
+  if (grepl("^cd_visit_context\\.csv$", name)) return("visit_context")
+  if (grepl("^cd_included_source_concept\\.csv$", name)) return("source_concepts")
+  if (grepl("^cd_index_event_breakdown\\.csv$", name)) return("index_event_breakdown")
+  if (grepl("^cd_incidence_rate\\.csv$", name)) return("incidence_rate")
+  if (grepl("^cd_temporal_", name)) return("temporal_characterization")
+  if (grepl("^cd_cohort_inclusion\\.csv$", name) || grepl("^cd_cohort_inc_", name) || grepl("^cd_cohort_summary_stats\\.csv$", name)) return("inclusion_statistics")
+  if (grepl("^cd_cohort\\.csv$", name)) return("cohort_reference")
+  if (grepl("^cd_concept\\.csv$", name)) return("concept_reference")
+  if (grepl("^cd_concept_sets\\.csv$", name)) return("concept_set_reference")
+  if (grepl("^cd_relationship\\.csv$", name)) return("relationship_reference")
+  if (grepl("^cd_concept_relationship\\.csv$", name)) return("concept_relationship_reference")
+  if (grepl("^cd_", name) && grepl("source", name) && grepl("concept", name)) return("source_concepts")
+  if (grepl("^cd_", name) && grepl("orphan", name)) return("orphan_concepts")
+  if (grepl("^cd_", name) && grepl("visit", name) && grepl("context", name)) return("visit_context")
   "other"
+}
+
+.studyAgentSlashReadDiagnosticsTable <- function(base_dir, file_name, project_state = NULL) {
+  inventory <- .studyAgentSlashDiagnosticsInventoryTable(base_dir, project_state = project_state)
+  if (nrow(inventory) <= 0) return(NULL)
+  matches <- inventory[tolower(basename(inventory$absolute_path)) == tolower(file_name), , drop = FALSE]
+  if (nrow(matches) <= 0) return(NULL)
+  .studyAgentSlashReadCsvSafe(matches$absolute_path[[1]])
+}
+
+.studyAgentSlashDiagnosticsLookupContext <- function(base_dir, project_state = NULL) {
+  concept_data <- .studyAgentSlashReadDiagnosticsTable(base_dir, "cd_concept.csv", project_state = project_state)
+  cohort_data <- .studyAgentSlashReadDiagnosticsTable(base_dir, "cd_cohort.csv", project_state = project_state)
+  concept_lookup <- if (!is.null(concept_data) && all(c("concept_id", "concept_name") %in% names(concept_data))) {
+    unique(concept_data[, intersect(c("concept_id", "concept_name", "domain_id", "vocabulary_id", "concept_class_id"), names(concept_data)), drop = FALSE])
+  } else {
+    NULL
+  }
+  cohort_lookup <- if (!is.null(cohort_data) && all(c("cohort_id", "cohort_name") %in% names(cohort_data))) {
+    unique(cohort_data[, intersect(c("cohort_id", "cohort_name"), names(cohort_data)), drop = FALSE])
+  } else {
+    NULL
+  }
+  list(
+    concept_lookup = concept_lookup,
+    cohort_lookup = cohort_lookup
+  )
+}
+
+.studyAgentSlashEnrichDiagnosticsWithLookups <- function(data, base_dir, project_state = NULL) {
+  if (is.null(data) || !is.data.frame(data) || nrow(data) <= 0) return(data)
+  lookups <- .studyAgentSlashDiagnosticsLookupContext(base_dir, project_state = project_state)
+  cohort_lookup <- lookups$cohort_lookup
+  concept_lookup <- lookups$concept_lookup
+  if (!is.null(cohort_lookup) && "cohort_id" %in% names(data)) {
+    data <- merge(data, cohort_lookup, by = "cohort_id", all.x = TRUE, sort = FALSE)
+  }
+  if (!is.null(concept_lookup) && "concept_id" %in% names(data)) {
+    standard_lookup <- concept_lookup
+    names(standard_lookup)[names(standard_lookup) == "concept_name"] <- "concept_name"
+    data <- merge(data, standard_lookup, by = "concept_id", all.x = TRUE, sort = FALSE)
+  }
+  if (!is.null(concept_lookup) && "source_concept_id" %in% names(data)) {
+    source_lookup <- concept_lookup
+    names(source_lookup)[names(source_lookup) == "concept_id"] <- "source_concept_id"
+    names(source_lookup)[names(source_lookup) == "concept_name"] <- "source_concept_name"
+    keep_names <- intersect(c("source_concept_id", "source_concept_name", "domain_id", "vocabulary_id", "concept_class_id"), names(source_lookup))
+    source_lookup <- unique(source_lookup[, keep_names, drop = FALSE])
+    data <- merge(data, source_lookup, by = "source_concept_id", all.x = TRUE, sort = FALSE)
+  }
+  if (!is.null(concept_lookup) && "visit_concept_id" %in% names(data)) {
+    visit_lookup <- concept_lookup
+    names(visit_lookup)[names(visit_lookup) == "concept_id"] <- "visit_concept_id"
+    names(visit_lookup)[names(visit_lookup) == "concept_name"] <- "visit_concept_name"
+    keep_names <- intersect(c("visit_concept_id", "visit_concept_name"), names(visit_lookup))
+    visit_lookup <- unique(visit_lookup[, keep_names, drop = FALSE])
+    data <- merge(data, visit_lookup, by = "visit_concept_id", all.x = TRUE, sort = FALSE)
+  }
+  data
+}
+
+.studyAgentSlashSummarizeDiagnosticsOrphanConcepts <- function(base_dir, project_state = NULL) {
+  inventory <- .studyAgentSlashDiagnosticsFilesByClass(base_dir, classes = c("orphan_concepts"), project_state = project_state)
+  if (nrow(inventory) <= 0) return(NULL)
+  tables <- lapply(as.character(inventory$absolute_path), .studyAgentSlashReadCsvSafe)
+  tables <- Filter(function(x) !is.null(x) && is.data.frame(x) && nrow(x) > 0, tables)
+  if (length(tables) <= 0) return(NULL)
+  data <- do.call(rbind, tables)
+  data <- .studyAgentSlashEnrichDiagnosticsWithLookups(data, base_dir = base_dir, project_state = project_state)
+  if ("concept_subjects" %in% names(data)) data$concept_subjects <- suppressWarnings(as.numeric(data$concept_subjects))
+  if ("concept_count" %in% names(data)) data$concept_count <- suppressWarnings(as.numeric(data$concept_count))
+  order_cols <- intersect(c("cohort_id", "cohort_name", "concept_set_id", "concept_id", "concept_name", "domain_id", "vocabulary_id", "concept_subjects", "concept_count"), names(data))
+  if ("concept_subjects" %in% names(data)) {
+    data <- data[order(-data$concept_subjects, -data$concept_count), , drop = FALSE]
+  }
+  data[, order_cols, drop = FALSE]
+}
+
+.studyAgentSlashSummarizeDiagnosticsSourceConcepts <- function(base_dir, project_state = NULL) {
+  inventory <- .studyAgentSlashDiagnosticsFilesByClass(base_dir, classes = c("source_concepts"), project_state = project_state)
+  if (nrow(inventory) <= 0) return(NULL)
+  tables <- lapply(as.character(inventory$absolute_path), .studyAgentSlashReadCsvSafe)
+  tables <- Filter(function(x) !is.null(x) && is.data.frame(x) && nrow(x) > 0, tables)
+  if (length(tables) <= 0) return(NULL)
+  data <- do.call(rbind, tables)
+  data <- .studyAgentSlashEnrichDiagnosticsWithLookups(data, base_dir = base_dir, project_state = project_state)
+  if ("concept_subjects" %in% names(data)) data$concept_subjects <- suppressWarnings(as.numeric(data$concept_subjects))
+  if ("concept_count" %in% names(data)) data$concept_count <- suppressWarnings(as.numeric(data$concept_count))
+  order_cols <- intersect(c("cohort_id", "cohort_name", "concept_set_id", "source_concept_id", "source_concept_name", "concept_id", "concept_name", "domain_id", "vocabulary_id", "concept_subjects", "concept_count"), names(data))
+  if ("concept_subjects" %in% names(data)) {
+    data <- data[order(-data$concept_subjects, -data$concept_count), , drop = FALSE]
+  }
+  data[, order_cols, drop = FALSE]
+}
+
+.studyAgentSlashSummarizeDiagnosticsVisitContext <- function(base_dir, project_state = NULL) {
+  inventory <- .studyAgentSlashDiagnosticsFilesByClass(base_dir, classes = c("visit_context"), project_state = project_state)
+  if (nrow(inventory) <= 0) return(NULL)
+  tables <- lapply(as.character(inventory$absolute_path), .studyAgentSlashReadCsvSafe)
+  tables <- Filter(function(x) !is.null(x) && is.data.frame(x) && nrow(x) > 0, tables)
+  if (length(tables) <= 0) return(NULL)
+  data <- do.call(rbind, tables)
+  data <- .studyAgentSlashEnrichDiagnosticsWithLookups(data, base_dir = base_dir, project_state = project_state)
+  if ("subjects" %in% names(data)) data$subjects <- suppressWarnings(as.numeric(data$subjects))
+  if (all(c("cohort_id", "subjects") %in% names(data))) {
+    totals <- stats::aggregate(list(total_subjects = data$subjects), by = list(cohort_id = data$cohort_id), FUN = sum, na.rm = TRUE)
+    data <- merge(data, totals, by = "cohort_id", all.x = TRUE, sort = FALSE)
+    data$subject_pct <- ifelse(is.finite(data$total_subjects) & data$total_subjects > 0, data$subjects / data$total_subjects, NA_real_)
+  }
+  order_cols <- intersect(c("cohort_id", "cohort_name", "visit_context", "visit_concept_id", "visit_concept_name", "subjects", "subject_pct"), names(data))
+  if ("subjects" %in% names(data)) {
+    data <- data[order(-data$subjects, data$cohort_id), , drop = FALSE]
+  }
+  data[, order_cols, drop = FALSE]
 }
 
 .studyAgentSlashDiagnosticsInventoryTable <- function(base_dir, project_state = NULL) {
@@ -134,7 +266,7 @@
     normalized_paths <- normalizePath(paths, winslash = "/", mustWork = FALSE)
     rel <- ifelse(startsWith(normalized_paths, root_prefix), substr(normalized_paths, nchar(root_prefix) + 1L, nchar(normalized_paths)), normalized_paths)
     rows[[length(rows) + 1L]] <- data.frame(
-      root = basename(root),
+      root = .studyAgentSlashRelativizeProjectPath(root, base_dir),
       relative_path = rel,
       artifact_class = vapply(paths, .studyAgentSlashClassifyDiagnosticsArtifact, character(1)),
       size_bytes = as.numeric(info$size),
@@ -376,6 +508,34 @@
       work_root <- .studyAgentSlashResolveArtifactPath(exec_cfg$workFolder %||% "", base_dir)
       registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cohort_generation_results_dir", results_root, base_dir, step_id = "generate_cohorts", tags = c("results", "cohort_generation"), preview_kind = "dir")
       registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cohort_generation_work_dir", work_root, base_dir, step_id = "generate_cohorts", tags = c("work", "cohort_generation"), preview_kind = "dir")
+      diagnostics_results_dir <- file.path(results_root, "CohortDiagnosticsModule")
+      diagnostics_work_dir <- file.path(work_root, "CohortDiagnosticsModule")
+      if (dir.exists(diagnostics_results_dir)) {
+        registry <- .studyAgentSlashRegisterExplorationArtifact(
+          registry = registry,
+          id = "diagnostics_results_module_dir",
+          artifact_class = "cohort_diagnostics_module_dir",
+          path = diagnostics_results_dir,
+          base_dir = base_dir,
+          step_id = "diagnostics",
+          explorable = TRUE,
+          preview_kind = "dir",
+          tags = c("diagnostics", "results")
+        )
+      }
+      if (dir.exists(diagnostics_work_dir)) {
+        registry <- .studyAgentSlashRegisterExplorationArtifact(
+          registry = registry,
+          id = "diagnostics_work_module_dir",
+          artifact_class = "cohort_diagnostics_work_dir",
+          path = diagnostics_work_dir,
+          base_dir = base_dir,
+          step_id = "diagnostics",
+          explorable = TRUE,
+          preview_kind = "dir",
+          tags = c("diagnostics", "work")
+        )
+      }
       cg_dir <- file.path(results_root, "CohortGeneratorModule")
       registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cohort_generation_module_dir", cg_dir, base_dir, step_id = "generate_cohorts", tags = c("results", "cohort_generation"), preview_kind = "dir")
       registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cg_cohort_count_csv", file.path(cg_dir, "cg_cohort_count.csv"), base_dir, step_id = "generate_cohorts", tags = c("results", "counts"))
@@ -695,6 +855,11 @@
         exec_path <- file.path(context$base_dir, "strategus-execution-settings.json")
         exec_cfg <- if (file.exists(exec_path)) tryCatch(readStrategusExecutionSettings(exec_path), error = function(e) NULL) else NULL
         roots <- .studyAgentSlashDiscoverDiagnosticsRoots(context$base_dir, project_state = context$project_state)
+        roots_display <- if (length(roots) > 0) {
+          paste(vapply(roots, function(root) .studyAgentSlashRelativizeProjectPath(root, context$base_dir), character(1)), collapse = "; ")
+        } else {
+          ""
+        }
         data <- data.frame(
           setting = c(
             "diagnostics_roots",
@@ -711,7 +876,7 @@
             "runTemporalCohortCharacterization"
           ),
           value = c(
-            paste(basename(roots), collapse = "; "),
+            roots_display,
             as.character(exec_cfg$resultsFolder %||% ""),
             as.character(exec_cfg$workFolder %||% ""),
             "TRUE",
@@ -751,9 +916,19 @@
       output_kind = "mixed",
       safe = TRUE,
       executor = function(context) {
-        inventory <- .studyAgentSlashDiagnosticsFilesByClass(context$base_dir, classes = c("orphan_concepts"), project_state = context$project_state)
-        if (nrow(inventory) == 0) stop("No orphan concept diagnostics artifacts were discovered.")
-        list(status = "ok", title = "Orphan concept diagnostics", sections = .studyAgentSlashDiagnosticsPreviewSections(inventory, title_prefix = "Orphan concept artifact"))
+        summary_data <- .studyAgentSlashSummarizeDiagnosticsOrphanConcepts(context$base_dir, project_state = context$project_state)
+        if (is.null(summary_data) || nrow(summary_data) == 0) stop("No orphan concept diagnostics artifacts were discovered.")
+        list(
+          status = "ok",
+          title = "Orphan concept diagnostics",
+          sections = list(
+            .studyAgentSlashExplorationTableSection(
+              data = summary_data,
+              title = "Orphan concept diagnostics",
+              preview_data = .studyAgentSlashCompactPreviewTable(summary_data, max_rows = 25L, max_cols = 9L)
+            )
+          )
+        )
       }
     ),
     list(
@@ -768,9 +943,19 @@
       output_kind = "mixed",
       safe = TRUE,
       executor = function(context) {
-        inventory <- .studyAgentSlashDiagnosticsFilesByClass(context$base_dir, classes = c("source_concepts"), project_state = context$project_state)
-        if (nrow(inventory) == 0) stop("No included source concept diagnostics artifacts were discovered.")
-        list(status = "ok", title = "Included source concept diagnostics", sections = .studyAgentSlashDiagnosticsPreviewSections(inventory, title_prefix = "Source concept artifact"))
+        summary_data <- .studyAgentSlashSummarizeDiagnosticsSourceConcepts(context$base_dir, project_state = context$project_state)
+        if (is.null(summary_data) || nrow(summary_data) == 0) stop("No included source concept diagnostics artifacts were discovered.")
+        list(
+          status = "ok",
+          title = "Included source concept diagnostics",
+          sections = list(
+            .studyAgentSlashExplorationTableSection(
+              data = summary_data,
+              title = "Included source concept diagnostics",
+              preview_data = .studyAgentSlashCompactPreviewTable(summary_data, max_rows = 25L, max_cols = 11L)
+            )
+          )
+        )
       }
     ),
     list(
@@ -785,9 +970,19 @@
       output_kind = "mixed",
       safe = TRUE,
       executor = function(context) {
-        inventory <- .studyAgentSlashDiagnosticsFilesByClass(context$base_dir, classes = c("visit_context"), project_state = context$project_state)
-        if (nrow(inventory) == 0) stop("No visit context diagnostics artifacts were discovered.")
-        list(status = "ok", title = "Visit context diagnostics", sections = .studyAgentSlashDiagnosticsPreviewSections(inventory, title_prefix = "Visit context artifact"))
+        summary_data <- .studyAgentSlashSummarizeDiagnosticsVisitContext(context$base_dir, project_state = context$project_state)
+        if (is.null(summary_data) || nrow(summary_data) == 0) stop("No visit context diagnostics artifacts were discovered.")
+        list(
+          status = "ok",
+          title = "Visit context diagnostics",
+          sections = list(
+            .studyAgentSlashExplorationTableSection(
+              data = summary_data,
+              title = "Visit context diagnostics",
+              preview_data = .studyAgentSlashCompactPreviewTable(summary_data, max_rows = 25L, max_cols = 7L)
+            )
+          )
+        )
       }
     ),
     list(

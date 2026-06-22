@@ -3762,6 +3762,14 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     for (line in .studyAgentSlashSummarizeWorkflowStatus(base_dir)) {
       cat(sprintf("  - %s\n", line))
     }
+    artifact_roots <- .studyAgentSlashExecutionArtifactPaths(base_dir)
+    if (length(artifact_roots) > 0) {
+      cat("Artifact roots
+")
+      for (root in artifact_roots) {
+        cat(sprintf("  - %s\n", .studyAgentSlashResolveArtifactPath(root, base_dir)))
+      }
+    }
     invisible(NULL)
   }
 

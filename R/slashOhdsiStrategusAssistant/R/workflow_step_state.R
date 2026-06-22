@@ -179,14 +179,29 @@
   NULL
 }
 
-.studyAgentSlashStepRequiredArtifacts <- function(project_state, base_dir, step_id, step_state = NULL) {
-  step_state <- step_state %||% .studyAgentSlashReadStepState(base_dir, step_id)
-  required_from_state <- as.character(unlist((step_state$artifacts %||% list())$required %||% list(), use.names = FALSE))
-  if (length(required_from_state) > 0) return(unique(required_from_state[nzchar(required_from_state)]))
 
+.studyAgentSlashExecutionArtifactPaths <- function(base_dir) {
+  exec_settings_path <- file.path(base_dir, "strategus-execution-settings.json")
+  if (!file.exists(exec_settings_path)) return(character(0))
+  exec_cfg <- tryCatch(readStrategusExecutionSettings(exec_settings_path), error = function(e) NULL)
+  if (!is.list(exec_cfg)) return(character(0))
+  raw_paths <- Filter(nzchar, trimws(as.character(c(
+    exec_cfg$resultsFolder %||% "",
+    exec_cfg$workFolder %||% ""
+  ))))
+  resolved <- unique(vapply(raw_paths, function(path) {
+    .studyAgentSlashResolveArtifactPath(path, base_dir)
+  }, character(1)))
+  unique(vapply(resolved, function(path) {
+    .studyAgentSlashRelativizeProjectPath(path, base_dir)
+  }, character(1)))
+}
+
+.studyAgentSlashStepOverrideArtifacts <- function(project_state, base_dir, step_id) {
+  step_id <- as.character(step_id %||% "")
+  override_paths <- character(0)
   workflow_type <- as.character(project_state$workflow_type %||% "")
   legacy_path <- .studyAgentSlashStepLegacyStatePath(base_dir, workflow_type, step_id)
-  override_paths <- character(0)
   if (!is.null(legacy_path) && nzchar(legacy_path)) {
     override_paths <- c(override_paths, .studyAgentSlashRelativizeProjectPath(legacy_path, base_dir))
   }
@@ -204,6 +219,22 @@
       "keeper-case-review/concept-sets-approved"
     )
   }
+  if (step_id %in% c("diagnostics", "cm_spec", "incidence_spec")) {
+    override_paths <- c(override_paths, .studyAgentSlashExecutionArtifactPaths(base_dir))
+  }
+  unique(override_paths[nzchar(override_paths)])
+}
+
+.studyAgentSlashStepRequiredArtifacts <- function(project_state, base_dir, step_id, step_state = NULL) {
+  step_state <- step_state %||% .studyAgentSlashReadStepState(base_dir, step_id)
+  override_paths <- .studyAgentSlashStepOverrideArtifacts(project_state, base_dir, step_id)
+  required_from_state <- as.character(unlist((step_state$artifacts %||% list())$required %||% list(), use.names = FALSE))
+  required_from_state <- unique(required_from_state[nzchar(required_from_state)])
+  if (length(override_paths) > 0) {
+    filtered_state <- setdiff(required_from_state, c("results", "work", "cm-results", "cm-diagnostics"))
+    return(unique(c(override_paths, filtered_state)))
+  }
+  if (length(required_from_state) > 0) return(required_from_state)
 
   artifact_paths <- vapply(Filter(function(item) {
     identical(as.character(item$step_id %||% ""), as.character(step_id)) &&
@@ -216,7 +247,13 @@
 }
 
 .studyAgentSlashStepOwnedArtifacts <- function(project_state, base_dir, step_id) {
-  unique(.studyAgentSlashStepRequiredArtifacts(project_state, base_dir, step_id))
+  required <- unique(.studyAgentSlashStepRequiredArtifacts(project_state, base_dir, step_id))
+  base_dir_norm <- normalizePath(base_dir, winslash = "/", mustWork = FALSE)
+  base_prefix <- paste0(base_dir_norm, "/")
+  Filter(function(path) {
+    absolute_path <- .studyAgentSlashResolveProjectPath(path, base_dir)
+    identical(absolute_path, base_dir_norm) || startsWith(absolute_path, base_prefix)
+  }, required)
 }
 
 .studyAgentSlashReadLegacyStepStatus <- function(base_dir, workflow_type, step_id) {

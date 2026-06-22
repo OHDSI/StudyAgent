@@ -601,6 +601,14 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     for (line in .studyAgentSlashSummarizeWorkflowStatus(base_dir)) {
       cat(sprintf("  - %s\n", line))
     }
+    artifact_roots <- .studyAgentSlashExecutionArtifactPaths(base_dir)
+    if (length(artifact_roots) > 0) {
+      cat("Artifact roots
+")
+      for (root in artifact_roots) {
+        cat(sprintf("  - %s\n", .studyAgentSlashResolveArtifactPath(root, base_dir)))
+      }
+    }
     invisible(NULL)
   }
 
@@ -692,15 +700,15 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     }
     cat("\n")
     cat("  - h or help: show this help\n")
-    cat("  - s or status: show execution status\n")
-    cat("  - art or artifacts: list current known artifacts\n")
+    cat("  - s or status: show execution status (derived from step state and artifacts)\n")
+    cat("  - art or artifacts: list current known artifacts\n  - b or backup: create a workflow state snapshot\n  - bk or backups: list available workflow state snapshots\n")
     cat("  - x or explore[_v]: list available approved exploration commands\n")
     cat("  - x <command-id> or explore <command-id>: run an approved exploration command\n")
     cat("  - x_v <command-id> or explore_v <command-id>: run an approved exploration command and try to open tabular output in a viewer\n")
     cat("  - number: run the numbered exploration command shown by x\n")
     cat("  - n or run next: run the next runnable step\n")
     cat("  - a or run all: keep running until blocked, failed, or complete\n")
-    cat("  - i or inspect[_v] <step>: inspect outputs for a step\n")
+    cat("  - i or inspect[_v] <step>: inspect outputs for a step\n  - reset <step>: reset a step and downstream workflow state\n  - restore <snapshot-id>: restore a saved workflow state snapshot\n")
     cat("  - run <step>: run a specific step by number or step id\n")
     cat("  - rev or revise [build|intent|target|outcome]: return to build mode for intentional revision\n")
     cat("  - /ohdsi <question>: ask a contextualized OHDSI workflow question\n")
@@ -851,6 +859,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
       return(invisible(list(action = "exit")))
     }
     repeat {
+      .studyAgentSlashReconcileProjectState(base_dir, write = TRUE)
       refresh_execution_dialogue_context()
       entered <- trimws(readline_with_dialogue("Execution command [Enter=finish, x=explore[_v], s=status, h=help/show commands, /ohdsi=AI assistance]: "))
       if (!nzchar(entered)) {
@@ -898,6 +907,62 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
       if (startsWith(lowered, "x ") || startsWith(lowered, "explore ")) {
         command_ref <- sub("^(?:x|explore)\\s+", "", lowered)
         run_exploration_command(command_ref, viewer = FALSE)
+        next
+      }
+      if (lowered %in% c("b", "backup")) {
+        backup_info <- .studyAgentSlashBackupWorkflowState(base_dir, label = "manual")
+        cat(sprintf("Workflow state snapshot saved: %s\n", backup_info$snapshot_id %||% backup_info$snapshot_dir %||% "<unknown>"))
+        next
+      }
+      if (lowered %in% c("bk", "backups", "snapshot", "snapshots")) {
+        snapshot_ids <- rev(.studyAgentSlashListWorkflowBackups(base_dir))
+        if (length(snapshot_ids) == 0) {
+          cat("No workflow snapshots are available for this project.\n")
+        } else {
+          cat("\nWorkflow snapshots\n")
+          for (snapshot_id in snapshot_ids) cat(sprintf("  - %s\n", snapshot_id))
+        }
+        next
+      }
+      if (startsWith(lowered, "restore ")) {
+        snapshot_id <- trimws(sub("^restore\\s+", "", entered))
+        if (!nzchar(snapshot_id)) {
+          cat("Choose restore <snapshot-id>. Use backups to list available snapshots.\n")
+          next
+        }
+        if (!isTRUE(prompt_yesno(sprintf("Restore workflow state snapshot %s?", snapshot_id), default = FALSE))) {
+          next
+        }
+        result <- tryCatch(
+          .studyAgentSlashRestoreWorkflowState(base_dir, snapshot_id = snapshot_id, restore_artifacts = TRUE, backup_current = TRUE),
+          error = function(e) e
+        )
+        if (inherits(result, "error")) {
+          cat(sprintf("Restore failed: %s\n", conditionMessage(result)))
+        } else {
+          cat(sprintf("Workflow state restored from snapshot: %s\n", snapshot_id))
+        }
+        next
+      }
+      if (startsWith(lowered, "reset ")) {
+        step_id <- resolve_execution_step_id(sub("^reset\\s+", "", lowered))
+        if (is.null(step_id)) next
+        if (!isTRUE(prompt_yesno(sprintf("Reset step %s and downstream workflow state?", step_id), default = FALSE))) {
+          next
+        }
+        result <- tryCatch(
+          .studyAgentSlashResetWorkflowStepState(base_dir, step_id = step_id, cascade = TRUE, backup = TRUE, delete_outputs = TRUE),
+          error = function(e) e
+        )
+        if (inherits(result, "error")) {
+          cat(sprintf("Reset failed: %s\n", conditionMessage(result)))
+        } else {
+          affected <- as.character(unlist(result$affected_steps %||% list(), use.names = FALSE))
+          cat(sprintf("Reset workflow state for: %s\n", paste(affected, collapse = ", ")))
+          if (!is.null(result$snapshot_id) && nzchar(as.character(result$snapshot_id))) {
+            cat(sprintf("Backup snapshot saved: %s\n", as.character(result$snapshot_id)))
+          }
+        }
         next
       }
       if (lowered %in% c("rev", "revise") || startsWith(lowered, "rev ") || startsWith(lowered, "revise ")) {
@@ -980,7 +1045,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
         inspect_execution_outputs(step_id, viewer = viewer)
         next
       }
-      cat("Choose h, s, art, x[_v], rev, n, a, i[_v], run <step>, /ohdsi <question>, q, or Enter. Type h for valid steps and explore for approved commands.\n")
+      cat("Choose h, s, art, x[_v], b, bk, reset <step>, restore <snapshot-id>, rev, n, a, i[_v], run <step>, /ohdsi <question>, q, or Enter. Type h for valid steps and explore for approved commands.\n")
     }
   }
 
