@@ -284,6 +284,12 @@
     "diagnostics_work_module_dir",
     "cm_diagnostics_dir",
     "cm_results_dir",
+    "analysis_settings_dir",
+    "analysis_specification_json",
+    "cm_analysis_state_json",
+    "strategus_execute_result_rds",
+    "strategus_results_dir",
+    "strategus_work_dir",
     "cohort_generation_results_dir",
     "cohort_generation_module_dir",
     "cg_cohort_count_csv",
@@ -388,6 +394,11 @@
   } else {
     list()
   }
+  cm_spec_summary <- if (exists(".studyAgentSlashCompactCmSpecDialogueSummary", mode = "function")) {
+    .studyAgentSlashCompactCmSpecDialogueSummary(base_dir = base_dir, project_state = project_state, max_items = 6L)
+  } else {
+    list()
+  }
 
   compact_workflow_dialogue_context(list(
     study_intent = study_context$study_intent %||% NULL,
@@ -407,6 +418,7 @@
     execution_plan_summary = as.list(.studyAgentSlashSummarizeWorkflowStatus(base_dir)),
     available_exploration_commands = available_exploration_commands,
     diagnostics_summary = diagnostics_summary,
+    cm_spec_summary = cm_spec_summary,
     artifact_summary = artifact_summary,
     requestable_artifact_ids = requestable_artifact_ids,
     artifact_request_policy = compact_workflow_dialogue_context(list(

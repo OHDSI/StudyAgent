@@ -11,6 +11,23 @@
   data
 }
 
+.studyAgentSlashReadJsonSafe <- function(path, simplifyVector = FALSE) {
+  if (is.null(path) || !nzchar(trimws(as.character(path))) || !file.exists(path)) {
+    return(NULL)
+  }
+  tryCatch(
+    jsonlite::fromJSON(path, simplifyVector = simplifyVector),
+    error = function(e) NULL
+  )
+}
+
+.studyAgentSlashReadRdsSafe <- function(path) {
+  if (is.null(path) || !nzchar(trimws(as.character(path))) || !file.exists(path)) {
+    return(NULL)
+  }
+  tryCatch(readRDS(path), error = function(e) NULL)
+}
+
 .studyAgentSlashCompactPreviewTable <- function(data, max_rows = 12L, max_cols = 8L) {
   if (is.null(data)) return(NULL)
   if (!is.data.frame(data)) data <- as.data.frame(data, stringsAsFactors = FALSE)
@@ -340,6 +357,157 @@
   ))
 }
 
+
+.studyAgentSlashDiscoverStrategusExecutionRoots <- function(base_dir, project_state = NULL) {
+  exec_settings_path <- file.path(base_dir, "strategus-execution-settings.json")
+  if (!file.exists(exec_settings_path)) {
+    return(list(results_root = NULL, work_root = NULL))
+  }
+  exec_cfg <- tryCatch(readStrategusExecutionSettings(exec_settings_path), error = function(e) NULL)
+  if (!is.list(exec_cfg)) {
+    return(list(results_root = NULL, work_root = NULL))
+  }
+  list(
+    results_root = .studyAgentSlashResolveArtifactPath(exec_cfg$resultsFolder %||% "", base_dir),
+    work_root = .studyAgentSlashResolveArtifactPath(exec_cfg$workFolder %||% "", base_dir)
+  )
+}
+
+.studyAgentSlashDiscoverCmSpecRoots <- function(base_dir, project_state = NULL) {
+  roots <- c(file.path(base_dir, "analysis-settings"))
+  exec_roots <- .studyAgentSlashDiscoverStrategusExecutionRoots(base_dir, project_state = project_state)
+  roots <- c(roots, as.character(exec_roots$results_root %||% ""), as.character(exec_roots$work_root %||% ""))
+  roots <- unique(Filter(nzchar, trimws(as.character(roots))))
+  resolved <- unique(vapply(roots, function(root) .studyAgentSlashResolveArtifactPath(root, base_dir), character(1)))
+  Filter(dir.exists, resolved)
+}
+
+.studyAgentSlashClassifyCmSpecArtifact <- function(path) {
+  path <- normalizePath(as.character(path %||% ""), winslash = "/", mustWork = FALSE)
+  name <- tolower(basename(path))
+  if (dir.exists(path) && grepl("characterizationmodule", name, fixed = TRUE)) return("characterization_module_dir")
+  if (dir.exists(path) && grepl("cohortincidencemodule", name, fixed = TRUE)) return("cohort_incidence_module_dir")
+  if (dir.exists(path) && grepl("cohortmethodmodule", name, fixed = TRUE)) return("cohort_method_module_dir")
+  if (dir.exists(path) && identical(name, "analysis-settings")) return("analysis_settings_dir")
+  if (grepl("/characterizationmodule/", path, fixed = TRUE)) return("characterization_output")
+  if (grepl("/cohortincidencemodule/", path, fixed = TRUE)) return("cohort_incidence_output")
+  if (grepl("/cohortmethodmodule/", path, fixed = TRUE)) return("cohort_method_output")
+  if (identical(name, "analysisspecification.json")) return("analysis_specification_json")
+  if (identical(name, "strategus_execute_result.rds")) return("strategus_execute_result_rds")
+  if (identical(name, "cm_analysis_state.json")) return("cm_analysis_state_json")
+  if (identical(name, "cmanalysis.json")) return("analysis_settings_json")
+  if (grepl("\\.rds$", name)) return("rds")
+  if (grepl("\\.json$", name)) return("json")
+  if (grepl("\\.csv$", name)) return("csv")
+  "other"
+}
+
+.studyAgentSlashCmSpecInventoryTable <- function(base_dir, project_state = NULL) {
+  roots <- .studyAgentSlashDiscoverCmSpecRoots(base_dir, project_state = project_state)
+  if (length(roots) == 0) {
+    return(data.frame(
+      root_path = character(0),
+      relative_path = character(0),
+      artifact_class = character(0),
+      size_bytes = numeric(0),
+      modified_at = character(0),
+      absolute_path = character(0),
+      stringsAsFactors = FALSE
+    ))
+  }
+  rows <- list()
+  for (root in roots) {
+    root_norm <- normalizePath(root, winslash = "/", mustWork = FALSE)
+    root_paths <- c(root_norm, list.files(root_norm, recursive = TRUE, full.names = TRUE, all.files = FALSE, no.. = TRUE))
+    root_paths <- unique(root_paths)
+    if (length(root_paths) == 0) next
+    info <- file.info(root_paths)
+    prefix <- paste0(root_norm, "/")
+    rel <- ifelse(normalizePath(root_paths, winslash = "/", mustWork = FALSE) == root_norm, ".", ifelse(startsWith(normalizePath(root_paths, winslash = "/", mustWork = FALSE), prefix), substr(normalizePath(root_paths, winslash = "/", mustWork = FALSE), nchar(prefix) + 1L, nchar(normalizePath(root_paths, winslash = "/", mustWork = FALSE))), normalizePath(root_paths, winslash = "/", mustWork = FALSE)))
+    rows[[length(rows) + 1L]] <- data.frame(
+      root_path = root_norm,
+      relative_path = rel,
+      artifact_class = vapply(root_paths, .studyAgentSlashClassifyCmSpecArtifact, character(1)),
+      size_bytes = as.numeric(info$size),
+      modified_at = as.character(info$mtime),
+      absolute_path = normalizePath(root_paths, winslash = "/", mustWork = FALSE),
+      stringsAsFactors = FALSE
+    )
+  }
+  if (length(rows) == 0) {
+    return(data.frame(
+      root_path = character(0),
+      relative_path = character(0),
+      artifact_class = character(0),
+      size_bytes = numeric(0),
+      modified_at = character(0),
+      absolute_path = character(0),
+      stringsAsFactors = FALSE
+    ))
+  }
+  do.call(rbind, rows)
+}
+
+.studyAgentSlashCmSpecAnalysisState <- function(base_dir) {
+  .studyAgentSlashReadJsonSafe(file.path(base_dir, "outputs", "cm_analysis_state.json"), simplifyVector = FALSE)
+}
+
+.studyAgentSlashCollapseValue <- function(x) {
+  if (is.null(x)) return("")
+  if (is.atomic(x) && length(x) <= 1) return(as.character(x))
+  if (is.atomic(x)) return(paste(as.character(x), collapse = "; "))
+  if (is.list(x)) return(paste(vapply(x, .studyAgentSlashCollapseValue, character(1)), collapse = "; "))
+  as.character(x)
+}
+
+.studyAgentSlashObjectElementTable <- function(x, max_items = 20L) {
+  if (is.null(x) || (!is.list(x) && !is.data.frame(x))) return(NULL)
+  nms <- names(x) %||% character(0)
+  if (length(nms) == 0) return(NULL)
+  nms <- utils::head(nms, n = max_items)
+  rows <- lapply(nms, function(nm) {
+    value <- x[[nm]]
+    preview <- if (is.atomic(value) && length(value) <= 5) {
+      paste(utils::head(as.character(value), 5L), collapse = "; ")
+    } else if (is.data.frame(value)) {
+      sprintf("data.frame[%s x %s]", nrow(value), ncol(value))
+    } else if (is.list(value)) {
+      sprintf("list[%s]", length(value))
+    } else {
+      as.character(class(value)[1] %||% typeof(value))
+    }
+    data.frame(
+      element_name = as.character(nm),
+      element_class = paste(class(value), collapse = ", "),
+      length = length(value),
+      nrow = if (is.data.frame(value)) nrow(value) else NA_integer_,
+      ncol = if (is.data.frame(value)) ncol(value) else NA_integer_,
+      preview = preview,
+      stringsAsFactors = FALSE
+    )
+  })
+  do.call(rbind, rows)
+}
+
+.studyAgentSlashCompactCmSpecDialogueSummary <- function(base_dir, project_state = NULL, max_items = 6L) {
+  state <- .studyAgentSlashCmSpecAnalysisState(base_dir)
+  exec_roots <- .studyAgentSlashDiscoverStrategusExecutionRoots(base_dir, project_state = project_state)
+  if (is.null(state) && !dir.exists(as.character(exec_roots$results_root %||% "")) && !dir.exists(as.character(exec_roots$work_root %||% ""))) {
+    return(list())
+  }
+  modules <- as.list(utils::head(as.character(unlist(state$modules %||% character(0), use.names = FALSE)), n = max_items))
+  compact_workflow_dialogue_context(list(
+    cm_spec_results_root = as.character(exec_roots$results_root %||% NULL),
+    cm_spec_work_root = as.character(exec_roots$work_root %||% NULL),
+    cm_spec_modules = modules,
+    cm_spec_ps_adjustment_strategy = state$ps_adjustment_strategy %||% NULL,
+    cm_spec_ps_trimming_strategy = state$ps_trimming_strategy %||% NULL,
+    cm_spec_analysis_specification_path = state$analysis_specification_path %||% NULL,
+    cm_spec_execute_result_path = file.path(base_dir, "analysis-settings", "strategus_execute_result.rds"),
+    cm_spec_execute_result_exists = file.exists(file.path(base_dir, "analysis-settings", "strategus_execute_result.rds"))
+  ))
+}
+
 .studyAgentSlashResolveArtifactPath <- function(path, base_dir) {
   path <- as.character(path %||% "")
   if (!nzchar(trimws(path))) {
@@ -399,6 +567,9 @@
   if (identical(base_name, "Cohorts.csv")) return("cohort_definition_set_csv")
   if (identical(base_name, "strategus-db-details.json")) return("db_details_json")
   if (identical(base_name, "strategus-execution-settings.json")) return("execution_settings_json")
+  if (identical(base_name, "analysisSpecification.json")) return("analysis_specification_json")
+  if (identical(base_name, "strategus_execute_result.rds")) return("strategus_execute_result_rds")
+  if (identical(base_name, "cm_analysis_state.json")) return("cm_analysis_state_json")
   if (identical(base_name, "cmAnalysis.json")) return("analysis_settings_json")
   if (identical(base_name, "cg_cohort_definition.csv")) return("cohort_definition_csv")
   if (identical(base_name, "cg_cohort_count.csv")) return("cohort_counts_csv")
@@ -407,12 +578,16 @@
   if (identical(base_name, "cg_cohort_inc_stats.csv")) return("cohort_inclusion_stats_csv")
   if (identical(base_name, "cg_cohort_summary_stats.csv")) return("cohort_summary_stats_csv")
   if (grepl("/keeper-case-review/", path, fixed = TRUE)) return("keeper_artifact")
+  if (dir.exists(path) && identical(base_name, "analysis-settings")) return("analysis_settings_dir")
   if (dir.exists(path) && identical(base_name, "cm-diagnostics")) return("cohort_method_diagnostics_dir")
   if (dir.exists(path) && identical(base_name, "cm-results")) return("cohort_method_results_dir")
   if (grepl("/scripts/", path, fixed = TRUE) || endsWith(path, ".R")) return("script")
   if (dir.exists(path) && identical(base_name, "CohortGeneratorModule")) return("cohort_generation_module_dir")
   if (dir.exists(path) && identical(base_name, "cohort-generation-results")) return("cohort_generation_results_dir")
   if (dir.exists(path) && identical(base_name, "cohort-generation-work")) return("cohort_generation_work_dir")
+  if (identical(artifact_id, "strategus_results_dir")) return("strategus_results_dir")
+  if (identical(artifact_id, "strategus_work_dir")) return("strategus_work_dir")
+  if (identical(artifact_id, "analysis_settings_dir")) return("analysis_settings_dir")
   if (nzchar(artifact_id) && grepl("cm_analysis", artifact_id, fixed = TRUE)) return("analysis_settings_json")
   "generic"
 }
@@ -494,6 +669,10 @@
 
   registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "db_details_json", file.path(base_dir, "strategus-db-details.json"), base_dir, tags = c("config", "db"), preview_kind = "json")
   registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "execution_settings_json", file.path(base_dir, "strategus-execution-settings.json"), base_dir, tags = c("config", "execution"), preview_kind = "json")
+  registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "analysis_settings_dir", file.path(base_dir, "analysis-settings"), base_dir, tags = c("analysis", "settings"), preview_kind = "dir")
+  registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "analysis_specification_json", file.path(base_dir, "analysis-settings", "analysisSpecification.json"), base_dir, step_id = if (identical(project_state$workflow_type %||% "", "strategus_cohort_methods")) "cm_spec" else "incidence_spec", tags = c("analysis", "strategus"), preview_kind = "json")
+  registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "strategus_execute_result_rds", file.path(base_dir, "analysis-settings", "strategus_execute_result.rds"), base_dir, step_id = "cm_spec", tags = c("analysis", "strategus"), preview_kind = "rds")
+  registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cm_analysis_state_json", file.path(base_dir, "outputs", "cm_analysis_state.json"), base_dir, step_id = "cm_spec", tags = c("analysis", "cohort_method"), preview_kind = "json")
   registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "selected_cohorts_csv", file.path(base_dir, "selected-cohorts", "Cohorts.csv"), base_dir, step_id = "generate_cohorts", tags = c("cohort", "selection"))
   diagnostics_dir <- project_state$study_context$cm_diagnostics_dir %||% file.path(base_dir, "cm-diagnostics")
   results_dir <- project_state$study_context$cm_results_dir %||% file.path(base_dir, "cm-results")
@@ -508,6 +687,8 @@
       work_root <- .studyAgentSlashResolveArtifactPath(exec_cfg$workFolder %||% "", base_dir)
       registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cohort_generation_results_dir", results_root, base_dir, step_id = "generate_cohorts", tags = c("results", "cohort_generation"), preview_kind = "dir")
       registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cohort_generation_work_dir", work_root, base_dir, step_id = "generate_cohorts", tags = c("work", "cohort_generation"), preview_kind = "dir")
+      registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "strategus_results_dir", results_root, base_dir, step_id = if (identical(project_state$workflow_type %||% "", "strategus_cohort_methods")) "cm_spec" else "incidence_spec", tags = c("results", "strategus"), preview_kind = "dir")
+      registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "strategus_work_dir", work_root, base_dir, step_id = if (identical(project_state$workflow_type %||% "", "strategus_cohort_methods")) "cm_spec" else "incidence_spec", tags = c("work", "strategus"), preview_kind = "dir")
       diagnostics_results_dir <- file.path(results_root, "CohortDiagnosticsModule")
       diagnostics_work_dir <- file.path(work_root, "CohortDiagnosticsModule")
       if (dir.exists(diagnostics_results_dir)) {
@@ -985,6 +1166,252 @@
         )
       }
     ),
+
+    list(
+      command_id = "cm_spec_artifact_inventory",
+      label = "Inventory cohort method specification artifacts",
+      purpose = "List analysis-settings and Strategus result/work artifacts for the cohort method specification step using full resolved paths.",
+      workflow_types = c("strategus_cohort_methods"),
+      step_ids = c("cm_spec"),
+      required_packages = character(0),
+      artifact_requirements = character(0),
+      input_parameters = list(),
+      output_kind = "table",
+      safe = TRUE,
+      executor = function(context) {
+        inventory <- .studyAgentSlashCmSpecInventoryTable(context$base_dir, project_state = context$project_state)
+        if (nrow(inventory) == 0) stop("No cohort method specification artifacts were discovered yet.")
+        display <- inventory[, intersect(c("root_path", "relative_path", "artifact_class", "size_bytes", "modified_at", "absolute_path"), names(inventory)), drop = FALSE]
+        list(
+          status = "ok",
+          title = "Cohort method specification artifact inventory",
+          sections = list(
+            .studyAgentSlashExplorationTableSection(
+              data = display,
+              title = "Cohort method specification artifact inventory",
+              preview_data = .studyAgentSlashCompactPreviewTable(display, max_rows = 30L, max_cols = 6L)
+            )
+          )
+        )
+      }
+    ),
+    list(
+      command_id = "cm_spec_run_settings",
+      label = "Show cohort method specification run settings",
+      purpose = "Show resolved Strategus roots and the key comparative-effect settings chosen for the cohort method specification run.",
+      workflow_types = c("strategus_cohort_methods"),
+      step_ids = c("cm_spec"),
+      required_packages = character(0),
+      artifact_requirements = character(0),
+      input_parameters = list(),
+      output_kind = "table",
+      safe = TRUE,
+      executor = function(context) {
+        state <- .studyAgentSlashCmSpecAnalysisState(context$base_dir)
+        if (is.null(state)) stop("cm_analysis_state.json is not available yet.")
+        exec_roots <- .studyAgentSlashDiscoverStrategusExecutionRoots(context$base_dir, project_state = context$project_state)
+        data <- data.frame(
+          setting = c(
+            "comparison_label",
+            "target_id",
+            "comparator_id",
+            "outcome_ids",
+            "modules",
+            "ps_adjustment_strategy",
+            "ps_trimming_strategy",
+            "analytic_settings_profile_name",
+            "analysis_specification_path",
+            "cm_analysis_json_path",
+            "concept_set_selections_path",
+            "strategus_results_root",
+            "strategus_work_root",
+            "strategus_execute_result_path"
+          ),
+          value = c(
+            .studyAgentSlashCollapseValue(state$comparison_label %||% ""),
+            .studyAgentSlashCollapseValue(state$target_id %||% ""),
+            .studyAgentSlashCollapseValue(state$comparator_id %||% ""),
+            .studyAgentSlashCollapseValue(unlist(state$outcome_ids %||% list(), use.names = FALSE)),
+            .studyAgentSlashCollapseValue(unlist(state$modules %||% list(), use.names = FALSE)),
+            .studyAgentSlashCollapseValue(state$ps_adjustment_strategy %||% ""),
+            .studyAgentSlashCollapseValue(state$ps_trimming_strategy %||% ""),
+            .studyAgentSlashCollapseValue(state$analytic_settings_profile_name %||% ""),
+            .studyAgentSlashCollapseValue(state$analysis_specification_path %||% ""),
+            .studyAgentSlashCollapseValue(state$cm_analysis_json_path %||% ""),
+            .studyAgentSlashCollapseValue(state$concept_set_selections_path %||% ""),
+            .studyAgentSlashCollapseValue(exec_roots$results_root %||% ""),
+            .studyAgentSlashCollapseValue(exec_roots$work_root %||% ""),
+            file.path(context$base_dir, "analysis-settings", "strategus_execute_result.rds")
+          ),
+          stringsAsFactors = FALSE
+        )
+        list(
+          status = "ok",
+          title = "Cohort method specification run settings",
+          sections = list(
+            .studyAgentSlashExplorationTableSection(
+              data = data,
+              title = "Cohort method specification run settings",
+              preview_data = data
+            )
+          )
+        )
+      }
+    ),
+    list(
+      command_id = "cm_spec_analysis_spec",
+      label = "Summarize saved Strategus analysis specification",
+      purpose = "Summarize the saved analysisSpecification.json and preview its top-level structure and module content.",
+      workflow_types = c("strategus_cohort_methods"),
+      step_ids = c("cm_spec"),
+      required_packages = character(0),
+      artifact_requirements = character(0),
+      input_parameters = list(),
+      output_kind = "mixed",
+      safe = TRUE,
+      executor = function(context) {
+        spec_path <- file.path(context$base_dir, "analysis-settings", "analysisSpecification.json")
+        spec <- .studyAgentSlashReadJsonSafe(spec_path, simplifyVector = FALSE)
+        if (is.null(spec)) stop("analysisSpecification.json is not available yet.")
+        state <- .studyAgentSlashCmSpecAnalysisState(context$base_dir)
+        info <- file.info(spec_path)
+        summary <- data.frame(
+          property = c("analysis_specification_path", "size_bytes", "modified_at", "top_level_keys", "module_names", "shared_resource_count", "module_specification_count"),
+          value = c(
+            spec_path,
+            as.character(as.numeric(info$size)),
+            as.character(info$mtime),
+            paste(names(spec) %||% character(0), collapse = "; "),
+            .studyAgentSlashCollapseValue(unlist(state$modules %||% list(), use.names = FALSE)),
+            as.character(length(spec$sharedResources %||% list())),
+            as.character(length(spec$moduleSpecifications %||% list()))
+          ),
+          stringsAsFactors = FALSE
+        )
+        sections <- list(
+          .studyAgentSlashExplorationTableSection(
+            data = summary,
+            title = "Strategus analysis specification summary",
+            preview_data = summary
+          )
+        )
+        element_table <- .studyAgentSlashObjectElementTable(spec, max_items = 20L)
+        if (!is.null(element_table) && nrow(element_table) > 0) {
+          sections[[length(sections) + 1L]] <- .studyAgentSlashExplorationTableSection(
+            data = element_table,
+            title = "Strategus analysis specification elements",
+            preview_data = .studyAgentSlashCompactPreviewTable(element_table, max_rows = 20L, max_cols = 6L)
+          )
+        }
+        list(status = "ok", title = "Strategus analysis specification", sections = sections)
+      }
+    ),
+    list(
+      command_id = "cm_spec_execute_result",
+      label = "Summarize saved Strategus execute result",
+      purpose = "Summarize module outcomes, failures, and key analysis context from the saved Strategus execute result.",
+      workflow_types = c("strategus_cohort_methods"),
+      step_ids = c("cm_spec"),
+      required_packages = character(0),
+      artifact_requirements = character(0),
+      input_parameters = list(),
+      output_kind = "mixed",
+      safe = TRUE,
+      executor = function(context) {
+        result_path <- file.path(context$base_dir, "analysis-settings", "strategus_execute_result.rds")
+        result <- .studyAgentSlashReadRdsSafe(result_path)
+        if (is.null(result)) stop("strategus_execute_result.rds is not available yet.")
+        info <- file.info(result_path)
+        state <- .studyAgentSlashCmSpecAnalysisState(context$base_dir)
+        exec_roots <- .studyAgentSlashDiscoverStrategusExecutionRoots(context$base_dir, project_state = context$project_state)
+        module_rows <- if (is.list(result) && length(result) > 0) {
+          do.call(rbind, lapply(result, function(item) {
+            data.frame(
+              module_name = as.character(item$moduleName %||% ""),
+              status = as.character(item$status %||% ""),
+              execution_time = as.character(item$executionTime %||% ""),
+              error_message = as.character(item$errorMessage %||% ""),
+              stringsAsFactors = FALSE
+            )
+          }))
+        } else {
+          data.frame(module_name = character(0), status = character(0), execution_time = character(0), error_message = character(0), stringsAsFactors = FALSE)
+        }
+        failed_rows <- if (nrow(module_rows) > 0) module_rows[module_rows$status %in% c("FAILED", "ERROR"), , drop = FALSE] else module_rows
+        overall_status <- if (nrow(module_rows) == 0) {
+          "unknown"
+        } else if (nrow(failed_rows) > 0) {
+          "partial_failure"
+        } else if (all(module_rows$status %in% c("SUCCESS", "COMPLETED"))) {
+          "success"
+        } else {
+          "mixed"
+        }
+        summary <- data.frame(
+          property = c(
+            "overall_status",
+            "module_count",
+            "successful_module_count",
+            "failed_module_count",
+            "failed_modules",
+            "comparison_label",
+            "target_id",
+            "comparator_id",
+            "outcome_ids",
+            "ps_adjustment_strategy",
+            "ps_trimming_strategy",
+            "results_root",
+            "work_root",
+            "result_path",
+            "size_bytes",
+            "modified_at"
+          ),
+          value = c(
+            overall_status,
+            nrow(module_rows),
+            sum(module_rows$status %in% c("SUCCESS", "COMPLETED"), na.rm = TRUE),
+            nrow(failed_rows),
+            if (nrow(failed_rows) > 0) paste(failed_rows$module_name, collapse = "; ") else "",
+            .studyAgentSlashCollapseValue(state$comparison_label %||% ""),
+            .studyAgentSlashCollapseValue(state$target_id %||% ""),
+            .studyAgentSlashCollapseValue(state$comparator_id %||% ""),
+            .studyAgentSlashCollapseValue(unlist(state$outcome_ids %||% list(), use.names = FALSE)),
+            .studyAgentSlashCollapseValue(state$ps_adjustment_strategy %||% ""),
+            .studyAgentSlashCollapseValue(state$ps_trimming_strategy %||% ""),
+            .studyAgentSlashCollapseValue(exec_roots$results_root %||% ""),
+            .studyAgentSlashCollapseValue(exec_roots$work_root %||% ""),
+            result_path,
+            as.character(as.numeric(info$size)),
+            as.character(info$mtime)
+          ),
+          stringsAsFactors = FALSE
+        )
+        sections <- list(
+          .studyAgentSlashExplorationTableSection(
+            data = summary,
+            title = "Strategus execute result summary",
+            preview_data = summary
+          )
+        )
+        if (nrow(module_rows) > 0) {
+          sections[[length(sections) + 1L]] <- .studyAgentSlashExplorationTableSection(
+            data = module_rows,
+            title = "Module execution outcomes",
+            preview_data = module_rows
+          )
+        }
+        if (nrow(failed_rows) > 0) {
+          sections[[length(sections) + 1L]] <- list(
+            kind = "text",
+            text = paste(
+              "One or more Strategus modules failed. Use x cm_spec_cohort_method_summary for CohortMethod-specific partial outputs.",
+              "If your HADES environment provides a CohortMethod results Shiny app, launch it from a separate R script against the Strategus results/work roots above for deeper interactive review."
+            )
+          )
+        }
+        list(status = "ok", title = "Strategus execute result", sections = sections)
+      }
+    ),
     list(
       command_id = "keeper_case_review_metrics",
       label = "Summarize Keeper review precision and recall limits",
@@ -1064,12 +1491,22 @@
 }
 
 .studyAgentSlashListExplorationCommands <- function(base_dir, workflow_type, step_id = NULL) {
+  project_state <- tryCatch(.studyAgentSlashReconcileProjectState(base_dir, write = FALSE)$project_state, error = function(e) .studyAgentSlashReadProjectState(base_dir))
   registry <- .studyAgentSlashBuildArtifactRegistry(base_dir)
   commands <- .studyAgentSlashExplorationCommands()
+  requested_step_id <- as.character(step_id %||% "")
+  eligible_step_ids <- if (nzchar(trimws(requested_step_id))) {
+    requested_step_id
+  } else {
+    plan_steps <- project_state$execution_plan %||% list()
+    statuses <- vapply(plan_steps, function(step) as.character(step$status %||% ""), character(1))
+    step_ids <- vapply(plan_steps, function(step) as.character(step$step_id %||% ""), character(1))
+    unique(step_ids[statuses %in% c("completed", "failed", "stale", "running")])
+  }
   Filter(function(cmd) {
     workflow_ok <- as.character(workflow_type %||% "") %in% as.character(cmd$workflow_types %||% character(0))
     step_ids <- as.character(cmd$step_ids %||% character(0))
-    step_ok <- length(step_ids) == 0 || (!is.null(step_id) && nzchar(trimws(as.character(step_id))) && as.character(step_id) %in% step_ids)
+    step_ok <- length(step_ids) == 0 || any(step_ids %in% eligible_step_ids)
     requirements <- as.character(cmd$artifact_requirements %||% character(0))
     requirements_ok <- all(vapply(requirements, function(req) {
       item <- Filter(function(artifact) identical(as.character(artifact$artifact_class %||% ""), req), registry)
