@@ -8,17 +8,17 @@ The current implementation provides:
 - Keeper-assisted concept generation, profile extraction, and row adjudication for phenotype validation
 - Shells for the HADES incidence rate analysis and CohortMethod real-world evidence generation methods that call the ACP/MCP flows and provide interactive run and inspection features along with `/ohdsi` contextualized question answering. 
 
-[![Overview of Study Agent for AI-Assisted Real-world evidence generation](https://github.com/user-attachments/assets/1679912f-fcbb-4dbf-830e-ce493188e8db)](https://www.youtube.com/watch?v=rMxnmEGWoO4)
+[VIDEO: Overview of Study Agent for AI-Assisted Real-world evidence generation](https://www.youtube.com/watch?v=rMxnmEGWoO4)
 
-[![AI-assisted Real-world evidence - Study Agent and R part 1 - Strategus Cohort Method overview, study intent, phenotype selection, and interactive runner shell intro](https://github.com/user-attachments/assets/1679912f-fcbb-4dbf-830e-ce493188e8db)](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=eef98905-e9eb-497f-8d07-b46e00c3702d)
+[VIDEO: AI-assisted Real-world evidence - Study Agent and R part 1 - Strategus Cohort Method overview, study intent, phenotype selection, and interactive runner shell intro](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=eef98905-e9eb-497f-8d07-b46e00c3702d)
 
-[![AI-assisted Real-world evidence - Study Agent and R part 2 - inspect cohorts and initiate keeper concept set](https://github.com/user-attachments/assets/1679912f-fcbb-4dbf-830e-ce493188e8db)](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=8f719cc9-08f4-4bea-9091-b46e00cf641e)
+[VIDEO: AI-assisted Real-world evidence - Study Agent and R part 2 - inspect cohorts and initiate keeper concept set](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=8f719cc9-08f4-4bea-9091-b46e00cf641e)
 
-[![AI-assisted Real-world Evidence - Study Agent and R Part 3 - Keeper concept set run and inspection ](https://github.com/user-attachments/assets/1679912f-fcbb-4dbf-830e-ce493188e8db)](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=c3ab5141-d7cb-4bd6-b3ec-b46f00d8f83d)
+[VIDEO: AI-assisted Real-world Evidence - Study Agent and R Part 3 - Keeper concept set run and inspection ](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=c3ab5141-d7cb-4bd6-b3ec-b46f00d8f83d)
 
-[![AI-assisted Real-world evidence - Study Agent and R part 4 - case review (Keeper) ](https://github.com/user-attachments/assets/1679912f-fcbb-4dbf-830e-ce493188e8db)](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=7bd986fa-960c-493a-8417-b470001e542f)
+[VIDEO: AI-assisted Real-world evidence - Study Agent and R part 4 - case review (Keeper) ](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=7bd986fa-960c-493a-8417-b470001e542f)
 
-[![AI-assisted Real-world evidence - Study Agent and R part 5 - diagnostics and cohort method](https://github.com/user-attachments/assets/1679912f-fcbb-4dbf-830e-ce493188e8db)](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=7bd986fa-960c-493a-8417-b470001e542f)[![AI-assisted Real-world evidence - Study Agent and R part 4 - case review (Keeper) ](https://github.com/user-attachments/assets/1679912f-fcbb-4dbf-830e-ce493188e8db)]()
+[VIDEO: AI-assisted Real-world evidence - Study Agent and R part 5 - diagnostics and cohort method](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=7bd986fa-960c-493a-8417-b470001e542f)
 
 -----
 
