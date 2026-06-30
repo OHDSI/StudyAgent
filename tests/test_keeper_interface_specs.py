@@ -14,9 +14,9 @@ from study_agent_core.models import (
 def test_phenotype_validation_review_input_includes_keeper_row() -> None:
     schema = PhenotypeValidationReviewInput.model_json_schema()
     assert "keeper_row" in schema["properties"]
-    assert "keeper_row_path" in schema["properties"]
-    assert "row_index" in schema["properties"]
     assert "disease_name" in schema["properties"]
+    assert "keeper_row_path" not in schema["properties"]
+    assert "row_index" not in schema["properties"]
 
 
 @pytest.mark.core
@@ -31,8 +31,8 @@ def test_keeper_concept_sets_generate_input_schema() -> None:
 def test_keeper_profiles_generate_input_schema() -> None:
     schema = KeeperProfilesGenerateInput.model_json_schema()
     assert "keeper_concept_sets" in schema["properties"]
-    assert "keeper_concept_sets_path" in schema["properties"]
     assert "sample_size" in schema["properties"]
+    assert "keeper_concept_sets_path" not in schema["properties"]
     assert schema["properties"]["remove_pii"]["default"] is True
 
 

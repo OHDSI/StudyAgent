@@ -33,6 +33,7 @@ slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell(
   studyAgentBaseDir = repo_root,
   indexDir = "data/phenotype_index_cipher_omop",
   incidenceOutputDir = "demo-strategus-cohort-incidence",
+  executionTableDisplay = "viewer"
 )
 ## possible study intent:
 ##    Compare new users of GLP-1RA medications vs new users of DPP4-i medications for chronic lower respiratory disease outcomes.
@@ -40,17 +41,17 @@ slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell(
 ##    Use data from 2010 to 2025. A 180-day washout, intent-to-treat with 180 days follow-up, sIPTW confounder balancing and a Cox model to estimate time-to-event for the primary outcome.
 
 ## Use this to resume from cached artifacts and regenerate output scripts.
-slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell(
-  outputDir = "demo-strategus-cohort-method",
-  acpUrl = "http://127.0.0.1:8765",
-  studyAgentBaseDir = repo_root,
-  indexDir = "data/phenotype_index_cipher_omop",
-  incidenceOutputDir = "demo-strategus-cohort-incidence",
-  resume = TRUE,
-  allowCache = TRUE,
-  promptOnCache = TRUE,
-  interactive = TRUE
-)
+## slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell(
+##   outputDir = "demo-strategus-cohort-method",
+##   acpUrl = "http://127.0.0.1:8765",
+##   studyAgentBaseDir = repo_root,
+##   indexDir = "data/phenotype_index_cipher_omop",
+##   incidenceOutputDir = "demo-strategus-cohort-incidence",
+##   resume = TRUE,
+##   allowCache = TRUE,
+##   promptOnCache = TRUE,
+##   interactive = TRUE
+## )
 
 
 ## Use this to resume from cached artifacts and regenerate output scripts without prompts.

@@ -14,6 +14,7 @@
 #' @param promptOnCache prompt before using cached artifacts
 #' @param autoApplyImprovements when TRUE, apply improvements without prompting (defaults to TRUE for non-interactive)
 #' @param resume when TRUE, resume from last checkpoint if present
+#' @param executionTableDisplay execution-menu table display preference: `console`, `viewer`, or `auto`
 #' @return invisible list with output paths
 #' @export
 runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incidence",
@@ -30,8 +31,10 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
                                       allowCache = TRUE,
                                       promptOnCache = TRUE,
                                       autoApplyImprovements = NA,
-                                      resume = FALSE) {
+                                      resume = FALSE,
+                                      executionTableDisplay = c("console", "viewer", "auto")) {
   `%||%` <- function(x, y) if (is.null(x)) y else x
+  execution_table_display <- .studyAgentSlashNormalizeExecutionTableDisplay(executionTableDisplay)
 
   ensure_dir <- function(path) {
     if (!dir.exists(path)) dir.create(path, recursive = TRUE)
@@ -632,10 +635,11 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     invisible(NULL)
   }
 
-  inspect_execution_outputs <- function(step_id, viewer = FALSE) {
+  inspect_execution_outputs <- function(step_id, viewer = FALSE, display = NULL) {
     outputs <- .studyAgentSlashInspectWorkflowStepOutputs(base_dir, step_id)
     if (length(outputs) == 0) {
-      cat("No registered outputs for that step.\n")
+      cat("No registered outputs for that step.
+")
       return(invisible(NULL))
     }
     output_table <- do.call(rbind, lapply(names(outputs), function(name) {
@@ -654,14 +658,18 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
       output_table,
       preferred_order = c("output_id", "exists", "relative_path", "path")
     )
-    cat(sprintf("\nOutputs for %s\n", step_id))
-    print(output_table)
-    if (isTRUE(viewer)) {
-      if (isTRUE(.studyAgentSlashSupportsDataViewer())) {
-        .studyAgentSlashOpenTableViewer(viewer_table, title = sprintf("Outputs for %s", step_id))
-      } else {
-        cat("Viewer mode is not available in this R session; showing the compact console table instead.\n")
-      }
+    render_mode <- .studyAgentSlashResolveExecutionTableDisplay(display = display, viewer = viewer)
+    cat(sprintf("
+Outputs for %s
+", step_id))
+    if (isTRUE(render_mode$show_console)) {
+      print(output_table)
+    }
+    if (isTRUE(render_mode$open_viewer)) {
+      .studyAgentSlashOpenTableViewer(viewer_table, title = sprintf("Outputs for %s", step_id))
+    } else if ((isTRUE(viewer) || !is.null(display)) && !isTRUE(render_mode$supports_viewer)) {
+      cat("Viewer mode is not available in this R session; showing the compact console table instead.
+")
     }
     invisible(output_table)
   }
@@ -693,27 +701,59 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   }
 
   print_execution_help <- function() {
-    cat("\nExecution commands\n")
+    table_mode_label <- switch(
+      execution_table_display,
+      console = "console preview",
+      viewer = "viewer-first",
+      auto = "auto (viewer when available)",
+      execution_table_display
+    )
+    cat("
+Execution commands
+")
     cat("  - Enter: finish this execution menu")
     if (!isTRUE(.studyAgentSlashWorkflowIsComplete(base_dir))) {
       cat(" (confirmation required)")
     }
-    cat("\n")
-    cat("  - h or help: show this help\n")
-    cat("  - s or status: show execution status (derived from step state and artifacts)\n")
-    cat("  - art or artifacts: list current known artifacts\n  - b or backup: create a workflow state snapshot\n  - bk or backups: list available workflow state snapshots\n")
-    cat("  - x or explore[_v]: list available approved exploration commands\n")
-    cat("  - x <command-id> or explore <command-id>: run an approved exploration command\n")
-    cat("  - x_v <command-id> or explore_v <command-id>: run an approved exploration command and try to open tabular output in a viewer\n")
-    cat("  - number: run the numbered exploration command shown by x\n")
-    cat("  - n or run next: run the next runnable step\n")
-    cat("  - a or run all: keep running until blocked, failed, or complete\n")
-    cat("  - i or inspect[_v] <step>: inspect outputs for a step\n  - reset <step>: reset a step and downstream workflow state\n  - restore <snapshot-id>: restore a saved workflow state snapshot\n")
-    cat("  - run <step>: run a specific step by number or step id\n")
-    cat("  - rev or revise [build|intent|target|outcome]: return to build mode for intentional revision\n")
-    cat("  - /ohdsi <question>: ask a contextualized OHDSI workflow question\n")
-    cat("  - q or quit: leave the execution menu\n")
-    cat("\nValid step values\n")
+    cat("
+")
+    cat("  - h or help: show this help
+")
+    cat("  - s or status: show execution status (derived from step state and artifacts)
+")
+    cat("  - art or artifacts: list current known artifacts
+  - b or backup: create a workflow state snapshot
+  - bk or backups: list available workflow state snapshots
+")
+    cat("  - x or explore[_v]: list available approved exploration commands
+")
+    cat("  - x <command-id> or explore <command-id>: run an approved exploration command
+")
+    cat("  - x_v <command-id> or explore_v <command-id>: run an approved exploration command and try to open tabular output in a viewer
+")
+    cat("  - number: run the numbered exploration command shown by x
+")
+    cat("  - n or run next: run the next runnable step
+")
+    cat("  - a or run all: keep running until blocked, failed, or complete
+")
+    cat("  - i or inspect[_v] <step>: inspect outputs for a step
+  - reset <step>: reset a step and downstream workflow state
+  - restore <snapshot-id>: restore a saved workflow state snapshot
+")
+    cat("  - run <step>: run a specific step by number or step id
+")
+    cat("  - rev or revise [build|intent|target|outcome]: return to build mode for intentional revision
+")
+    cat("  - /ohdsi <question>: ask a contextualized OHDSI workflow question
+")
+    cat("  - q or quit: leave the execution menu
+")
+    cat(sprintf("  - default table display for art/x/inspect: %s
+", table_mode_label))
+    cat("
+Valid step values
+")
     print_execution_step_choices()
     print_explore_help()
     invisible(NULL)
@@ -743,49 +783,57 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     invisible(NULL)
   }
 
-  print_artifact_inventory <- function(viewer = FALSE) {
+  print_artifact_inventory <- function(viewer = FALSE, display = NULL) {
     registry <- .studyAgentSlashBuildArtifactRegistry(base_dir)
     table <- .studyAgentSlashArtifactRegistryTable(registry)
     if (nrow(table) == 0) {
-      cat("No artifacts are available for the current workflow project.\n")
+      cat("No artifacts are available for the current workflow project.
+")
       return(invisible(NULL))
     }
-    cat("\nArtifact inventory\n")
-    print(.studyAgentSlashCompactPreviewTable(table, max_rows = 40L, max_cols = 5L))
-    if (isTRUE(viewer)) {
-      if (isTRUE(.studyAgentSlashSupportsDataViewer())) {
-        .studyAgentSlashOpenTableViewer(
-          .studyAgentSlashArtifactRegistryTable(registry, viewer = TRUE),
-          title = "Artifact inventory"
-        )
-      } else {
-        cat("Viewer mode is not available in this R session; showing the compact console table instead.\n")
-      }
+    render_mode <- .studyAgentSlashResolveExecutionTableDisplay(display = display, viewer = viewer)
+    viewer_table <- .studyAgentSlashArtifactRegistryTable(registry, viewer = TRUE)
+    cat("
+Artifact inventory
+")
+    if (isTRUE(render_mode$show_console)) {
+      print(.studyAgentSlashCompactPreviewTable(table, max_rows = 40L, max_cols = 5L))
     }
-    cat("\n")
+    if (isTRUE(render_mode$open_viewer)) {
+      .studyAgentSlashOpenTableViewer(viewer_table, title = "Artifact inventory")
+    } else if ((isTRUE(viewer) || !is.null(display)) && !isTRUE(render_mode$supports_viewer)) {
+      cat("Viewer mode is not available in this R session; showing the compact console table instead.
+")
+    }
+    cat("
+")
     invisible(NULL)
   }
 
-  print_exploration_commands <- function(viewer = FALSE) {
+  print_exploration_commands <- function(viewer = FALSE, display = NULL) {
     commands <- available_exploration_commands()
     table <- .studyAgentSlashExplorationCommandTable(commands)
     if (nrow(table) == 0) {
-      cat("No approved exploration commands are available for the current workflow state.\n")
+      cat("No approved exploration commands are available for the current workflow state.
+")
       return(invisible(NULL))
     }
-    cat("\nAvailable exploration commands\n")
-    print(table)
-    if (isTRUE(viewer)) {
-      if (isTRUE(.studyAgentSlashSupportsDataViewer())) {
-        .studyAgentSlashOpenTableViewer(
-          .studyAgentSlashPrepareViewerTable(table, preferred_order = c("command_id", "label", "purpose")),
-          title = "Available exploration commands"
-        )
-      } else {
-        cat("Viewer mode is not available in this R session; showing the compact console table instead.\n")
-      }
+    render_mode <- .studyAgentSlashResolveExecutionTableDisplay(display = display, viewer = viewer)
+    viewer_table <- .studyAgentSlashPrepareViewerTable(table, preferred_order = c("command_id", "label", "purpose"))
+    cat("
+Available exploration commands
+")
+    if (isTRUE(render_mode$show_console)) {
+      print(table)
     }
-    cat("\n")
+    if (isTRUE(render_mode$open_viewer)) {
+      .studyAgentSlashOpenTableViewer(viewer_table, title = "Available exploration commands")
+    } else if ((isTRUE(viewer) || !is.null(display)) && !isTRUE(render_mode$supports_viewer)) {
+      cat("Viewer mode is not available in this R session; showing the compact console table instead.
+")
+    }
+    cat("
+")
     invisible(NULL)
   }
 
@@ -835,11 +883,11 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     }
   }
 
-  run_exploration_command <- function(command_ref, viewer = FALSE) {
+  run_exploration_command <- function(command_ref, viewer = FALSE, display = NULL) {
     command_id <- resolve_exploration_command_id(command_ref)
     if (is.null(command_id)) return(invisible(FALSE))
     result <- .studyAgentSlashRunExplorationCommand(base_dir, command_id = command_id)
-    .studyAgentSlashRenderExplorationResult(result, viewer = viewer)
+    .studyAgentSlashRenderExplorationResult(result, viewer = viewer, display = display)
     invisible(TRUE)
   }
 
@@ -880,7 +928,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
         next
       }
       if (lowered %in% c("art", "artifact", "artifacts")) {
-        print_artifact_inventory()
+        print_artifact_inventory(display = execution_table_display)
         next
       }
       if (lowered %in% c("art_v", "artifact_v", "artifacts_v")) {
@@ -888,7 +936,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
         next
       }
       if (lowered %in% c("x", "explore")) {
-        print_exploration_commands()
+        print_exploration_commands(display = execution_table_display)
         next
       }
       if (lowered %in% c("x_v", "explore_v")) {
@@ -896,7 +944,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
         next
       }
       if (grepl("^[0-9]+$", lowered)) {
-        run_exploration_command(lowered, viewer = FALSE)
+        run_exploration_command(lowered, display = execution_table_display)
         next
       }
       if (startsWith(lowered, "x_v ") || startsWith(lowered, "explore_v ")) {
@@ -906,7 +954,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
       }
       if (startsWith(lowered, "x ") || startsWith(lowered, "explore ")) {
         command_ref <- sub("^(?:x|explore)\\s+", "", lowered)
-        run_exploration_command(command_ref, viewer = FALSE)
+        run_exploration_command(command_ref, display = execution_table_display)
         next
       }
       if (lowered %in% c("b", "backup")) {
@@ -1042,7 +1090,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
         }
         step_id <- resolve_execution_step_id(step_ref)
         if (is.null(step_id)) next
-        inspect_execution_outputs(step_id, viewer = viewer)
+        inspect_execution_outputs(step_id, viewer = viewer, display = if (isTRUE(viewer)) NULL else execution_table_display)
         next
       }
       cat("Choose h, s, art, x[_v], b, bk, reset <step>, restore <snapshot-id>, rev, n, a, i[_v], run <step>, /ohdsi <question>, q, or Enter. Type h for valid steps and explore for approved commands.\n")

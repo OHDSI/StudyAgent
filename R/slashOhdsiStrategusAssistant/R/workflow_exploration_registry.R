@@ -51,6 +51,29 @@
   TRUE
 }
 
+.studyAgentSlashNormalizeExecutionTableDisplay <- function(display = c("console", "viewer", "auto")) {
+  match.arg(as.character(display %||% "console"), c("console", "viewer", "auto"))
+}
+
+.studyAgentSlashResolveExecutionTableDisplay <- function(display = NULL, viewer = FALSE) {
+  supports_viewer <- isTRUE(.studyAgentSlashSupportsDataViewer())
+  if (is.null(display)) {
+    return(list(
+      show_console = TRUE,
+      open_viewer = isTRUE(viewer) && supports_viewer,
+      supports_viewer = supports_viewer
+    ))
+  }
+  normalized <- .studyAgentSlashNormalizeExecutionTableDisplay(display)
+  if (identical(normalized, "console")) {
+    return(list(show_console = TRUE, open_viewer = FALSE, supports_viewer = supports_viewer))
+  }
+  if (supports_viewer) {
+    return(list(show_console = FALSE, open_viewer = TRUE, supports_viewer = TRUE))
+  }
+  list(show_console = TRUE, open_viewer = FALSE, supports_viewer = FALSE)
+}
+
 .studyAgentSlashExplorationTableSection <- function(data,
                                                     title,
                                                     preview_data = NULL) {

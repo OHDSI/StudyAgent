@@ -29,13 +29,14 @@ def test_keeper_profile_and_review_wrappers_are_exposed() -> None:
     assert 'acp_call_flow(client, "keeper_profiles_generate", body)' in source
     assert "keeper_concept_sets = NULL" in source
     assert "keeper_concept_sets_path = NULL" in source
-    assert 'body$keeper_concept_sets_path <- normalizePath' in source
+    assert 'keeper_concept_sets <- .acp_load_keeper_concept_sets(keeper_concept_sets_path)' in source
+    assert 'body$keeper_concept_sets <- .acp_minimize_keeper_concept_sets(keeper_concept_sets)' in source
     assert "person_ids = as.list(person_ids)" in source
     assert "acp_phenotype_validation_review <- function(" in source
     assert "keeper_row_path = NULL" in source
     assert "row_index = NULL" in source
-    assert "body$keeper_row_path <- normalizePath" in source
-    assert "body$row_index <- as.integer(row_index)" in source
+    assert "keeper_row <- .acp_load_keeper_row(keeper_row_path, row_index = row_index)" in source
+    assert "body$keeper_row <- .acp_minimize_keeper_row(keeper_row)" in source
     assert ".acp_minimize_keeper_row <- function(keeper_row) {" in source
     assert '"phenotype_validation_review"' in source
     assert "export(acp_keeper_profiles_generate)" in namespace

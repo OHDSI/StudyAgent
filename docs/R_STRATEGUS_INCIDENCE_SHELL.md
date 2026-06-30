@@ -68,7 +68,8 @@ Current behavior notes:
 
 - Exiting the execution menu asks for confirmation unless the workflow is already complete.
 - Invalid step or exploration input no longer exits the shell; the menu stays active and prints valid choices.
-- `inspect_v <step>` and `explore_v <command-id>` try to open tabular results with `utils::View(...)` when an interactive viewer is available, while leaving the default CLI-first commands unchanged.
+- `inspect_v <step>` and `explore_v <command-id>` try to open tabular results with `utils::View(...)` when an interactive viewer is available.
+- `executionTableDisplay = "console" | "viewer" | "auto"` sets the default rendering mode for `art`, `inspect`, and `explore`. `"viewer"` suppresses console table previews when a viewer is available, and `"auto"` uses the viewer when possible but falls back to console output.
 - Build-only steps are tracked in workflow status, but if a step has no generated script it is not treated as runnable during execution mode.
 
 Current runtime expectations:

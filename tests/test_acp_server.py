@@ -1258,39 +1258,65 @@ def test_flow_workflow_context_dialogue_missing_prompt():
     assert result["error"] == "missing user_prompt"
 
 
+def _run_post(path: str, body: dict):
+    handler = acp_server.ACPRequestHandler.__new__(acp_server.ACPRequestHandler)
+    handler.path = path
+    handler.headers = {}
+    handler.debug = False
+    handler.agent = StudyAgent(mcp_client=StubMCPClient())
+    handler.mcp_client = None
+    handler.wfile = None
+    handler.rfile = None
+
+    captured = {}
+
+    def fake_read_json(_handler):
+        return body
+
+    def fake_write_json(_handler, status, payload):
+        captured["status"] = status
+        captured["payload"] = payload
+
+    original_read = acp_server._read_json
+    original_write = acp_server._write_json
+    acp_server._read_json = fake_read_json
+    acp_server._write_json = fake_write_json
+    try:
+        handler.do_POST()
+    finally:
+        acp_server._read_json = original_read
+        acp_server._write_json = original_write
+    return captured
+
+
 @pytest.mark.acp
-def test_resolve_safe_local_request_path_allows_configured_root(monkeypatch, tmp_path):
-    allowed_root = tmp_path / "allowed"
-    allowed_root.mkdir()
-    payload_path = allowed_root / "payload.json"
-    payload_path.write_text('{"ok": true}', encoding="utf-8")
+def test_post_rejects_path_only_cohort_requests():
+    captured = _run_post("/flows/cohort_critique_general_design", {"cohort_path": "scripts/cohort_definition.json"})
 
-    monkeypatch.setenv("STUDY_AGENT_ALLOWED_LOCAL_PATHS", str(allowed_root))
-
-    assert acp_server._resolve_safe_local_request_path(str(payload_path)) == str(payload_path.resolve())
+    assert captured["status"] == 400
+    assert captured["payload"]["error"] == "local_path_inputs_not_supported:cohort_path"
 
 
 @pytest.mark.acp
-def test_resolve_safe_local_request_path_rejects_escape(monkeypatch, tmp_path):
-    allowed_root = tmp_path / "allowed"
-    allowed_root.mkdir()
-    outside_path = tmp_path / "outside.json"
-    outside_path.write_text('{"ok": true}', encoding="utf-8")
+def test_post_rejects_path_only_keeper_row_requests():
+    captured = _run_post(
+        "/flows/phenotype_validation_review",
+        {"disease_name": "COPD", "keeper_row_path": "keeper-case-review/rows/outcome_1271_rows.json", "row_index": 1},
+    )
 
-    monkeypatch.setenv("STUDY_AGENT_ALLOWED_LOCAL_PATHS", str(allowed_root))
-
-    with pytest.raises(ValueError, match="path_outside_allowed_roots"):
-        acp_server._resolve_safe_local_request_path(str(outside_path))
+    assert captured["status"] == 400
+    assert captured["payload"]["error"] == "local_path_inputs_not_supported:keeper_row_path"
 
 
 @pytest.mark.acp
-def test_load_keeper_row_from_path_rejects_file_outside_allowed_root(monkeypatch, tmp_path):
-    allowed_root = tmp_path / "allowed"
-    allowed_root.mkdir()
-    outside_path = tmp_path / "rows.json"
-    outside_path.write_text('{"rows": [{"generatedId": "1"}]}', encoding="utf-8")
+def test_post_ignores_path_hint_when_inline_payload_is_present():
+    captured = _run_post(
+        "/flows/cohort_critique_general_design",
+        {
+            "cohort": {"PrimaryCriteria": {}},
+            "cohort_path": "scripts/cohort_definition.json",
+        },
+    )
 
-    monkeypatch.setenv("STUDY_AGENT_ALLOWED_LOCAL_PATHS", str(allowed_root))
-
-    with pytest.raises(ValueError, match="path_outside_allowed_roots"):
-        acp_server._load_keeper_row_from_path(str(outside_path), row_index=1)
+    assert captured["status"] == 200
+    assert captured["payload"]["status"] == "ok"

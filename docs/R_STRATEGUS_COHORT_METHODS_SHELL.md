@@ -13,7 +13,7 @@ This shell is provided as `slashOhdsiStrategusAssistant::runStrategusCohortMetho
 
 ## Running
 
-Usage examples for `slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell()` live in the R package README: `R/slashOhdsiStrategusAssistant/README.md`.
+Usage examples for `slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell()` live in `scripts/demo_strategus_cohort_method.R`. Package-level shell notes live in `R/slashOhdsiStrategusAssistant/README.md`.
 
 Workflow diagrams live in `docs/WORKFLOW_COHORT_METHODS.md`.
 
@@ -36,7 +36,7 @@ Workflow diagrams live in `docs/WORKFLOW_COHORT_METHODS.md`.
 7. Configure one analytic-settings profile through `step_by_step`, `free_text`, or cached/function-argument inputs.
    Analytic settings are always collected in this stage and confirmed before finalization.
 8. Optionally run ACP-based Keeper review inline with reuse/resume controls and bounded Keeper stage gates around domain generation and case review.
-9. Generate scripts in `scripts/` for cohort generation, Keeper review, diagnostics, and CohortMethod spec/execution.
+9. Generate scripts in `scripts/` for cohort generation, Keeper review, diagnostics, and CohortMethod spec/execution, including `07_cm_spec.R`.
 10. Optionally enter run/resume mode in the same shell to execute generated steps, inspect artifacts, ask `/ohdsi` questions, or return to build mode with `revise ...`.
 
 ## Analytic Settings
@@ -153,7 +153,8 @@ Current behavior notes:
 
 - Exiting the execution menu asks for confirmation unless the workflow is already complete.
 - Invalid step or exploration input no longer exits the shell; the menu stays active and prints valid choices.
-- `inspect_v <step>` and `explore_v <command-id>` try to open tabular results with `utils::View(...)` when an interactive viewer is available, while leaving the default CLI-first commands unchanged.
+- `inspect_v <step>` and `explore_v <command-id>` try to open tabular results with `utils::View(...)` when an interactive viewer is available.
+- `executionTableDisplay = "console" | "viewer" | "auto"` sets the default rendering mode for `art`, `inspect`, and `explore`. `"viewer"` suppresses console table previews when a viewer is available, and `"auto"` uses the viewer when possible but falls back to console output.
 
 
 Generated scripts that connect to the database expect these site-specific files at the root of

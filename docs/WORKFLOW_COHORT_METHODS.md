@@ -66,7 +66,7 @@ flowchart TD
   AJ --> AT["Confirm Analytic Settings"]
   AS --> AT
   AT --> AU["Optional inline ACP Keeper review with bounded stage gates"]
-  AU --> AV["Write Outputs + Generate Scripts 02-06"]
+  AU --> AV["Write Outputs + Generate Scripts 02-07"]
   AV --> AW["End"]
 ```
 

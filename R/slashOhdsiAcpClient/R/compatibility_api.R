@@ -184,8 +184,8 @@ pullPhenotypeDefinitions <- function(cohortIds,
 }
 
 #' Review phenotype definitions for improvements
-#' @param protocolPath path to protocol markdown/text
-#' @param cohortJsonPaths character vector of cohort definition JSON paths
+#' @param protocolPath local path to protocol markdown/text; the client loads and sends inline protocol_text to ACP
+#' @param cohortJsonPaths character vector of local cohort definition JSON paths; the client loads and sends inline cohorts to ACP
 #' @param characterizationPaths optional vector of characterization outputs
 #' @param interactive logical; print plan and summaries
 #' @param apply logical; write selected improvements to disk

@@ -50,13 +50,13 @@ acp_concept_set_edit <- function(client,
 
 #' Call ACP concept-set lint flow
 #' @param client ACP client object
-#' @param concept_set_path path to concept set JSON
+#' @param concept_set_path local path to concept set JSON; the client loads and sends inline concept_set
 #' @param study_intent study intent text
 #' @return parsed ACP response
 #' @export
 acp_lint_concept_sets <- function(client, concept_set_path, study_intent = "") {
   body <- list(
-    concept_set_path = concept_set_path,
+    concept_set = .acp_read_json_file(concept_set_path, label = "concept_set_path"),
     study_intent = as.character(study_intent %||% "")
   )
   acp_call_flow(client, "concept_sets_review", body)
@@ -64,9 +64,9 @@ acp_lint_concept_sets <- function(client, concept_set_path, study_intent = "") {
 
 #' Call ACP general cohort critique flow
 #' @param client ACP client object
-#' @param cohort_path path to cohort JSON
+#' @param cohort_path local path to cohort JSON; the client loads and sends inline cohort
 #' @return parsed ACP response
 #' @export
 acp_lint_cohort_general_design <- function(client, cohort_path) {
-  acp_call_flow(client, "cohort_critique_general_design", list(cohort_path = cohort_path))
+  acp_call_flow(client, "cohort_critique_general_design", list(cohort = .acp_load_cohort_from_path(cohort_path, label = "cohort_path")))
 }

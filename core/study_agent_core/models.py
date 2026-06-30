@@ -63,8 +63,6 @@ class WorkflowContextDialogueInput(BaseModel):
 class PhenotypeValidationReviewInput(BaseModel):
     disease_name: str = ""
     keeper_row: Dict[str, Any] = Field(default_factory=dict)
-    keeper_row_path: str = ""
-    row_index: Optional[int] = None
     llm_result: Optional[Dict[str, Any]] = None
 
 
@@ -185,7 +183,6 @@ class KeeperProfilesGenerateInput(BaseModel):
     sample_size: int = 20
     person_ids: List[str] = Field(default_factory=list)
     keeper_concept_sets: List[KeeperConceptSetItem] = Field(default_factory=list)
-    keeper_concept_sets_path: str = ""
     phenotype_name: str = ""
     use_descendants: bool = True
     remove_pii: bool = True

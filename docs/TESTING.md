@@ -413,13 +413,10 @@ curl -s -X POST http://127.0.0.1:8765/flows/phenotype_improvements \
   -d '{"protocol_text":"Example protocol text","cohorts":[{"id":1,"name":"Example"}],"characterization_previews":[]}'
 ```
 
-Using file paths:
+Client-side file loading:
 
-```bash
-curl -s -X POST http://127.0.0.1:8765/flows/phenotype_improvements \
-  -H 'Content-Type: application/json' \
-  -d '{"protocol_path":"scripts/protocol.md","cohort_paths":["scripts/1197_Acute_gastrointestinal_bleeding.json"]}'
-```
+- ACP no longer opens local paths from request bodies.
+- Local clients should load protocol/cohort artifacts first and send inline `protocol_text` plus `cohorts`.
 
 Concept sets review:
 
@@ -437,17 +434,10 @@ curl -s -X POST http://127.0.0.1:8765/flows/cohort_critique_general_design \
   -d '{"cohort":{"PrimaryCriteria":{}}}'
 ```
 
-Using file paths:
+Client-side file loading:
 
-```bash
-curl -s -X POST http://127.0.0.1:8765/flows/concept_sets_review \
-  -H 'Content-Type: application/json' \
-  -d '{"concept_set_path":"scripts/concept_set.json","study_intent":"Example intent"}'
-
-curl -s -X POST http://127.0.0.1:8765/flows/cohort_critique_general_design \
-  -H 'Content-Type: application/json' \
-  -d '{"cohort_path":"scripts/cohort_definition.json"}'
-```
+- ACP no longer opens local paths from request bodies.
+- Local clients should load concept-set and cohort JSON first and send inline `concept_set` or `cohort` payloads.
 
 Phenotype validation review (single patient):
 

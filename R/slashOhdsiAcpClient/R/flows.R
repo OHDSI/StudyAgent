@@ -37,16 +37,16 @@ acp_phenotype_recommendation_advice <- function(client, study_intent) {
 
 #' Call phenotype improvements flow
 #' @param client ACP client object
-#' @param protocol_path path to protocol markdown or text
-#' @param cohort_paths cohort JSON paths
+#' @param protocol_path local path to protocol markdown or text; the client reads and sends inline protocol_text
+#' @param cohort_paths local cohort JSON paths; the client reads and sends inline cohorts
 #' @return parsed ACP response
 #' @export
 acp_review_phenotypes <- function(client, protocol_path, cohort_paths) {
   cohort_paths <- as.character(cohort_paths %||% character(0))
   if (!length(cohort_paths)) stop("Provide at least one cohort path.")
   body <- list(
-    protocol_path = normalizePath(protocol_path, winslash = "/", mustWork = FALSE),
-    cohort_paths = as.list(unname(vapply(cohort_paths, normalizePath, character(1), winslash = "/", mustWork = FALSE)))
+    protocol_text = .acp_read_text_file(protocol_path, label = "protocol_path"),
+    cohorts = lapply(cohort_paths, function(path) .acp_load_cohort_from_path(path, label = "cohort_path"))
   )
   acp_call_flow(client, "phenotype_improvements", body)
 }
@@ -206,7 +206,7 @@ acp_keeper_concept_sets_generate <- function(client,
 #' @param cohort_definition_id cohort definition ID to sample from
 #' @param cdm_database_schema CDM schema
 #' @param keeper_concept_sets list of normalized Keeper concept-set rows
-#' @param keeper_concept_sets_path optional path to a JSON artifact containing concept_sets
+#' @param keeper_concept_sets_path optional local path to a JSON artifact containing concept_sets; the client loads it before calling ACP
 #' @param sample_size requested sample size
 #' @param person_ids optional character vector of person IDs to restrict to
 #' @param phenotype_name optional phenotype label for output metadata
@@ -250,13 +250,12 @@ acp_keeper_profiles_generate <- function(client,
     remove_pii = isTRUE(remove_pii)
   )
   if (!is.null(keeper_concept_sets_path) && nzchar(trimws(as.character(keeper_concept_sets_path)))) {
-    body$keeper_concept_sets_path <- normalizePath(trimws(as.character(keeper_concept_sets_path)), winslash = "/", mustWork = FALSE)
-  } else {
-    if (!is.list(keeper_concept_sets) || !length(keeper_concept_sets)) {
-      stop("Provide a non-empty keeper_concept_sets list or keeper_concept_sets_path.")
-    }
-    body$keeper_concept_sets <- .acp_minimize_keeper_concept_sets(keeper_concept_sets)
+    keeper_concept_sets <- .acp_load_keeper_concept_sets(keeper_concept_sets_path)
   }
+  if (!is.list(keeper_concept_sets) || !length(keeper_concept_sets)) {
+    stop("Provide a non-empty keeper_concept_sets list or keeper_concept_sets_path.")
+  }
+  body$keeper_concept_sets <- .acp_minimize_keeper_concept_sets(keeper_concept_sets)
   if (!is.null(phenotype_name) && nzchar(trimws(as.character(phenotype_name)))) {
     body$phenotype_name <- trimws(as.character(phenotype_name))
   }
@@ -267,6 +266,8 @@ acp_keeper_profiles_generate <- function(client,
 #' @param client ACP client object
 #' @param disease_name disease or phenotype name
 #' @param keeper_row sanitized Keeper-style review row
+#' @param keeper_row_path optional local path to a Keeper review artifact; the client loads and minimizes it before calling ACP
+#' @param row_index optional 1-based row index when loading from keeper_row_path
 #' @return parsed ACP response
 #' @export
 acp_phenotype_validation_review <- function(client,
@@ -282,13 +283,11 @@ acp_phenotype_validation_review <- function(client,
   }
   body <- list(disease_name = trimws(as.character(disease_name)))
   if (!is.null(keeper_row_path) && nzchar(trimws(as.character(keeper_row_path)))) {
-    body$keeper_row_path <- normalizePath(trimws(as.character(keeper_row_path)), winslash = "/", mustWork = FALSE)
-    if (!is.null(row_index)) body$row_index <- as.integer(row_index)
-  } else {
-    if (!is.list(keeper_row) || !length(keeper_row)) {
-      stop("Provide keeper_row as a non-empty list.")
-    }
-    body$keeper_row <- .acp_minimize_keeper_row(keeper_row)
+    keeper_row <- .acp_load_keeper_row(keeper_row_path, row_index = row_index)
   }
+  if (!is.list(keeper_row) || !length(keeper_row)) {
+    stop("Provide keeper_row as a non-empty list.")
+  }
+  body$keeper_row <- .acp_minimize_keeper_row(keeper_row)
   acp_call_flow(client, "phenotype_validation_review", body)
 }
