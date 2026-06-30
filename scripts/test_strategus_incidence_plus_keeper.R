@@ -32,7 +32,7 @@ slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
   acpUrl = "http://127.0.0.1:8765",
   studyAgentBaseDir = repo_root,
   indexDir = "data/phenotype_index_cipher_omop",
-  studyIntent = "What is the risk of GI bleed in new users of tofacitinib compared to new users of ruxolitinib?",
+  studyIntent = "Enter an incidence  rate research question involving a single target and single outcome",
   executionTableDisplay = "viewer"
 )
 

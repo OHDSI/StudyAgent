@@ -3829,7 +3829,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     invisible(NULL)
   }
 
-  inspect_execution_outputs <- function(step_id, viewer = FALSE, display = NULL) {
+  inspect_execution_outputs <- function(step_id, viewer = FALSE) {
     outputs <- .studyAgentSlashInspectWorkflowStepOutputs(base_dir, step_id)
     if (length(outputs) == 0) {
       cat("No registered outputs for that step.
@@ -3852,6 +3852,8 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
       output_table,
       preferred_order = c("output_id", "exists", "relative_path", "path")
     )
+    display <- if (isTRUE(viewer)) NULL else execution_table_display
+    display <- if (isTRUE(viewer)) NULL else execution_table_display
     render_mode <- .studyAgentSlashResolveExecutionTableDisplay(display = display, viewer = viewer)
     cat(sprintf("
 Outputs for %s
@@ -3977,7 +3979,7 @@ Valid step values
     invisible(NULL)
   }
 
-  print_artifact_inventory <- function(viewer = FALSE, display = NULL) {
+  print_artifact_inventory <- function(viewer = FALSE) {
     registry <- .studyAgentSlashBuildArtifactRegistry(base_dir)
     table <- .studyAgentSlashArtifactRegistryTable(registry)
     if (nrow(table) == 0) {
@@ -3985,6 +3987,7 @@ Valid step values
 ")
       return(invisible(NULL))
     }
+    display <- if (isTRUE(viewer)) NULL else execution_table_display
     render_mode <- .studyAgentSlashResolveExecutionTableDisplay(display = display, viewer = viewer)
     viewer_table <- .studyAgentSlashArtifactRegistryTable(registry, viewer = TRUE)
     cat("
@@ -4004,7 +4007,7 @@ Artifact inventory
     invisible(NULL)
   }
 
-  print_exploration_commands <- function(viewer = FALSE, display = NULL) {
+  print_exploration_commands <- function(viewer = FALSE) {
     commands <- available_exploration_commands()
     table <- .studyAgentSlashExplorationCommandTable(commands)
     if (nrow(table) == 0) {
@@ -4077,9 +4080,10 @@ Available exploration commands
     }
   }
 
-  run_exploration_command <- function(command_ref, viewer = FALSE, display = NULL) {
+  run_exploration_command <- function(command_ref, viewer = FALSE) {
     command_id <- resolve_exploration_command_id(command_ref)
     if (is.null(command_id)) return(invisible(FALSE))
+    display <- if (isTRUE(viewer)) NULL else execution_table_display
     result <- .studyAgentSlashRunExplorationCommand(base_dir, command_id = command_id)
     .studyAgentSlashRenderExplorationResult(result, viewer = viewer, display = display)
     invisible(TRUE)
@@ -4122,7 +4126,7 @@ Available exploration commands
         next
       }
       if (lowered %in% c("art", "artifact", "artifacts")) {
-        print_artifact_inventory(display = execution_table_display)
+        print_artifact_inventory()
         next
       }
       if (lowered %in% c("art_v", "artifact_v", "artifacts_v")) {
@@ -4130,7 +4134,7 @@ Available exploration commands
         next
       }
       if (lowered %in% c("x", "explore")) {
-        print_exploration_commands(display = execution_table_display)
+        print_exploration_commands()
         next
       }
       if (lowered %in% c("x_v", "explore_v")) {
@@ -4138,7 +4142,7 @@ Available exploration commands
         next
       }
       if (grepl("^[0-9]+$", lowered)) {
-        run_exploration_command(lowered, display = execution_table_display)
+        run_exploration_command(lowered)
         next
       }
       if (startsWith(lowered, "x_v ") || startsWith(lowered, "explore_v ")) {
@@ -4148,7 +4152,7 @@ Available exploration commands
       }
       if (startsWith(lowered, "x ") || startsWith(lowered, "explore ")) {
         command_ref <- sub("^(?:x|explore)\\s+", "", lowered)
-        run_exploration_command(command_ref, display = execution_table_display)
+        run_exploration_command(command_ref)
         next
       }
       if (lowered %in% c("b", "backup")) {
@@ -4284,7 +4288,7 @@ Available exploration commands
         }
         step_id <- resolve_execution_step_id(step_ref)
         if (is.null(step_id)) next
-        inspect_execution_outputs(step_id, viewer = viewer, display = if (isTRUE(viewer)) NULL else execution_table_display)
+        inspect_execution_outputs(step_id, viewer = viewer)
         next
       }
       cat("Choose h, s, art, x[_v], b, bk, reset <step>, restore <snapshot-id>, rev, n, a, i[_v], run <step>, /ohdsi <question>, q, or Enter. Type h for valid steps and explore for approved commands.\n")

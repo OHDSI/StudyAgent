@@ -4,6 +4,7 @@ from _repo_paths import repo_path
 
 
 SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_incidence_shell.R")
+IMPORT_HELPER_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "cohort_definition_import.R")
 
 def test_outcome_selection_state_is_initialized_before_target_mapping_prompt() -> None:
     source = SOURCE.read_text(encoding="utf-8")
@@ -104,3 +105,24 @@ def test_shell_seeds_runtime_templates_and_generated_scripts_use_them() -> None:
     assert "createStrategusConnectionDetails(path = db_details_path)" in script06
     assert "createStrategusExecutionSettings(path = execution_settings_path)" in script06
     assert "<FILL IN>" not in script06
+
+
+def test_shell_can_import_existing_database_cohorts() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+
+    assert 'Source for %s cohort [Enter=index search, db=existing database cohort]:' in source
+    assert 'prompt_database_cohort_imports <- function(role_label, allow_multiple = FALSE)' in source
+    assert 'selected_cohort_sources.json' in source
+    assert 'imported-cohort-definitions' in source
+
+
+def test_database_import_helper_requires_simple_expression_json() -> None:
+    source = IMPORT_HELPER_SOURCE.read_text(encoding="utf-8")
+
+    assert 'SIMPLE_EXPRESSION' in source
+    assert 'SELECT id AS cohort_definition_id, name AS cohort_name, expression_type' in source
+    assert 'SELECT cd.id AS cohort_definition_id,' in source
+    assert 'cd.name AS cohort_name,' in source
+    assert 'ON cd.id = cdd.id' in source
+    assert 'cohort_definition_details' in source
+    assert 'Circe SIMPLE_EXPRESSION JSON payload' in source

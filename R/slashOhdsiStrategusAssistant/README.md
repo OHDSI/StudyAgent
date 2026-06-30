@@ -30,6 +30,7 @@ Current shell details:
 - the incidence shell persists explicit TAR and strata settings to `analysis-settings/time_at_risk_settings.json`
 - both Strategus shells support `/back` at major stage boundaries while preserving `/ohdsi` dialogue prompts inside the workflow
 - both Strategus shells can run or generate ACP-based Keeper concept-set and case-review workflows with `keeper_concept_set_state.json` and `keeper_case_review_state.json` artifacts plus bounded inline Keeper gates for domain generation and case review
+- the incidence shell can now import an existing OHDSI cohort definition from a configured database schema when the phenotype index does not contain a usable candidate
 - generated Keeper scripts expose `ACP_TIMEOUT`, concept-set reuse/overwrite controls, and explicit row selection controls
 - both Strategus shells now also persist `study-agent-project.json` and `outputs/study_agent_runtime_state.json` so generated workflow steps can be run and resumed inside the same shell
 - both Strategus shells expose an execution menu for run/resume mode with step status, `run <step>`, `inspect[_v] <step>`, artifact inventory, approved exploration commands via `x` / `explore[_v]`, `/ohdsi` guidance, and an `executionTableDisplay` startup option for viewer-first table rendering

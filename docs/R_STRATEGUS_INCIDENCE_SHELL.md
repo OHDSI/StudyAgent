@@ -12,6 +12,7 @@ generation plus in-shell execution for a CohortIncidence analysis.
 - Calls `phenotype_intent_split` to derive target and outcome cohort statements.
 - Calls `phenotype_recommendation` separately for target and outcome cohorts.
 - Lets the user select accepted target/outcome phenotypes and optionally remap cohort IDs.
+- When the phenotype index is missing a usable cohort, the shell can instead import an existing OHDSI cohort definition from a database schema that exposes `cohort_definition` plus `cohort_definition_details` with `SIMPLE_EXPRESSION` JSON payloads. Imported definitions are validated, cached under the workflow directory, and then treated like local cohort artifacts for the rest of the run.
 - Calls `phenotype_improvements` for each selected cohort and lets the user apply improvements immediately.
 - Captures explicit time-at-risk and strata settings for the incidence analysis.
 - Supports `/back` at major stage boundaries while keeping `/ohdsi` dialogue available during the workflow.
