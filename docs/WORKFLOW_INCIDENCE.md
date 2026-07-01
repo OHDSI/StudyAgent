@@ -47,7 +47,7 @@ flowchart TD
   AD --> AE
   AE --> AF[Configure TAR + Strata Settings]
   AF --> AG[Optional Inline ACP Keeper Review]
-  AG --> AH[Generate Scripts 01-06]
+  AG --> AH[Generate Scripts 01-08]
   AH --> AI[End]
 ```
 

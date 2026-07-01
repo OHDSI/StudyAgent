@@ -35,7 +35,7 @@ Default output directory: `demo-strategus-cohort-incidence/`
 - `patched-outcome-cohorts/`: improved outcome cohort JSON (if applied).
 - `keeper-case-review/`: ACP Keeper artifacts, generated/approved concept sets, sampled rows, and review outputs.
 - `analysis-settings/`: analysis artifacts including `time_at_risk_settings.json` and the generated Strategus specification.
-- `scripts/`: generated R scripts (`01` through `07`).
+- `scripts/`: generated R scripts (`01` through `08`, including the optional Diagnostics Explorer launcher).
 
 ## Generated scripts
 
@@ -78,11 +78,11 @@ Current behavior notes:
 Current runtime expectations:
 
 - `03_generate_cohorts.R`, `06_diagnostics.R`, and `07_incidence_spec.R` expect site-specific Strategus connection/execution settings files under `outputDir`.
-- `08_launch_diagnostics_explorer.R` launches `CohortDiagnostics::launchDiagnosticsExplorer()` against the generated diagnostics results and is intended to be run outside the shell runner.
+- `08_launch_diagnostics_explorer.R` creates `MergedCohortDiagnosticsData.sqlite` with `CohortDiagnostics::createMergedResultsFile()` when needed, then launches `CohortDiagnostics::launchDiagnosticsExplorer()` against that merged diagnostics database. It is intended to be run outside the shell runner.
 - `04_keeper_concept_sets.R` uses the ACP-based Keeper concept-set helper and writes `outputs/keeper_concept_set_state.json`.
 - `05_keeper_case_review.R` uses the ACP-based Keeper case-review helper and writes `outputs/keeper_case_review_state.json`.
 - `07_incidence_spec.R` reads `analysis-settings/time_at_risk_settings.json` instead of hard-coding TAR definitions.
-- Run `08_launch_diagnostics_explorer.R` in a second R session, RStudio Job, or terminal if you want the workflow shell and `/ohdsi` support to remain available.
+- Run `08_launch_diagnostics_explorer.R` in a second R session, RStudio Job, or terminal if you want the workflow shell and `/ohdsi` support to remain available. The first launch may take a moment because it can build the merged diagnostics SQLite before opening the app.
 
 Generated scripts that connect to the database expect these site-specific files at the root of
 `outputDir`:

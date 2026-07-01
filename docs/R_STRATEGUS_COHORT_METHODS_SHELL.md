@@ -36,7 +36,7 @@ Workflow diagrams live in `docs/WORKFLOW_COHORT_METHODS.md`.
 7. Configure one analytic-settings profile through `step_by_step`, `free_text`, or cached/function-argument inputs.
    Analytic settings are always collected in this stage and confirmed before finalization.
 8. Optionally run ACP-based Keeper review inline with reuse/resume controls and bounded Keeper stage gates around domain generation and case review.
-9. Generate scripts in `scripts/` for cohort generation, Keeper review, diagnostics, and CohortMethod spec/execution, including `07_cm_spec.R`.
+9. Generate scripts in `scripts/` for cohort generation, Keeper review, diagnostics, CohortMethod spec/execution, and an optional Diagnostics Explorer launcher, including `07_cm_spec.R` and `08_launch_diagnostics_explorer.R`.
 10. Optionally enter run/resume mode in the same shell to execute generated steps, inspect artifacts, ask `/ohdsi` questions, or return to build mode with `revise ...`.
 
 ## Analytic Settings
@@ -195,7 +195,7 @@ Current Keeper specifics:
 
 - `scripts/04_keeper_concept_sets.R` uses `runKeeperConceptSetWorkflow(...)` and writes `outputs/keeper_concept_set_state.json`.
 - `scripts/05_keeper_case_review.R` uses `runKeeperCaseReviewWorkflow(...)` and writes `outputs/keeper_case_review_state.json`.
-- `scripts/08_launch_diagnostics_explorer.R` launches `CohortDiagnostics::launchDiagnosticsExplorer()` against the generated diagnostics results and should be run in a second R session if you want the shell and `/ohdsi` to remain available.
+- `scripts/08_launch_diagnostics_explorer.R` creates `MergedCohortDiagnosticsData.sqlite` with `CohortDiagnostics::createMergedResultsFile()` when needed, then launches `CohortDiagnostics::launchDiagnosticsExplorer()` against that merged diagnostics database. Run it in a second R session if you want the shell and `/ohdsi` to remain available.
 - Inline Keeper review now exposes bounded stage gates before and after each requested concept-set domain and before and after case review.
 - The generated Keeper scripts expose `ACP_TIMEOUT`, concept-set reuse/overwrite, row reuse/resume, and explicit row selection controls such as `1-3,5`.
 - Manual editing of `keeper-case-review/concept-sets-approved/*.json` is consumable, but the concept-set approve/edit/rerun UX is still incomplete.
