@@ -405,6 +405,155 @@
   Filter(dir.exists, resolved)
 }
 
+.studyAgentSlashDiscoverIncidenceResultsDir <- function(base_dir, project_state = NULL) {
+  exec_roots <- .studyAgentSlashDiscoverStrategusExecutionRoots(base_dir, project_state = project_state)
+  results_root <- as.character(exec_roots$results_root %||% "")
+  if (!nzchar(results_root)) return(NULL)
+  candidate <- file.path(results_root, "CohortIncidenceModule")
+  if (!dir.exists(candidate)) return(NULL)
+  candidate
+}
+
+.studyAgentSlashReadIncidenceTable <- function(base_dir, file_name, project_state = NULL) {
+  root <- .studyAgentSlashDiscoverIncidenceResultsDir(base_dir, project_state = project_state)
+  if (is.null(root) || !nzchar(root)) return(NULL)
+  path <- file.path(root, as.character(file_name %||% ""))
+  .studyAgentSlashReadCsvSafe(path)
+}
+
+.studyAgentSlashFormatIncidenceTarLabel <- function(start_with, start_offset, end_with, end_offset) {
+  sprintf("%s %+d to %s %+d days", start_with %||% "start", as.integer(start_offset %||% 0L), end_with %||% "end", as.integer(end_offset %||% 0L))
+}
+
+.studyAgentSlashSummarizeIncidenceResults <- function(base_dir, project_state = NULL) {
+  summary <- .studyAgentSlashReadIncidenceTable(base_dir, "ci_incidence_summary.csv", project_state = project_state)
+  if (is.null(summary) || !is.data.frame(summary) || nrow(summary) <= 0) return(NULL)
+  target_def <- .studyAgentSlashReadIncidenceTable(base_dir, "ci_target_def.csv", project_state = project_state)
+  outcome_def <- .studyAgentSlashReadIncidenceTable(base_dir, "ci_outcome_def.csv", project_state = project_state)
+  tar_def <- .studyAgentSlashReadIncidenceTable(base_dir, "ci_tar_def.csv", project_state = project_state)
+
+  names(summary) <- toupper(names(summary))
+  if (!is.null(target_def) && is.data.frame(target_def) && nrow(target_def) > 0) {
+    names(target_def) <- toupper(names(target_def))
+    summary <- merge(summary, unique(target_def[, intersect(c("TARGET_COHORT_DEFINITION_ID", "TARGET_NAME"), names(target_def)), drop = FALSE]), by = "TARGET_COHORT_DEFINITION_ID", all.x = TRUE, sort = FALSE)
+  }
+  if (!is.null(outcome_def) && is.data.frame(outcome_def) && nrow(outcome_def) > 0) {
+    names(outcome_def) <- toupper(names(outcome_def))
+    summary <- merge(summary, unique(outcome_def[, intersect(c("OUTCOME_ID", "OUTCOME_NAME", "OUTCOME_COHORT_DEFINITION_ID"), names(outcome_def)), drop = FALSE]), by = "OUTCOME_ID", all.x = TRUE, sort = FALSE)
+  }
+  if (!is.null(tar_def) && is.data.frame(tar_def) && nrow(tar_def) > 0) {
+    names(tar_def) <- toupper(names(tar_def))
+    summary <- merge(summary, unique(tar_def[, intersect(c("TAR_ID", "TAR_START_WITH", "TAR_START_OFFSET", "TAR_END_WITH", "TAR_END_OFFSET"), names(tar_def)), drop = FALSE]), by = "TAR_ID", all.x = TRUE, sort = FALSE)
+    if (all(c("TAR_START_WITH", "TAR_START_OFFSET", "TAR_END_WITH", "TAR_END_OFFSET") %in% names(summary))) {
+      summary$TAR_LABEL <- vapply(seq_len(nrow(summary)), function(i) {
+        .studyAgentSlashFormatIncidenceTarLabel(
+          summary$TAR_START_WITH[[i]],
+          summary$TAR_START_OFFSET[[i]],
+          summary$TAR_END_WITH[[i]],
+          summary$TAR_END_OFFSET[[i]]
+        )
+      }, character(1))
+    }
+  }
+
+  numeric_cols <- intersect(c("TARGET_COHORT_DEFINITION_ID", "TAR_ID", "OUTCOME_ID", "START_YEAR", "PERSONS_AT_RISK", "PERSON_DAYS", "OUTCOMES", "INCIDENCE_PROPORTION_P100P", "INCIDENCE_RATE_P100PY"), names(summary))
+  for (col in numeric_cols) {
+    summary[[col]] <- suppressWarnings(as.numeric(summary[[col]]))
+  }
+  keep <- intersect(c(
+    "TARGET_COHORT_DEFINITION_ID",
+    "TARGET_NAME",
+    "OUTCOME_ID",
+    "OUTCOME_NAME",
+    "TAR_ID",
+    "TAR_LABEL",
+    "GENDER_NAME",
+    "START_YEAR",
+    "PERSONS_AT_RISK",
+    "PERSON_DAYS",
+    "OUTCOMES",
+    "INCIDENCE_PROPORTION_P100P",
+    "INCIDENCE_RATE_P100PY"
+  ), names(summary))
+  summary <- summary[, keep, drop = FALSE]
+  order_year <- if ("START_YEAR" %in% names(summary)) ifelse(is.na(summary$START_YEAR), Inf, summary$START_YEAR) else rep(Inf, nrow(summary))
+  order_tar <- if ("TAR_ID" %in% names(summary)) summary$TAR_ID else seq_len(nrow(summary))
+  order_gender <- if ("GENDER_NAME" %in% names(summary)) as.character(summary$GENDER_NAME %||% "") else rep("", nrow(summary))
+  summary[order(order_tar, order_year, order_gender), , drop = FALSE]
+}
+
+.studyAgentSlashIncidenceAnalysisSettingsTables <- function(base_dir, project_state = NULL) {
+  tar_settings <- .studyAgentSlashReadJsonSafe(file.path(base_dir, "analysis-settings", "time_at_risk_settings.json"), simplifyVector = FALSE) %||% list()
+  roles <- .studyAgentSlashReadJsonSafe(file.path(base_dir, "outputs", "cohort_roles.json"), simplifyVector = TRUE) %||% list()
+  selected <- .studyAgentSlashReadCsvSafe(file.path(base_dir, "selected-cohorts", "Cohorts.csv"))
+  exec_roots <- .studyAgentSlashDiscoverStrategusExecutionRoots(base_dir, project_state = project_state)
+  analysis_spec_path <- file.path(base_dir, "analysis-settings", "analysisSpecification.json")
+
+  describe_ids <- function(ids) {
+    ids <- suppressWarnings(as.integer(unlist(ids %||% integer(0), use.names = FALSE)))
+    ids <- ids[!is.na(ids)]
+    if (length(ids) == 0) return("")
+    if (!is.null(selected) && all(c("cohort_id", "cohort_name") %in% names(selected))) {
+      labels <- vapply(ids, function(id) {
+        match_row <- selected[selected$cohort_id == id, , drop = FALSE]
+        name <- if (nrow(match_row) > 0) as.character(match_row$cohort_name[[1]] %||% id) else as.character(id)
+        sprintf("%s (%s)", id, name)
+      }, character(1))
+      return(paste(labels, collapse = "; "))
+    }
+    paste(ids, collapse = ", ")
+  }
+
+  strata <- tar_settings$strata_settings %||% list()
+  overview <- data.frame(
+    property = c(
+      "targets",
+      "outcomes",
+      "analysis_tar_ids",
+      "strata_by_year",
+      "strata_by_gender",
+      "strata_by_age",
+      "age_breaks",
+      "analysis_specification_path",
+      "results_root",
+      "work_root"
+    ),
+    value = c(
+      describe_ids(roles$targets),
+      describe_ids(roles$outcomes),
+      paste(unlist(tar_settings$analysis_tar_ids %||% integer(0), use.names = FALSE), collapse = ", "),
+      as.character(isTRUE(strata$byYear %||% FALSE)),
+      as.character(isTRUE(strata$byGender %||% FALSE)),
+      as.character(isTRUE(strata$byAge %||% FALSE)),
+      paste(unlist(strata$ageBreaks %||% integer(0), use.names = FALSE), collapse = ", "),
+      analysis_spec_path,
+      as.character(exec_roots$results_root %||% ""),
+      as.character(exec_roots$work_root %||% "")
+    ),
+    stringsAsFactors = FALSE
+  )
+
+  tar_defs <- tar_settings$time_at_risk_defs %||% list()
+  tar_table <- if (length(tar_defs) > 0) {
+    do.call(rbind, lapply(tar_defs, function(def) {
+      data.frame(
+        tar_id = as.integer(def$id %||% NA_integer_),
+        tar_name = as.character(def$name %||% ""),
+        start_with = as.character(def$startWith %||% "start"),
+        start_offset = as.integer(def$startOffset %||% 0L),
+        end_with = as.character(def$endWith %||% "end"),
+        end_offset = as.integer(def$endOffset %||% 0L),
+        tar_label = .studyAgentSlashFormatIncidenceTarLabel(def$startWith, def$startOffset, def$endWith, def$endOffset),
+        stringsAsFactors = FALSE
+      )
+    }))
+  } else {
+    data.frame()
+  }
+
+  list(overview = overview, tar_table = tar_table)
+}
+
 .studyAgentSlashClassifyCmSpecArtifact <- function(path) {
   path <- normalizePath(as.character(path %||% ""), winslash = "/", mustWork = FALSE)
   name <- tolower(basename(path))
@@ -600,6 +749,11 @@
   if (identical(base_name, "cg_cohort_inc_result.csv")) return("cohort_inclusion_result_csv")
   if (identical(base_name, "cg_cohort_inc_stats.csv")) return("cohort_inclusion_stats_csv")
   if (identical(base_name, "cg_cohort_summary_stats.csv")) return("cohort_summary_stats_csv")
+  if (identical(base_name, "ci_incidence_summary.csv")) return("incidence_summary_csv")
+  if (identical(base_name, "ci_target_def.csv")) return("incidence_target_definition_csv")
+  if (identical(base_name, "ci_outcome_def.csv")) return("incidence_outcome_definition_csv")
+  if (identical(base_name, "ci_tar_def.csv")) return("incidence_tar_definition_csv")
+  if (identical(base_name, "08_launch_diagnostics_explorer.R")) return("diagnostics_explorer_script")
   if (grepl("/keeper-case-review/", path, fixed = TRUE)) return("keeper_artifact")
   if (dir.exists(path) && identical(base_name, "analysis-settings")) return("analysis_settings_dir")
   if (dir.exists(path) && identical(base_name, "cm-diagnostics")) return("cohort_method_diagnostics_dir")
@@ -748,6 +902,13 @@
       registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cg_cohort_inc_result_csv", file.path(cg_dir, "cg_cohort_inc_result.csv"), base_dir, step_id = "generate_cohorts", tags = c("results", "inclusion"))
       registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cg_cohort_inc_stats_csv", file.path(cg_dir, "cg_cohort_inc_stats.csv"), base_dir, step_id = "generate_cohorts", tags = c("results", "inclusion"))
       registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cg_cohort_summary_stats_csv", file.path(cg_dir, "cg_cohort_summary_stats.csv"), base_dir, step_id = "generate_cohorts", tags = c("results", "summary"))
+      incidence_step_id <- if (identical(project_state$workflow_type %||% "", "strategus_cohort_methods")) "cm_spec" else "incidence_spec"
+      ci_dir <- file.path(results_root, "CohortIncidenceModule")
+      registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cohort_incidence_module_dir", ci_dir, base_dir, step_id = incidence_step_id, tags = c("results", "incidence"), preview_kind = "dir")
+      registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "ci_incidence_summary_csv", file.path(ci_dir, "ci_incidence_summary.csv"), base_dir, step_id = incidence_step_id, tags = c("results", "incidence", "summary"))
+      registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "ci_target_def_csv", file.path(ci_dir, "ci_target_def.csv"), base_dir, step_id = incidence_step_id, tags = c("results", "incidence", "definitions"))
+      registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "ci_outcome_def_csv", file.path(ci_dir, "ci_outcome_def.csv"), base_dir, step_id = incidence_step_id, tags = c("results", "incidence", "definitions"))
+      registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "ci_tar_def_csv", file.path(ci_dir, "ci_tar_def.csv"), base_dir, step_id = incidence_step_id, tags = c("results", "incidence", "definitions"))
     }
   }
 
@@ -1014,6 +1175,69 @@
         }
         if (length(sections) == 0) stop("No cohort generation statistics files are available.")
         list(status = "ok", title = "Cohort generation statistics preview", sections = sections)
+      }
+    ),
+    list(
+      command_id = "incidence_summary_preview",
+      label = "Preview incidence summary results",
+      purpose = "Summarize CohortIncidence output with target, outcome, TAR, strata, and incidence measures.",
+      workflow_types = c("strategus_incidence", "strategus_cohort_methods"),
+      step_ids = c("incidence_spec", "cm_spec"),
+      required_packages = character(0),
+      artifact_requirements = c("incidence_summary_csv"),
+      input_parameters = list(),
+      output_kind = "table",
+      safe = TRUE,
+      executor = function(context) {
+        summary <- .studyAgentSlashSummarizeIncidenceResults(context$base_dir, project_state = context$project_state)
+        if (is.null(summary) || !is.data.frame(summary) || nrow(summary) == 0) {
+          stop("CohortIncidence summary output is not available yet.")
+        }
+        list(
+          status = "ok",
+          title = "Incidence summary preview",
+          sections = list(
+            .studyAgentSlashExplorationTableSection(
+              data = summary,
+              title = "Incidence summary preview",
+              preview_data = .studyAgentSlashCompactPreviewTable(summary, max_rows = 20L, max_cols = 8L)
+            )
+          )
+        )
+      }
+    ),
+    list(
+      command_id = "incidence_analysis_settings_summary",
+      label = "Summarize incidence analysis settings",
+      purpose = "Show selected targets/outcomes, TAR definitions, strata settings, and analysis/result roots for the incidence run.",
+      workflow_types = c("strategus_incidence", "strategus_cohort_methods"),
+      step_ids = c("incidence_spec", "cm_spec"),
+      required_packages = character(0),
+      artifact_requirements = c("analysis_specification_json"),
+      input_parameters = list(),
+      output_kind = "mixed",
+      safe = TRUE,
+      executor = function(context) {
+        tables <- .studyAgentSlashIncidenceAnalysisSettingsTables(context$base_dir, project_state = context$project_state)
+        sections <- list(
+          .studyAgentSlashExplorationTableSection(
+            data = tables$overview,
+            title = "Incidence analysis settings overview",
+            preview_data = .studyAgentSlashCompactPreviewTable(tables$overview, max_rows = 20L, max_cols = 2L)
+          )
+        )
+        if (!is.null(tables$tar_table) && is.data.frame(tables$tar_table) && nrow(tables$tar_table) > 0) {
+          sections[[length(sections) + 1L]] <- .studyAgentSlashExplorationTableSection(
+            data = tables$tar_table,
+            title = "Time-at-risk definitions",
+            preview_data = .studyAgentSlashCompactPreviewTable(tables$tar_table, max_rows = 12L, max_cols = 7L)
+          )
+        }
+        list(
+          status = "ok",
+          title = "Incidence analysis settings summary",
+          sections = sections
+        )
       }
     ),
     list(

@@ -126,3 +126,17 @@ def test_database_import_helper_requires_simple_expression_json() -> None:
     assert 'ON cd.id = cdd.id' in source
     assert 'cohort_definition_details' in source
     assert 'Circe SIMPLE_EXPRESSION JSON payload' in source
+
+
+def test_generated_diagnostics_explorer_launcher_script_is_emitted() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+
+    start = source.index('script_08 <- c(')
+    end = source.index('write_lines(file.path(scripts_dir, "08_launch_diagnostics_explorer.R")', start)
+    block = source[start:end]
+
+    assert "CohortDiagnostics" in block
+    assert "launchDiagnosticsExplorer" in block
+    assert "sqliteDbPath" in block
+    assert "createMergedResultsFile" in block
+    assert "Run this script in a second R session" in block

@@ -3095,6 +3095,80 @@ Keeper review saved: %s reviewed row(s)
   )
   write_lines(file.path(scripts_dir, "07_incidence_spec.R"), script_07)
 
+  script_08 <- c(
+    script_header,
+    "library(jsonlite)",
+    "`%||%` <- function(x, y) if (is.null(x)) y else x",
+    "",
+    "if (!requireNamespace('CohortDiagnostics', quietly = TRUE)) {",
+    "  stop('CohortDiagnostics is required to launch the diagnostics explorer.')",
+    "}",
+    "",
+    sprintf("base_dir <- '%s'", base_dir),
+    "execution_settings_path <- file.path(base_dir, 'strategus-execution-settings.json')",
+    "resolve_path <- function(path) {",
+    "  if (!nzchar(path)) return(path)",
+    "  if (grepl('^(/|[A-Za-z]:[\\\\/]|~)', path)) return(path)",
+    "  candidates <- unique(c(",
+    "    file.path(base_dir, path),",
+    "    file.path(dirname(base_dir), path),",
+    "    file.path(dirname(dirname(base_dir)), path),",
+    "    file.path(getwd(), path)",
+    "  ))",
+    "  for (candidate in candidates) {",
+    "    normalized <- normalizePath(candidate, winslash = '/', mustWork = FALSE)",
+    "    if (file.exists(normalized) || dir.exists(normalized)) return(normalized)",
+    "  }",
+    "  normalizePath(candidates[[1]], winslash = '/', mustWork = FALSE)",
+    "}",
+    "exec_cfg <- jsonlite::fromJSON(execution_settings_path, simplifyVector = FALSE)",
+    "results_root <- normalizePath(resolve_path(as.character(exec_cfg$resultsFolder %||% '')), winslash = '/', mustWork = FALSE)",
+    "diagnostics_dir <- file.path(results_root, 'CohortDiagnosticsModule')",
+    "if (!dir.exists(diagnostics_dir)) {",
+    "  stop('Diagnostics results directory not found: ', diagnostics_dir, '. Run 06_diagnostics.R first.')",
+    "}",
+    "sqlite_db_path <- file.path(diagnostics_dir, 'MergedCohortDiagnosticsData.sqlite')",
+    "if (!file.exists(sqlite_db_path)) {",
+    "  if (!'createMergedResultsFile' %in% getNamespaceExports('CohortDiagnostics')) {",
+    "    stop('Merged diagnostics SQLite is missing and CohortDiagnostics::createMergedResultsFile is not available in this installation.')",
+    "  }",
+    "  message('Creating merged diagnostics SQLite at: ', sqlite_db_path)",
+    "  CohortDiagnostics::createMergedResultsFile(",
+    "    dataFolder = diagnostics_dir,",
+    "    sqliteDbPath = sqlite_db_path,",
+    "    overwrite = FALSE",
+    "  )",
+    "}",
+    "if (!file.exists(sqlite_db_path)) {",
+    "  stop('Merged diagnostics SQLite was not created: ', sqlite_db_path)",
+    "}",
+    "launch_fun <- getExportedValue('CohortDiagnostics', 'launchDiagnosticsExplorer')",
+    "call_with_supported_args <- function(fn, args) {",
+    "  formal_names <- names(formals(fn)) %||% character(0)",
+    "  if (!('...' %in% formal_names)) {",
+    "    args <- args[names(args) %in% formal_names]",
+    "  }",
+    "  do.call(fn, args)",
+    "}",
+    "launch_args <- list(sqliteDbPath = sqlite_db_path, launch.browser = interactive())",
+    "launched <- FALSE",
+    "last_error <- NULL",
+    "tryCatch({",
+    "  call_with_supported_args(launch_fun, launch_args)",
+    "  launched <- TRUE",
+    "}, error = function(e) {",
+    "  last_error <<- conditionMessage(e)",
+    "})",
+    "if (!launched) {",
+    "  stop('Unable to launch Diagnostics Explorer for ', diagnostics_dir, if (!is.null(last_error)) paste0(': ', last_error) else '', '. Run this script in a second R session if you want to keep the workflow shell and /ohdsi available.')",
+    "}",
+    "message('Diagnostics Explorer launched for: ', diagnostics_dir)",
+    "message('Merged SQLite: ', sqlite_db_path)",
+    "message('Run this script in a second R session if you want to keep the workflow shell and /ohdsi available.')",
+    ""
+  )
+  write_lines(file.path(scripts_dir, "08_launch_diagnostics_explorer.R"), script_08)
+
   project_init <- .studyAgentSlashInitializeProjectFiles(
     workflow_type = "strategus_incidence",
     base_dir = base_dir,
@@ -3189,6 +3263,8 @@ Keeper review saved: %s reviewed row(s)
     cat("  3) Rscript scripts/05_keeper_case_review.R\n")
     cat("  4) Rscript scripts/06_diagnostics.R\n")
     cat("  5) Rscript scripts/07_incidence_spec.R\n")
+    cat("Optional diagnostics viewer (run in a second R session):\n")
+    cat("  - Rscript scripts/08_launch_diagnostics_explorer.R\n")
     cat("Notes:\n")
     if (improvements_applied) {
       cat("  - Improvements were already applied in this session; scripts are a portable record.\n")

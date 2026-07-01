@@ -197,6 +197,9 @@ def test_exploration_registry_defines_first_slice_commands() -> None:
     assert 'command_id = "keeper_case_review_metrics"' in source
     assert 'command_id = "inclusion_rules_preview"' in source
     assert 'command_id = "cohort_stats_preview"' in source
+    assert 'command_id = "incidence_summary_preview"' in source
+    assert 'artifact_requirements = c("incidence_summary_csv")' in source
+    assert 'command_id = "incidence_analysis_settings_summary"' in source
 
 
 def test_execution_dialogue_context_includes_exploration_fields() -> None:

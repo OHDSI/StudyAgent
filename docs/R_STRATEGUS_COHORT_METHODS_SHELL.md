@@ -146,6 +146,7 @@ Current execution-menu capabilities:
 - `art` / `artifacts`: list known workflow artifacts
 - `x` / `explore[_v]`: list approved exploration commands for the current workflow state
 - `x <command-id>` or `explore <command-id>` or a listed command number: run one approved artifact-exploration command
+  Diagnostics review remains file- and artifact-based inside the runner; the Shiny diagnostics explorer is launched from a separate generated script.
 - `/ohdsi <question>`: ask a contextualized workflow question using the current workflow state
 - `rev` / `revise [build|intent|target|comparator|outcome]`: leave execution mode and return to build mode, with an option to switch to temporary revision cache mode for this pass
 
@@ -194,6 +195,7 @@ Current Keeper specifics:
 
 - `scripts/04_keeper_concept_sets.R` uses `runKeeperConceptSetWorkflow(...)` and writes `outputs/keeper_concept_set_state.json`.
 - `scripts/05_keeper_case_review.R` uses `runKeeperCaseReviewWorkflow(...)` and writes `outputs/keeper_case_review_state.json`.
+- `scripts/08_launch_diagnostics_explorer.R` launches `CohortDiagnostics::launchDiagnosticsExplorer()` against the generated diagnostics results and should be run in a second R session if you want the shell and `/ohdsi` to remain available.
 - Inline Keeper review now exposes bounded stage gates before and after each requested concept-set domain and before and after case review.
 - The generated Keeper scripts expose `ACP_TIMEOUT`, concept-set reuse/overwrite, row reuse/resume, and explicit row selection controls such as `1-3,5`.
 - Manual editing of `keeper-case-review/concept-sets-approved/*.json` is consumable, but the concept-set approve/edit/rerun UX is still incomplete.

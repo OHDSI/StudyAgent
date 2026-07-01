@@ -48,6 +48,7 @@ The shell writes scripts under `scripts/` for reproducibility:
 5. `05_keeper_case_review.R`
 6. `06_diagnostics.R`
 7. `07_incidence_spec.R`
+8. `08_launch_diagnostics_explorer.R`
 
 ## Execution Menu
 
@@ -62,6 +63,7 @@ Current execution-menu capabilities:
 - `art` / `artifacts`: list known workflow artifacts
 - `x` / `explore[_v]`: list approved exploration commands for the current workflow state
 - `x <command-id>` or `explore <command-id>` or a listed command number: run one approved artifact-exploration command
+  Current incidence-specific result views include `incidence_summary_preview` and `incidence_analysis_settings_summary` once incidence results exist.
 - `/ohdsi <question>`: ask a contextualized workflow question using the current workflow state
 - `rev` / `revise [build|intent|target|outcome]`: leave execution mode and return to build mode, with an option to switch to temporary revision cache mode for this pass
 
@@ -76,9 +78,11 @@ Current behavior notes:
 Current runtime expectations:
 
 - `03_generate_cohorts.R`, `06_diagnostics.R`, and `07_incidence_spec.R` expect site-specific Strategus connection/execution settings files under `outputDir`.
+- `08_launch_diagnostics_explorer.R` launches `CohortDiagnostics::launchDiagnosticsExplorer()` against the generated diagnostics results and is intended to be run outside the shell runner.
 - `04_keeper_concept_sets.R` uses the ACP-based Keeper concept-set helper and writes `outputs/keeper_concept_set_state.json`.
 - `05_keeper_case_review.R` uses the ACP-based Keeper case-review helper and writes `outputs/keeper_case_review_state.json`.
 - `07_incidence_spec.R` reads `analysis-settings/time_at_risk_settings.json` instead of hard-coding TAR definitions.
+- Run `08_launch_diagnostics_explorer.R` in a second R session, RStudio Job, or terminal if you want the workflow shell and `/ohdsi` support to remain available.
 
 Generated scripts that connect to the database expect these site-specific files at the root of
 `outputDir`:
