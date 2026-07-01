@@ -248,13 +248,42 @@ def _load_http_json(url: str, timeout: int = 30) -> Any:
     return json.loads(raw)
 
 
-def _post_http_json(url: str, payload: Dict[str, Any], timeout: int = 30) -> Any:
+def _post_http_json(
+    url: str,
+    payload: Dict[str, Any],
+    timeout: int = 30,
+    retries: int = 0,
+    backoff_seconds: float = 0.0,
+    log_label: str = "http_post",
+) -> Any:
     body = json.dumps(payload).encode("utf-8")
-    request = urllib.request.Request(url, data=body, method="POST")
-    request.add_header("Content-Type", "application/json")
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        raw = response.read().decode("utf-8")
-    return json.loads(raw)
+    attempt = 0
+    last_error: Exception | None = None
+    while attempt <= max(retries, 0):
+        request = urllib.request.Request(url, data=body, method="POST")
+        request.add_header("Content-Type", "application/json")
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                raw = response.read().decode("utf-8")
+            return json.loads(raw)
+        except Exception as exc:
+            last_error = exc
+            if attempt >= max(retries, 0):
+                raise
+            logger.warning(
+                "%s retrying attempt=%s retries=%s url=%s error=%s",
+                log_label,
+                attempt + 1,
+                retries,
+                url,
+                exc,
+            )
+            if backoff_seconds > 0:
+                time.sleep(backoff_seconds * (attempt + 1))
+            attempt += 1
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError(f"{log_label}_failed")
 
 
 def _search_standard_via_hecate(
@@ -410,10 +439,29 @@ def _phoebe_via_hecate_bulk(
     endpoint: str,
 ) -> List[Dict[str, Any]]:
     relationships = set(relationship_ids or [])
+    retries = _parse_int_env("PHOEBE_HTTP_RETRIES")
+    backoff_ms = _parse_int_env("PHOEBE_HTTP_BACKOFF_MS")
+    backoff_seconds = backoff_ms / 1000 if backoff_ms > 0 else 0.0
     related: List[Dict[str, Any]] = []
-    for offset in range(0, len(concept_ids), 100):
+    chunk_count = (len(concept_ids) + 99) // 100 if concept_ids else 0
+    for chunk_index, offset in enumerate(range(0, len(concept_ids), 100), start=1):
         chunk = concept_ids[offset : offset + 100]
-        payload = _post_http_json(endpoint, {"ids": chunk}, timeout=timeout)
+        logger.debug(
+            "phoebe_bulk_chunk provider=hecate_api chunk_index=%s chunk_count=%s chunk_size=%s retries=%s endpoint=%s",
+            chunk_index,
+            chunk_count,
+            len(chunk),
+            retries,
+            endpoint,
+        )
+        payload = _post_http_json(
+            endpoint,
+            {"ids": chunk},
+            timeout=timeout,
+            retries=retries,
+            backoff_seconds=backoff_seconds,
+            log_label="phoebe_bulk_post",
+        )
         for concept in _iter_phoebe_bulk_concepts(payload):
             if relationships and concept.get("relationshipId") not in relationships:
                 continue
@@ -451,6 +499,8 @@ def _phoebe_via_hecate(concept_ids: List[int], relationship_ids: List[str] | Non
         "url": endpoint,
         "controls": controls,
         "raw_count": len(raw_deduped),
+        "requested_concept_count": len(concept_ids),
+        "bulk_chunk_count": (len(concept_ids) + 99) // 100 if concept_ids else 0,
     }
 
 

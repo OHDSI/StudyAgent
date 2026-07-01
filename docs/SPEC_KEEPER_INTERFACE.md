@@ -11,7 +11,7 @@ Request model: `KeeperConceptSetsGenerateInput`
 - `phenotype`: clinical event of interest
 - `domain_keys`: optional subset of Keeper generation domains
 - `vocab_search_provider`: optional provider override such as `hecate_api`, `generic_search_api`, or `db`
-- `phoebe_provider`: optional provider override such as `hecate_api`, `db`, or `none`
+- `phoebe_provider`: optional provider override such as `hecate_api`, `db`, or `none`; when `hecate_api` is selected the MCP always uses the Hecate bulk PHOEBE endpoint
 - `candidate_limit`: max candidate concepts per term/domain
 - `min_record_count`: optional candidate filter
 - `include_diagnostics`: include per-step counts and provider metadata

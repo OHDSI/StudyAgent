@@ -1,4 +1,5 @@
 import json
+import urllib.error
 
 import pytest
 
@@ -261,6 +262,8 @@ def test_phoebe_related_concepts_hecate_provider(monkeypatch) -> None:
 
     assert result["count"] == 2
     assert result["provider"] == "hecate_api"
+    assert result["bulk_chunk_count"] == 1
+    assert result["requested_concept_count"] == 2
     assert result["concepts"][0]["conceptId"] == 4311115
     assert result["concepts"][0]["sourceConceptId"] == 4116092
     assert result["concepts"][1]["conceptId"] == 40480849
@@ -324,11 +327,65 @@ def test_phoebe_related_concepts_hecate_provider_chunks_bulk_requests(monkeypatc
     )
 
     assert observed_payloads == [{"ids": [4247297] * 100}, {"ids": [4116092]}]
+    assert result["bulk_chunk_count"] == 2
+    assert result["requested_concept_count"] == 101
     assert result["count"] == 2
     assert result["concepts"][0]["conceptId"] == 435509
     assert result["concepts"][0]["sourceConceptId"] == 4247297
     assert result["concepts"][1]["conceptId"] == 380055
     assert result["concepts"][1]["sourceConceptId"] == 4116092
+
+
+@pytest.mark.mcp
+def test_phoebe_related_concepts_hecate_provider_retries_bulk_post(monkeypatch) -> None:
+    tools = _registered_tools()
+    attempts = {"count": 0}
+
+    class FakeResponse:
+        def __init__(self, body: bytes):
+            self._body = body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            return self._body
+
+    def fake_urlopen(request, timeout=30):
+        attempts["count"] += 1
+        if attempts["count"] == 1:
+            raise urllib.error.URLError("temporary hecate outage")
+        body = json.dumps([
+            {
+                "concept_id": 4247297,
+                "results": [
+                    {
+                        "relationship_id": "Ontology-parent",
+                        "concept_id": 40480849,
+                        "concept_name": "Abscess of brain",
+                        "vocabulary_id": "SNOMED",
+                        "record_count": 1490,
+                    }
+                ],
+            }
+        ]).encode("utf-8")
+        return FakeResponse(body)
+
+    monkeypatch.setattr(keeper_concept_sets.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setenv("PHOEBE_PROVIDER", "hecate_api")
+    monkeypatch.setenv("PHOEBE_HTTP_RETRIES", "1")
+    monkeypatch.setenv("PHOEBE_HTTP_BACKOFF_MS", "0")
+    result = tools["phoebe_related_concepts"](
+        concept_ids=[4247297],
+        relationship_ids=["Ontology-parent"],
+    )
+
+    assert attempts["count"] == 2
+    assert result["count"] == 1
+    assert result["concepts"][0]["conceptId"] == 40480849
 
 
 @pytest.mark.mcp

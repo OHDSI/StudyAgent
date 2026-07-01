@@ -899,6 +899,22 @@ def task_smoke_keeper_concept_sets_generate_flow():
     }
 
 
+def task_smoke_hecate_phoebe_bulk_endpoint():
+    def _run_smoke() -> None:
+        env = os.environ.copy()
+        bulk_url = (env.get("PHOEBE_BULK_URL", "") or "").strip()
+        if not bulk_url:
+            raise RuntimeError("PHOEBE_BULK_URL must be set before running smoke_hecate_phoebe_bulk_endpoint")
+        env["PHOEBE_PROVIDER"] = "hecate_api"
+        print(f"Running real Hecate PHOEBE bulk smoke test against {bulk_url}...")
+        subprocess.run(["python", "tests/smoke_hecate_phoebe_bulk.py"], check=True, env=env)
+
+    return {
+        "actions": [_run_smoke],
+        "verbosity": 2,
+    }
+
+
 def task_smoke_case_causal_review_flow():
     def _run_smoke() -> None:
         print("Running case causal review flow smoke test...")
