@@ -369,33 +369,69 @@ def _search_standard_via_generic_api(
     }
 
 
+def _phoebe_hecate_bulk_url() -> str:
+    configured = (os.getenv("PHOEBE_BULK_URL", "") or "").strip()
+    if configured:
+        return rewrite_container_host_url(configured)
+    legacy = (os.getenv("PHOEBE_URL_TEMPLATE", "") or "").strip()
+    if legacy:
+        raise RuntimeError("PHOEBE_URL_TEMPLATE is no longer supported for hecate_api; set PHOEBE_BULK_URL")
+    return rewrite_container_host_url("https://hecate.pantheon-hds.com/api/concepts/phoebe/bulk")
+
+
+def _iter_phoebe_bulk_concepts(payload: Any) -> List[Dict[str, Any]]:
+    if isinstance(payload, list):
+        rows = payload
+    elif isinstance(payload, dict):
+        rows = payload.get("results")
+    else:
+        rows = []
+    related: List[Dict[str, Any]] = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        source_concept_id = row.get("conceptId", row.get("concept_id", row.get("id")))
+        concepts = row.get("concepts")
+        if concepts is None:
+            concepts = row.get("results")
+        if not isinstance(concepts, list):
+            continue
+        for concept in _dedupe_concepts(concepts):
+            if concept.get("sourceConceptId") in (None, ""):
+                concept["sourceConceptId"] = source_concept_id
+            related.append(concept)
+    return related
+
+
+def _phoebe_via_hecate_bulk(
+    concept_ids: List[int],
+    relationship_ids: List[str] | None,
+    timeout: int,
+    endpoint: str,
+) -> List[Dict[str, Any]]:
+    relationships = set(relationship_ids or [])
+    related: List[Dict[str, Any]] = []
+    for offset in range(0, len(concept_ids), 100):
+        chunk = concept_ids[offset : offset + 100]
+        payload = _post_http_json(endpoint, {"ids": chunk}, timeout=timeout)
+        for concept in _iter_phoebe_bulk_concepts(payload):
+            if relationships and concept.get("relationshipId") not in relationships:
+                continue
+            related.append(concept)
+    return related
+
+
 def _phoebe_via_hecate(concept_ids: List[int], relationship_ids: List[str] | None) -> Dict[str, Any]:
     started = time.perf_counter()
     timeout = int(os.getenv("PHOEBE_TIMEOUT", "30"))
-    endpoint_template = os.getenv(
-        "PHOEBE_URL_TEMPLATE",
-        "https://hecate.pantheon-hds.com/api/concepts/{concept_id}/phoebe",
-    )
-    endpoint_template = rewrite_container_host_url(endpoint_template)
-    relationships = set(relationship_ids or [])
-    related: List[Dict[str, Any]] = []
+    endpoint = _phoebe_hecate_bulk_url()
     logger.debug(
         "phoebe provider=hecate_api concept_ids=%s relationship_ids=%s timeout=%s",
         len(concept_ids),
         relationship_ids,
         timeout,
     )
-    for concept_id in concept_ids:
-        url = endpoint_template.format(concept_id=concept_id)
-        payload = _load_http_json(url, timeout=timeout)
-        if payload in (None, [], {}):
-            continue
-        concepts = payload if isinstance(payload, list) else payload.get("concepts") or []
-        for concept in _dedupe_concepts(concepts):
-            concept["sourceConceptId"] = concept_id
-            if relationships and concept.get("relationshipId") not in relationships:
-                continue
-            related.append(concept)
+    related = _phoebe_via_hecate_bulk(concept_ids, relationship_ids, timeout, endpoint)
     raw_deduped = _dedupe_concepts(related)
     filtered, controls = _apply_phoebe_expansion_controls(raw_deduped, relationship_ids)
     logger.debug(
@@ -412,6 +448,7 @@ def _phoebe_via_hecate(concept_ids: List[int], relationship_ids: List[str] | Non
         "concepts": filtered,
         "count": len(filtered),
         "provider": "hecate_api",
+        "url": endpoint,
         "controls": controls,
         "raw_count": len(raw_deduped),
     }

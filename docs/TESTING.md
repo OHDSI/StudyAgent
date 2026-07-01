@@ -814,8 +814,10 @@ Important:
 export VOCAB_SEARCH_PROVIDER=hecate_api
 export VOCAB_SEARCH_URL="https://hecate.pantheon-hds.com/api/search_standard"
 export PHOEBE_PROVIDER=hecate_api
-export PHOEBE_URL_TEMPLATE="https://hecate.pantheon-hds.com/api/concepts/{concept_id}/phoebe"
+export PHOEBE_BULK_URL="https://hecate.pantheon-hds.com/api/concepts/phoebe/bulk"
 ```
+
+The Hecate PHOEBE provider always uses the bulk endpoint and sends concept IDs in chunks of 100.
 
 Run the flow:
 

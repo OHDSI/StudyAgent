@@ -132,6 +132,22 @@ def test_phoebe_related_concepts_reports_unconfigured_provider(monkeypatch) -> N
 
 
 @pytest.mark.mcp
+def test_phoebe_related_concepts_rejects_legacy_hecate_url_template(monkeypatch) -> None:
+    tools = _registered_tools()
+    monkeypatch.setenv("PHOEBE_PROVIDER", "hecate_api")
+    monkeypatch.delenv("PHOEBE_BULK_URL", raising=False)
+    monkeypatch.setenv("PHOEBE_URL_TEMPLATE", "https://example.test/api/concepts/{concept_id}/phoebe")
+
+    result = tools["phoebe_related_concepts"](
+        concept_ids=[1],
+    )
+
+    assert result["error"] == "phoebe_provider_failed"
+    assert result["count"] == 0
+    assert result["details"] == "PHOEBE_URL_TEMPLATE is no longer supported for hecate_api; set PHOEBE_BULK_URL"
+
+
+@pytest.mark.mcp
 def test_vocab_search_standard_hecate_provider(monkeypatch) -> None:
     tools = _registered_tools()
 
@@ -186,25 +202,133 @@ def test_phoebe_related_concepts_hecate_provider(monkeypatch) -> None:
             return self._body
 
     def fake_urlopen(request, timeout=30):
-        assert "/api/concepts/100/phoebe" in request.full_url
-        body = (
-            b'[{"concept_id":201,"concept_name":"Upper GI endoscopy","vocabulary_id":"SNOMED",'
-            b'"domain_id":"Procedure","concept_class_id":"Procedure","standard_concept":"S",'
-            b'"relationship_id":"Patient context"}]'
-        )
+        assert request.get_method() == "POST"
+        assert "/api/concepts/phoebe/bulk" in request.full_url
+        assert json.loads(request.data.decode("utf-8")) == {"ids": [4247297, 4116092]}
+        body = json.dumps(
+            [
+                {
+                    "concept_id": 4116092,
+                    "results": [
+                        {
+                            "relationship_id": "Lexical via standard",
+                            "concept_id": 2110451,
+                            "concept_name": (
+                                "Craniectomy for excision of brain tumor, infratentorial or posterior fossa; "
+                                "cerebellopontine angle tumor"
+                            ),
+                            "vocabulary_id": "CPT4",
+                            "record_count": 13380,
+                        },
+                        {
+                            "relationship_id": "Ontology-parent",
+                            "concept_id": 4311115,
+                            "concept_name": "Intracranial mass",
+                            "vocabulary_id": "SNOMED",
+                            "record_count": 40790,
+                        },
+                    ],
+                },
+                {
+                    "concept_id": 4247297,
+                    "results": [
+                        {
+                            "relationship_id": "Lexical via standard",
+                            "concept_id": 435509,
+                            "concept_name": "Intracranial abscess",
+                            "vocabulary_id": "SNOMED",
+                            "record_count": 366720,
+                        },
+                        {
+                            "relationship_id": "Ontology-parent",
+                            "concept_id": 40480849,
+                            "concept_name": "Abscess of brain",
+                            "vocabulary_id": "SNOMED",
+                            "record_count": 1490,
+                        },
+                    ],
+                },
+            ]
+        ).encode("utf-8")
         return FakeResponse(body)
 
     monkeypatch.setattr(keeper_concept_sets.urllib.request, "urlopen", fake_urlopen)
     monkeypatch.setenv("PHOEBE_PROVIDER", "hecate_api")
     result = tools["phoebe_related_concepts"](
-        concept_ids=[100],
-        relationship_ids=["Patient context"],
+        concept_ids=[4247297, 4116092],
+        relationship_ids=["Ontology-parent"],
     )
 
-    assert result["count"] == 1
+    assert result["count"] == 2
     assert result["provider"] == "hecate_api"
-    assert result["concepts"][0]["conceptId"] == 201
-    assert result["concepts"][0]["sourceConceptId"] == 100
+    assert result["concepts"][0]["conceptId"] == 4311115
+    assert result["concepts"][0]["sourceConceptId"] == 4116092
+    assert result["concepts"][1]["conceptId"] == 40480849
+    assert result["concepts"][1]["sourceConceptId"] == 4247297
+
+
+@pytest.mark.mcp
+def test_phoebe_related_concepts_hecate_provider_chunks_bulk_requests(monkeypatch) -> None:
+    tools = _registered_tools()
+    observed_payloads = []
+
+    class FakeResponse:
+        def __init__(self, body: bytes):
+            self._body = body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            return self._body
+
+    def fake_urlopen(request, timeout=30):
+        payload = json.loads(request.data.decode("utf-8"))
+        observed_payloads.append(payload)
+        source_id = payload["ids"][0]
+        if source_id == 4247297:
+            result = {
+                "concept_id": 435509,
+                "concept_name": "Intracranial abscess",
+                "vocabulary_id": "SNOMED",
+                "record_count": 366720,
+                "relationship_id": "Lexical via standard",
+            }
+        else:
+            result = {
+                "concept_id": 380055,
+                "concept_name": "Primary malignant neoplasm of brain",
+                "vocabulary_id": "SNOMED",
+                "record_count": 10257990,
+                "relationship_id": "Lexical via standard",
+            }
+        body = json.dumps(
+            [
+                {
+                    "concept_id": source_id,
+                    "results": [result],
+                }
+            ]
+        ).encode("utf-8")
+        return FakeResponse(body)
+
+    monkeypatch.setattr(keeper_concept_sets.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setenv("PHOEBE_PROVIDER", "hecate_api")
+    concept_ids = [4247297] * 100 + [4116092]
+    result = tools["phoebe_related_concepts"](
+        concept_ids=concept_ids,
+        relationship_ids=["Lexical via standard"],
+    )
+
+    assert observed_payloads == [{"ids": [4247297] * 100}, {"ids": [4116092]}]
+    assert result["count"] == 2
+    assert result["concepts"][0]["conceptId"] == 435509
+    assert result["concepts"][0]["sourceConceptId"] == 4247297
+    assert result["concepts"][1]["conceptId"] == 380055
+    assert result["concepts"][1]["sourceConceptId"] == 4116092
 
 
 @pytest.mark.mcp
