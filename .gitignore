@@ -1,3 +1,5 @@
+*strategus-execution-settings.json
+*strategus-db-details.json
 demo-*
 TEST-*
 conda-pip-env-github-workflow.yml

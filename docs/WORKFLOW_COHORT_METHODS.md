@@ -66,7 +66,7 @@ flowchart TD
   AJ --> AT["Confirm Analytic Settings"]
   AS --> AT
   AT --> AU["Optional inline ACP Keeper review with bounded stage gates"]
-  AU --> AV["Write Outputs + Generate Scripts 02-06"]
+  AU --> AV["Write Outputs + Generate Scripts 02-07"]
   AV --> AW["End"]
 ```
 
@@ -81,36 +81,39 @@ flowchart TD
   D --> E["CohortGenerator"]
   E --> F["Cohort Table in CDM"]
 
-  C --> G["04_keeper_review.R"]
-  G --> H["ACP Keeper flow"]
+  C --> G["04_keeper_concept_sets.R"]
+  G --> H["ACP Keeper concept-set workflow"]
   H --> I["Concept-set generation"]
-  H --> J["Keeper profile extraction"]
-  H --> K["Phenotype validation review"]
-  K --> L["Optional phenotype refinement"]
-  L --> B
 
-  C --> M["05_diagnostics.R"]
-  M --> N["CohortDiagnostics"]
+  C --> J["05_keeper_case_review.R"]
+  J --> K["ACP Keeper case-review workflow"]
+  K --> L["Keeper profile extraction"]
+  K --> M["Phenotype validation review"]
+  M --> N["Optional phenotype refinement"]
+  N --> B
 
-  C --> O["outputs/cm_analysis_defaults.json"]
-  C --> P["analysis-settings/cmAnalysis.json"]
-  C --> Q["outputs/cm_comparisons.json"]
-  C --> R["selected or patched cohort definitions"]
+  C --> O["06_diagnostics.R"]
+  O --> P["CohortDiagnostics"]
 
-  O --> S["06_cm_spec.R"]
-  P --> S
-  Q --> S
-  R --> S
-  F --> S
-  N --> S
+  C --> Q["outputs/cm_analysis_defaults.json"]
+  C --> R["analysis-settings/cmAnalysis.json"]
+  C --> S["outputs/cm_comparisons.json"]
+  C --> T["selected or patched cohort definitions"]
 
-  S --> T["analysis-settings/analysisSpecification.json"]
-  T --> U["Shared Cohort Resource"]
-  T --> V["CharacterizationModule Spec"]
-  T --> W["CohortIncidenceModule Spec"]
-  T --> X["CohortMethodModule Spec"]
-  T --> Y["Strategus::execute"]
-  Y --> Z["CohortMethod Results + Strategus Execute Result"]
+  Q --> U["07_cm_spec.R"]
+  R --> U
+  S --> U
+  T --> U
+  F --> U
+  P --> U
+
+  U --> V["analysis-settings/analysisSpecification.json"]
+  V --> W["Shared Cohort Resource"]
+  V --> X["CharacterizationModule Spec"]
+  V --> Y["CohortIncidenceModule Spec"]
+  V --> Z["CohortMethodModule Spec"]
+  V --> AA["Strategus::execute"]
+  AA --> AB["CohortMethod Results + Strategus Execute Result"]
 ```
 
 ## Current Explicit Limitations

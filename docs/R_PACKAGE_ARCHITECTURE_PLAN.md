@@ -77,7 +77,8 @@ Representative public seam:
 
 - `runStrategusIncidenceShell()`
 - `runStrategusCohortMethodsShell()`
-- `runKeeperReviewWorkflow()`
+- `runKeeperConceptSetWorkflow()`
+- `runKeeperCaseReviewWorkflow()`
 - `new_workflow_dialogue_session()`
 - `build_incidence_workflow_stage_context()`
 - `build_cohort_methods_workflow_stage_context()`
@@ -163,8 +164,8 @@ The current package ownership of generated workflow artifacts is:
 
 Important generated-script facts in the current architecture:
 
-- both Strategus shells generate ACP-based `04_keeper_review.R`
-- the generated Keeper script calls `runKeeperReviewWorkflow()` and no longer uses the legacy Keeper R package
+- both Strategus shells generate ACP-based `04_keeper_concept_sets.R` and `05_keeper_case_review.R`
+- the generated Keeper scripts call `runKeeperConceptSetWorkflow()` and `runKeeperCaseReviewWorkflow()` and no longer use the legacy Keeper R package
 - the incidence shell persists TAR and strata settings to `analysis-settings/time_at_risk_settings.json`
 - the cohort-method shell persists analytic-settings artifacts and comparison artifacts used by `06_cm_spec.R`
 

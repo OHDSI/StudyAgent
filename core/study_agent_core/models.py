@@ -286,12 +286,20 @@ class CohortMethodsIntentSplitOutput(BaseModel):
     mode: str
 
 
+class WorkflowContextDialogueArtifactRequest(BaseModel):
+    artifact_id: str
+    reason: str = ""
+    permission_required: bool = False
+
+
 class WorkflowContextDialogueOutput(BaseModel):
     plan: str
     answer: str
     current_step_guidance: List[str] = Field(default_factory=list)
     cautions: List[str] = Field(default_factory=list)
     suggested_next_actions: List[str] = Field(default_factory=list)
+    follow_up_plan: List[str] = Field(default_factory=list)
+    artifact_requests: List[WorkflowContextDialogueArtifactRequest] = Field(default_factory=list)
     mode: str
 
 

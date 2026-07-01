@@ -60,6 +60,17 @@ def _log_startup_config() -> None:
     logger.info("config %s", " ".join(items))
 
 
+def _reject_local_path_input(field_name: str) -> Dict[str, str]:
+    return {
+        "error": f"local_path_inputs_not_supported:{field_name}",
+        "detail": (
+            "ACP flow handlers no longer read local filesystem paths from request bodies. "
+            "Load the artifact in the client and send inline payloads, or upload/stage the "
+            "artifact before calling the flow."
+        ),
+    }
+
+
 def _warn_on_inconsistent_llm_config() -> None:
     api_url = os.getenv("LLM_API_URL", "")
     use_responses = os.getenv("LLM_USE_RESPONSES", "0")
@@ -376,25 +387,14 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             protocol_text = body.get("protocol_text") or ""
             protocol_path = body.get("protocol_path")
             if not protocol_text and protocol_path:
-                try:
-                    with open(protocol_path, "r", encoding="utf-8") as handle:
-                        protocol_text = handle.read()
-                except Exception as exc:
-                    _write_json(self, 400, {"error": f"invalid_protocol_path: {exc}"})
-                    return
+                _write_json(self, 400, _reject_local_path_input("protocol_path"))
+                return
             cohorts = body.get("cohorts") or []
             cohort_paths = body.get("cohort_paths") or []
             if cohort_paths and not cohorts:
-                loaded = []
-                for path in cohort_paths:
-                    try:
-                        with open(path, "r", encoding="utf-8") as handle:
-                            loaded.append(json.load(handle))
-                    except Exception as exc:
-                        _write_json(self, 400, {"error": f"invalid_cohort_path: {exc}"})
-                        return
-                cohorts = loaded
-            cohorts = _ensure_cohort_ids(cohorts, cohort_paths)
+                _write_json(self, 400, _reject_local_path_input("cohort_paths"))
+                return
+            cohorts = _ensure_cohort_ids(cohorts)
             if len(cohorts) > 1:
                 cohorts = [cohorts[0]]
             characterization_previews = body.get("characterization_previews") or []
@@ -422,12 +422,8 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             concept_set = body.get("concept_set")
             concept_set_path = body.get("concept_set_path")
             if concept_set is None and concept_set_path:
-                try:
-                    with open(concept_set_path, "r", encoding="utf-8") as handle:
-                        concept_set = json.load(handle)
-                except Exception as exc:
-                    _write_json(self, 400, {"error": f"invalid_concept_set_path: {exc}"})
-                    return
+                _write_json(self, 400, _reject_local_path_input("concept_set_path"))
+                return
             study_intent = body.get("study_intent") or ""
             try:
                 result = self.agent.run_concept_sets_review_flow(
@@ -452,12 +448,8 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             cohort = body.get("cohort") or {}
             cohort_path = body.get("cohort_path")
             if (not cohort or cohort == {}) and cohort_path:
-                try:
-                    with open(cohort_path, "r", encoding="utf-8") as handle:
-                        cohort = json.load(handle)
-                except Exception as exc:
-                    _write_json(self, 400, {"error": f"invalid_cohort_path: {exc}"})
-                    return
+                _write_json(self, 400, _reject_local_path_input("cohort_path"))
+                return
             try:
                 result = self.agent.run_cohort_critique_general_design_flow(cohort=cohort)
             except Exception as exc:
@@ -479,19 +471,8 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             keeper_row = body.get("keeper_row")
             keeper_row_path = body.get("keeper_row_path")
             if keeper_row is None and keeper_row_path:
-                try:
-                    if keeper_row_path.endswith(".csv"):
-                        import csv
-
-                        with open(keeper_row_path, "r", encoding="utf-8") as handle:
-                            reader = csv.DictReader(handle)
-                            keeper_row = next(reader, None)
-                    else:
-                        with open(keeper_row_path, "r", encoding="utf-8") as handle:
-                            keeper_row = json.load(handle)
-                except Exception as exc:
-                    _write_json(self, 400, {"error": f"invalid_keeper_row_path: {exc}"})
-                    return
+                _write_json(self, 400, _reject_local_path_input("keeper_row_path"))
+                return
             if not isinstance(keeper_row, dict):
                 _write_json(self, 400, {"error": "keeper_row must be a JSON object"})
                 return
@@ -584,6 +565,10 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
                 _write_json(self, 400, {"error": f"invalid_json: {exc}"})
                 return
             try:
+                keeper_concept_sets = body.get("keeper_concept_sets") or []
+                if not keeper_concept_sets and body.get("keeper_concept_sets_path"):
+                    _write_json(self, 400, _reject_local_path_input("keeper_concept_sets_path"))
+                    return
                 result = self.agent.run_keeper_profiles_generate_flow(
                     cohort_database_schema=body.get("cohort_database_schema") or "",
                     cohort_table=body.get("cohort_table") or "",
@@ -591,7 +576,7 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
                     cdm_database_schema=body.get("cdm_database_schema") or "",
                     sample_size=int(body.get("sample_size", 20)),
                     person_ids=body.get("person_ids") or [],
-                    keeper_concept_sets=body.get("keeper_concept_sets") or [],
+                    keeper_concept_sets=keeper_concept_sets,
                     phenotype_name=body.get("phenotype_name") or "",
                     use_descendants=bool(body.get("use_descendants", True)),
                     remove_pii=bool(body.get("remove_pii", True)),
@@ -706,19 +691,14 @@ def _cohort_id_from_path(path: str) -> Optional[int]:
     return None
 
 
-def _ensure_cohort_ids(cohorts: Any, cohort_paths: list[str]) -> list[dict[str, Any]]:
+def _ensure_cohort_ids(cohorts: Any) -> list[dict[str, Any]]:
     if not isinstance(cohorts, list):
         return []
-    ids_from_paths = []
-    for path in cohort_paths or []:
-        ids_from_paths.append(_cohort_id_from_path(path))
     patched = []
     for idx, cohort in enumerate(cohorts):
         if not isinstance(cohort, dict):
             continue
         cid = cohort.get("id") or cohort.get("cohortId") or cohort.get("CohortId")
-        if cid is None and idx < len(ids_from_paths):
-            cid = ids_from_paths[idx]
         if cid is None:
             cid = _cohort_id_from_path(cohort.get("name") or "")
         if cid is None:

@@ -1,7 +1,9 @@
 ### Demo / test: `slashOhdsiStrategusAssistant::runStrategusIncidenceShell()`
 
 ## Run this from the repo root with ACP listening on `http://127.0.0.1:8765`.
-## `scripts/demo_ohdsi_dialogue.R` is the quickest non-interactive `/ohdsi` smoke test.
+## If you launch from a parent `renv` project, use the same `.Rprofile` pattern that
+## already worked for `scripts/demo_ohdsi_dialogue.R`.
+## `scripts/demo_ohdsi_dialogue.R` is still the quickest non-interactive `/ohdsi` smoke test.
 ##
 ## Useful `/ohdsi` prompts to try once the shell reaches phenotype recommendation and TAR steps:
 ##   /ohdsi what should I do if none of the candidate cohorts are relevant?
@@ -14,14 +16,15 @@ source(file.path(script_dir, "demo_setup.R"))
 repo_root <- set_study_agent_repo_root(start = dirname(script_dir))
 load_study_agent_r_packages(include_strategus = TRUE)
 
-## Optional reset from a prior run.
-reset_demo_output_dir(repo_file("demo-strategus-cohort-incidence"), prompt = TRUE)
-## Note: this clears only `demo-strategus-cohort-incidence`. This script does not read
-## from a second shared output directory, so any cache prompts should come only from
-## artifacts still present under that same incidence demo directory.
-
-Sys.setenv(ACP_TIMEOUT = "280")
+Sys.setenv(ACP_TIMEOUT = "1800")
+Sys.setenv(PHENOTYPE_INDEX_DIR = repo_file("data", "phenotype_index_cipher_omop"))
 invisible(connect_study_agent_acp())
+
+### Optional reset from a prior run.
+#reset_demo_output_dir(repo_file("demo-strategus-cohort-incidence"), prompt = TRUE)
+#
+# Note: this clears only `demo-strategus-cohort-incidence`. If you plan to reuse its
+# cached artifacts during resume, leave the directory intact.
 
 ## (RELEVANT PHENOTYPE TEST) This intent should yield stronger phenotype candidates:
 slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
@@ -29,21 +32,34 @@ slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
   acpUrl = "http://127.0.0.1:8765",
   studyAgentBaseDir = repo_root,
   indexDir = "data/phenotype_index_cipher_omop",
-  studyIntent = "What is the risk of GI bleed in new users of tofacitinib compared to new users of ruxolitinib?"
+  studyIntent = "Enter an incidence  rate research question involving a single target and single outcome",
+  executionTableDisplay = "viewer"
 )
 
 ############
 ## Use this to resume from cached artifacts and regenerate output scripts.
-# slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
-#   outputDir = "demo-strategus-cohort-incidence",
-#   acpUrl = "http://127.0.0.1:8765",
-#   studyAgentBaseDir = repo_root,
-#   resume = TRUE,
-#   allowCache = TRUE,
-#   promptOnCache = FALSE,
-#   interactive = FALSE,
-#   indexDir = "data/phenotype_index_cipher_omop"
-# )
+slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
+  outputDir = "demo-strategus-cohort-incidence",
+  acpUrl = "http://127.0.0.1:8765",
+  studyAgentBaseDir = repo_root,
+  resume = TRUE,
+  allowCache = TRUE,
+  promptOnCache = TRUE,
+  interactive = TRUE,
+  indexDir = "data/phenotype_index_cipher_omop"
+)
+
+## Use this to resume from cached artifacts and regenerate output scripts without prompts.
+## slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
+##   outputDir = "demo-strategus-cohort-incidence",
+##   acpUrl = "http://127.0.0.1:8765",
+##   studyAgentBaseDir = repo_root,
+##   resume = TRUE,
+##   allowCache = TRUE,
+##   promptOnCache = FALSE,
+##   interactive = FALSE,
+##   indexDir = "data/phenotype_index_cipher_omop"
+## )
 
 ## (NO RELEVANT PHENOTYPE TEST) First enter this study intent, which should not return strong phenotype matches:
 ## "What is the risk of GI bleed in new users of Celecoxib compared to new users of Diclofenac?"

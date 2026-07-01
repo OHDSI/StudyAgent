@@ -14,6 +14,7 @@
 #' @param promptOnCache prompt before using cached artifacts
 #' @param autoApplyImprovements when TRUE, apply improvements without prompting (defaults to TRUE for non-interactive)
 #' @param resume when TRUE, resume from last checkpoint if present
+#' @param executionTableDisplay execution-menu table display preference: `console`, `viewer`, or `auto`
 #' @return invisible list with output paths
 #' @export
 runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incidence",
@@ -30,8 +31,10 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
                                       allowCache = TRUE,
                                       promptOnCache = TRUE,
                                       autoApplyImprovements = NA,
-                                      resume = FALSE) {
+                                      resume = FALSE,
+                                      executionTableDisplay = c("console", "viewer", "auto")) {
   `%||%` <- function(x, y) if (is.null(x)) y else x
+  execution_table_display <- .studyAgentSlashNormalizeExecutionTableDisplay(executionTableDisplay)
 
   ensure_dir <- function(path) {
     if (!dir.exists(path)) dir.create(path, recursive = TRUE)
@@ -44,6 +47,16 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
 
   dialogue_acp_client <- new.env(parent = emptyenv())
   dialogue_acp_client$client <- NULL
+  current_study_intent <- function() {
+    intent <- trimws(as.character(studyIntent %||% ""))
+    if (nzchar(intent)) return(intent)
+    if (exists("project_state_path") && file.exists(project_state_path)) {
+      project_state <- tryCatch(.studyAgentSlashReadProjectState(base_dir), error = function(e) NULL)
+      intent <- trimws(as.character((project_state$study_context %||% list())$study_intent %||% ""))
+      if (nzchar(intent)) return(intent)
+    }
+    ""
+  }
   build_workflow_stage_context <- function(studyIntent, dialogue_state) {
     .studyAgentSlashBuildIncidenceWorkflowStageContext(
       study_intent = studyIntent,
@@ -85,7 +98,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
 
   dialogue_session <- .studyAgentSlashNewWorkflowDialogueSession(
     interactive = interactive,
-    study_intent_getter = function() studyIntent,
+    study_intent_getter = current_study_intent,
     build_stage_context = build_workflow_stage_context,
     call_dialogue = function(stage_context, message) {
       if (!ensure_workflow_dialogue_client(acpUrl)) {
@@ -124,10 +137,35 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     default
   }
 
+  cache_policy <- new.env(parent = emptyenv())
+  cache_policy$allowCache <- isTRUE(allowCache)
+  cache_policy$promptOnCache <- isTRUE(promptOnCache)
+
   maybe_use_cache <- function(path, label) {
-    if (!allowCache || !file.exists(path)) return(FALSE)
-    if (!promptOnCache) return(TRUE)
+    if (!isTRUE(cache_policy$allowCache) || !file.exists(path)) return(FALSE)
+    if (!isTRUE(cache_policy$promptOnCache)) return(TRUE)
     prompt_yesno(sprintf("Use cached %s at %s?", label, path), default = TRUE)
+  }
+
+  configure_revision_mode <- function(scope) {
+    cat("\nRevision cache posture\n")
+    cat(sprintf("  - allowCache: %s\n", if (isTRUE(cache_policy$allowCache)) "TRUE" else "FALSE"))
+    cat(sprintf("  - promptOnCache: %s\n", if (isTRUE(cache_policy$promptOnCache)) "TRUE" else "FALSE"))
+    if (isTRUE(cache_policy$allowCache) && !isTRUE(cache_policy$promptOnCache)) {
+      cat("Current settings will silently reuse cached decisions when available.\n")
+    }
+    if (isTRUE(interactive) && (!isTRUE(cache_policy$allowCache) || !isTRUE(cache_policy$promptOnCache))) {
+      switch_mode <- prompt_yesno(
+        "Switch to temporary revision cache mode for this pass? (allowCache=TRUE, promptOnCache=TRUE)",
+        default = TRUE
+      )
+      if (isTRUE(switch_mode)) {
+        cache_policy$allowCache <- TRUE
+        cache_policy$promptOnCache <- TRUE
+        cat("Revision cache mode enabled for this pass. Cached artifacts may still be reused, but the shell will prompt before doing so.\n")
+      }
+    }
+    invisible(NULL)
   }
 
   if (is.na(autoApplyImprovements)) {
@@ -393,19 +431,24 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     path
   }
 
-  phenotype_definition_path <- function(phenotype_id, index_def_dir) {
+  phenotype_definition_path <- function(phenotype_id, index_def_dir, imported_def_dir = NULL) {
+    phenotype_id <- as.character(phenotype_id %||% "")
+    if (grepl("^db:[A-Za-z][A-Za-z0-9_]*:[0-9]+$", phenotype_id)) {
+      return(.studyAgentSlashImportedCohortDefinitionPath(phenotype_id, imported_def_dir))
+    }
     file.path(index_def_dir, sprintf("%s.json", gsub(":", "__", phenotype_id, fixed = TRUE)))
   }
 
   stop_if_unsupported_selected <- function(phenotype_ids, role_label) {
-    unsupported <- phenotype_ids[!grepl("^ohdsi:", phenotype_ids %||% character(0))]
+    supported <- grepl("^ohdsi:[0-9]+$", phenotype_ids %||% character(0)) |
+      grepl("^db:[A-Za-z][A-Za-z0-9_]*:[0-9]+$", phenotype_ids %||% character(0))
+    unsupported <- phenotype_ids[!supported]
     if (length(unsupported) > 0) {
       stop(
         sprintf(
           paste0(
-            "Selected %s phenotype(s) include non-OHDSI ids (%s). ",
-            "This demo workflow does not yet support converting non-OHDSI phenotype definitions ",
-            "into computable OHDSI cohort definitions. Please re-run and choose an OHDSI phenotype."
+            "Selected %s cohort source ids include unsupported values (%s). ",
+            "Supported ids are OHDSI phenotype ids and imported database cohort ids."
           ),
           role_label,
           paste(unique(unsupported), collapse = ", ")
@@ -419,6 +462,9 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     if (!nzchar(source_id)) return(NA_integer_)
     if (grepl("^ohdsi:[0-9]+$", source_id)) {
       return(suppressWarnings(as.integer(sub("^ohdsi:", "", source_id))))
+    }
+    if (grepl("^db:[A-Za-z][A-Za-z0-9_]*:[0-9]+$", source_id)) {
+      return(suppressWarnings(as.integer(sub("^db:[A-Za-z][A-Za-z0-9_]*:([0-9]+)$", "\\1", source_id))))
     }
     suppressWarnings(as.integer(source_id))
   }
@@ -438,8 +484,8 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     as.integer(derived)
   }
 
-  copy_cohort_json_multi <- function(source_id, dest_id, dest_dirs, index_def_dir) {
-    src <- phenotype_definition_path(source_id, index_def_dir)
+  copy_cohort_json_multi <- function(source_id, dest_id, dest_dirs, index_def_dir, imported_def_dir = NULL) {
+    src <- phenotype_definition_path(source_id, index_def_dir, imported_def_dir = imported_def_dir)
     if (!file.exists(src)) stop(sprintf("Cohort JSON not found: %s", src))
     dests <- character(0)
     for (dest_dir in dest_dirs) {
@@ -449,6 +495,180 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
       dests <- c(dests, dest)
     }
     dests
+  }
+
+  selection_record_from_recommendation <- function(rec) {
+    list(
+      source_type = "index",
+      source_id = as.character(rec$phenotype_id %||% ""),
+      source_schema = NA_character_,
+      cohort_definition_id = default_cohort_id_from_source(rec$phenotype_id %||% NULL),
+      cohort_name = as.character(rec$phenotype_name %||% ""),
+      logic_description = rec$justification %||% NA_character_
+    )
+  }
+
+  selection_record_from_import <- function(imported) {
+    imported$metadata
+  }
+
+  choose_selection_source_mode <- function(role_label) {
+    if (!isTRUE(interactive)) return("index")
+    repeat {
+      entered <- trimws(readline_with_navigation(sprintf(
+        "Source for %s cohort [Enter=index search, db=existing database cohort]: ",
+        role_label
+      )))
+      if (is_back_signal(entered)) return(entered)
+      lowered <- tolower(entered)
+      if (!nzchar(lowered) || lowered %in% c("index", "search", "s")) return("index")
+      if (lowered %in% c("db", "database", "existing")) return("database")
+      cat("Enter index or db.
+")
+    }
+  }
+
+  prompt_database_cohort_imports <- function(role_label, allow_multiple = FALSE) {
+    db_details_path <- file.path(base_dir, "strategus-db-details.json")
+    if (!file.exists(db_details_path)) {
+      write_json(list(
+        dbms = "postgresql",
+        DB_SERVER = "",
+        DB_PORT = "5432",
+        DB_USER = "",
+        DB_PASS = "",
+        DB_DRIVER_PATH = "",
+        extraSettings = "sslmode=disable"
+      ), db_details_path)
+    }
+    connectionDetails <- tryCatch(
+      createStrategusConnectionDetails(path = db_details_path),
+      error = function(e) e
+    )
+    if (inherits(connectionDetails, "error")) {
+      cat(sprintf(
+        "Cannot use database cohort import until %s is populated: %s
+",
+        db_details_path,
+        conditionMessage(connectionDetails)
+      ))
+      return(NULL)
+    }
+    repeat {
+      schema_value <- readline_with_navigation(sprintf(
+        "Schema containing cohort_definition and cohort_definition_details for the %s cohort: ",
+        role_label
+      ))
+      if (is_back_signal(schema_value)) return(schema_value)
+      schema_value <- trimws(as.character(schema_value %||% ""))
+      if (!nzchar(schema_value)) {
+        cat("Enter a schema name.
+")
+        next
+      }
+      search_term <- trimws(readline_with_dialogue(sprintf(
+        "Optional %s cohort name search term [Enter=list candidates]: ",
+        role_label
+      )))
+      candidates <- tryCatch(
+        .studyAgentSlashListDatabaseCohortDefinitions(
+          connectionDetails = connectionDetails,
+          cohort_database_schema = schema_value,
+          search_term = search_term,
+          limit = 50L
+        ),
+        error = function(e) e
+      )
+      if (inherits(candidates, "error")) {
+        cat(sprintf("Database cohort lookup failed: %s
+", conditionMessage(candidates)))
+        next
+      }
+      if (nrow(candidates) == 0) {
+        cat("No matching cohort definitions were found. Try a different schema or search term.
+")
+        next
+      }
+      preview <- data.frame(
+        cohort_definition_id = candidates$cohort_definition_id,
+        cohort_name = candidates$cohort_name,
+        stringsAsFactors = FALSE
+      )
+      preview <- preview[order(preview$cohort_definition_id, preview$cohort_name), , drop = FALSE]
+      rownames(preview) <- seq_len(nrow(preview))
+      cat(sprintf("
+Available %s cohort definitions from %s
+", role_label, schema_value))
+      print(preview, row.names = TRUE)
+      labels <- sprintf("[%s] %s", preview$cohort_definition_id, preview$cohort_name)
+      selected_ids <- integer(0)
+      invalid <- character(0)
+      if (isTRUE(interactive)) {
+        menu_pick <- tryCatch(
+          utils::select.list(
+            labels,
+            multiple = isTRUE(allow_multiple),
+            title = sprintf("Select %s cohort definition%s", role_label, if (isTRUE(allow_multiple)) "(s)" else "")
+          ),
+          error = function(e) NULL
+        )
+        if (length(menu_pick) > 0 && any(nzchar(menu_pick))) {
+          selected_ids <- unique(vapply(menu_pick[nzchar(menu_pick)], function(label) {
+            idx <- which(labels == label)[1]
+            preview$cohort_definition_id[[idx]]
+          }, integer(1)))
+        }
+      }
+      if (length(selected_ids) == 0) {
+        selection_prompt <- if (isTRUE(allow_multiple)) {
+          sprintf("Select %s cohort row numbers or cohort_definition ids (comma-separated): ", role_label)
+        } else {
+          sprintf("Select the %s cohort row number or cohort_definition id: ", role_label)
+        }
+        selected_raw <- trimws(readline_with_dialogue(selection_prompt))
+        if (!nzchar(selected_raw)) {
+          cat("No cohort selected.
+")
+          next
+        }
+        selected_parts <- trimws(strsplit(selected_raw, ",", fixed = TRUE)[[1]])
+        selected_parts <- selected_parts[nzchar(selected_parts)]
+        if (length(selected_parts) == 0) {
+          cat("No cohort selected.
+")
+          next
+        }
+        for (part in selected_parts) {
+          parsed <- suppressWarnings(as.integer(part))
+          if (is.na(parsed)) {
+            invalid <- c(invalid, part)
+            next
+          }
+          if (parsed >= 1L && parsed <= nrow(preview)) {
+            selected_ids <- c(selected_ids, preview$cohort_definition_id[[parsed]])
+          } else if (parsed %in% preview$cohort_definition_id) {
+            selected_ids <- c(selected_ids, parsed)
+          } else {
+            invalid <- c(invalid, part)
+          }
+        }
+      }
+      selected_ids <- unique(selected_ids)
+      if (length(invalid) > 0 || length(selected_ids) == 0) {
+        cat(sprintf("Invalid selection: %s
+", paste(unique(invalid), collapse = ", ")))
+        next
+      }
+      imported <- lapply(selected_ids, function(id) {
+        .studyAgentSlashImportDatabaseCohortDefinition(
+          connectionDetails = connectionDetails,
+          cohort_database_schema = schema_value,
+          cohort_definition_id = id,
+          imported_def_dir = imported_definition_dir
+        )
+      })
+      return(imported)
+    }
   }
 
   apply_action <- function(obj, action) {
@@ -554,6 +774,520 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   ensure_dir(analysis_settings_dir)
   ensure_dir(scripts_dir)
 
+  imported_definition_dir <- file.path(base_dir, "imported-cohort-definitions")
+  ensure_dir(imported_definition_dir)
+
+
+  project_state_path <- .studyAgentSlashProjectStatePath(base_dir)
+  runtime_state_path <- .studyAgentSlashRuntimeStatePath(base_dir)
+
+  print_execution_status <- function() {
+    if (!file.exists(project_state_path)) {
+      cat("No study-agent project manifest found.\n")
+      return(invisible(NULL))
+    }
+    cat("\nExecution status\n")
+    for (line in .studyAgentSlashSummarizeWorkflowStatus(base_dir)) {
+      cat(sprintf("  - %s\n", line))
+    }
+    artifact_roots <- .studyAgentSlashExecutionArtifactPaths(base_dir)
+    if (length(artifact_roots) > 0) {
+      cat("Artifact roots
+")
+      for (root in artifact_roots) {
+        cat(sprintf("  - %s\n", .studyAgentSlashResolveArtifactPath(root, base_dir)))
+      }
+    }
+    invisible(NULL)
+  }
+
+  refresh_execution_dialogue_context <- function(step_id = NULL) {
+    if (!file.exists(project_state_path)) return(invisible(NULL))
+    project_state <- .studyAgentSlashReadProjectState(base_dir)
+    if (is.null(step_id) || !nzchar(trimws(as.character(step_id)))) {
+      step_id <- project_state$resume$current_step_id %||% NULL
+    }
+    step <- if (!is.null(step_id)) .studyAgentSlashFindPlanStep(project_state, step_id) else NULL
+    current_step <- step$stage_context_step %||% "workflow_summary"
+    set_dialogue_context(
+      current_step,
+      context = .studyAgentSlashBuildExecutionDialogueContext(
+        project_state = project_state,
+        base_dir = base_dir,
+        step = step,
+        runtime_state = .studyAgentSlashReadRuntimeState(base_dir)
+      )
+    )
+    invisible(NULL)
+  }
+
+  inspect_execution_outputs <- function(step_id, viewer = FALSE) {
+    outputs <- .studyAgentSlashInspectWorkflowStepOutputs(base_dir, step_id)
+    if (length(outputs) == 0) {
+      cat("No registered outputs for that step.
+")
+      return(invisible(NULL))
+    }
+    output_table <- do.call(rbind, lapply(names(outputs), function(name) {
+      item <- outputs[[name]]
+      absolute_path <- as.character(item$absolute_path %||% item$path %||% "<missing>")
+      relative_path <- as.character(item$path %||% absolute_path)
+      data.frame(
+        output_id = name,
+        exists = isTRUE(item$exists),
+        relative_path = relative_path,
+        path = absolute_path,
+        stringsAsFactors = FALSE
+      )
+    }))
+    viewer_table <- .studyAgentSlashPrepareViewerTable(
+      output_table,
+      preferred_order = c("output_id", "exists", "relative_path", "path")
+    )
+    display <- if (isTRUE(viewer)) NULL else execution_table_display
+    display <- if (isTRUE(viewer)) NULL else execution_table_display
+    render_mode <- .studyAgentSlashResolveExecutionTableDisplay(display = display, viewer = viewer)
+    cat(sprintf("
+Outputs for %s
+", step_id))
+    if (isTRUE(render_mode$show_console)) {
+      print(output_table)
+    }
+    if (isTRUE(render_mode$open_viewer)) {
+      .studyAgentSlashOpenTableViewer(viewer_table, title = sprintf("Outputs for %s", step_id))
+    } else if ((isTRUE(viewer) || !is.null(display)) && !isTRUE(render_mode$supports_viewer)) {
+      cat("Viewer mode is not available in this R session; showing the compact console table instead.
+")
+    }
+    invisible(output_table)
+  }
+
+  current_execution_step_id <- function() {
+    if (!file.exists(project_state_path)) return(NULL)
+    project_state <- .studyAgentSlashReadProjectState(base_dir)
+    step_id <- as.character(project_state$resume$current_step_id %||% "")
+    if (!nzchar(step_id)) return(NULL)
+    step_id
+  }
+
+  available_exploration_commands <- function() {
+    if (!file.exists(project_state_path)) return(list())
+    project_state <- .studyAgentSlashReadProjectState(base_dir)
+    .studyAgentSlashListExplorationCommands(
+      base_dir = base_dir,
+      workflow_type = project_state$workflow_type %||% "",
+      step_id = project_state$resume$current_step_id %||% NULL
+    )
+  }
+
+  print_execution_step_choices <- function() {
+    cat("Valid step values are:\n")
+    for (line in .studyAgentSlashFormatWorkflowStepChoices(base_dir)) {
+      cat(sprintf("  - %s\n", line))
+    }
+    invisible(NULL)
+  }
+
+  print_execution_help <- function() {
+    table_mode_label <- switch(
+      execution_table_display,
+      console = "console preview",
+      viewer = "viewer-first",
+      auto = "auto (viewer when available)",
+      execution_table_display
+    )
+    cat("
+Execution commands
+")
+    cat("  - Enter: finish this execution menu")
+    if (!isTRUE(.studyAgentSlashWorkflowIsComplete(base_dir))) {
+      cat(" (confirmation required)")
+    }
+    cat("
+")
+    cat("  - h or help: show this help
+")
+    cat("  - s or status: show execution status (derived from step state and artifacts)
+")
+    cat("  - art or artifacts: list current known artifacts
+  - b or backup: create a workflow state snapshot
+  - bk or backups: list available workflow state snapshots
+")
+    cat("  - x or explore[_v]: list available approved exploration commands
+")
+    cat("  - x <command-id> or explore <command-id>: run an approved exploration command
+")
+    cat("  - x_v <command-id> or explore_v <command-id>: run an approved exploration command and try to open tabular output in a viewer
+")
+    cat("  - number: run the numbered exploration command shown by x
+")
+    cat("  - n or run next: run the next runnable step
+")
+    cat("  - a or run all: keep running until blocked, failed, or complete
+")
+    cat("  - i or inspect[_v] <step>: inspect outputs for a step
+  - reset <step>: reset a step and downstream workflow state
+  - restore <snapshot-id>: restore a saved workflow state snapshot
+")
+    cat("  - run <step>: run a specific step by number or step id
+")
+    cat("  - rev or revise [build|intent|target|outcome]: return to build mode for intentional revision
+")
+    cat("  - /ohdsi <question>: ask a contextualized OHDSI workflow question
+")
+    cat("  - q or quit: leave the execution menu
+")
+    cat(sprintf("  - default table display for art/x/inspect: %s
+", table_mode_label))
+    cat("
+Valid step values
+")
+    print_execution_step_choices()
+    print_explore_help()
+    invisible(NULL)
+  }
+
+  print_artifact_help <- function() {
+    cat("\nArtifacts\n")
+    cat("  - art or artifacts: list artifacts known to the current workflow project\n")
+    cat("  - These include manifest artifacts plus inferred cohort-generation outputs when available\n")
+    invisible(NULL)
+  }
+
+  print_explore_help <- function() {
+    commands <- available_exploration_commands()
+    table <- .studyAgentSlashExplorationCommandTable(commands)
+    cat("\nExploration commands\n")
+    cat("  - x or explore[_v]: list available approved exploration commands\n")
+    cat("  - x <command-id> or explore <command-id>: run one approved exploration command\n")
+    cat("  - x_v <command-id> or explore_v <command-id>: run one approved exploration command and try to open tabular output in a viewer\n")
+    if (nrow(table) == 0) {
+      cat("  - No exploration commands are currently available for this workflow state\n")
+      return(invisible(NULL))
+    }
+    for (row in seq_len(nrow(table))) {
+      cat(sprintf("  - %s: %s\n", table$command_id[[row]], table$purpose[[row]]))
+    }
+    invisible(NULL)
+  }
+
+  print_artifact_inventory <- function(viewer = FALSE) {
+    registry <- .studyAgentSlashBuildArtifactRegistry(base_dir)
+    table <- .studyAgentSlashArtifactRegistryTable(registry)
+    if (nrow(table) == 0) {
+      cat("No artifacts are available for the current workflow project.
+")
+      return(invisible(NULL))
+    }
+    display <- if (isTRUE(viewer)) NULL else execution_table_display
+    render_mode <- .studyAgentSlashResolveExecutionTableDisplay(display = display, viewer = viewer)
+    viewer_table <- .studyAgentSlashArtifactRegistryTable(registry, viewer = TRUE)
+    cat("
+Artifact inventory
+")
+    if (isTRUE(render_mode$show_console)) {
+      print(.studyAgentSlashCompactPreviewTable(table, max_rows = 40L, max_cols = 5L))
+    }
+    if (isTRUE(render_mode$open_viewer)) {
+      .studyAgentSlashOpenTableViewer(viewer_table, title = "Artifact inventory")
+    } else if ((isTRUE(viewer) || !is.null(display)) && !isTRUE(render_mode$supports_viewer)) {
+      cat("Viewer mode is not available in this R session; showing the compact console table instead.
+")
+    }
+    cat("
+")
+    invisible(NULL)
+  }
+
+  print_exploration_commands <- function(viewer = FALSE) {
+    commands <- available_exploration_commands()
+    table <- .studyAgentSlashExplorationCommandTable(commands)
+    if (nrow(table) == 0) {
+      cat("No approved exploration commands are available for the current workflow state.
+")
+      return(invisible(NULL))
+    }
+    display <- if (isTRUE(viewer)) NULL else execution_table_display
+    render_mode <- .studyAgentSlashResolveExecutionTableDisplay(display = display, viewer = viewer)
+    viewer_table <- .studyAgentSlashPrepareViewerTable(table, preferred_order = c("command_id", "label", "purpose"))
+    cat("
+Available exploration commands
+")
+    if (isTRUE(render_mode$show_console)) {
+      print(table)
+    }
+    if (isTRUE(render_mode$open_viewer)) {
+      .studyAgentSlashOpenTableViewer(viewer_table, title = "Available exploration commands")
+    } else if ((isTRUE(viewer) || !is.null(display)) && !isTRUE(render_mode$supports_viewer)) {
+      cat("Viewer mode is not available in this R session; showing the compact console table instead.
+")
+    }
+    cat("
+")
+    invisible(NULL)
+  }
+
+  resolve_execution_step_id <- function(step_ref) {
+    resolved <- .studyAgentSlashResolveWorkflowStepId(base_dir, step_ref)
+    if (!is.null(resolved) && nzchar(trimws(resolved))) return(resolved)
+    cat(sprintf("Unknown step '%s'.\n", trimws(as.character(step_ref %||% ""))))
+    print_execution_step_choices()
+    NULL
+  }
+
+  resolve_exploration_command_id <- function(command_ref) {
+    command_ref <- trimws(as.character(command_ref %||% ""))
+    commands <- available_exploration_commands()
+    command_ids <- vapply(commands, function(cmd) as.character(cmd$command_id %||% ""), character(1))
+    if (grepl("^[0-9]+$", command_ref) && length(commands) > 0) {
+      idx <- suppressWarnings(as.integer(command_ref))
+      if (!is.na(idx) && idx >= 1L && idx <= length(commands)) {
+        return(command_ids[[idx]])
+      }
+    }
+    if (nzchar(command_ref) && command_ref %in% command_ids) return(command_ref)
+    cat(sprintf("Unknown exploration command '%s'.\n", command_ref))
+    print_explore_help()
+    NULL
+  }
+
+  confirm_execution_menu_exit <- function() {
+    if (isTRUE(.studyAgentSlashWorkflowIsComplete(base_dir))) return(TRUE)
+    prompt_yesno("Exit execution menu and return to the R prompt?", default = FALSE)
+  }
+
+  prompt_for_inspect_step <- function(viewer = FALSE) {
+    prompt <- if (isTRUE(viewer)) {
+      "Step number or step id to inspect in viewer (? for choices): "
+    } else {
+      "Step number or step id to inspect (? for choices): "
+    }
+    repeat {
+      step_ref <- trimws(readline_with_dialogue(prompt))
+      lowered <- tolower(step_ref)
+      if (lowered %in% c("h", "help", "?")) {
+        print_execution_step_choices()
+        next
+      }
+      return(step_ref)
+    }
+  }
+
+  run_exploration_command <- function(command_ref, viewer = FALSE) {
+    command_id <- resolve_exploration_command_id(command_ref)
+    if (is.null(command_id)) return(invisible(FALSE))
+    display <- if (isTRUE(viewer)) NULL else execution_table_display
+    result <- .studyAgentSlashRunExplorationCommand(base_dir, command_id = command_id)
+    .studyAgentSlashRenderExplorationResult(result, viewer = viewer, display = display)
+    invisible(TRUE)
+  }
+
+  run_execution_menu <- function(prompt_first = TRUE) {
+    if (!isTRUE(interactive)) return(invisible(list(action = "exit")))
+    if (!file.exists(project_state_path) || !file.exists(runtime_state_path)) return(invisible(list(action = "exit")))
+    valid_revise_scopes <- c("build", "intent", "target", "outcome")
+    normalize_revise_scope <- function(command_text) {
+      if (command_text %in% c("rev", "revise")) return("build")
+      scope <- trimws(sub("^rev(?:ise)?\\s+", "", command_text))
+      if (identical(scope, command_text)) scope <- trimws(sub("^rev\\s+", "", command_text))
+      if (!nzchar(scope)) return("build")
+      if (scope %in% valid_revise_scopes) return(scope)
+      NULL
+    }
+    if (isTRUE(prompt_first) && !prompt_yesno("Start running generated workflow steps in this shell now?", default = FALSE)) {
+      return(invisible(list(action = "exit")))
+    }
+    repeat {
+      .studyAgentSlashReconcileProjectState(base_dir, write = TRUE)
+      refresh_execution_dialogue_context()
+      entered <- trimws(readline_with_dialogue("Execution command [Enter=finish, x=explore[_v], s=status, h=help/show commands, /ohdsi=AI assistance]: "))
+      if (!nzchar(entered)) {
+        if (isTRUE(confirm_execution_menu_exit())) return(invisible(list(action = "exit")))
+        next
+      }
+      lowered <- tolower(entered)
+      if (lowered %in% c("h", "help", "?")) {
+        print_execution_help()
+        next
+      }
+      if (identical(lowered, "help artifacts")) {
+        print_artifact_help()
+        next
+      }
+      if (identical(lowered, "help explore")) {
+        print_explore_help()
+        next
+      }
+      if (lowered %in% c("art", "artifact", "artifacts")) {
+        print_artifact_inventory()
+        next
+      }
+      if (lowered %in% c("art_v", "artifact_v", "artifacts_v")) {
+        print_artifact_inventory(viewer = TRUE)
+        next
+      }
+      if (lowered %in% c("x", "explore")) {
+        print_exploration_commands()
+        next
+      }
+      if (lowered %in% c("x_v", "explore_v")) {
+        print_exploration_commands(viewer = TRUE)
+        next
+      }
+      if (grepl("^[0-9]+$", lowered)) {
+        run_exploration_command(lowered)
+        next
+      }
+      if (startsWith(lowered, "x_v ") || startsWith(lowered, "explore_v ")) {
+        command_ref <- sub("^(?:x_v|explore_v)\\s+", "", lowered)
+        run_exploration_command(command_ref, viewer = TRUE)
+        next
+      }
+      if (startsWith(lowered, "x ") || startsWith(lowered, "explore ")) {
+        command_ref <- sub("^(?:x|explore)\\s+", "", lowered)
+        run_exploration_command(command_ref)
+        next
+      }
+      if (lowered %in% c("b", "backup")) {
+        backup_info <- .studyAgentSlashBackupWorkflowState(base_dir, label = "manual")
+        cat(sprintf("Workflow state snapshot saved: %s\n", backup_info$snapshot_id %||% backup_info$snapshot_dir %||% "<unknown>"))
+        next
+      }
+      if (lowered %in% c("bk", "backups", "snapshot", "snapshots")) {
+        snapshot_ids <- rev(.studyAgentSlashListWorkflowBackups(base_dir))
+        if (length(snapshot_ids) == 0) {
+          cat("No workflow snapshots are available for this project.\n")
+        } else {
+          cat("\nWorkflow snapshots\n")
+          for (snapshot_id in snapshot_ids) cat(sprintf("  - %s\n", snapshot_id))
+        }
+        next
+      }
+      if (startsWith(lowered, "restore ")) {
+        snapshot_id <- trimws(sub("^restore\\s+", "", entered))
+        if (!nzchar(snapshot_id)) {
+          cat("Choose restore <snapshot-id>. Use backups to list available snapshots.\n")
+          next
+        }
+        if (!isTRUE(prompt_yesno(sprintf("Restore workflow state snapshot %s?", snapshot_id), default = FALSE))) {
+          next
+        }
+        result <- tryCatch(
+          .studyAgentSlashRestoreWorkflowState(base_dir, snapshot_id = snapshot_id, restore_artifacts = TRUE, backup_current = TRUE),
+          error = function(e) e
+        )
+        if (inherits(result, "error")) {
+          cat(sprintf("Restore failed: %s\n", conditionMessage(result)))
+        } else {
+          cat(sprintf("Workflow state restored from snapshot: %s\n", snapshot_id))
+        }
+        next
+      }
+      if (startsWith(lowered, "reset ")) {
+        step_id <- resolve_execution_step_id(sub("^reset\\s+", "", lowered))
+        if (is.null(step_id)) next
+        if (!isTRUE(prompt_yesno(sprintf("Reset step %s and downstream workflow state?", step_id), default = FALSE))) {
+          next
+        }
+        result <- tryCatch(
+          .studyAgentSlashResetWorkflowStepState(base_dir, step_id = step_id, cascade = TRUE, backup = TRUE, delete_outputs = TRUE),
+          error = function(e) e
+        )
+        if (inherits(result, "error")) {
+          cat(sprintf("Reset failed: %s\n", conditionMessage(result)))
+        } else {
+          affected <- as.character(unlist(result$affected_steps %||% list(), use.names = FALSE))
+          cat(sprintf("Reset workflow state for: %s\n", paste(affected, collapse = ", ")))
+          if (!is.null(result$snapshot_id) && nzchar(as.character(result$snapshot_id))) {
+            cat(sprintf("Backup snapshot saved: %s\n", as.character(result$snapshot_id)))
+          }
+        }
+        next
+      }
+      if (lowered %in% c("rev", "revise") || startsWith(lowered, "rev ") || startsWith(lowered, "revise ")) {
+        revise_scope <- normalize_revise_scope(lowered)
+        if (is.null(revise_scope)) {
+          cat("Choose revise build, revise intent, revise target, or revise outcome.\n")
+          next
+        }
+        revise_label <- if (identical(revise_scope, "build")) {
+          "the build workflow"
+        } else {
+          sprintf("the %s selection", revise_scope)
+        }
+        if (isTRUE(prompt_yesno(sprintf("Leave execution mode and return to build mode to revise %s?", revise_label), default = FALSE))) {
+          return(invisible(list(action = "revise", scope = revise_scope)))
+        }
+        next
+      }
+      if (lowered %in% c("q", "quit", "exit")) {
+        if (isTRUE(confirm_execution_menu_exit())) return(invisible(list(action = "exit")))
+        next
+      }
+      if (lowered %in% c("s", "status")) {
+        print_execution_status()
+        next
+      }
+      if (lowered %in% c("n", "next", "r", "resume", "run next")) {
+        result <- .studyAgentSlashRunNextWorkflowPlanStep(base_dir)
+        if (identical(result$status %||% "", "failed")) {
+          cat(sprintf("Step %s failed: %s\n", result$step_id %||% "<unknown>", result$error %||% "unknown error"))
+        } else if (!is.null(result$step_id)) {
+          cat(sprintf("Step %s completed.\n", result$step_id))
+        } else {
+          cat(sprintf("%s\n", result$message %||% "No remaining runnable workflow steps."))
+        }
+        next
+      }
+      if (lowered %in% c("a", "all", "run all")) {
+        repeat {
+          result <- .studyAgentSlashRunNextWorkflowPlanStep(base_dir)
+          if (identical(result$status %||% "", "failed")) {
+            cat(sprintf("Step %s failed: %s\n", result$step_id %||% "<unknown>", result$error %||% "unknown error"))
+            break
+          }
+          if (is.null(result$step_id)) {
+            cat(sprintf("%s\n", result$message %||% "No remaining runnable workflow steps."))
+            break
+          }
+          cat(sprintf("Step %s completed.\n", result$step_id))
+        }
+        next
+      }
+      if (startsWith(lowered, "run ")) {
+        step_id <- resolve_execution_step_id(sub("^run\\s+", "", lowered))
+        if (is.null(step_id)) next
+        result <- tryCatch(
+          .studyAgentSlashRunWorkflowPlanStep(base_dir, step_id = step_id),
+          error = function(e) list(status = "error", error = conditionMessage(e))
+        )
+        if (identical(result$status %||% "", "completed")) {
+          cat(sprintf("Step %s completed.\n", step_id))
+        } else {
+          cat(sprintf("Step %s could not be run: %s\n", step_id, result$error %||% "unknown error"))
+        }
+        next
+      }
+      if (lowered %in% c("i", "inspect", "i_v", "inspect_v") || startsWith(lowered, "inspect ") || startsWith(lowered, "inspect_v ") || startsWith(lowered, "i_v ")) {
+        viewer <- lowered %in% c("i_v", "inspect_v") || startsWith(lowered, "inspect_v ") || startsWith(lowered, "i_v ")
+        step_ref <- if (startsWith(lowered, "inspect_v ")) {
+          sub("^inspect_v\\s+", "", lowered)
+        } else if (startsWith(lowered, "inspect ")) {
+          sub("^inspect\\s+", "", lowered)
+        } else if (startsWith(lowered, "i_v ")) {
+          sub("^i_v\\s+", "", lowered)
+        } else {
+          prompt_for_inspect_step(viewer = viewer)
+        }
+        step_id <- resolve_execution_step_id(step_ref)
+        if (is.null(step_id)) next
+        inspect_execution_outputs(step_id, viewer = viewer)
+        next
+      }
+      cat("Choose h, s, art, x[_v], b, bk, reset <step>, restore <snapshot-id>, rev, n, a, i[_v], run <step>, /ohdsi <question>, q, or Enter. Type h for valid steps and explore for approved commands.\n")
+    }
+  }
+
   if (interactive) {
     banner_path <- resolve_path(bannerPath, study_base_dir)
     banner_path <- normalizePath(banner_path, winslash = "/", mustWork = FALSE)
@@ -566,6 +1300,33 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     }
     cat("\nStudy Agent: Strategus CohortIncidence shell\n")
     cat("Use /ohdsi for contextual guidance. Type /back at supported stage boundaries to return to the previous step.\n")
+  }
+
+  if (isTRUE(resume) && file.exists(project_state_path) && file.exists(runtime_state_path)) {
+    cat("\nExisting study-agent project detected.\n")
+    print_execution_status()
+    if (isTRUE(interactive) && prompt_yesno("Resume existing generated workflow execution in this shell?", default = TRUE)) {
+      menu_result <- run_execution_menu(prompt_first = FALSE)
+      if (!identical(as.character(menu_result$action %||% "exit"), "revise")) {
+        return(invisible(list(
+          output_dir = output_dir,
+          scripts_dir = scripts_dir,
+          state = file.path(output_dir, "study_agent_state.json"),
+          project_state = project_state_path,
+          runtime_state = runtime_state_path
+        )))
+      }
+      revise_scope <- as.character(menu_result$scope %||% "build")
+      revise_label <- if (identical(revise_scope, "build")) {
+        "the workflow"
+      } else {
+        sprintf("the %s selection", revise_scope)
+      }
+      configure_revision_mode(revise_scope)
+      cat(sprintf("\nRe-entering build mode to revise %s. Saved answers will be reused as defaults where available.\n", revise_label))
+      studyIntent <- current_study_intent() %||% studyIntent
+      resume <- FALSE
+    }
   }
 
   default_intent <- studyIntent %||% "What is the risk of GI bleed in new users of Celecoxib compared to new users of Diclofenac?"
@@ -646,159 +1407,194 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   rec_response_target <- NULL
   rec_response_outcome <- NULL
 
+  selected_target_records <- list()
+  selected_outcome_records <- list()
+  selection_manifest_path <- file.path(output_dir, "selected_cohort_sources.json")
+
   repeat {
-  do_target_recs <- !isTRUE(resume) || !has_checkpoint("target_advice")
-  if (interactive && !do_target_recs) {
-    cat("\n== Step 2: Target phenotype recommendations (resumed) ==\n")
-  }
-  if (do_target_recs) {
-    if (interactive) {
-      cat("\n== Step 2: Target phenotype recommendations ==\n")
-    }
-    set_dialogue_context("target_recommendation", "target", context = list(study_intent = studyIntent, role_statement = target_statement, target_statement = target_statement, outcome_statement = outcome_statement, top_k = topK, max_results = maxResults, candidate_limit = candidateLimit))
-    if (maybe_use_cache(recs_target_path, "target recommendations")) {
-      rec_response_target <- read_json(recs_target_path)
-      used_cached_recs_target <- TRUE
+    target_source_mode <- choose_selection_source_mode("target")
+    if (is_back_signal(target_source_mode)) next
+
+    if (identical(target_source_mode, "database")) {
+      if (interactive) {
+        cat("\n== Step 2: Target cohort import from database ==\n")
+      }
+      imported_target <- prompt_database_cohort_imports("target", allow_multiple = FALSE)
+      if (is_back_signal(imported_target)) next
+      if (is.null(imported_target) || length(imported_target) == 0) next
+      imported_target <- imported_target[[1]]
+      selected_ids_target <- as.character(imported_target$source_id)
+      selected_target_records <- list(selection_record_from_import(imported_target))
+      cat(sprintf(
+        "Imported target cohort %s from %s as source id %s.\n",
+        imported_target$metadata$cohort_name %||% "<unknown>",
+        imported_target$metadata$source_schema %||% "<unknown>",
+        imported_target$source_id %||% "<unknown>"
+      ))
     } else {
-      message("Calling ACP flow: phenotype_recommendation (target)")
-      body <- list(
-        study_intent = target_statement,
-        top_k = topK,
-        max_results = maxResults,
-        candidate_limit = candidateLimit
-      )
-      rec_response_target <- acp_try("/flows/phenotype_recommendation", body, "target_recommendation")
-      write_json(rec_response_target, recs_target_path)
-    }
-  } else if (file.exists(recs_target_path)) {
-    rec_response_target <- read_json(recs_target_path)
-    used_cached_recs_target <- TRUE
-  } else {
-    do_target_recs <- TRUE
-    message("No cached target recommendations found; rerunning target recommendations.")
-    body <- list(
-      study_intent = target_statement,
-      top_k = topK,
-      max_results = maxResults,
-      candidate_limit = candidateLimit
-    )
-    rec_response_target <- acp_try("/flows/phenotype_recommendation", body, "target_recommendation_resume")
-    write_json(rec_response_target, recs_target_path)
-  }
-
-  recs_core_target <- rec_response_target$recommendations %||% rec_response_target
-  recommendations_target <- recs_core_target$phenotype_recommendations %||% list()
-  if (length(recommendations_target) == 0) stop("No target phenotype recommendations returned.")
-
-  cat("\n== Target Phenotype Recommendations ==\n")
-  for (i in seq_along(recommendations_target)) {
-    rec <- recommendations_target[[i]]
-    cat(sprintf("%d. %s (ID %s)\n", i, rec$phenotype_name %||% "<unknown>", rec$phenotype_id %||% "?"))
-    if (!is.null(rec$justification)) cat(sprintf("   %s\n", rec$justification))
-  }
-
-  if (interactive) {
-    set_dialogue_context("target_recommendation", "target", context = list(study_intent = studyIntent, role_statement = target_statement, target_statement = target_statement, outcome_statement = outcome_statement, top_k = topK, max_results = maxResults, candidate_limit = candidateLimit))
-    ok_any <- prompt_yesno("Are any of these acceptable for the target?", default = TRUE)
-    if (!ok_any) {
-      widen <- prompt_yesno("Widen candidate pool and try again?", default = TRUE)
-      if (widen) {
-        message("Generating additional recommendations (next window)...")
-        used_window2_target <- TRUE
+      do_target_recs <- !isTRUE(resume) || !has_checkpoint("target_advice")
+      if (interactive && !do_target_recs) {
+        cat("\n== Step 2: Target phenotype recommendations (resumed) ==\n")
+      }
+      if (do_target_recs) {
+        if (interactive) {
+          cat("\n== Step 2: Target phenotype recommendations ==\n")
+        }
+        set_dialogue_context("target_recommendation", "target", context = list(study_intent = studyIntent, role_statement = target_statement, target_statement = target_statement, outcome_statement = outcome_statement, top_k = topK, max_results = maxResults, candidate_limit = candidateLimit))
+        if (maybe_use_cache(recs_target_path, "target recommendations")) {
+          rec_response_target <- read_json(recs_target_path)
+          used_cached_recs_target <- TRUE
+        } else {
+          message("Calling ACP flow: phenotype_recommendation (target)")
+          body <- list(
+            study_intent = target_statement,
+            top_k = topK,
+            max_results = maxResults,
+            candidate_limit = candidateLimit
+          )
+          rec_response_target <- acp_try("/flows/phenotype_recommendation", body, "target_recommendation")
+          write_json(rec_response_target, recs_target_path)
+        }
+      } else if (file.exists(recs_target_path)) {
+        rec_response_target <- read_json(recs_target_path)
+        used_cached_recs_target <- TRUE
+      } else {
+        do_target_recs <- TRUE
+        message("No cached target recommendations found; rerunning target recommendations.")
         body <- list(
           study_intent = target_statement,
           top_k = topK,
           max_results = maxResults,
-          candidate_limit = candidateLimit,
-          candidate_offset = candidateLimit
+          candidate_limit = candidateLimit
         )
-        rec_response_target <- acp_try("/flows/phenotype_recommendation", body, "target_recommendation_window2")
-        recs_target_path <- file.path(output_dir, "recommendations_target_window2.json")
+        rec_response_target <- acp_try("/flows/phenotype_recommendation", body, "target_recommendation_resume")
         write_json(rec_response_target, recs_target_path)
+      }
 
-        recs_core_target <- rec_response_target$recommendations %||% rec_response_target
-        recommendations_target <- recs_core_target$phenotype_recommendations %||% list()
-        cat("\n== Target Phenotype Recommendations (window 2) ==\n")
-        for (i in seq_along(recommendations_target)) {
+      recs_core_target <- rec_response_target$recommendations %||% rec_response_target
+      recommendations_target <- recs_core_target$phenotype_recommendations %||% list()
+      if (length(recommendations_target) == 0) stop("No target phenotype recommendations returned.")
+
+      cat("\n== Target Phenotype Recommendations ==\n")
+      for (i in seq_along(recommendations_target)) {
+        rec <- recommendations_target[[i]]
+        cat(sprintf("%d. %s (ID %s)\n", i, rec$phenotype_name %||% "<unknown>", rec$phenotype_id %||% "?"))
+        if (!is.null(rec$justification)) cat(sprintf("   %s\n", rec$justification))
+      }
+
+      if (interactive) {
+        set_dialogue_context("target_recommendation", "target", context = list(study_intent = studyIntent, role_statement = target_statement, target_statement = target_statement, outcome_statement = outcome_statement, top_k = topK, max_results = maxResults, candidate_limit = candidateLimit))
+        ok_any <- prompt_yesno("Are any of these acceptable for the target?", default = TRUE)
+        if (!ok_any) {
+          widen <- prompt_yesno("Widen candidate pool and try again?", default = TRUE)
+          if (widen) {
+            message("Generating additional recommendations (next window)...")
+            used_window2_target <- TRUE
+            body <- list(
+              study_intent = target_statement,
+              top_k = topK,
+              max_results = maxResults,
+              candidate_limit = candidateLimit,
+              candidate_offset = candidateLimit
+            )
+            rec_response_target <- acp_try("/flows/phenotype_recommendation", body, "target_recommendation_window2")
+            recs_target_path <- file.path(output_dir, "recommendations_target_window2.json")
+            write_json(rec_response_target, recs_target_path)
+
+            recs_core_target <- rec_response_target$recommendations %||% rec_response_target
+            recommendations_target <- recs_core_target$phenotype_recommendations %||% list()
+            cat("\n== Target Phenotype Recommendations (window 2) ==\n")
+            for (i in seq_along(recommendations_target)) {
+              rec <- recommendations_target[[i]]
+              cat(sprintf("%d. %s (ID %s)\n", i, rec$phenotype_name %||% "<unknown>", rec$phenotype_id %||% "?"))
+              if (!is.null(rec$justification)) cat(sprintf("   %s\n", rec$justification))
+            }
+            ok_any <- prompt_yesno("Are any of these acceptable?", default = TRUE)
+          }
+          if (!ok_any) {
+            message("Generating advisory guidance (this may take a moment)...")
+            advice <- acp_try("/flows/phenotype_recommendation_advice", list(study_intent = studyIntent), "target_advice_call")
+            used_advice_target <- TRUE
+            advice_core <- advice$advice %||% advice
+            cat("\n== Advisory guidance ==\n")
+            cat(advice_core$advice %||% "", "\n")
+            if (length(advice_core$next_steps %||% list()) > 0) {
+              cat("Next steps:\n")
+              for (step in advice_core$next_steps) cat(sprintf("  - %s\n", step))
+            }
+            if (length(advice_core$questions %||% list()) > 0) {
+              cat("Questions to clarify:\n")
+              for (q in advice_core$questions) cat(sprintf("  - %s\n", q))
+            }
+            mark_checkpoint("target_advice", list(recommendations_path = recs_target_path))
+            cat("\nHint: rerun with resume=TRUE after updating phenotypes to continue.\n")
+            stop("Stopping after target advice. Resume with resume=TRUE once phenotypes are updated.")
+          }
+        }
+      }
+
+      if (interactive) {
+        set_dialogue_context("target_selection", "target", context = list(study_intent = studyIntent, role_statement = target_statement, target_statement = target_statement, outcome_statement = outcome_statement))
+        if (!prompt_yesno("Continue to target cohort selection?", default = TRUE)) {
+          return(invisible(list(output_dir = output_dir, recommendations = recs_target_path)))
+        }
+        gate <- readline_with_navigation("Press Enter to continue to target cohort selection, or type /back: ")
+        if (is_back_signal(gate)) next
+        cat("\n== Step 3: Select target cohorts ==\n")
+      }
+
+      selected_ids_target <- NULL
+      selected_ids_outcome <- character(0)
+      if (interactive) {
+        labels <- vapply(seq_along(recommendations_target), function(i) {
           rec <- recommendations_target[[i]]
-          cat(sprintf("%d. %s (ID %s)\n", i, rec$phenotype_name %||% "<unknown>", rec$phenotype_id %||% "?"))
-          if (!is.null(rec$justification)) cat(sprintf("   %s\n", rec$justification))
+          sprintf("%s (ID %s)", rec$phenotype_name %||% "<unknown>", rec$phenotype_id %||% "?")
+        }, character(1))
+        picks <- utils::select.list(labels, multiple = FALSE, title = "Select target phenotype")
+        if (nzchar(picks)) {
+          idx <- which(labels == picks)[1]
+          selected_ids_target <- recommendations_target[[idx]]$phenotype_id
+          selected_target_records <- list(selection_record_from_recommendation(recommendations_target[[idx]]))
         }
-        ok_any <- prompt_yesno("Are any of these acceptable?", default = TRUE)
-      }
-      if (!ok_any) {
-        message("Generating advisory guidance (this may take a moment)...")
-        advice <- acp_try("/flows/phenotype_recommendation_advice", list(study_intent = studyIntent), "target_advice_call")
-        used_advice_target <- TRUE
-        advice_core <- advice$advice %||% advice
-        cat("\n== Advisory guidance ==\n")
-        cat(advice_core$advice %||% "", "\n")
-        if (length(advice_core$next_steps %||% list()) > 0) {
-          cat("Next steps:\n")
-          for (step in advice_core$next_steps) cat(sprintf("  - %s\n", step))
-        }
-        if (length(advice_core$questions %||% list()) > 0) {
-          cat("Questions to clarify:\n")
-          for (q in advice_core$questions) cat(sprintf("  - %s\n", q))
-        }
-        mark_checkpoint("target_advice", list(recommendations_path = recs_target_path))
-        cat("\nHint: rerun with resume=TRUE after updating phenotypes to continue.\n")
-        stop("Stopping after target advice. Resume with resume=TRUE once phenotypes are updated.")
+      } else {
+        selected_ids_target <- recommendations_target[[1]]$phenotype_id
+        selected_target_records <- list(selection_record_from_recommendation(recommendations_target[[1]]))
       }
     }
-  }
 
-  if (interactive) {
-    set_dialogue_context("target_selection", "target", context = list(study_intent = studyIntent, role_statement = target_statement, target_statement = target_statement, outcome_statement = outcome_statement))
-    if (!prompt_yesno("Continue to target cohort selection?", default = TRUE)) {
-      return(invisible(list(output_dir = output_dir, recommendations = recs_target_path)))
-    }
-    gate <- readline_with_navigation("Press Enter to continue to target cohort selection, or type /back: ")
-    if (is_back_signal(gate)) next
-    cat("\n== Step 3: Select target cohorts ==\n")
-  }
+    selected_ids_target <- as.character(selected_ids_target)
+    if (length(selected_ids_target) == 0) stop("No target cohort selected.")
+    if (length(selected_outcome_records) == 0) selected_ids_outcome <- character(0)
 
-  selected_ids_target <- NULL
-  selected_ids_outcome <- character(0)
-  if (interactive) {
-    labels <- vapply(seq_along(recommendations_target), function(i) {
-      rec <- recommendations_target[[i]]
-      sprintf("%s (ID %s)", rec$phenotype_name %||% "<unknown>", rec$phenotype_id %||% "?")
-    }, character(1))
-    picks <- utils::select.list(labels, multiple = FALSE, title = "Select target phenotype")
-    if (nzchar(picks)) {
-      idx <- which(labels == picks)[1]
-      selected_ids_target <- recommendations_target[[idx]]$phenotype_id
-    }
-  } else {
-    selected_ids_target <- recommendations_target[[1]]$phenotype_id
-  }
-  selected_ids_target <- as.character(selected_ids_target)
-  if (length(selected_ids_target) == 0) stop("No target cohort selected.")
-
-  use_mapping <- FALSE
-  if (interactive) {
-    set_dialogue_context("incidence_design_setup", context = list(study_intent = studyIntent, target_statement = target_statement, outcome_statement = outcome_statement, selected_target_ids = as.list(selected_ids_target %||% list()), selected_outcome_ids = as.list(selected_ids_outcome %||% list())))
-    use_mapping <- prompt_yesno("Map cohort IDs to a new range (avoid collisions)?", default = TRUE)
-  }
-  cohort_id_base <- NA_integer_
-  next_id <- NA_integer_
-  if (use_mapping) {
-    cohort_id_base <- sample(10000:50000, 1)
+    use_mapping <- FALSE
     if (interactive) {
-      msg <- sprintf("Enter cohort ID base (10000-50000) or press Enter to use %s: ", cohort_id_base)
-      set_dialogue_context("incidence_design_setup", context = list(study_intent = studyIntent, target_statement = target_statement, outcome_statement = outcome_statement, selected_target_ids = as.list(selected_ids_target %||% list()), selected_outcome_ids = as.list(selected_ids_outcome %||% list()), suggested_cohort_id_base = cohort_id_base))
-      inp <- trimws(readline_with_dialogue(msg))
-      if (nzchar(inp)) cohort_id_base <- as.integer(inp)
+      set_dialogue_context("incidence_design_setup", context = list(study_intent = studyIntent, target_statement = target_statement, outcome_statement = outcome_statement, selected_target_ids = as.list(selected_ids_target %||% list()), selected_outcome_ids = as.list(selected_ids_outcome %||% list())))
+      use_mapping <- prompt_yesno("Map cohort IDs to a new range (avoid collisions)?", default = TRUE)
     }
-    next_id <- cohort_id_base
-  }
+    cohort_id_base <- NA_integer_
+    next_id <- NA_integer_
+    if (use_mapping) {
+      cohort_id_base <- sample(10000:50000, 1)
+      if (interactive) {
+        msg <- sprintf("Enter cohort ID base (10000-50000) or press Enter to use %s: ", cohort_id_base)
+        set_dialogue_context("incidence_design_setup", context = list(study_intent = studyIntent, target_statement = target_statement, outcome_statement = outcome_statement, selected_target_ids = as.list(selected_ids_target %||% list()), selected_outcome_ids = as.list(selected_ids_outcome %||% list()), suggested_cohort_id_base = cohort_id_base))
+        inp <- trimws(readline_with_dialogue(msg))
+        if (nzchar(inp)) cohort_id_base <- as.integer(inp)
+      }
+      next_id <- cohort_id_base
+    }
 
-  map_ids <- function(ids) {
-    if (!use_mapping) return(default_cohort_ids_from_sources(ids, role_label = "selected"))
-    new <- seq(next_id, length.out = length(ids))
-    next_id <<- max(new) + 1
-    new
+    map_ids <- function(ids) {
+      if (!use_mapping) return(default_cohort_ids_from_sources(ids, role_label = "selected"))
+      new <- seq(next_id, length.out = length(ids))
+      next_id <<- max(new) + 1
+      new
+    }
+
+    stop_if_unsupported_selected(selected_ids_target, "target")
+    new_ids_target <- map_ids(selected_ids_target)
+    copy_cohort_json_multi(selected_ids_target, new_ids_target, c(selected_target_dir, selected_dir), index_def_dir, imported_def_dir = imported_definition_dir)
+    break
   }
 
   extract_phenotype_improvement_items <- function(resp, cohort_label) {
@@ -808,12 +1604,6 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     }
     core$phenotype_improvements %||% list()
   }
-
-  stop_if_unsupported_selected(selected_ids_target, "target")
-
-  new_ids_target <- map_ids(selected_ids_target)
-
-  copy_cohort_json_multi(selected_ids_target, new_ids_target, c(selected_target_dir, selected_dir), index_def_dir)
 
   do_target_improvements <- TRUE
   if (interactive) {
@@ -909,204 +1699,243 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   }
 
 
-    break
-  }
-
   repeat {
-  do_outcome_recs <- !isTRUE(resume) || !has_checkpoint("outcome_advice")
-  if (interactive && !do_outcome_recs) {
-    cat("\n== Step 5: Outcome phenotype recommendations (resumed) ==\n")
-  }
-  if (do_outcome_recs) {
-    if (interactive) {
-      cat("\n== Step 5: Outcome phenotype recommendations ==\n")
-    }
-    set_dialogue_context("outcome_recommendation", "outcome", context = list(study_intent = studyIntent, role_statement = outcome_statement, target_statement = target_statement, outcome_statement = outcome_statement, top_k = topK, max_results = maxResults, candidate_limit = candidateLimit))
-    if (maybe_use_cache(recs_outcome_path, "outcome recommendations")) {
-      rec_response_outcome <- read_json(recs_outcome_path)
-      used_cached_recs_outcome <- TRUE
+    outcome_source_mode <- choose_selection_source_mode("outcome")
+    if (is_back_signal(outcome_source_mode)) next
+
+    if (identical(outcome_source_mode, "database")) {
+      if (interactive) {
+        cat("\n== Step 5: Outcome cohort import from database ==\n")
+      }
+      imported_outcomes <- prompt_database_cohort_imports("outcome", allow_multiple = TRUE)
+      if (is_back_signal(imported_outcomes)) next
+      if (is.null(imported_outcomes) || length(imported_outcomes) == 0) next
+      selected_outcome_records <- lapply(imported_outcomes, selection_record_from_import)
+      selected_ids_outcome <- as.character(vapply(imported_outcomes, function(item) item$source_id %||% "", character(1)))
+      cat(sprintf("Imported %s outcome cohort definition(s) from the database.\n", length(selected_ids_outcome)))
     } else {
-      message("Calling ACP flow: phenotype_recommendation (outcome)")
-      body <- list(
-        study_intent = outcome_statement,
-        top_k = topK,
-        max_results = maxResults,
-        candidate_limit = candidateLimit
-      )
-      rec_response_outcome <- acp_try("/flows/phenotype_recommendation", body, "outcome_recommendation")
-      write_json(rec_response_outcome, recs_outcome_path)
-    }
-  } else if (file.exists(recs_outcome_path)) {
-    rec_response_outcome <- read_json(recs_outcome_path)
-    used_cached_recs_outcome <- TRUE
-  } else {
-    do_outcome_recs <- TRUE
-    message("No cached outcome recommendations found; rerunning outcome recommendations.")
-    body <- list(
-      study_intent = outcome_statement,
-      top_k = topK,
-      max_results = maxResults,
-      candidate_limit = candidateLimit
-    )
-    rec_response_outcome <- acp_try("/flows/phenotype_recommendation", body, "outcome_recommendation_resume")
-    write_json(rec_response_outcome, recs_outcome_path)
-  }
-
-  recs_core_outcome <- rec_response_outcome$recommendations %||% rec_response_outcome
-  recommendations_outcome <- recs_core_outcome$phenotype_recommendations %||% list()
-  if (length(recommendations_outcome) == 0) stop("No outcome phenotype recommendations returned.")
-
-  cat("\n== Outcome Phenotype Recommendations ==\n")
-  for (i in seq_along(recommendations_outcome)) {
-    rec <- recommendations_outcome[[i]]
-    cat(sprintf("%d. %s (ID %s)\n", i, rec$phenotype_name %||% "<unknown>", rec$phenotype_id %||% "?"))
-    if (!is.null(rec$justification)) cat(sprintf("   %s\n", rec$justification))
-  }
-
-  if (interactive) {
-    set_dialogue_context("outcome_recommendation", "outcome", context = list(study_intent = studyIntent, role_statement = outcome_statement, target_statement = target_statement, outcome_statement = outcome_statement, top_k = topK, max_results = maxResults, candidate_limit = candidateLimit))
-    ok_any <- prompt_yesno("Are any of these acceptable for the outcomes?", default = TRUE)
-    if (!ok_any) {
-      widen <- prompt_yesno("Widen candidate pool and try again?", default = TRUE)
-      if (widen) {
-        message("Generating additional recommendations (next window)...")
-        used_window2_outcome <- TRUE
+      do_outcome_recs <- !isTRUE(resume) || !has_checkpoint("outcome_advice")
+      if (interactive && !do_outcome_recs) {
+        cat("\n== Step 5: Outcome phenotype recommendations (resumed) ==\n")
+      }
+      if (do_outcome_recs) {
+        if (interactive) {
+          cat("\n== Step 5: Outcome phenotype recommendations ==\n")
+        }
+        set_dialogue_context("outcome_recommendation", "outcome", context = list(study_intent = studyIntent, role_statement = outcome_statement, target_statement = target_statement, outcome_statement = outcome_statement, top_k = topK, max_results = maxResults, candidate_limit = candidateLimit))
+        if (maybe_use_cache(recs_outcome_path, "outcome recommendations")) {
+          rec_response_outcome <- read_json(recs_outcome_path)
+          used_cached_recs_outcome <- TRUE
+        } else {
+          message("Calling ACP flow: phenotype_recommendation (outcome)")
+          body <- list(
+            study_intent = outcome_statement,
+            top_k = topK,
+            max_results = maxResults,
+            candidate_limit = candidateLimit
+          )
+          rec_response_outcome <- acp_try("/flows/phenotype_recommendation", body, "outcome_recommendation")
+          write_json(rec_response_outcome, recs_outcome_path)
+        }
+      } else if (file.exists(recs_outcome_path)) {
+        rec_response_outcome <- read_json(recs_outcome_path)
+        used_cached_recs_outcome <- TRUE
+      } else {
+        do_outcome_recs <- TRUE
+        message("No cached outcome recommendations found; rerunning outcome recommendations.")
         body <- list(
           study_intent = outcome_statement,
           top_k = topK,
           max_results = maxResults,
-          candidate_limit = candidateLimit,
-          candidate_offset = candidateLimit
+          candidate_limit = candidateLimit
         )
-        rec_response_outcome <- acp_try("/flows/phenotype_recommendation", body, "outcome_recommendation_window2")
-        recs_outcome_path <- file.path(output_dir, "recommendations_outcome_window2.json")
+        rec_response_outcome <- acp_try("/flows/phenotype_recommendation", body, "outcome_recommendation_resume")
         write_json(rec_response_outcome, recs_outcome_path)
-
-        recs_core_outcome <- rec_response_outcome$recommendations %||% rec_response_outcome
-        recommendations_outcome <- recs_core_outcome$phenotype_recommendations %||% list()
-        cat("\n== Outcome Phenotype Recommendations (window 2) ==\n")
-        for (i in seq_along(recommendations_outcome)) {
-          rec <- recommendations_outcome[[i]]
-          cat(sprintf("%d. %s (ID %s)\n", i, rec$phenotype_name %||% "<unknown>", rec$phenotype_id %||% "?"))
-          if (!is.null(rec$justification)) cat(sprintf("   %s\n", rec$justification))
-        }
-        ok_any <- prompt_yesno("Are any of these acceptable?", default = TRUE)
       }
-      if (!ok_any) {
-        message("Generating advisory guidance (this may take a moment)...")
-        advice <- acp_try("/flows/phenotype_recommendation_advice", list(study_intent = studyIntent), "outcome_advice_call")
-        used_advice_outcome <- TRUE
-        advice_core <- advice$advice %||% advice
-        cat("\n== Advisory guidance ==\n")
-        cat(advice_core$advice %||% "", "\n")
-        if (length(advice_core$next_steps %||% list()) > 0) {
-          cat("Next steps:\n")
-          for (step in advice_core$next_steps) cat(sprintf("  - %s\n", step))
-        }
-        if (length(advice_core$questions %||% list()) > 0) {
-          cat("Questions to clarify:\n")
-          for (q in advice_core$questions) cat(sprintf("  - %s\n", q))
-        }
-        mark_checkpoint("outcome_advice", list(recommendations_path = recs_outcome_path))
-        cat("\nHint: rerun with resume=TRUE after updating phenotypes to continue.\n")
-        stop("Stopping after outcome advice. Resume with resume=TRUE once phenotypes are updated.")
+
+      recs_core_outcome <- rec_response_outcome$recommendations %||% rec_response_outcome
+      recommendations_outcome <- recs_core_outcome$phenotype_recommendations %||% list()
+      if (length(recommendations_outcome) == 0) stop("No outcome phenotype recommendations returned.")
+
+      cat("\n== Outcome Phenotype Recommendations ==\n")
+      for (i in seq_along(recommendations_outcome)) {
+        rec <- recommendations_outcome[[i]]
+        cat(sprintf("%d. %s (ID %s)\n", i, rec$phenotype_name %||% "<unknown>", rec$phenotype_id %||% "?"))
+        if (!is.null(rec$justification)) cat(sprintf("   %s\n", rec$justification))
       }
-    }
-  }
 
-  if (interactive) {
-    set_dialogue_context("outcome_selection", "outcome", context = list(study_intent = studyIntent, role_statement = outcome_statement, target_statement = target_statement, outcome_statement = outcome_statement))
-    if (!prompt_yesno("Continue to outcome cohort selection?", default = TRUE)) {
-      return(invisible(list(output_dir = output_dir, recommendations = recs_outcome_path)))
-    }
-    gate <- readline_with_navigation("Press Enter to continue to outcome cohort selection, or type /back: ")
-    if (is_back_signal(gate)) next
-    cat("\n== Step 6: Select outcome cohorts ==\n")
-  }
-
-  selected_ids_outcome <- NULL
-  if (interactive) {
-    labels <- vapply(seq_along(recommendations_outcome), function(i) {
-      rec <- recommendations_outcome[[i]]
-      sprintf("%s (ID %s)", rec$phenotype_name %||% "<unknown>", rec$phenotype_id %||% "?")
-    }, character(1))
-    picks <- utils::select.list(labels, multiple = TRUE, title = "Select outcome phenotypes")
-    selected_ids_outcome <- vapply(picks, function(label) {
-      idx <- which(labels == label)[1]
-      recommendations_outcome[[idx]]$phenotype_id %||% NA_character_
-    }, character(1))
-  } else {
-    if (length(recommendations_outcome) >= 2) {
-      selected_ids_outcome <- vapply(recommendations_outcome[-1], function(r) r$phenotype_id %||% NA_character_, character(1))
-    } else {
-      selected_ids_outcome <- vapply(recommendations_outcome, function(r) r$phenotype_id %||% NA_character_, character(1))
-    }
-  }
-  selected_ids_outcome <- as.character(selected_ids_outcome)
-  if (length(selected_ids_outcome) == 0) stop("No outcome cohorts selected.")
-
-  stop_if_unsupported_selected(selected_ids_outcome, "outcome")
-
-  new_ids_outcome <- map_ids(selected_ids_outcome)
-
-  for (i in seq_along(new_ids_outcome)) {
-    copy_cohort_json_multi(selected_ids_outcome[[i]], new_ids_outcome[[i]], c(selected_outcome_dir, selected_dir), index_def_dir)
-  }
-
-  do_outcome_improvements <- TRUE
-  if (interactive) {
-    set_dialogue_context("outcome_improvements", "outcome", context = list(study_intent = studyIntent, role_statement = outcome_statement, target_statement = target_statement, outcome_statement = outcome_statement, selected_outcome_ids = as.list(selected_ids_outcome %||% list())))
-    do_outcome_improvements <- prompt_yesno("Continue to outcome phenotype improvements?", default = TRUE)
-    if (do_outcome_improvements) {
-      cat("\n== Step 7: Outcome phenotype improvements ==\n")
-    }
-  }
-
-  improvements_outcome_path <- file.path(output_dir, "improvements_outcome.json")
-  imp_response_outcome <- list()
-  used_cached_improvements_outcome <- FALSE
-  if (isTRUE(do_outcome_improvements)) {
-    if (maybe_use_cache(improvements_outcome_path, "outcome improvements")) {
-      imp_response_outcome <- read_json(improvements_outcome_path)
-      used_cached_improvements_outcome <- TRUE
       if (interactive) {
-        cat(sprintf("\nLoaded cached outcome improvements from %s\n", improvements_outcome_path))
-      }
-    } else {
-      for (i in seq_along(new_ids_outcome)) {
-        cid <- new_ids_outcome[[i]]
-        cohort_obj <- read_json(file.path(selected_outcome_dir, sprintf("%s.json", cid)))
-        cohort_obj$id <- cid
-        body <- list(
-          protocol_text = studyIntent,
-          cohorts = list(cohort_obj)
-        )
-        message(sprintf("Calling ACP flow: phenotype_improvements (outcome cohort %s)", cid))
-        resp <- acp_try("/flows/phenotype_improvements", body, "outcome_improvements")
-        imp_response_outcome[[as.character(cid)]] <- resp
-      }
-      write_json(imp_response_outcome, improvements_outcome_path)
-    }
+        set_dialogue_context("outcome_recommendation", "outcome", context = list(study_intent = studyIntent, role_statement = outcome_statement, target_statement = target_statement, outcome_statement = outcome_statement, top_k = topK, max_results = maxResults, candidate_limit = candidateLimit))
+        ok_any <- prompt_yesno("Are any of these acceptable for the outcomes?", default = TRUE)
+        if (!ok_any) {
+          widen <- prompt_yesno("Widen candidate pool and try again?", default = TRUE)
+          if (widen) {
+            message("Generating additional recommendations (next window)...")
+            used_window2_outcome <- TRUE
+            body <- list(
+              study_intent = outcome_statement,
+              top_k = topK,
+              max_results = maxResults,
+              candidate_limit = candidateLimit,
+              candidate_offset = candidateLimit
+            )
+            rec_response_outcome <- acp_try("/flows/phenotype_recommendation", body, "outcome_recommendation_window2")
+            recs_outcome_path <- file.path(output_dir, "recommendations_outcome_window2.json")
+            write_json(rec_response_outcome, recs_outcome_path)
 
-    if (interactive) {
-      for (cid in names(imp_response_outcome)) {
-        resp <- imp_response_outcome[[cid]]
-        items <- extract_phenotype_improvement_items(resp, sprintf("outcome cohort %s", cid))
-        cat(sprintf("\n== Improvements for outcome cohort %s ==\n", cid))
-        for (item in items) {
-          cat(sprintf("- %s\n", item$summary %||% "(no summary)"))
-          if (!is.null(item$actions)) {
-            for (act in item$actions) {
-              cat(sprintf("  action: %s %s\n", act$type %||% "set", act$path %||% ""))
+            recs_core_outcome <- rec_response_outcome$recommendations %||% rec_response_outcome
+            recommendations_outcome <- recs_core_outcome$phenotype_recommendations %||% list()
+            cat("\n== Outcome Phenotype Recommendations (window 2) ==\n")
+            for (i in seq_along(recommendations_outcome)) {
+              rec <- recommendations_outcome[[i]]
+              cat(sprintf("%d. %s (ID %s)\n", i, rec$phenotype_name %||% "<unknown>", rec$phenotype_id %||% "?"))
+              if (!is.null(rec$justification)) cat(sprintf("   %s\n", rec$justification))
             }
+            ok_any <- prompt_yesno("Are any of these acceptable?", default = TRUE)
+          }
+          if (!ok_any) {
+            message("Generating advisory guidance (this may take a moment)...")
+            advice <- acp_try("/flows/phenotype_recommendation_advice", list(study_intent = studyIntent), "outcome_advice_call")
+            used_advice_outcome <- TRUE
+            advice_core <- advice$advice %||% advice
+            cat("\n== Advisory guidance ==\n")
+            cat(advice_core$advice %||% "", "\n")
+            if (length(advice_core$next_steps %||% list()) > 0) {
+              cat("Next steps:\n")
+              for (step in advice_core$next_steps) cat(sprintf("  - %s\n", step))
+            }
+            if (length(advice_core$questions %||% list()) > 0) {
+              cat("Questions to clarify:\n")
+              for (q in advice_core$questions) cat(sprintf("  - %s\n", q))
+            }
+            mark_checkpoint("outcome_advice", list(recommendations_path = recs_outcome_path))
+            cat("\nHint: rerun with resume=TRUE after updating phenotypes to continue.\n")
+            stop("Stopping after outcome advice. Resume with resume=TRUE once phenotypes are updated.")
           }
         }
-        if (length(items) == 0) {
-          cat("  No improvements returned for this cohort.\n")
-          next
+      }
+
+      if (interactive) {
+        set_dialogue_context("outcome_selection", "outcome", context = list(study_intent = studyIntent, role_statement = outcome_statement, target_statement = target_statement, outcome_statement = outcome_statement))
+        if (!prompt_yesno("Continue to outcome cohort selection?", default = TRUE)) {
+          return(invisible(list(output_dir = output_dir, recommendations = recs_outcome_path)))
         }
-        set_dialogue_context("outcome_improvements", "outcome", context = list(study_intent = studyIntent, role_statement = outcome_statement, target_statement = target_statement, outcome_statement = outcome_statement, cohort_id = as.integer(cid), selected_outcome_ids = as.list(selected_ids_outcome %||% list())))
-        if (prompt_yesno(sprintf("Apply improvements for outcome cohort %s now?", cid), default = FALSE)) {
+        gate <- readline_with_navigation("Press Enter to continue to outcome cohort selection, or type /back: ")
+        if (is_back_signal(gate)) next
+        cat("\n== Step 6: Select outcome cohorts ==\n")
+      }
+
+      selected_ids_outcome <- NULL
+      if (interactive) {
+        labels <- vapply(seq_along(recommendations_outcome), function(i) {
+          rec <- recommendations_outcome[[i]]
+          sprintf("%s (ID %s)", rec$phenotype_name %||% "<unknown>", rec$phenotype_id %||% "?")
+        }, character(1))
+        picks <- utils::select.list(labels, multiple = TRUE, title = "Select outcome phenotypes")
+        selected_ids_outcome <- vapply(picks, function(label) {
+          idx <- which(labels == label)[1]
+          recommendations_outcome[[idx]]$phenotype_id %||% NA_character_
+        }, character(1))
+        selected_outcome_records <- lapply(picks, function(label) {
+          idx <- which(labels == label)[1]
+          selection_record_from_recommendation(recommendations_outcome[[idx]])
+        })
+      } else {
+        if (length(recommendations_outcome) >= 2) {
+          selected_ids_outcome <- vapply(recommendations_outcome[-1], function(r) r$phenotype_id %||% NA_character_, character(1))
+          selected_outcome_records <- lapply(recommendations_outcome[-1], selection_record_from_recommendation)
+        } else {
+          selected_ids_outcome <- vapply(recommendations_outcome, function(r) r$phenotype_id %||% NA_character_, character(1))
+          selected_outcome_records <- lapply(recommendations_outcome, selection_record_from_recommendation)
+        }
+      }
+    }
+
+    selected_ids_outcome <- as.character(selected_ids_outcome)
+    if (length(selected_ids_outcome) == 0) stop("No outcome cohorts selected.")
+    stop_if_unsupported_selected(selected_ids_outcome, "outcome")
+    new_ids_outcome <- map_ids(selected_ids_outcome)
+    for (i in seq_along(new_ids_outcome)) {
+      copy_cohort_json_multi(selected_ids_outcome[[i]], new_ids_outcome[[i]], c(selected_outcome_dir, selected_dir), index_def_dir, imported_def_dir = imported_definition_dir)
+    }
+
+    do_outcome_improvements <- TRUE
+    if (interactive) {
+      set_dialogue_context("outcome_improvements", "outcome", context = list(study_intent = studyIntent, role_statement = outcome_statement, target_statement = target_statement, outcome_statement = outcome_statement, selected_outcome_ids = as.list(selected_ids_outcome %||% list())))
+      do_outcome_improvements <- prompt_yesno("Continue to outcome phenotype improvements?", default = TRUE)
+      if (do_outcome_improvements) {
+        cat("\n== Step 7: Outcome phenotype improvements ==\n")
+      }
+    }
+
+    improvements_outcome_path <- file.path(output_dir, "improvements_outcome.json")
+    imp_response_outcome <- list()
+    used_cached_improvements_outcome <- FALSE
+    if (isTRUE(do_outcome_improvements)) {
+      if (maybe_use_cache(improvements_outcome_path, "outcome improvements")) {
+        imp_response_outcome <- read_json(improvements_outcome_path)
+        used_cached_improvements_outcome <- TRUE
+        if (interactive) {
+          cat(sprintf("\nLoaded cached outcome improvements from %s\n", improvements_outcome_path))
+        }
+      } else {
+        for (i in seq_along(new_ids_outcome)) {
+          cid <- new_ids_outcome[[i]]
+          cohort_obj <- read_json(file.path(selected_outcome_dir, sprintf("%s.json", cid)))
+          cohort_obj$id <- cid
+          body <- list(
+            protocol_text = studyIntent,
+            cohorts = list(cohort_obj)
+          )
+          message(sprintf("Calling ACP flow: phenotype_improvements (outcome cohort %s)", cid))
+          resp <- acp_try("/flows/phenotype_improvements", body, "outcome_improvements")
+          imp_response_outcome[[as.character(cid)]] <- resp
+        }
+        write_json(imp_response_outcome, improvements_outcome_path)
+      }
+
+      if (interactive) {
+        for (cid in names(imp_response_outcome)) {
+          resp <- imp_response_outcome[[cid]]
+          items <- extract_phenotype_improvement_items(resp, sprintf("outcome cohort %s", cid))
+          cat(sprintf("\n== Improvements for outcome cohort %s ==\n", cid))
+          for (item in items) {
+            cat(sprintf("- %s\n", item$summary %||% "(no summary)"))
+            if (!is.null(item$actions)) {
+              for (act in item$actions) {
+                cat(sprintf("  action: %s %s\n", act$type %||% "set", act$path %||% ""))
+              }
+            }
+          }
+          if (length(items) == 0) {
+            cat("  No improvements returned for this cohort.\n")
+            next
+          }
+          set_dialogue_context("outcome_improvements", "outcome", context = list(study_intent = studyIntent, role_statement = outcome_statement, target_statement = target_statement, outcome_statement = outcome_statement, cohort_id = as.integer(cid), selected_outcome_ids = as.list(selected_ids_outcome %||% list())))
+          if (prompt_yesno(sprintf("Apply improvements for outcome cohort %s now?", cid), default = FALSE)) {
+            cohort_path <- file.path(selected_outcome_dir, sprintf("%s.json", cid))
+            cohort_obj <- read_json(cohort_path)
+            for (item in items) {
+              if (is.null(item$actions)) next
+              for (act in item$actions) {
+                cohort_obj <- apply_action(cohort_obj, act)
+              }
+            }
+            ensure_dir(patched_outcome_dir)
+            ensure_dir(patched_dir)
+            out_path <- file.path(patched_outcome_dir, sprintf("%s.json", cid))
+            write_json(cohort_obj, out_path)
+            file.copy(out_path, file.path(patched_dir, sprintf("%s.json", cid)), overwrite = TRUE)
+            improvements_applied <- TRUE
+            cat(sprintf("Patched outcome cohort saved: %s\n", out_path))
+          }
+        }
+      }
+      if (!isTRUE(interactive) && isTRUE(autoApplyImprovements)) {
+        for (cid in names(imp_response_outcome)) {
+          resp <- imp_response_outcome[[cid]]
+          items <- extract_phenotype_improvement_items(resp, sprintf("outcome cohort %s", cid))
+          if (length(items) == 0) next
           cohort_path <- file.path(selected_outcome_dir, sprintf("%s.json", cid))
           cohort_obj <- read_json(cohort_path)
           for (item in items) {
@@ -1121,33 +1950,9 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
           write_json(cohort_obj, out_path)
           file.copy(out_path, file.path(patched_dir, sprintf("%s.json", cid)), overwrite = TRUE)
           improvements_applied <- TRUE
-          cat(sprintf("Patched outcome cohort saved: %s\n", out_path))
         }
       }
     }
-    if (!isTRUE(interactive) && isTRUE(autoApplyImprovements)) {
-      for (cid in names(imp_response_outcome)) {
-        resp <- imp_response_outcome[[cid]]
-        items <- extract_phenotype_improvement_items(resp, sprintf("outcome cohort %s", cid))
-        if (length(items) == 0) next
-        cohort_path <- file.path(selected_outcome_dir, sprintf("%s.json", cid))
-        cohort_obj <- read_json(cohort_path)
-        for (item in items) {
-          if (is.null(item$actions)) next
-          for (act in item$actions) {
-            cohort_obj <- apply_action(cohort_obj, act)
-          }
-        }
-        ensure_dir(patched_outcome_dir)
-        ensure_dir(patched_dir)
-        out_path <- file.path(patched_outcome_dir, sprintf("%s.json", cid))
-        write_json(cohort_obj, out_path)
-        file.copy(out_path, file.path(patched_dir, sprintf("%s.json", cid)), overwrite = TRUE)
-        improvements_applied <- TRUE
-      }
-    }
-  }
-
 
     break
   }
@@ -1168,18 +1973,28 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     stop("No target cohort assigned. Update cohort_roles.json and re-run.")
   }
 
+  selection_manifest <- list(
+    targets = selected_target_records,
+    outcomes = selected_outcome_records,
+    target_ids = as.list(target_ids),
+    outcome_ids = as.list(outcome_ids),
+    use_mapping = use_mapping,
+    cohort_id_base = if (is.na(cohort_id_base)) NULL else as.integer(cohort_id_base)
+  )
+  write_json(selection_manifest, selection_manifest_path)
+
   cohort_csv <- file.path(selected_dir, "Cohorts.csv")
   cohort_rows <- list()
   if (length(new_ids_target) > 0) {
     for (i in seq_along(new_ids_target)) {
       cid <- selected_ids_target[[i]]
       new_id <- new_ids_target[[i]]
-      rec <- recommendations_target[[which(vapply(recommendations_target, function(r) r$phenotype_id == cid, logical(1)))]]
+      rec <- selected_target_records[[i]] %||% list()
       cohort_rows[[length(cohort_rows) + 1]] <- data.frame(
         atlas_id = cid,
         cohort_id = new_id,
-        cohort_name = rec$phenotype_name %||% paste0("Cohort ", new_id),
-        logic_description = rec$justification %||% NA_character_,
+        cohort_name = rec$cohort_name %||% paste0("Cohort ", new_id),
+        logic_description = rec$logic_description %||% NA_character_,
         generate_stats = TRUE,
         stringsAsFactors = FALSE
       )
@@ -1189,12 +2004,12 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     for (i in seq_along(new_ids_outcome)) {
       cid <- selected_ids_outcome[[i]]
       new_id <- new_ids_outcome[[i]]
-      rec <- recommendations_outcome[[which(vapply(recommendations_outcome, function(r) r$phenotype_id == cid, logical(1)))]]
+      rec <- selected_outcome_records[[i]] %||% list()
       cohort_rows[[length(cohort_rows) + 1]] <- data.frame(
         atlas_id = cid,
         cohort_id = new_id,
-        cohort_name = rec$phenotype_name %||% paste0("Cohort ", new_id),
-        logic_description = rec$justification %||% NA_character_,
+        cohort_name = rec$cohort_name %||% paste0("Cohort ", new_id),
+        logic_description = rec$logic_description %||% NA_character_,
         generate_stats = TRUE,
         stringsAsFactors = FALSE
       )
@@ -1239,6 +2054,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     time_at_risk_settings_path = time_at_risk_settings_path,
     incidence_time_at_risk = incidence_time_at_risk,
     index_def_dir = index_def_dir,
+    imported_definition_dir = imported_definition_dir,
     intent_split_path = intent_split_path,
     recommendations_target_path = recs_target_path,
     recommendations_outcome_path = recs_outcome_path,
@@ -1248,6 +2064,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     cohort_id_map = id_map,
     cohort_id_base = cohort_id_base,
     cohort_roles_path = roles_path,
+    selection_manifest_path = selection_manifest_path,
     target_ids = target_ids,
     outcome_ids = outcome_ids,
     resume_enabled = resume,
@@ -1291,7 +2108,8 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
         workFolder = file.path(base_dir, "work"),
         resultsFolder = file.path(base_dir, "results"),
         cohortIdFieldName = "cohort_definition_id",
-        maxCores = 4
+        maxCores = 4,
+        incremental = FALSE
       ), execution_settings_path)
     }
 
@@ -1308,7 +2126,8 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   state$strategus_execution_settings_path <- execution_settings_path
   write_json(state, state_path)
 
-  keeper_review_state_path <- file.path(output_dir, "keeper_review_state.json")
+  keeper_concept_set_state_path <- file.path(output_dir, "keeper_concept_set_state.json")
+  keeper_case_review_state_path <- file.path(output_dir, "keeper_case_review_state.json")
   keeper_review_roles <- character(0)
   keeper_acp_timeout_seconds <- as.numeric(Sys.getenv("ACP_TIMEOUT", "300"))
   keeper_candidate_limit <- 5L
@@ -1319,12 +2138,21 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   keeper_overwrite_approved_concept_sets <- FALSE
   keeper_resume_reviews <- TRUE
   keeper_review_row_selection <- NULL
-  keeper_review_ran <- FALSE
-  keeper_review_result <- NULL
+  keeper_concept_set_ran <- FALSE
+  keeper_case_review_ran <- FALSE
+  keeper_concept_set_result <- NULL
+  keeper_case_review_result <- NULL
 
   if (isTRUE(interactive)) {
     repeat {
-      run_keeper_review_now <- prompt_yesno_navigation(paste("Run Keeper review now? (first edit db/execution conf ", db_details_path, ",", execution_settings_path, ") [y/N]"), default = FALSE)
+      cat("
+Keeper review uses the local DB and execution settings files:
+")
+      cat(sprintf("  - DB details: %s
+", db_details_path))
+      cat(sprintf("  - Execution settings: %s
+", execution_settings_path))
+      run_keeper_review_now <- prompt_yesno_navigation("Run Keeper review now after reviewing those files?", default = FALSE)
       if (is_back_signal(run_keeper_review_now)) {
         incidence_time_at_risk <- collect_time_at_risk_settings(
           seed_settings = incidence_time_at_risk,
@@ -1379,7 +2207,8 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
               outcome_statement = outcome_statement,
               selected_target_ids = as.list(target_ids),
               selected_outcome_ids = as.list(outcome_ids),
-              keeper_review_state_path = keeper_review_state_path,
+              keeper_concept_set_state_path = keeper_concept_set_state_path,
+              keeper_case_review_state_path = keeper_case_review_state_path,
               acp_timeout_seconds = keeper_acp_timeout_seconds
             ),
             context
@@ -1553,8 +2382,8 @@ Keeper review saved: %s reviewed row(s)
           context = list(review_roles = as.list(keeper_review_roles), review_status = "starting")
         )
 
-        keeper_review_result <- tryCatch(
-          runKeeperReviewWorkflow(
+        keeper_concept_set_result <- tryCatch(
+          runKeeperConceptSetWorkflow(
             base_dir = base_dir,
             execution_settings_path = execution_settings_path,
             cohort_id_map_path = file.path(output_dir, "cohort_id_map.json"),
@@ -1564,45 +2393,87 @@ Keeper review saved: %s reviewed row(s)
             review_roles = keeper_review_roles,
             candidate_limit = keeper_candidate_limit,
             min_record_count = keeper_min_record_count,
-            sample_size = keeper_sample_size,
-            review_row_limit = keeper_review_row_limit,
             overwrite_approved_concept_sets = keeper_overwrite_approved_concept_sets,
             reuse_generated_concept_sets = keeper_reuse_generated_artifacts,
-            reuse_rows = keeper_reuse_generated_artifacts,
-            resume_reviews = keeper_resume_reviews,
-            review_row_selection = keeper_review_row_selection,
             stage_callback = stage_callback,
             stage_gate = keeper_stage_gate
           ),
           error = function(e) e
         )
 
-        if (inherits(keeper_review_result, "error")) {
-          cat(sprintf("Keeper review failed: %s
-", conditionMessage(keeper_review_result)))
-        } else if (identical(keeper_review_result$status %||% "ok", "error")) {
-          error_count <- as.integer(keeper_review_result$error_count %||% 0L)
-          cat(sprintf("Keeper review encountered %s ACP error(s).
+        if (inherits(keeper_concept_set_result, "error")) {
+          cat(sprintf("Keeper concept-set workflow failed: %s
+", conditionMessage(keeper_concept_set_result)))
+        } else if (identical(keeper_concept_set_result$status %||% "ok", "error")) {
+          error_count <- as.integer(keeper_concept_set_result$error_count %||% 0L)
+          cat(sprintf("Keeper concept-set workflow encountered %s ACP error(s).
 ", error_count))
-          if (length(keeper_review_result$errors %||% list())) {
-            first_error <- keeper_review_result$errors[[1]]
+          if (length(keeper_concept_set_result$errors %||% list())) {
+            first_error <- keeper_concept_set_result$errors[[1]]
             cat(sprintf("First ACP error: %s
 ", first_error$message %||% "unknown ACP error"))
           }
-          cat(sprintf("Keeper review state saved to: %s
-", keeper_review_state_path))
+          cat(sprintf("Keeper concept-set state saved to: %s
+", keeper_concept_set_state_path))
         } else {
-          keeper_review_ran <- TRUE
-          cat(sprintf("Keeper review state saved to: %s
-", keeper_review_state_path))
+          keeper_concept_set_ran <- TRUE
+          cat(sprintf("Keeper concept-set state saved to: %s
+", keeper_concept_set_state_path))
+          proceed_case_review <- prompt_yesno("Proceed to Keeper case review now?", default = TRUE)
+          if (isTRUE(proceed_case_review)) {
+            keeper_case_review_result <- tryCatch(
+              runKeeperCaseReviewWorkflow(
+                base_dir = base_dir,
+                execution_settings_path = execution_settings_path,
+                cohort_id_map_path = file.path(output_dir, "cohort_id_map.json"),
+                cohort_roles_path = roles_path,
+                intent_path = intent_split_path,
+                acp_timeout_seconds = keeper_acp_timeout_seconds,
+                review_roles = keeper_review_roles,
+                sample_size = keeper_sample_size,
+                review_row_limit = keeper_review_row_limit,
+                reuse_rows = keeper_reuse_generated_artifacts,
+                resume_reviews = keeper_resume_reviews,
+                review_row_selection = keeper_review_row_selection,
+                remove_pii = TRUE,
+                stage_callback = stage_callback,
+                stage_gate = keeper_stage_gate
+              ),
+              error = function(e) e
+            )
+            if (inherits(keeper_case_review_result, "error")) {
+              cat(sprintf("Keeper case review failed: %s
+", conditionMessage(keeper_case_review_result)))
+            } else if (identical(keeper_case_review_result$status %||% "ok", "error")) {
+              error_count <- as.integer(keeper_case_review_result$error_count %||% 0L)
+              cat(sprintf("Keeper case review encountered %s ACP error(s).
+", error_count))
+              if (length(keeper_case_review_result$errors %||% list())) {
+                first_error <- keeper_case_review_result$errors[[1]]
+                cat(sprintf("First ACP error: %s
+", first_error$message %||% "unknown ACP error"))
+              }
+              cat(sprintf("Keeper case-review state saved to: %s
+", keeper_case_review_state_path))
+            } else {
+              keeper_case_review_ran <- TRUE
+              cat(sprintf("Keeper case-review state saved to: %s
+", keeper_case_review_state_path))
+            }
+          }
         }
-        set_dialogue_context("workflow_summary", context = list(study_intent = studyIntent, keeper_review_state_path = keeper_review_state_path))
+        set_dialogue_context("workflow_summary", context = list(
+          study_intent = studyIntent,
+          keeper_concept_set_state_path = keeper_concept_set_state_path,
+          keeper_case_review_state_path = keeper_case_review_state_path
+        ))
       }
       break
     }
   }
 
-  state$keeper_review_state_path <- keeper_review_state_path
+  state$keeper_concept_set_state_path <- keeper_concept_set_state_path
+  state$keeper_case_review_state_path <- keeper_case_review_state_path
   state$keeper_review_roles <- as.list(keeper_review_roles)
   state$keeper_acp_timeout_seconds <- as.numeric(keeper_acp_timeout_seconds)
   state$keeper_candidate_limit <- as.integer(keeper_candidate_limit)
@@ -1613,9 +2484,12 @@ Keeper review saved: %s reviewed row(s)
   state$keeper_overwrite_approved_concept_sets <- isTRUE(keeper_overwrite_approved_concept_sets)
   state$keeper_resume_reviews <- isTRUE(keeper_resume_reviews)
   state$keeper_review_row_selection <- keeper_review_row_selection
-  state$keeper_review_ran <- isTRUE(keeper_review_ran)
-  state$keeper_review_status <- if (inherits(keeper_review_result, "error")) "error" else as.character(keeper_review_result$status %||% if (isTRUE(keeper_review_ran)) "ok" else "not_run")
-  state$keeper_review_error_count <- if (inherits(keeper_review_result, "error")) 1L else as.integer(keeper_review_result$error_count %||% 0L)
+  state$keeper_concept_set_ran <- isTRUE(keeper_concept_set_ran)
+  state$keeper_case_review_ran <- isTRUE(keeper_case_review_ran)
+  state$keeper_concept_set_status <- if (inherits(keeper_concept_set_result, "error")) "error" else as.character(keeper_concept_set_result$status %||% if (isTRUE(keeper_concept_set_ran)) "ok" else "not_run")
+  state$keeper_case_review_status <- if (inherits(keeper_case_review_result, "error")) "error" else as.character(keeper_case_review_result$status %||% if (isTRUE(keeper_case_review_ran)) "ok" else "not_run")
+  state$keeper_concept_set_error_count <- if (inherits(keeper_concept_set_result, "error")) 1L else as.integer(keeper_concept_set_result$error_count %||% 0L)
+  state$keeper_case_review_error_count <- if (inherits(keeper_case_review_result, "error")) 1L else as.integer(keeper_case_review_result$error_count %||% 0L)
   write_json(state, state_path)
 
   # ---- Generate scripts ----
@@ -1638,15 +2512,21 @@ Keeper review saved: %s reviewed row(s)
   script_01 <- c(
     script_header,
     "`%||%` <- function(x, y) if (is.null(x)) y else x",
-    "phenotype_definition_path <- function(phenotype_id, index_def_dir) {",
+    "phenotype_definition_path <- function(phenotype_id, index_def_dir, imported_def_dir = NULL) {",
+    "  phenotype_id <- as.character(phenotype_id %||% '')",
+    "  if (grepl('^db:[A-Za-z][A-Za-z0-9_]*:[0-9]+$', phenotype_id)) {",
+    "    if (is.null(imported_def_dir) || !nzchar(imported_def_dir)) stop('Missing imported cohort definition cache directory.')",
+    "    return(file.path(imported_def_dir, sprintf('%s.json', gsub(':', '__', phenotype_id, fixed = TRUE))))",
+    "  }",
     "  file.path(index_def_dir, sprintf('%s.json', gsub(':', '__', phenotype_id, fixed = TRUE)))",
     "}",
     "stop_if_unsupported_selected <- function(phenotype_ids, role_label) {",
-    "  unsupported <- phenotype_ids[!grepl('^ohdsi:', phenotype_ids %||% character(0))]",
-    "  if (length(unsupported) > 0) stop(sprintf('Selected %s phenotype(s) include non-OHDSI ids (%s). This demo workflow does not yet support converting non-OHDSI phenotype definitions into computable OHDSI cohort definitions. Please re-run and choose an OHDSI phenotype.', role_label, paste(unique(unsupported), collapse = ', ')))",
+    "  supported <- grepl('^ohdsi:[0-9]+$', phenotype_ids %||% character(0)) | grepl('^db:[A-Za-z][A-Za-z0-9_]*:[0-9]+$', phenotype_ids %||% character(0))",
+    "  unsupported <- phenotype_ids[!supported]",
+    "  if (length(unsupported) > 0) stop(sprintf('Selected %s cohort source ids include unsupported values (%s).', role_label, paste(unique(unsupported), collapse = ', ')))",
     "}",
-    "copy_cohort_json <- function(source_id, dest_id, dest_dirs, index_def_dir) {",
-    "  src <- phenotype_definition_path(source_id, index_def_dir)",
+    "copy_cohort_json <- function(source_id, dest_id, dest_dirs, index_def_dir, imported_def_dir = NULL) {",
+    "  src <- phenotype_definition_path(source_id, index_def_dir, imported_def_dir = imported_def_dir)",
     "  if (!file.exists(src)) stop('Cohort JSON not found: ', src)",
     "  for (dest_dir in dest_dirs) {",
     "    dir.create(dest_dir, recursive = TRUE, showWarnings = FALSE)",
@@ -1657,64 +2537,30 @@ Keeper review saved: %s reviewed row(s)
     sprintf("base_dir <- '%s'", base_dir),
     "output_dir <- file.path(base_dir, 'outputs')",
     sprintf("index_def_dir <- '%s'", index_def_dir),
+    "imported_def_dir <- file.path(base_dir, 'imported-cohort-definitions')",
     "selected_dir <- file.path(base_dir, 'selected-cohorts')",
     "selected_target_dir <- file.path(base_dir, 'selected-target-cohorts')",
     "selected_outcome_dir <- file.path(base_dir, 'selected-outcome-cohorts')",
+    "selection_manifest_path <- file.path(output_dir, 'selected_cohort_sources.json')",
     "dir.create(selected_dir, recursive = TRUE, showWarnings = FALSE)",
     "dir.create(selected_target_dir, recursive = TRUE, showWarnings = FALSE)",
     "dir.create(selected_outcome_dir, recursive = TRUE, showWarnings = FALSE)",
-    "recs_target <- jsonlite::fromJSON(file.path(output_dir, 'recommendations_target.json'), simplifyVector = FALSE)",
-    "recs_outcome <- jsonlite::fromJSON(file.path(output_dir, 'recommendations_outcome.json'), simplifyVector = FALSE)",
-    "items_target <- (recs_target$recommendations %||% recs_target)$phenotype_recommendations %||% list()",
-    "items_outcome <- (recs_outcome$recommendations %||% recs_outcome)$phenotype_recommendations %||% list()",
-    "labels_target <- vapply(seq_along(items_target), function(i) sprintf('%s (ID %s)', items_target[[i]]$phenotype_name %||% '<unknown>', items_target[[i]]$phenotype_id %||% '?'), character(1))",
-    "labels_outcome <- vapply(seq_along(items_outcome), function(i) sprintf('%s (ID %s)', items_outcome[[i]]$phenotype_name %||% '<unknown>', items_outcome[[i]]$phenotype_id %||% '?'), character(1))",
-    "target_pick <- utils::select.list(labels_target, multiple = FALSE, title = 'Select target phenotype')",
-    "target_ids <- if (nzchar(target_pick)) (items_target[[which(labels_target == target_pick)[1]]]$phenotype_id %||% '') else character(0)",
-    "outcome_picks <- utils::select.list(labels_outcome, multiple = TRUE, title = 'Select outcome phenotypes')",
-    "outcome_ids <- vapply(outcome_picks, function(label) items_outcome[[which(labels_outcome == label)[1]]]$phenotype_id %||% NA_character_, character(1))",
+    "if (!file.exists(selection_manifest_path)) stop('Missing selection manifest: ', selection_manifest_path)",
+    "selection_manifest <- jsonlite::fromJSON(selection_manifest_path, simplifyVector = FALSE)",
+    "target_records <- selection_manifest$targets %||% list()",
+    "outcome_records <- selection_manifest$outcomes %||% list()",
+    "target_ids <- vapply(target_records, function(item) as.character(item$source_id %||% ''), character(1))",
+    "outcome_ids <- vapply(outcome_records, function(item) as.character(item$source_id %||% ''), character(1))",
+    "new_ids_target <- suppressWarnings(as.integer(unlist(selection_manifest$target_ids %||% integer(0), use.names = FALSE)))",
+    "new_ids_outcome <- suppressWarnings(as.integer(unlist(selection_manifest$outcome_ids %||% integer(0), use.names = FALSE)))",
     "if (length(target_ids) == 0) stop('No target cohort selected.')",
     "if (length(outcome_ids) == 0) stop('No outcome cohorts selected.')",
-    "resp <- tolower(trimws(readline('Map cohort IDs to a new range (avoid collisions)? [Y/n]: ')))",
-    "use_mapping <- !(resp %in% c('n', 'no'))",
-    "cohort_id_base <- NA_integer_",
-    "next_id <- NA_integer_",
-    "if (use_mapping) {",
-    "  cohort_id_base <- sample(10000:50000, 1)",
-    "  inp <- trimws(readline(sprintf('Enter cohort ID base (10000-50000) or press Enter to use %s: ', cohort_id_base)))",
-    "  if (nzchar(inp)) cohort_id_base <- as.integer(inp)",
-    "  next_id <- cohort_id_base",
-    "}",
-    "default_cohort_id <- function(source_id) {",
-    "  source_id <- as.character(source_id %||% '')",
-    "  if (!nzchar(source_id)) return(NA_integer_)",
-    "  if (grepl('^ohdsi:[0-9]+$', source_id)) {",
-    "    return(suppressWarnings(as.integer(sub('^ohdsi:', '', source_id))))",
-    "  }",
-    "  suppressWarnings(as.integer(source_id))",
-    "}",
-    "default_cohort_ids <- function(ids, role_label = 'selected') {",
-    "  ids <- as.character(ids %||% character(0))",
-    "  if (length(ids) == 0) return(integer(0))",
-    "  derived <- vapply(ids, default_cohort_id, integer(1))",
-    "  if (any(is.na(derived))) {",
-    "    bad <- ids[is.na(derived)]",
-    "    stop(sprintf('Could not derive numeric cohort IDs for %s phenotype(s): %s', role_label, paste(unique(bad), collapse = ', ')))",
-    "  }",
-    "  as.integer(derived)",
-    "}",
-    "map_ids <- function(ids) {",
-    "  if (!use_mapping) return(default_cohort_ids(ids, role_label = 'selected'))",
-    "  new <- seq(next_id, length.out = length(ids))",
-    "  next_id <<- max(new) + 1",
-    "  new",
-    "}",
+    "if (length(target_ids) != length(new_ids_target)) stop('Selection manifest target_ids are inconsistent.')",
+    "if (length(outcome_ids) != length(new_ids_outcome)) stop('Selection manifest outcome_ids are inconsistent.')",
     "stop_if_unsupported_selected(target_ids, 'target')",
-    "new_ids_target <- map_ids(target_ids)",
     "stop_if_unsupported_selected(outcome_ids, 'outcome')",
-    "new_ids_outcome <- map_ids(outcome_ids)",
-    "for (i in seq_along(target_ids)) copy_cohort_json(target_ids[[i]], new_ids_target[[i]], c(selected_target_dir, selected_dir), index_def_dir)",
-    "for (i in seq_along(outcome_ids)) copy_cohort_json(outcome_ids[[i]], new_ids_outcome[[i]], c(selected_outcome_dir, selected_dir), index_def_dir)",
+    "for (i in seq_along(target_ids)) copy_cohort_json(target_ids[[i]], new_ids_target[[i]], c(selected_target_dir, selected_dir), index_def_dir, imported_def_dir = imported_def_dir)",
+    "for (i in seq_along(outcome_ids)) copy_cohort_json(outcome_ids[[i]], new_ids_outcome[[i]], c(selected_outcome_dir, selected_dir), index_def_dir, imported_def_dir = imported_def_dir)",
     "id_map <- data.frame(",
     "  original_id = c(target_ids, outcome_ids),",
     "  cohort_id = c(new_ids_target, new_ids_outcome),",
@@ -1727,14 +2573,14 @@ Keeper review saved: %s reviewed row(s)
     "for (i in seq_along(new_ids_target)) {",
     "  cid <- target_ids[[i]]",
     "  new_id <- new_ids_target[[i]]",
-    "  rec <- items_target[[which(vapply(items_target, function(r) r$phenotype_id == cid, logical(1)))[1]]]",
-    "  cohort_rows[[length(cohort_rows) + 1]] <- data.frame(atlas_id = cid, cohort_id = new_id, cohort_name = rec$phenotype_name %||% paste0('Cohort ', new_id), logic_description = rec$justification %||% NA_character_, generate_stats = TRUE, stringsAsFactors = FALSE)",
+    "  rec <- target_records[[i]] %||% list()",
+    "  cohort_rows[[length(cohort_rows) + 1]] <- data.frame(atlas_id = cid, cohort_id = new_id, cohort_name = rec$cohort_name %||% paste0('Cohort ', new_id), logic_description = rec$logic_description %||% NA_character_, generate_stats = TRUE, stringsAsFactors = FALSE)",
     "}",
     "for (i in seq_along(new_ids_outcome)) {",
     "  cid <- outcome_ids[[i]]",
     "  new_id <- new_ids_outcome[[i]]",
-    "  rec <- items_outcome[[which(vapply(items_outcome, function(r) r$phenotype_id == cid, logical(1)))[1]]]",
-    "  cohort_rows[[length(cohort_rows) + 1]] <- data.frame(atlas_id = cid, cohort_id = new_id, cohort_name = rec$phenotype_name %||% paste0('Cohort ', new_id), logic_description = rec$justification %||% NA_character_, generate_stats = TRUE, stringsAsFactors = FALSE)",
+    "  rec <- outcome_records[[i]] %||% list()",
+    "  cohort_rows[[length(cohort_rows) + 1]] <- data.frame(atlas_id = cid, cohort_id = new_id, cohort_name = rec$cohort_name %||% paste0('Cohort ', new_id), logic_description = rec$logic_description %||% NA_character_, generate_stats = TRUE, stringsAsFactors = FALSE)",
     "}",
     "cohort_df <- do.call(rbind, cohort_rows)",
     "write.csv(cohort_df, file.path(selected_dir, 'Cohorts.csv'), row.names = FALSE)",
@@ -1930,10 +2776,11 @@ Keeper review saved: %s reviewed row(s)
   )
   write_lines(file.path(scripts_dir, "03_generate_cohorts.R"), script_03)
 
-  # 04 - Keeper review
+  # 04 - Keeper concept sets
   script_04 <- c(
     script_header,
     "library(jsonlite)",
+    "`%||%` <- function(x, y) if (is.null(x)) y else x",
     "",
     "# loads the Strategus workflow assistant package when working from the repo",
     "if (!requireNamespace('slashOhdsiStrategusAssistant', quietly = TRUE)) {",
@@ -1952,24 +2799,19 @@ Keeper review saved: %s reviewed row(s)
     "cohort_roles_path <- file.path(output_dir, 'cohort_roles.json')",
     "intent_path <- file.path(output_dir, 'intent_split.json')",
     "",
-    "# Edit these defaults as needed before running the ACP-based Keeper workflow.",
+    "# Edit these defaults as needed before running the ACP-based Keeper concept-set workflow.",
     "review_roles <- c('outcome')",
     "domain_keys <- c(",
-    "  'doi', 'drugs'", 
-    ") # NOTE: you could also add 'alternativeDiagnosis', 'symptoms', 'diagnosticProcedures', 'measurements', 'treatmentProcedures', and 'complications' but need to increase the ACP_TIMOUT env variable 3-5 minutes per domain",
+    "  'doi', 'drugs'",
+    ") # NOTE: you could also add 'alternativeDiagnosis', 'symptoms', 'diagnosticProcedures', 'measurements', 'treatmentProcedures', and 'complications' but need to increase the ACP_TIMEOUT env variable 3-5 minutes per domain",
     "candidate_limit <- 5",
-    "sample_size <- 5",
-    "review_row_limit <- 5",
-    "acp_timeout_seconds <- as.numeric(Sys.getenv('ACP_TIMEOUT', '600'))",
+    "acp_timeout_seconds <- as.numeric(Sys.getenv('ACP_TIMEOUT', '300'))",
     "Sys.setenv(ACP_TIMEOUT = as.character(acp_timeout_seconds))",
     "reuse_generated_concept_sets <- TRUE",
     "overwrite_approved_concept_sets <- FALSE",
-    "reuse_rows <- TRUE",
-    "resume_reviews <- TRUE",
-    "review_row_selection <- NULL  # e.g. '1-3,5'",
     "acp_url <- Sys.getenv('ACP_URL', 'http://127.0.0.1:8765')",
     "",
-    "result <- slashOhdsiStrategusAssistant::runKeeperReviewWorkflow(",
+    "result <- slashOhdsiStrategusAssistant::runKeeperConceptSetWorkflow(",
     "  base_dir = base_dir,",
     "  execution_settings_path = execution_settings_path,",
     "  cohort_id_map_path = cohort_id_map_path,",
@@ -1978,29 +2820,82 @@ Keeper review saved: %s reviewed row(s)
     "  acp_url = acp_url,",
     "  acp_timeout_seconds = acp_timeout_seconds,",
     "  review_roles = review_roles,",
-    "  domain_keys = domain_keys,  # NOTE: full set of options are as follows but set the ACP_TIMOUT to be > 10 minutes before attempting all of them: doi, alternativeDiagnosis, symptoms, drugs, diagnosticProcedures, measurements, treatmentProcedures, complications",
+    "  domain_keys = domain_keys,  # NOTE: full set of options are as follows but set the ACP_TIMEOUT to be > 10 minutes before attempting all of them: doi, alternativeDiagnosis, symptoms, drugs, diagnosticProcedures, measurements, treatmentProcedures, complications",
     "  candidate_limit = candidate_limit,",
+    "  overwrite_approved_concept_sets = overwrite_approved_concept_sets,",
+    "  reuse_generated_concept_sets = reuse_generated_concept_sets",
+    ")",
+    "keeper_state_path <- file.path(output_dir, 'keeper_concept_set_state.json')",
+    "if (identical(result$status %||% 'ok', 'error')) {",
+    "  stop(sprintf('Keeper concept-set workflow encountered %s ACP error(s). See %s for details.', as.integer(result$error_count %||% 0L), keeper_state_path))",
+    "}",
+    "message('Keeper concept-set state saved to: ', keeper_state_path)",
+    "print(result)",
+    ""
+  )
+  write_lines(file.path(scripts_dir, "04_keeper_concept_sets.R"), script_04)
+
+  # 05 - Keeper case review
+  script_05 <- c(
+    script_header,
+    "library(jsonlite)",
+    "`%||%` <- function(x, y) if (is.null(x)) y else x",
+    "",
+    "# loads the Strategus workflow assistant package when working from the repo",
+    "if (!requireNamespace('slashOhdsiStrategusAssistant', quietly = TRUE)) {",
+    "  if (requireNamespace('devtools', quietly = TRUE)) {",
+    "    devtools::load_all('OHDSI-Study-Agent/R/slashOhdsiStrategusAssistant')",
+    "  } else {",
+    "    stop('slashOhdsiStrategusAssistant is not installed and devtools::load_all is unavailable.')",
+    "  }",
+    "}",
+    "library(slashOhdsiStrategusAssistant)",
+    "",
+    sprintf("base_dir <- '%s'", base_dir),
+    "output_dir <- file.path(base_dir, 'outputs')",
+    "execution_settings_path <- file.path(base_dir, 'strategus-execution-settings.json')",
+    "cohort_id_map_path <- file.path(output_dir, 'cohort_id_map.json')",
+    "cohort_roles_path <- file.path(output_dir, 'cohort_roles.json')",
+    "intent_path <- file.path(output_dir, 'intent_split.json')",
+    "",
+    "review_roles <- c('outcome')",
+    "sample_size <- 5",
+    "review_row_limit <- 5",
+    "acp_timeout_seconds <- as.numeric(Sys.getenv('ACP_TIMEOUT', '300'))",
+    "Sys.setenv(ACP_TIMEOUT = as.character(acp_timeout_seconds))",
+    "reuse_rows <- FALSE",
+    "resume_reviews <- TRUE",
+    "review_row_selection <- NULL  # e.g. '1-3,5'",
+    "acp_url <- Sys.getenv('ACP_URL', 'http://127.0.0.1:8765')",
+    "",
+    "result <- slashOhdsiStrategusAssistant::runKeeperCaseReviewWorkflow(",
+    "  base_dir = base_dir,",
+    "  execution_settings_path = execution_settings_path,",
+    "  cohort_id_map_path = cohort_id_map_path,",
+    "  cohort_roles_path = cohort_roles_path,",
+    "  intent_path = intent_path,",
+    "  acp_url = acp_url,",
+    "  acp_timeout_seconds = acp_timeout_seconds,",
+    "  review_roles = review_roles,",
     "  sample_size = sample_size,",
     "  review_row_limit = review_row_limit,",
-    "  overwrite_approved_concept_sets = overwrite_approved_concept_sets,",
-    "  reuse_generated_concept_sets = reuse_generated_concept_sets,",
     "  reuse_rows = reuse_rows,",
     "  resume_reviews = resume_reviews,",
     "  review_row_selection = review_row_selection,",
     "  remove_pii = TRUE",
     ")",
-    "keeper_state_path <- file.path(output_dir, 'keeper_review_state.json')",
+    "keeper_state_path <- file.path(output_dir, 'keeper_case_review_state.json')",
     "if (identical(result$status %||% 'ok', 'error')) {",
-    "  stop(sprintf('Keeper review encountered %s ACP error(s). See %s for details.', as.integer(result$error_count %||% 0L), keeper_state_path))",
+    "  stop(sprintf('Keeper case-review workflow encountered %s ACP error(s). See %s for details.', as.integer(result$error_count %||% 0L), keeper_state_path))",
     "}",
-    "message('Keeper review state saved to: ', keeper_state_path)",
+    "message('Keeper case-review state saved to: ', keeper_state_path)",
     "print(result)",
     ""
   )
-  write_lines(file.path(scripts_dir, "04_keeper_review.R"), script_04)
+  write_lines(file.path(scripts_dir, "05_keeper_case_review.R"), script_05)
 
-  # 05 - diagnostics
-  script_05 <- c(
+  # 06 - diagnostics
+  script_06 <- c(
     script_header,
     "library(Strategus)",
     "library(CohortDiagnostics)",
@@ -2070,10 +2965,10 @@ Keeper review saved: %s reviewed row(s)
     " )",
     ""
   )
-  write_lines(file.path(scripts_dir, "05_diagnostics.R"), script_05)
+  write_lines(file.path(scripts_dir, "06_diagnostics.R"), script_06)
 
-  # 06 - incidence spec
-  script_06 <- c(
+  # 07 - incidence spec
+  script_07 <- c(
     script_header,
     "library(Strategus)",
     "library(CohortGenerator)",
@@ -2198,7 +3093,139 @@ Keeper review saved: %s reviewed row(s)
     " )",
     ""
   )
-  write_lines(file.path(scripts_dir, "06_incidence_spec.R"), script_06)
+  write_lines(file.path(scripts_dir, "07_incidence_spec.R"), script_07)
+
+  script_08 <- c(
+    script_header,
+    "library(jsonlite)",
+    "`%||%` <- function(x, y) if (is.null(x)) y else x",
+    "",
+    "if (!requireNamespace('CohortDiagnostics', quietly = TRUE)) {",
+    "  stop('CohortDiagnostics is required to launch the diagnostics explorer.')",
+    "}",
+    "",
+    sprintf("base_dir <- '%s'", base_dir),
+    "execution_settings_path <- file.path(base_dir, 'strategus-execution-settings.json')",
+    "resolve_path <- function(path) {",
+    "  if (!nzchar(path)) return(path)",
+    "  if (grepl('^(/|[A-Za-z]:[\\\\/]|~)', path)) return(path)",
+    "  candidates <- unique(c(",
+    "    file.path(base_dir, path),",
+    "    file.path(dirname(base_dir), path),",
+    "    file.path(dirname(dirname(base_dir)), path),",
+    "    file.path(getwd(), path)",
+    "  ))",
+    "  for (candidate in candidates) {",
+    "    normalized <- normalizePath(candidate, winslash = '/', mustWork = FALSE)",
+    "    if (file.exists(normalized) || dir.exists(normalized)) return(normalized)",
+    "  }",
+    "  normalizePath(candidates[[1]], winslash = '/', mustWork = FALSE)",
+    "}",
+    "exec_cfg <- jsonlite::fromJSON(execution_settings_path, simplifyVector = FALSE)",
+    "results_root <- normalizePath(resolve_path(as.character(exec_cfg$resultsFolder %||% '')), winslash = '/', mustWork = FALSE)",
+    "diagnostics_dir <- file.path(results_root, 'CohortDiagnosticsModule')",
+    "if (!dir.exists(diagnostics_dir)) {",
+    "  stop('Diagnostics results directory not found: ', diagnostics_dir, '. Run 06_diagnostics.R first.')",
+    "}",
+    "sqlite_db_path <- file.path(diagnostics_dir, 'MergedCohortDiagnosticsData.sqlite')",
+    "if (!file.exists(sqlite_db_path)) {",
+    "  if (!'createMergedResultsFile' %in% getNamespaceExports('CohortDiagnostics')) {",
+    "    stop('Merged diagnostics SQLite is missing and CohortDiagnostics::createMergedResultsFile is not available in this installation.')",
+    "  }",
+    "  message('Creating merged diagnostics SQLite at: ', sqlite_db_path)",
+    "  CohortDiagnostics::createMergedResultsFile(",
+    "    dataFolder = diagnostics_dir,",
+    "    sqliteDbPath = sqlite_db_path,",
+    "    overwrite = FALSE",
+    "  )",
+    "}",
+    "if (!file.exists(sqlite_db_path)) {",
+    "  stop('Merged diagnostics SQLite was not created: ', sqlite_db_path)",
+    "}",
+    "launch_fun <- getExportedValue('CohortDiagnostics', 'launchDiagnosticsExplorer')",
+    "call_with_supported_args <- function(fn, args) {",
+    "  formal_names <- names(formals(fn)) %||% character(0)",
+    "  if (!('...' %in% formal_names)) {",
+    "    args <- args[names(args) %in% formal_names]",
+    "  }",
+    "  do.call(fn, args)",
+    "}",
+    "launch_args <- list(sqliteDbPath = sqlite_db_path, launch.browser = interactive())",
+    "launched <- FALSE",
+    "last_error <- NULL",
+    "tryCatch({",
+    "  call_with_supported_args(launch_fun, launch_args)",
+    "  launched <- TRUE",
+    "}, error = function(e) {",
+    "  last_error <<- conditionMessage(e)",
+    "})",
+    "if (!launched) {",
+    "  stop('Unable to launch Diagnostics Explorer for ', diagnostics_dir, if (!is.null(last_error)) paste0(': ', last_error) else '', '. Run this script in a second R session if you want to keep the workflow shell and /ohdsi available.')",
+    "}",
+    "message('Diagnostics Explorer launched for: ', diagnostics_dir)",
+    "message('Merged SQLite: ', sqlite_db_path)",
+    "message('Run this script in a second R session if you want to keep the workflow shell and /ohdsi available.')",
+    ""
+  )
+  write_lines(file.path(scripts_dir, "08_launch_diagnostics_explorer.R"), script_08)
+
+  project_init <- .studyAgentSlashInitializeProjectFiles(
+    workflow_type = "strategus_incidence",
+    base_dir = base_dir,
+    output_dir = output_dir,
+    scripts_dir = scripts_dir,
+    execution_plan = .studyAgentSlashBuildIncidenceExecutionPlan(),
+    study_context = list(
+      study_intent = studyIntent,
+      target_statement = target_statement,
+      outcome_statement = outcome_statement,
+      selected_target_ids = as.list(new_ids_target),
+      selected_outcome_ids = as.list(new_ids_outcome),
+      time_at_risk_settings_path = time_at_risk_settings_path,
+      improvements_applied = improvements_applied
+    ),
+    dialogue_context = list(
+      current_step = "workflow_summary",
+      study_intent = studyIntent,
+      target_statement = target_statement,
+      outcome_statement = outcome_statement
+    ),
+    artifact_specs = list(
+      list(id = "legacy_state", path = state_path, type = "legacy_state", status = "written"),
+      list(id = "db_details", path = db_details_path, type = "config", status = "written"),
+      list(id = "execution_settings", path = execution_settings_path, type = "config", status = "written"),
+      list(id = "cohort_roles", path = roles_path, type = "metadata", status = "written"),
+      list(id = "time_at_risk_settings", path = time_at_risk_settings_path, type = "analysis_settings", status = "written")
+    ),
+    shell_session_metadata = list(shell = "runStrategusIncidenceShell", interactive = interactive)
+  )
+  build_completed_steps <- c("recommend_and_select")
+  build_skipped_steps <- character(0)
+  build_failed_steps <- character(0)
+  if (isTRUE(improvements_applied)) {
+    build_completed_steps <- c(build_completed_steps, "apply_improvements")
+  } else {
+    build_skipped_steps <- c(build_skipped_steps, "apply_improvements")
+  }
+  if (identical(state$keeper_concept_set_status %||% "not_run", "ok")) {
+    build_completed_steps <- c(build_completed_steps, "keeper_concept_sets")
+  } else if (identical(state$keeper_concept_set_status %||% "not_run", "error")) {
+    build_failed_steps <- c(build_failed_steps, "keeper_concept_sets")
+  }
+  if (identical(state$keeper_case_review_status %||% "not_run", "ok")) {
+    build_completed_steps <- c(build_completed_steps, "keeper_case_review")
+  } else if (identical(state$keeper_case_review_status %||% "not_run", "error")) {
+    build_failed_steps <- c(build_failed_steps, "keeper_case_review")
+  }
+  project_init <- .studyAgentSlashFinalizeBuildProjectState(
+    base_dir = base_dir,
+    completed_steps = build_completed_steps,
+    skipped_steps = build_skipped_steps,
+    failed_steps = build_failed_steps
+  )
+  state$project_state_path <- project_state_path
+  state$runtime_state_path <- runtime_state_path
+  write_json(state, state_path)
 
   if (interactive) {
     cat("\n== Session Summary ==\n")
@@ -2208,13 +3235,13 @@ Keeper review saved: %s reviewed row(s)
     cat(sprintf("  %s\n", outcome_statement))
     cat("Target cohorts:\n")
     for (i in seq_along(new_ids_target)) {
-      rec <- recommendations_target[[which(vapply(recommendations_target, function(r) r$phenotype_id == selected_ids_target[[i]], logical(1)))]]
-      cat(sprintf("  - %s (atlas %s -> cohort %s)\n", rec$phenotype_name %||% "<unknown>", selected_ids_target[[i]], new_ids_target[[i]]))
+      rec <- selected_target_records[[i]] %||% list()
+      cat(sprintf("  - %s (source %s -> cohort %s)\n", rec$cohort_name %||% "<unknown>", selected_ids_target[[i]], new_ids_target[[i]]))
     }
     cat("Outcome cohorts:\n")
     for (i in seq_along(new_ids_outcome)) {
-      rec <- recommendations_outcome[[which(vapply(recommendations_outcome, function(r) r$phenotype_id == selected_ids_outcome[[i]], logical(1)))]]
-      cat(sprintf("  - %s (atlas %s -> cohort %s)\n", rec$phenotype_name %||% "<unknown>", selected_ids_outcome[[i]], new_ids_outcome[[i]]))
+      rec <- selected_outcome_records[[i]] %||% list()
+      cat(sprintf("  - %s (source %s -> cohort %s)\n", rec$cohort_name %||% "<unknown>", selected_ids_outcome[[i]], new_ids_outcome[[i]]))
     }
     cat("JSON outputs:\n")
     cat(sprintf("  - Selected target cohorts: %s\n", selected_target_dir))
@@ -2232,9 +3259,12 @@ Keeper review saved: %s reviewed row(s)
     cat(sprintf("  - %s\n", scripts_dir))
     cat("Recommended run order (if you want to re-run outside the shell):\n")
     cat("  1) Rscript scripts/03_generate_cohorts.R\n")
-    cat("  2) Rscript scripts/04_keeper_review.R\n")
-    cat("  3) Rscript scripts/05_diagnostics.R\n")
-    cat("  4) Rscript scripts/06_incidence_spec.R\n")
+    cat("  2) Rscript scripts/04_keeper_concept_sets.R\n")
+    cat("  3) Rscript scripts/05_keeper_case_review.R\n")
+    cat("  4) Rscript scripts/06_diagnostics.R\n")
+    cat("  5) Rscript scripts/07_incidence_spec.R\n")
+    cat("Optional diagnostics viewer (run in a second R session):\n")
+    cat("  - Rscript scripts/08_launch_diagnostics_explorer.R\n")
     cat("Notes:\n")
     if (improvements_applied) {
       cat("  - Improvements were already applied in this session; scripts are a portable record.\n")
@@ -2242,7 +3272,10 @@ Keeper review saved: %s reviewed row(s)
       cat("  - Improvements were not applied; see scripts/02_apply_improvements.R if desired.\n")
     }
     cat(sprintf("Session state saved to %s\n", state_path))
+    cat(sprintf("Project manifest saved to %s\n", project_state_path))
+    cat(sprintf("Runtime state saved to %s\n", runtime_state_path))
   }
+  run_execution_menu(prompt_first = interactive)
   message("Study agent shell complete. Scripts written to: ", scripts_dir)
   invisible(list(
     output_dir = output_dir,
@@ -2252,6 +3285,8 @@ Keeper review saved: %s reviewed row(s)
     recommendations_outcome = recs_outcome_path,
     improvements_target = improvements_target_path,
     improvements_outcome = improvements_outcome_path,
-    cohort_csv = cohort_csv
+    cohort_csv = cohort_csv,
+    project_state = project_state_path,
+    runtime_state = runtime_state_path
   ))
 }

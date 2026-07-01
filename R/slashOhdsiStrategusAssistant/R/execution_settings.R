@@ -18,6 +18,7 @@ createStrategusExecutionSettings <- function(path = file.path(getwd(), "strategu
                                              settings = NULL) {
   `%||%` <- function(x, y) if (is.null(x)) y else x
   cfg <- settings %||% readStrategusExecutionSettings(path)
+  incremental <- cfg$incremental %||% FALSE
   cdmDatabaseSchema <- cfg$cdmDatabaseSchema
   workDatabaseSchema <- cfg$workDatabaseSchema
   resultsDatabaseSchema <- cfg$resultsDatabaseSchema
@@ -44,7 +45,8 @@ createStrategusExecutionSettings <- function(path = file.path(getwd(), "strategu
     cohortTableNames = CohortGenerator::getCohortTableNames(cohortTable = cohortTable),
     workFolder = workFolder,
     resultsFolder = resultsFolder,
-    maxCores = maxCores
+    maxCores = maxCores,
+    incremental = incremental
   )
 
   list(
@@ -57,6 +59,7 @@ createStrategusExecutionSettings <- function(path = file.path(getwd(), "strategu
     workFolder = workFolder,
     resultsFolder = resultsFolder,
     maxCores = maxCores,
-    cohortIdFieldName = cohortIdFieldName
+    cohortIdFieldName = cohortIdFieldName,
+    incremental=incremental
   )
 }

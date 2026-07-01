@@ -6,13 +6,14 @@ Current stage scope:
 - The shell can derive target/comparator/outcome statements from a study intent.
 - The shell can configure one effective analytic-settings profile through `step_by_step` prompts or `free_text` ACP recommendation.
 - The shell writes reproducible R scripts, a Strategus analysis specification, and a merged CohortMethod execution script.
+- The shell also supports in-shell run/resume mode for generated workflow steps, artifact exploration, and controlled return to build mode when revisions are needed.
 - The Keeper review step is now ACP-based and does not call the legacy Keeper R package.
 
 This shell is provided as `slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell()`.
 
 ## Running
 
-Usage examples for `slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell()` live in the R package README: `R/slashOhdsiStrategusAssistant/README.md`.
+Usage examples for `slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell()` live in `scripts/demo_strategus_cohort_method.R`. Package-level shell notes live in `R/slashOhdsiStrategusAssistant/README.md`.
 
 Workflow diagrams live in `docs/WORKFLOW_COHORT_METHODS.md`.
 
@@ -35,7 +36,8 @@ Workflow diagrams live in `docs/WORKFLOW_COHORT_METHODS.md`.
 7. Configure one analytic-settings profile through `step_by_step`, `free_text`, or cached/function-argument inputs.
    Analytic settings are always collected in this stage and confirmed before finalization.
 8. Optionally run ACP-based Keeper review inline with reuse/resume controls and bounded Keeper stage gates around domain generation and case review.
-9. Generate scripts in `scripts/` for cohort generation, Keeper review, diagnostics, and CohortMethod spec/execution.
+9. Generate scripts in `scripts/` for cohort generation, Keeper review, diagnostics, CohortMethod spec/execution, and an optional Diagnostics Explorer launcher, including `07_cm_spec.R` and `08_launch_diagnostics_explorer.R`.
+10. Optionally enter run/resume mode in the same shell to execute generated steps, inspect artifacts, ask `/ohdsi` questions, or return to build mode with `revise ...`.
 
 ## Analytic Settings
 
@@ -110,17 +112,50 @@ The following directories are created under `outputDir`:
 - `improvements_outcome.json`
 - `improvements_status.json`
 - `cm_evaluation_todo.json`
-- `cm_analysis_state.json` (written by `scripts/06_cm_spec.R`)
-- `keeper_review_state.json` (written by inline or standalone ACP Keeper review)
+- `cm_analysis_state.json` (written by `scripts/07_cm_spec.R`)
+- `keeper_concept_set_state.json` (written by inline or standalone ACP Keeper concept-set workflow)
+- `keeper_case_review_state.json` (written by inline or standalone ACP Keeper case-review workflow)
 - `study_agent_state.json`
+- `study-agent-project.json`
+- `outputs/study_agent_runtime_state.json`
 
 ## Generated Scripts
 
 - `scripts/02_apply_improvements.R`
 - `scripts/03_generate_cohorts.R`
-- `scripts/04_keeper_review.R`
-- `scripts/05_diagnostics.R`
-- `scripts/06_cm_spec.R`
+- `scripts/04_keeper_concept_sets.R`
+- `scripts/05_keeper_case_review.R`
+- `scripts/06_diagnostics.R`
+- `scripts/07_cm_spec.R`
+
+Build vs run note:
+
+- `recommend_and_select` is completed interactively during build mode and is tracked in `study-agent-project.json`, but there is no standalone `scripts/01_recommend_and_select.R`.
+- In execution mode, build-only steps are shown in workflow status but are not treated as runnable generated scripts.
+
+## Execution Menu
+
+After script generation or during `resume = TRUE`, the shell can re-enter run mode inside the same R session.
+
+Current execution-menu capabilities:
+
+- `n` / `run next`: run the next runnable generated step
+- `a` / `run all`: keep running until blocked, failed, or complete
+- `run <step>`: run a specific runnable step by step number or step id
+- `i` / `inspect <step>`: inspect registered outputs for a workflow step in the console
+- `art` / `artifacts`: list known workflow artifacts
+- `x` / `explore[_v]`: list approved exploration commands for the current workflow state
+- `x <command-id>` or `explore <command-id>` or a listed command number: run one approved artifact-exploration command
+  Diagnostics review remains file- and artifact-based inside the runner; the Shiny diagnostics explorer is launched from a separate generated script.
+- `/ohdsi <question>`: ask a contextualized workflow question using the current workflow state
+- `rev` / `revise [build|intent|target|comparator|outcome]`: leave execution mode and return to build mode, with an option to switch to temporary revision cache mode for this pass
+
+Current behavior notes:
+
+- Exiting the execution menu asks for confirmation unless the workflow is already complete.
+- Invalid step or exploration input no longer exits the shell; the menu stays active and prints valid choices.
+- `inspect_v <step>` and `explore_v <command-id>` try to open tabular results with `utils::View(...)` when an interactive viewer is available.
+- `executionTableDisplay = "console" | "viewer" | "auto"` sets the default rendering mode for `art`, `inspect`, and `explore`. `"viewer"` suppresses console table previews when a viewer is available, and `"auto"` uses the viewer when possible but falls back to console output.
 
 
 Generated scripts that connect to the database expect these site-specific files at the root of
@@ -158,10 +193,11 @@ Generated scripts that connect to the database expect these site-specific files 
 
 Current Keeper specifics:
 
-- `scripts/04_keeper_review.R` uses `runKeeperReviewWorkflow(...)` and ACP flows instead of the legacy Keeper R package.
-- The script records state in `outputs/keeper_review_state.json`.
+- `scripts/04_keeper_concept_sets.R` uses `runKeeperConceptSetWorkflow(...)` and writes `outputs/keeper_concept_set_state.json`.
+- `scripts/05_keeper_case_review.R` uses `runKeeperCaseReviewWorkflow(...)` and writes `outputs/keeper_case_review_state.json`.
+- `scripts/08_launch_diagnostics_explorer.R` creates `MergedCohortDiagnosticsData.sqlite` with `CohortDiagnostics::createMergedResultsFile()` when needed, then launches `CohortDiagnostics::launchDiagnosticsExplorer()` against that merged diagnostics database. Run it in a second R session if you want the shell and `/ohdsi` to remain available.
 - Inline Keeper review now exposes bounded stage gates before and after each requested concept-set domain and before and after case review.
-- The default generated script exposes `ACP_TIMEOUT`, concept-set reuse/overwrite, row reuse/resume, and explicit row selection controls such as `1-3,5`.
+- The generated Keeper scripts expose `ACP_TIMEOUT`, concept-set reuse/overwrite, row reuse/resume, and explicit row selection controls such as `1-3,5`.
 - Manual editing of `keeper-case-review/concept-sets-approved/*.json` is consumable, but the concept-set approve/edit/rerun UX is still incomplete.
 
 ## Current Boundaries
@@ -183,5 +219,5 @@ Current Keeper specifics:
 ## Notes
 
 - This stage is designed as a bridge: it combines ACP/MCP-assisted intent split, phenotype recommendation/improvement, analytic-settings recommendation, and ACP-based Keeper review with reproducible Strategus script generation.
-- Interactive runs support `/back` at major stage boundaries for study intent, target selection, comparator selection, outcome selection, study configuration, and Keeper-review entry while keeping `/ohdsi` available for contextual guidance.
+- Interactive runs support `/back` at major stage boundaries for study intent, target selection, comparator selection, outcome selection, study configuration, and Keeper-review entry while keeping `/ohdsi` available for contextual guidance. The execution menu help now also reminds users that `/ohdsi` is available during run/resume mode.
 - If no Keeper artifacts exist yet, the shell suppresses the inline Keeper reuse/resume prompts instead of asking about caches unconditionally.

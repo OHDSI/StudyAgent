@@ -4,6 +4,7 @@ from _repo_paths import repo_path
 
 
 SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_incidence_shell.R")
+IMPORT_HELPER_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "cohort_definition_import.R")
 
 def test_outcome_selection_state_is_initialized_before_target_mapping_prompt() -> None:
     source = SOURCE.read_text(encoding="utf-8")
@@ -47,8 +48,8 @@ def test_time_at_risk_configuration_context_and_state_are_persisted() -> None:
 def test_generated_incidence_script_uses_persisted_time_at_risk_settings() -> None:
     source = SOURCE.read_text(encoding="utf-8")
 
-    start = source.index('script_06 <- c(')
-    end = source.index('write_lines(file.path(scripts_dir, "06_incidence_spec.R")', start)
+    start = source.index('script_07 <- c(')
+    end = source.index('write_lines(file.path(scripts_dir, "07_incidence_spec.R")', start)
     block = source[start:end]
 
     assert "time_at_risk_settings_path <- file.path(analysis_settings_dir, 'time_at_risk_settings.json')" in block
@@ -87,8 +88,8 @@ def test_shell_seeds_runtime_templates_and_generated_scripts_use_them() -> None:
     assert "createStrategusExecutionSettings(path = execution_settings_path)" in script03
     assert "<FILL IN>" not in script03
 
-    script05_start = source.index('script_05 <- c(')
-    script05_end = source.index('write_lines(file.path(scripts_dir, "05_diagnostics.R")', script05_start)
+    script05_start = source.index('script_06 <- c(')
+    script05_end = source.index('write_lines(file.path(scripts_dir, "06_diagnostics.R")', script05_start)
     script05 = source[script05_start:script05_end]
     assert "db_details_path <- file.path(base_dir, 'strategus-db-details.json')" in script05
     assert "execution_settings_path <- file.path(base_dir, 'strategus-execution-settings.json')" in script05
@@ -96,11 +97,46 @@ def test_shell_seeds_runtime_templates_and_generated_scripts_use_them() -> None:
     assert "createStrategusExecutionSettings(path = execution_settings_path)" in script05
     assert "<FILL IN>" not in script05
 
-    script06_start = source.index('script_06 <- c(')
-    script06_end = source.index('write_lines(file.path(scripts_dir, "06_incidence_spec.R")', script06_start)
+    script06_start = source.index('script_07 <- c(')
+    script06_end = source.index('write_lines(file.path(scripts_dir, "07_incidence_spec.R")', script06_start)
     script06 = source[script06_start:script06_end]
     assert "db_details_path <- file.path(base_dir, 'strategus-db-details.json')" in script06
     assert "execution_settings_path <- file.path(base_dir, 'strategus-execution-settings.json')" in script06
     assert "createStrategusConnectionDetails(path = db_details_path)" in script06
     assert "createStrategusExecutionSettings(path = execution_settings_path)" in script06
     assert "<FILL IN>" not in script06
+
+
+def test_shell_can_import_existing_database_cohorts() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+
+    assert 'Source for %s cohort [Enter=index search, db=existing database cohort]:' in source
+    assert 'prompt_database_cohort_imports <- function(role_label, allow_multiple = FALSE)' in source
+    assert 'selected_cohort_sources.json' in source
+    assert 'imported-cohort-definitions' in source
+
+
+def test_database_import_helper_requires_simple_expression_json() -> None:
+    source = IMPORT_HELPER_SOURCE.read_text(encoding="utf-8")
+
+    assert 'SIMPLE_EXPRESSION' in source
+    assert 'SELECT id AS cohort_definition_id, name AS cohort_name, expression_type' in source
+    assert 'SELECT cd.id AS cohort_definition_id,' in source
+    assert 'cd.name AS cohort_name,' in source
+    assert 'ON cd.id = cdd.id' in source
+    assert 'cohort_definition_details' in source
+    assert 'Circe SIMPLE_EXPRESSION JSON payload' in source
+
+
+def test_generated_diagnostics_explorer_launcher_script_is_emitted() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+
+    start = source.index('script_08 <- c(')
+    end = source.index('write_lines(file.path(scripts_dir, "08_launch_diagnostics_explorer.R")', start)
+    block = source[start:end]
+
+    assert "CohortDiagnostics" in block
+    assert "launchDiagnosticsExplorer" in block
+    assert "sqliteDbPath" in block
+    assert "createMergedResultsFile" in block
+    assert "Run this script in a second R session" in block

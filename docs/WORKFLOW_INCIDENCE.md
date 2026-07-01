@@ -47,7 +47,7 @@ flowchart TD
   AD --> AE
   AE --> AF[Configure TAR + Strata Settings]
   AF --> AG[Optional Inline ACP Keeper Review]
-  AG --> AH[Generate Scripts 01-06]
+  AG --> AH[Generate Scripts 01-08]
   AH --> AI[End]
 ```
 
@@ -61,24 +61,27 @@ flowchart TD
   D --> E[CohortGenerator]
   E --> F[Cohort Table in CDM]
 
-  C --> G[04_keeper_review.R]
-  G --> H[ACP Keeper flow]
+  C --> G[04_keeper_concept_sets.R]
+  G --> H[ACP Keeper concept-set workflow]
   H --> I[Concept-set generation]
-  H --> J[Keeper profile extraction]
-  H --> K[Phenotype validation review]
-  K --> L[Optional phenotype refinement]
-  L --> B
 
-  C --> M[05_diagnostics.R]
-  M --> N[CohortDiagnostics]
+  C --> J[05_keeper_case_review.R]
+  J --> K[ACP Keeper case-review workflow]
+  K --> L[Keeper profile extraction]
+  K --> M[Phenotype validation review]
+  M --> N[Optional phenotype refinement]
+  N --> B
 
-  C --> O[analysis-settings/time_at_risk_settings.json]
-  C --> P[06_incidence_spec.R]
-  O --> P
-  E --> P
-  N --> P
+  C --> O[06_diagnostics.R]
+  O --> P[CohortDiagnostics]
 
-  P --> Q[CohortIncidence Spec JSON]
-  Q --> R[Strategus Execution]
-  R --> S[Incidence Rate Results]
+  C --> Q[analysis-settings/time_at_risk_settings.json]
+  C --> R[07_incidence_spec.R]
+  Q --> R
+  E --> R
+  P --> R
+
+  R --> S[CohortIncidence Spec JSON]
+  S --> T[Strategus Execution]
+  T --> U[Incidence Rate Results]
 ```

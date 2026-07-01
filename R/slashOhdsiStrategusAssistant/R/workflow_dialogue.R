@@ -73,6 +73,25 @@ render_workflow_dialogue_response <- function(response) {
     cat("Suggested next actions:\n")
     for (item in next_actions) cat(sprintf("  - %s\n", item))
   }
+  follow_up_plan <- core$follow_up_plan %||% list()
+  if (length(follow_up_plan) > 0) {
+    cat("Follow-up plan:\n")
+    for (item in follow_up_plan) cat(sprintf("  - %s\n", item))
+  }
+  artifact_requests <- core$artifact_requests %||% list()
+  if (length(artifact_requests) > 0) {
+    cat("Additional artifacts requested:\n")
+    for (item in artifact_requests) {
+      artifact_id <- as.character(item$artifact_id %||% "<missing artifact_id>")
+      reason <- as.character(item$reason %||% "")
+      suffix <- if (isTRUE(item$permission_required %||% FALSE)) " (confirmation may be required)" else ""
+      if (nzchar(trimws(reason))) {
+        cat(sprintf("  - %s: %s%s\n", artifact_id, reason, suffix))
+      } else {
+        cat(sprintf("  - %s%s\n", artifact_id, suffix))
+      }
+    }
+  }
   cat("\n")
   invisible(NULL)
 }
@@ -101,15 +120,10 @@ new_workflow_dialogue_session <- function(interactive = TRUE,
 
   dialogue_state <- new_workflow_dialogue_state()
 
-  handle_command <- function(entered) {
-    trimmed <- trimws(as.character(entered %||% ""))
-    if (!isTRUE(interactive) || !startsWith(trimmed, command_prefix)) {
-      return(list(handled = FALSE, value = entered))
-    }
-    question <- trimws(sub(paste0("^", command_prefix), "", trimmed))
+  ask_dialogue <- function(question, render = TRUE) {
+    question <- trimws(as.character(question %||% ""))
     if (!nzchar(question)) {
-      cat(empty_question_message, "\n")
-      return(list(handled = TRUE, value = ""))
+      return(list(status = "error", error = "Provide a non-empty question."))
     }
     stage_context <- build_stage_context(
       studyIntent = study_intent_getter(),
@@ -120,6 +134,23 @@ new_workflow_dialogue_session <- function(interactive = TRUE,
       call_dialogue(stage_context = stage_context, message = question),
       error = function(e) list(status = "error", error = conditionMessage(e))
     )
+    if (isTRUE(render) && identical(response$status %||% "", "ok")) {
+      render_response(response)
+    }
+    response
+  }
+
+  handle_command <- function(entered) {
+    trimmed <- trimws(as.character(entered %||% ""))
+    if (!isTRUE(interactive) || !startsWith(trimmed, command_prefix)) {
+      return(list(handled = FALSE, value = entered))
+    }
+    question <- trimws(sub(paste0("^", command_prefix), "", trimmed))
+    if (!nzchar(question)) {
+      cat(empty_question_message, "\n")
+      return(list(handled = TRUE, value = ""))
+    }
+    response <- ask_dialogue(question, render = FALSE)
     if (!identical(response$status %||% "", "ok")) {
       cat(sprintf("OHDSI guidance failed: %s\n", as.character(response$error %||% "unknown error")))
       return(list(handled = TRUE, value = ""))
@@ -152,6 +183,7 @@ new_workflow_dialogue_session <- function(interactive = TRUE,
       )
     },
     handle_command = handle_command,
+    ask = ask_dialogue,
     readline = readline_with_dialogue
   )
 }

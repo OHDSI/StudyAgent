@@ -149,28 +149,71 @@ def has_phi_keys(row: Dict[str, Any]) -> bool:
     return False
 
 
+def _compact_keeper_text(text: str, max_segments: int = 6, max_chars: int = 400) -> str:
+    value = str(text or "").strip()
+    if not value or value == "None":
+        return "None"
+    segments = [segment.strip() for segment in value.split("; ") if segment.strip()]
+    if not segments:
+        return value[:max_chars] if value else "None"
+    deduped: List[str] = []
+    seen = set()
+    for segment in segments:
+        if segment in seen:
+            continue
+        seen.add(segment)
+        deduped.append(segment)
+    kept: List[str] = []
+    remaining = 0
+    for idx, segment in enumerate(deduped):
+        if idx >= max_segments:
+            remaining = len(deduped) - idx
+            break
+        candidate = "; ".join(kept + [segment])
+        if len(candidate) > max_chars:
+            remaining = len(deduped) - idx
+            break
+        kept.append(segment)
+    if not kept:
+        clipped = deduped[0][:max_chars].rstrip()
+        return clipped if clipped else "None"
+    text_out = "; ".join(kept)
+    if remaining > 0:
+        suffix = f"; ... [{remaining} more]"
+        if len(text_out) + len(suffix) <= max_chars + len(suffix):
+            text_out += suffix
+    return text_out
+
+
+def _sanitize_keeper_field(row: Dict[str, Any], *keys: str, default: str = "None", max_segments: int = 6, max_chars: int = 400) -> str:
+    raw = default
+    for key in keys:
+        value = row.get(key)
+        if value not in (None, ""):
+            raw = str(value)
+            break
+    sanitized = sanitize_text(raw)
+    return _compact_keeper_text(sanitized, max_segments=max_segments, max_chars=max_chars)
+
+
 def sanitize_keeper_row(row: Dict[str, Any]) -> Dict[str, Any]:
     sanitized = {}
     sanitized["age_bucket"] = bucket_age(row.get("age"))
     sanitized["gender"] = sanitize_text(str(row.get("gender") or row.get("sex") or "unknown"))
-    sanitized["visit_context"] = sanitize_text(str(row.get("visitContext") or row.get("visits") or "unknown"))
-    sanitized["presentation"] = sanitize_text(str(row.get("presentation") or "None"))
-    sanitized["prior_disease"] = sanitize_text(str(row.get("priorDisease") or "None"))
-    sanitized["symptoms"] = sanitize_text(str(row.get("symptoms") or "None"))
-    sanitized["comorbidities"] = sanitize_text(str(row.get("comorbidities") or "None"))
-    sanitized["prior_drugs"] = sanitize_text(str(row.get("priorDrugs") or "None"))
-    sanitized["prior_treatments"] = sanitize_text(str(row.get("priorTreatmentProcedures") or "None"))
-    sanitized["diagnostic_procedures"] = sanitize_text(str(row.get("diagnosticProcedures") or "None"))
-    sanitized["measurements"] = sanitize_text(str(row.get("measurements") or "None"))
-    sanitized["alternative_diagnosis"] = sanitize_text(
-        str(row.get("alternativeDiagnosis") or row.get("alternativeDiagnoses") or "None")
-    )
-    sanitized["after_disease"] = sanitize_text(str(row.get("afterDisease") or row.get("postDisease") or "None"))
-    sanitized["after_drugs"] = sanitize_text(str(row.get("afterDrugs") or row.get("postDrugs") or "None"))
-    sanitized["after_treatments"] = sanitize_text(
-        str(row.get("afterTreatmentProcedures") or row.get("postTreatmentProcedures") or "None")
-    )
-    sanitized["death"] = sanitize_text(str(row.get("death") or "None"))
+    sanitized["visit_context"] = _sanitize_keeper_field(row, "visitContext", "visits", default="unknown", max_segments=4, max_chars=240)
+    sanitized["presentation"] = _sanitize_keeper_field(row, "presentation", max_segments=5, max_chars=320)
+    sanitized["prior_disease"] = _sanitize_keeper_field(row, "priorDisease", max_segments=6, max_chars=360)
+    sanitized["symptoms"] = _sanitize_keeper_field(row, "symptoms", max_segments=6, max_chars=320)
+    sanitized["comorbidities"] = _sanitize_keeper_field(row, "comorbidities", max_segments=6, max_chars=320)
+    sanitized["prior_drugs"] = _sanitize_keeper_field(row, "priorDrugs", max_segments=6, max_chars=360)
+    sanitized["prior_treatments"] = _sanitize_keeper_field(row, "priorTreatmentProcedures", max_segments=5, max_chars=320)
+    sanitized["diagnostic_procedures"] = _sanitize_keeper_field(row, "diagnosticProcedures", max_segments=5, max_chars=320)
+    sanitized["measurements"] = _sanitize_keeper_field(row, "measurements", max_segments=5, max_chars=320)
+    sanitized["alternative_diagnosis"] = _sanitize_keeper_field(row, "alternativeDiagnosis", "alternativeDiagnoses", max_segments=5, max_chars=320)
+    sanitized["after_disease"] = _sanitize_keeper_field(row, "afterDisease", "postDisease", max_segments=6, max_chars=360)
+    sanitized["after_drugs"] = _sanitize_keeper_field(row, "afterDrugs", "postDrugs", max_segments=6, max_chars=360)
+    sanitized["after_treatments"] = _sanitize_keeper_field(row, "afterTreatmentProcedures", "postTreatmentProcedures", max_segments=5, max_chars=320)
+    sanitized["death"] = _sanitize_keeper_field(row, "death", max_segments=2, max_chars=160)
     return sanitized
 
 

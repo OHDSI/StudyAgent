@@ -1225,6 +1225,8 @@ def test_flow_workflow_context_dialogue(monkeypatch):
                 "current_step_guidance": ["Keep the existing comparator step open while you decide."],
                 "cautions": ["Do not change cohort IDs yet."],
                 "suggested_next_actions": ["Confirm whether the design is new-user or prevalent-user."],
+                "follow_up_plan": ["Inspect the compact execution context first."],
+                "artifact_requests": [{"artifact_id": "cg_cohort_count_csv", "reason": "Need the comparator count file for confirmation.", "permission_required": False}],
             },
             content_text="{}",
             parse_stage="chat_completions_content",
@@ -1245,6 +1247,8 @@ def test_flow_workflow_context_dialogue(monkeypatch):
     assert result["status"] == "ok"
     assert result["dialogue"]["answer"] == "Washout reduces prevalent-user bias."
     assert result["dialogue"]["current_step_guidance"] == ["Keep the existing comparator step open while you decide."]
+    assert result["dialogue"]["follow_up_plan"] == ["Inspect the compact execution context first."]
+    assert result["dialogue"]["artifact_requests"][0]["artifact_id"] == "cg_cohort_count_csv"
 
 
 @pytest.mark.acp
@@ -1252,3 +1256,67 @@ def test_flow_workflow_context_dialogue_missing_prompt():
     agent = StudyAgent(mcp_client=StubMCPClient())
     result = agent.run_workflow_context_dialogue_flow(user_prompt="")
     assert result["error"] == "missing user_prompt"
+
+
+def _run_post(path: str, body: dict):
+    handler = acp_server.ACPRequestHandler.__new__(acp_server.ACPRequestHandler)
+    handler.path = path
+    handler.headers = {}
+    handler.debug = False
+    handler.agent = StudyAgent(mcp_client=StubMCPClient())
+    handler.mcp_client = None
+    handler.wfile = None
+    handler.rfile = None
+
+    captured = {}
+
+    def fake_read_json(_handler):
+        return body
+
+    def fake_write_json(_handler, status, payload):
+        captured["status"] = status
+        captured["payload"] = payload
+
+    original_read = acp_server._read_json
+    original_write = acp_server._write_json
+    acp_server._read_json = fake_read_json
+    acp_server._write_json = fake_write_json
+    try:
+        handler.do_POST()
+    finally:
+        acp_server._read_json = original_read
+        acp_server._write_json = original_write
+    return captured
+
+
+@pytest.mark.acp
+def test_post_rejects_path_only_cohort_requests():
+    captured = _run_post("/flows/cohort_critique_general_design", {"cohort_path": "scripts/cohort_definition.json"})
+
+    assert captured["status"] == 400
+    assert captured["payload"]["error"] == "local_path_inputs_not_supported:cohort_path"
+
+
+@pytest.mark.acp
+def test_post_rejects_path_only_keeper_row_requests():
+    captured = _run_post(
+        "/flows/phenotype_validation_review",
+        {"disease_name": "COPD", "keeper_row_path": "keeper-case-review/rows/outcome_1271_rows.json", "row_index": 1},
+    )
+
+    assert captured["status"] == 400
+    assert captured["payload"]["error"] == "local_path_inputs_not_supported:keeper_row_path"
+
+
+@pytest.mark.acp
+def test_post_ignores_path_hint_when_inline_payload_is_present():
+    captured = _run_post(
+        "/flows/cohort_critique_general_design",
+        {
+            "cohort": {"PrimaryCriteria": {}},
+            "cohort_path": "scripts/cohort_definition.json",
+        },
+    )
+
+    assert captured["status"] == 200
+    assert captured["payload"]["status"] == "ok"

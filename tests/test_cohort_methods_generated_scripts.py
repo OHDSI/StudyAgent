@@ -32,7 +32,7 @@ def _run_r_or_skip(expression: str) -> subprocess.CompletedProcess[str]:
 
 def test_generated_cm_spec_builds_and_executes_strategus_analysis_specification() -> None:
     source = SOURCE.read_text(encoding="utf-8")
-    block = _generated_script_block(source, "script_06", "06_cm_spec.R")
+    block = _generated_script_block(source, "script_07", "07_cm_spec.R")
 
     assert "analysisSpecification.json" in block
     assert "CharacterizationModule$new()" in block
@@ -69,12 +69,13 @@ def test_generated_cm_spec_builds_and_executes_strategus_analysis_specification(
     assert "CohortMethod::loadTargetComparatorOutcomesList(" not in block
 
 
-def test_cm_runner_is_merged_into_script_06() -> None:
+def test_cm_runner_is_merged_into_script_07() -> None:
     source = SOURCE.read_text(encoding="utf-8")
 
-    assert "script_07 <- c(" not in source
-    assert 'write_lines(file.path(scripts_dir, "07_cm_run_analyses.R")' not in source
+    assert 'write_lines(file.path(scripts_dir, "08_cm_run_analyses.R")' not in source
     assert 'cat("  - 07_cm_run_analyses.R\\n")' not in source
+    assert 'script_08 <- c(' in source
+    assert 'write_lines(file.path(scripts_dir, "08_launch_diagnostics_explorer.R")' in source
 
 
 def test_characterization_spec_accepts_generated_numeric_types() -> None:
@@ -125,10 +126,12 @@ def test_execution_settings_falls_back_when_max_cores_is_na() -> None:
           cohortTable = 'cohort',
           workFolder = tempdir(),
           resultsFolder = tempdir(),
-          maxCores = NA
+          maxCores = NA,
+          incremental = FALSE
         ))
         stopifnot(identical(exec$maxCores, 1L))
         stopifnot(exec$executionSettings$maxCores == 1)
+        stopifnot(identical(exec$incremental, FALSE))
         """
     )
     assert result.returncode == 0, result.stderr
@@ -262,3 +265,13 @@ def test_cohort_method_spec_accepts_generated_argument_shape() -> None:
         """
     )
     assert result.returncode == 0, result.stderr
+
+def test_diagnostics_explorer_launcher_script_is_generated() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+    block = _generated_script_block(source, "script_08", "08_launch_diagnostics_explorer.R")
+
+    assert "CohortDiagnostics" in block
+    assert "launchDiagnosticsExplorer" in block
+    assert "sqliteDbPath" in block
+    assert "createMergedResultsFile" in block
+    assert "Run this script in a second R session" in block
