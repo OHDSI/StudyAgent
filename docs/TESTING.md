@@ -817,7 +817,7 @@ export PHOEBE_PROVIDER=hecate_api
 export PHOEBE_BULK_URL="https://hecate.pantheon-hds.com/api/concepts/phoebe/bulk"
 ```
 
-The Hecate PHOEBE provider always uses the bulk endpoint and sends concept IDs in chunks of 100.
+The Hecate PHOEBE provider always uses the bulk endpoint and sends concept IDs in chunks of 100. Optional hardening knobs: `PHOEBE_HTTP_RETRIES` and `PHOEBE_HTTP_BACKOFF_MS`.
 
 Run the flow:
 
@@ -825,6 +825,23 @@ Run the flow:
 curl -s -X POST http://127.0.0.1:8765/flows/keeper_concept_sets_generate \
   -H 'Content-Type: application/json' \
   -d '{"phenotype":"Gastrointestinal bleeding","domain_keys":["doi","alternativeDiagnosis","symptoms"],"candidate_limit":10,"include_diagnostics":true}' | python -m json.tool
+```
+
+
+Real bulk-endpoint smoke test:
+
+```bash
+doit smoke_hecate_phoebe_bulk_endpoint
+```
+
+This target makes a real POST to `PHOEBE_BULK_URL` through the MCP tool code path. It is opt-in and is not part of `doit run_all`. The smoke path exercises the same bulk-only provider branch used by `phoebe_related_concepts` when `PHOEBE_PROVIDER=hecate_api`.
+
+Optional overrides:
+
+```bash
+export HECATE_SMOKE_CONCEPT_IDS="4247297,4116092"
+export HECATE_SMOKE_RELATIONSHIP_IDS="Ontology-parent"
+export HECATE_SMOKE_EXPECT_MIN_COUNT=1
 ```
 
 ## Keeper profiles generate
