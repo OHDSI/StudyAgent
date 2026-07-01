@@ -20,6 +20,9 @@ The current implementation provides:
 
 [VIDEO: AI-assisted Real-world evidence - Study Agent and R part 5 - diagnostics and cohort method](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=f0f50c8d-765e-4c36-97ec-b47100dfc516)
 
+[VIDEO: AI-assisted Real-world evidence - Study Agent and R BONUS - using /ohsdi and Atlas/WebAPI to generate cohorts](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=f0df2da7-86ee-4f4e-8f65-b4790179fc70)
+
+
 -----
 
 The project separates orchestration from deterministic tooling:

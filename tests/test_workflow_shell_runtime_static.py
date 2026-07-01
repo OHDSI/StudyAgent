@@ -144,6 +144,7 @@ def _assert_exploration_menu_surface(source: str) -> None:
     assert 'number: run the numbered exploration command shown by x' in source
     assert 'x <command-id> or explore <command-id>: run an approved exploration command' in source
     assert 'x_v <command-id> or explore_v <command-id>: run an approved exploration command and try to open tabular output in a viewer' in source
+    assert 'display <- if (isTRUE(viewer)) NULL else execution_table_display' in source
     assert 'if (grepl("^[0-9]+$", lowered)) {' in source
     assert 'print_artifact_inventory <- function(viewer = FALSE) {' in source
     assert 'print_exploration_commands <- function(viewer = FALSE) {' in source
@@ -185,7 +186,7 @@ def test_exploration_registry_defines_first_slice_commands() -> None:
     assert '.studyAgentSlashSupportsDataViewer <- function() {' in source
     assert '.studyAgentSlashOpenTableViewer <- function(data, title = "Study Agent") {' in source
     assert '.studyAgentSlashPrepareViewerTable <- function(data, preferred_order = NULL) {' in source
-    assert '.studyAgentSlashRenderExplorationResult <- function(result, viewer = FALSE) {' in source
+    assert '.studyAgentSlashRenderExplorationResult <- function(result, viewer = FALSE, display = NULL) {' in source
     assert 'command_id = "artifact_inventory"' in source
     assert 'command_id = "cohort_counts_summary"' in source
     assert 'command_id = "diagnostics_inventory"' in source

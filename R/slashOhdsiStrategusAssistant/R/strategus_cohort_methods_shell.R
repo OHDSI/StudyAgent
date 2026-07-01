@@ -4015,6 +4015,7 @@ Artifact inventory
 ")
       return(invisible(NULL))
     }
+    display <- if (isTRUE(viewer)) NULL else execution_table_display
     render_mode <- .studyAgentSlashResolveExecutionTableDisplay(display = display, viewer = viewer)
     viewer_table <- .studyAgentSlashPrepareViewerTable(table, preferred_order = c("command_id", "label", "purpose"))
     cat("

@@ -994,7 +994,7 @@ runKeeperCaseReviewWorkflow <- function(base_dir,
       cohort_id = cohort_id,
       cohort_name = cohort_name,
       phenotype_name = phenotype_name,
-      message = "Keeper profile generation returned zero sampled cohort rows. Verify MCP database connectivity and cohort table contents.",
+      message = "Keeper profile generation returned zero sampled cohort rows. Confirm the MCP DB connection string points to the same database the R workflow used when generating cohorts, then verify the configured cohort table contains rows for this cohort_definition_id.",
       path = rows_path
     )
   } else if (identical(rows_payload$status %||% "ok", "ok") && length(row_records) <= 0L) {

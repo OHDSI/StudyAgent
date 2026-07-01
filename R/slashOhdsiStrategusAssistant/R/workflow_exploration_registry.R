@@ -1562,30 +1562,41 @@
   do.call(rbind, rows)
 }
 
-.studyAgentSlashRenderExplorationResult <- function(result, viewer = FALSE) {
+.studyAgentSlashRenderExplorationResult <- function(result, viewer = FALSE, display = NULL) {
   if (!identical(as.character(result$status %||% ""), "ok")) {
-    cat(sprintf("Exploration failed: %s\n", as.character(result$error %||% "unknown error")))
+    cat(sprintf("Exploration failed: %s
+", as.character(result$error %||% "unknown error")))
     return(invisible(NULL))
   }
-  cat(sprintf("\n%s\n", as.character(result$title %||% "Exploration result")))
+  render_mode <- .studyAgentSlashResolveExecutionTableDisplay(display = display, viewer = viewer)
+  cat(sprintf("
+%s
+", as.character(result$title %||% "Exploration result")))
   for (section in result$sections %||% list()) {
     kind <- as.character(section$kind %||% "text")
     if (identical(kind, "text")) {
-      cat(sprintf("%s\n", as.character(section$text %||% "")))
+      cat(sprintf("%s
+", as.character(section$text %||% "")))
       next
     }
     if (identical(kind, "table")) {
-      print(section$data)
-      if (isTRUE(viewer) && isTRUE(.studyAgentSlashSupportsDataViewer())) {
+      if (isTRUE(render_mode$show_console)) {
+        print(section$data)
+      }
+      if (isTRUE(render_mode$open_viewer)) {
         .studyAgentSlashOpenTableViewer(
           data = section$view_data %||% section$data,
           title = section$view_title %||% result$title %||% "Study Agent"
         )
+      } else if ((isTRUE(viewer) || !is.null(display)) && !isTRUE(render_mode$supports_viewer)) {
+        cat("Viewer mode is not available in this R session; showing the compact console table instead.
+")
       }
       next
     }
   }
-  cat("\n")
+  cat("
+")
   invisible(NULL)
 }
 

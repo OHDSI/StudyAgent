@@ -594,43 +594,63 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
         cohort_name = candidates$cohort_name,
         stringsAsFactors = FALSE
       )
+      preview <- preview[order(preview$cohort_definition_id, preview$cohort_name), , drop = FALSE]
       rownames(preview) <- seq_len(nrow(preview))
       cat(sprintf("
 Available %s cohort definitions from %s
 ", role_label, schema_value))
       print(preview, row.names = TRUE)
-      selection_prompt <- if (isTRUE(allow_multiple)) {
-        sprintf("Select %s cohort row numbers or cohort_definition ids (comma-separated): ", role_label)
-      } else {
-        sprintf("Select the %s cohort row number or cohort_definition id: ", role_label)
-      }
-      selected_raw <- trimws(readline_with_dialogue(selection_prompt))
-      if (!nzchar(selected_raw)) {
-        cat("No cohort selected.
-")
-        next
-      }
-      selected_parts <- trimws(strsplit(selected_raw, ",", fixed = TRUE)[[1]])
-      selected_parts <- selected_parts[nzchar(selected_parts)]
-      if (length(selected_parts) == 0) {
-        cat("No cohort selected.
-")
-        next
-      }
+      labels <- sprintf("[%s] %s", preview$cohort_definition_id, preview$cohort_name)
       selected_ids <- integer(0)
       invalid <- character(0)
-      for (part in selected_parts) {
-        parsed <- suppressWarnings(as.integer(part))
-        if (is.na(parsed)) {
-          invalid <- c(invalid, part)
+      if (isTRUE(interactive)) {
+        menu_pick <- tryCatch(
+          utils::select.list(
+            labels,
+            multiple = isTRUE(allow_multiple),
+            title = sprintf("Select %s cohort definition%s", role_label, if (isTRUE(allow_multiple)) "(s)" else "")
+          ),
+          error = function(e) NULL
+        )
+        if (length(menu_pick) > 0 && any(nzchar(menu_pick))) {
+          selected_ids <- unique(vapply(menu_pick[nzchar(menu_pick)], function(label) {
+            idx <- which(labels == label)[1]
+            preview$cohort_definition_id[[idx]]
+          }, integer(1)))
+        }
+      }
+      if (length(selected_ids) == 0) {
+        selection_prompt <- if (isTRUE(allow_multiple)) {
+          sprintf("Select %s cohort row numbers or cohort_definition ids (comma-separated): ", role_label)
+        } else {
+          sprintf("Select the %s cohort row number or cohort_definition id: ", role_label)
+        }
+        selected_raw <- trimws(readline_with_dialogue(selection_prompt))
+        if (!nzchar(selected_raw)) {
+          cat("No cohort selected.
+")
           next
         }
-        if (parsed >= 1L && parsed <= nrow(preview)) {
-          selected_ids <- c(selected_ids, preview$cohort_definition_id[[parsed]])
-        } else if (parsed %in% preview$cohort_definition_id) {
-          selected_ids <- c(selected_ids, parsed)
-        } else {
-          invalid <- c(invalid, part)
+        selected_parts <- trimws(strsplit(selected_raw, ",", fixed = TRUE)[[1]])
+        selected_parts <- selected_parts[nzchar(selected_parts)]
+        if (length(selected_parts) == 0) {
+          cat("No cohort selected.
+")
+          next
+        }
+        for (part in selected_parts) {
+          parsed <- suppressWarnings(as.integer(part))
+          if (is.na(parsed)) {
+            invalid <- c(invalid, part)
+            next
+          }
+          if (parsed >= 1L && parsed <= nrow(preview)) {
+            selected_ids <- c(selected_ids, preview$cohort_definition_id[[parsed]])
+          } else if (parsed %in% preview$cohort_definition_id) {
+            selected_ids <- c(selected_ids, parsed)
+          } else {
+            invalid <- c(invalid, part)
+          }
         }
       }
       selected_ids <- unique(selected_ids)
@@ -987,6 +1007,7 @@ Artifact inventory
 ")
       return(invisible(NULL))
     }
+    display <- if (isTRUE(viewer)) NULL else execution_table_display
     render_mode <- .studyAgentSlashResolveExecutionTableDisplay(display = display, viewer = viewer)
     viewer_table <- .studyAgentSlashPrepareViewerTable(table, preferred_order = c("command_id", "label", "purpose"))
     cat("
@@ -2124,7 +2145,14 @@ Available exploration commands
 
   if (isTRUE(interactive)) {
     repeat {
-      run_keeper_review_now <- prompt_yesno_navigation(paste("Run Keeper review now? (first edit db/execution conf ", db_details_path, ",", execution_settings_path, ") [y/N]"), default = FALSE)
+      cat("
+Keeper review uses the local DB and execution settings files:
+")
+      cat(sprintf("  - DB details: %s
+", db_details_path))
+      cat(sprintf("  - Execution settings: %s
+", execution_settings_path))
+      run_keeper_review_now <- prompt_yesno_navigation("Run Keeper review now after reviewing those files?", default = FALSE)
       if (is_back_signal(run_keeper_review_now)) {
         incidence_time_at_risk <- collect_time_at_risk_settings(
           seed_settings = incidence_time_at_risk,
