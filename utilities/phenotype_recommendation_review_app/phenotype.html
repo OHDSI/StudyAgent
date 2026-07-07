@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Phenotype Definition Viewer</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <p class="eyebrow">Phenotype Viewer</p>
+        <h1 id="viewer-title">Phenotype definition</h1>
+        <p id="viewer-subtitle" class="intro"></p>
+      </header>
+
+      <section class="panel">
+        <div class="actions actions-wrap">
+          <a id="raw-assembled-link" class="button-link" target="_blank" rel="noopener noreferrer">View raw assembled JSON</a>
+          <a id="raw-source-link" class="button-link" target="_blank" rel="noopener noreferrer">View raw source definition</a>
+          <span id="viewer-status" class="status"></span>
+        </div>
+      </section>
+
+      <section id="viewer-panel" class="panel hidden">
+        <h2>Catalog metadata</h2>
+        <pre id="catalog-metadata"></pre>
+        <h2>Source definition</h2>
+        <pre id="definition-json"></pre>
+      </section>
+
+      <section id="viewer-error-panel" class="panel hidden error-panel">
+        <h2>Request failed</h2>
+        <pre id="viewer-error"></pre>
+      </section>
+    </main>
+    <script src="./phenotype.js"></script>
+  </body>
+</html>

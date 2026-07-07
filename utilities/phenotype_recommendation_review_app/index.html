@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Phenotype Recommendation Review</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <p class="eyebrow">Sandbox Review Tool</p>
+        <h1>Phenotype Recommendation Review</h1>
+        <p class="intro">Submit a study intent, run the local ACP phenotype recommendation flow, and inspect the returned shortlist, exclusions, and candidate metadata.</p>
+      </header>
+
+      <section class="panel">
+        <form id="intent-form" class="intent-form">
+          <div class="label-row">
+            <label for="study-intent">Study intent</label>
+            <button type="button" id="clear-intent-button" class="button-link subtle-button">Clear</button>
+          </div>
+          <textarea id="study-intent" name="study_intent" rows="4" placeholder="Patients who received a COVID-19 diagnosis in the outpatient setting"></textarea>
+
+          <div class="form-grid">
+            <div class="field-group">
+              <label for="recommendation-role">Recommendation role</label>
+              <select id="recommendation-role" name="recommendation_role">
+                <option value="">Auto</option>
+                <option value="target">Target</option>
+                <option value="comparator">Comparator</option>
+                <option value="outcome">Outcome</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label for="workflow-type">Workflow type</label>
+              <select id="workflow-type" name="workflow_type">
+                <option value="">Auto</option>
+                <option value="incidence">Incidence</option>
+                <option value="cohort_methods">Cohort Methods</option>
+              </select>
+            </div>
+          </div>
+
+          <details class="filter-details" open>
+            <summary>Recommendation tuning</summary>
+            <p class="muted compact">Tune the phenotype recommendation flow by testing stage. These controls affect how many candidates are retrieved, how many are allowed into planning, and how many can survive into the final response.</p>
+
+            <section class="tuning-section">
+              <h3>Planner breadth</h3>
+              <p class="muted compact">Use this control to test whether ACP planning saw enough plausible options. <code>candidate_limit</code> bounds how many candidates can survive into shortlist planning.</p>
+              <div class="form-grid">
+                <div class="field-group">
+                  <label for="candidate-limit">Candidate limit</label>
+                  <input id="candidate-limit" name="candidate_limit" type="number" min="1" step="1" value="10">
+                </div>
+              </div>
+            </section>
+
+            <section class="tuning-section">
+              <h3>Final output count</h3>
+              <p class="muted compact">Use this control to test how many final recommendations ACP may return. <code>max_results</code> is a hard output cap, but the returned count can still be lower if earlier enforcement or quality gates prune candidates.</p>
+              <div class="form-grid">
+                <div class="field-group">
+                  <label for="max-results">Max results</label>
+                  <input id="max-results" name="max_results" type="number" min="1" step="1" value="3">
+                </div>
+              </div>
+            </section>
+
+                        <section class="tuning-section">
+              <h3>Retrieval coverage</h3>
+              <p class="muted compact">Use these controls to test whether the right phenotypes appear early in search. <code>top_k</code> widens the initial retrieval pool, and <code>candidate_offset</code> shifts the search window for paging-style inspection.</p>
+              <div class="form-grid">
+                <div class="field-group">
+                  <label for="top-k">Top K</label>
+                  <input id="top-k" name="top_k" type="number" min="1" step="1" value="20">
+                </div>
+                <div class="field-group">
+                  <label for="candidate-offset">Candidate offset</label>
+                  <input id="candidate-offset" name="candidate_offset" type="number" min="0" step="1" value="0">
+                </div>
+              </div>
+            </section>
+
+            <section class="tuning-section tuning-section-readonly">
+              <h3>Current effective guardrails</h3>
+              <p class="muted compact">These values are read from the most recent ACP response so you can compare your requested settings with the effective planning and enforcement limits used downstream.</p>
+              <div id="guardrail-summary" class="guardrail-grid">
+                <div class="guardrail-empty muted">Run a recommendation to populate effective limits and stage counts.</div>
+              </div>
+            </section>
+          </details>
+
+          <details class="filter-details">
+            <summary>Exclude metadata filters</summary>
+            <p class="muted compact">Filters are passed through to ACP as exact metadata exclusions. Leave a field blank to ignore it. Use commas for multiple values.</p>
+            <div class="form-grid">
+              <div class="field-group">
+                <label for="exclude-source-dataset">Exclude source dataset</label>
+                <input id="exclude-source-dataset" name="exclude_source_dataset" type="text" placeholder="e.g. VA_CIPHER, OHDSI PhenotypeLibrary">
+              </div>
+              <div class="field-group">
+                <label for="exclude-source-record-type">Exclude source record type</label>
+                <input id="exclude-source-record-type" name="exclude_source_record_type" type="text" placeholder="e.g. disease_phenotype">
+              </div>
+              <div class="field-group">
+                <label for="exclude-phenotype-role">Exclude phenotype role</label>
+                <input id="exclude-phenotype-role" name="exclude_phenotype_role" type="text" placeholder="e.g. procedure, visit">
+              </div>
+              <div class="field-group">
+                <label for="exclude-care-setting-scope">Exclude care setting</label>
+                <input id="exclude-care-setting-scope" name="exclude_care_setting_scope" type="text" placeholder="e.g. inpatient">
+              </div>
+              <div class="field-group">
+                <label for="exclude-executable-status">Exclude executable status</label>
+                <input id="exclude-executable-status" name="exclude_executable_definition_status" type="text" placeholder="e.g. codes_only">
+              </div>
+            </div>
+          </details>
+
+          <div class="actions actions-right">
+            <span id="status" class="status"></span>
+            <button type="submit" id="go-button">Go</button>
+          </div>
+        </form>
+      </section>
+
+      <section id="results-panel" class="panel hidden">
+        <div class="results-header results-header-row">
+          <div>
+            <h2>Recommendations</h2>
+            <p id="result-summary" class="muted"></p>
+          </div>
+          <button type="button" id="reset-results-button" class="button-link subtle-button">Reset</button>
+        </div>
+        <ol id="recommendation-list" class="recommendation-list"></ol>
+        <details id="diagnostics-panel" class="json-details hidden">
+          <summary>Show flow diagnostics</summary>
+          <div class="diagnostic-stack">
+            <div>
+              <h3>Candidate exclusions</h3>
+              <pre id="candidate-exclusions-output"></pre>
+            </div>
+            <div>
+              <h3>Planning candidates</h3>
+              <pre id="planning-candidates-output"></pre>
+            </div>
+          </div>
+        </details>
+        <details class="json-details">
+          <summary>Show full JSON response</summary>
+          <pre id="json-output"></pre>
+        </details>
+      </section>
+
+      <section id="error-panel" class="panel hidden error-panel">
+        <h2>Request failed</h2>
+        <pre id="error-output"></pre>
+      </section>
+    </main>
+    <script src="./app.js"></script>
+  </body>
+</html>

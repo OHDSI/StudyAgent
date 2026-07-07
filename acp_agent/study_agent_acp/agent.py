@@ -652,330 +652,6 @@ class StudyAgent:
             return True
         return any(token in text for token in ("hospitalized", "hospitalisation", "hospitalization", "rehospitalization", "rehospitalisation", "inpatient", "admission", "hospital stay"))
 
-    def _shortlist_target_count(self, max_results: int, max_shortlist: int) -> int:
-        return max(1, min(max_shortlist, max(max_results, 3)))
-
-    def _shortlist_candidate_block_reason(
-        self,
-        row: Dict[str, Any],
-        intent_facets: Dict[str, Any],
-        study_intent: str,
-    ) -> Optional[str]:
-        intent_role = self._flatten_text(intent_facets.get("phenotype_role"))
-        name_text = self._flatten_text(row.get("name") or row.get("phenotype_name"))
-        topic_text = self._flatten_text(row.get("primary_clinical_topic"))
-        role_text = self._flatten_text(row.get("phenotype_role"))
-        signals_text = self._flatten_text(row.get("signals"))
-        combined = " ".join(part for part in (name_text, topic_text, role_text, signals_text) if part)
-
-        if "withdrawn" in combined or "[w]" in name_text:
-            return "withdrawn"
-
-        if intent_role == "diagnosis":
-            if (not self._is_explicit_procedure_intent(study_intent=study_intent, intent_facets=intent_facets)) and any(
-                token in combined for token in ("repair", "surgery", "surgical", "bypass", "post op", "post-op", "postoperative")
-            ):
-                return "procedure_for_diagnosis_intent"
-            if (not self._is_explicit_hospitalization_intent(study_intent=study_intent, intent_facets=intent_facets)) and any(
-                token in combined for token in ("exacerbation", "hospitalization", "hospitalisation", "rehospitalization", "rehospitalisation")
-            ):
-                return "narrow_hospitalization_subtype_for_plain_diagnosis"
-
-        return None
-
-    def _candidate_topic_signature(self, row: Dict[str, Any]) -> str:
-        topic_text = self._flatten_text(row.get("primary_clinical_topic"))
-        name_text = self._flatten_text(row.get("name") or row.get("phenotype_name"))
-        if topic_text and name_text:
-            return f"{topic_text}||{name_text}"
-        if topic_text:
-            return topic_text
-        return name_text
-
-    def _is_diagnosis_class_candidate(self, row: Dict[str, Any]) -> bool:
-        role = self._flatten_text(row.get("phenotype_role"))
-        if "diagnos" in role or role in {"condition", "case"}:
-            return True
-        if any(token in role for token in ("outcome", "complication", "severity", "screen", "risk_score", "visit")):
-            return False
-        if any(token in role for token in ("covariate", "comorbid")):
-            return True
-        return False
-
-    def _allow_plain_diagnosis_fill(
-        self,
-        row: Dict[str, Any],
-        intent_facets: Dict[str, Any],
-        study_intent: str,
-        current_count: int,
-    ) -> bool:
-        intent_role = self._flatten_text(intent_facets.get("phenotype_role"))
-        if intent_role != "diagnosis":
-            return True
-        if self._is_explicit_hospitalization_intent(study_intent=study_intent, intent_facets=intent_facets):
-            return True
-        if self._is_explicit_procedure_intent(study_intent=study_intent, intent_facets=intent_facets):
-            return True
-        if current_count < 2:
-            return True
-        return self._is_diagnosis_class_candidate(row)
-
-    def _candidate_has_defensible_topic_match(self, row: Dict[str, Any], intent_facets: Dict[str, Any], study_intent: str) -> bool:
-        priority = self._candidate_metadata_priority(
-            row=row,
-            intent_facets=intent_facets,
-            search_rank=0,
-            study_intent=study_intent,
-        )
-        kinds = {reason.get("kind") for reason in (priority.get("reasons") or []) if isinstance(reason, dict)}
-        has_primary = "topic_primary" in kinds or "dynamic_clinical_alias_match" in kinds
-        has_context_only = "context_without_primary" in kinds and not has_primary
-        has_mismatch_only = "topic_mismatch" in kinds and not has_primary
-        return not (has_context_only or has_mismatch_only)
-
-    def _allow_quality_threshold_fill(
-        self,
-        row: Dict[str, Any],
-        intent_facets: Dict[str, Any],
-        study_intent: str,
-        current_count: int,
-    ) -> bool:
-        if current_count < 1:
-            return True
-        if self._candidate_has_defensible_topic_match(row=row, intent_facets=intent_facets, study_intent=study_intent):
-            return True
-        return False
-
-    def _should_dedupe_shortlist(self, intent_facets: Dict[str, Any], study_intent: str) -> bool:
-        intent_role = self._flatten_text(intent_facets.get("phenotype_role"))
-        if intent_role != "diagnosis":
-            return False
-        return not self._is_explicit_hospitalization_intent(study_intent=study_intent, intent_facets=intent_facets)
-
-    def _dedupe_shortlist_ids(
-        self,
-        shortlist_ids: List[str],
-        candidate_rows_by_id: Dict[str, Dict[str, Any]],
-        backfill_ids: List[str],
-        target_count: int,
-    ) -> tuple[List[str], Dict[str, Any]]:
-        deduped: List[str] = []
-        seen_ids: set[str] = set()
-        seen_signatures: set[str] = set()
-        duplicate_topic_ids: List[str] = []
-
-        for phenotype_id in shortlist_ids or []:
-            phenotype_id = str(phenotype_id)
-            if phenotype_id in seen_ids:
-                continue
-            row = candidate_rows_by_id.get(phenotype_id) or {}
-            signature = self._candidate_topic_signature(row)
-            if signature and signature in seen_signatures:
-                duplicate_topic_ids.append(phenotype_id)
-                continue
-            deduped.append(phenotype_id)
-            seen_ids.add(phenotype_id)
-            if signature:
-                seen_signatures.add(signature)
-
-        backfilled_ids: List[str] = []
-        if duplicate_topic_ids and len(deduped) < target_count:
-            for phenotype_id in backfill_ids:
-                phenotype_id = str(phenotype_id)
-                if phenotype_id in seen_ids:
-                    continue
-                row = candidate_rows_by_id.get(phenotype_id) or {}
-                signature = self._candidate_topic_signature(row)
-                if signature and signature in seen_signatures:
-                    continue
-                deduped.append(phenotype_id)
-                seen_ids.add(phenotype_id)
-                backfilled_ids.append(phenotype_id)
-                if signature:
-                    seen_signatures.add(signature)
-                if len(deduped) >= target_count:
-                    break
-
-        diagnostics = {
-            "duplicate_topic_ids": duplicate_topic_ids,
-            "backfilled_ids": backfilled_ids,
-            "applied": bool(duplicate_topic_ids),
-        }
-        return deduped, diagnostics
-
-    def _build_shortlist_reasoning_notes(
-        self,
-        shortlist_rows: List[Dict[str, Any]],
-        intent_facets: Dict[str, Any],
-        shortlist_enforcement: Optional[Dict[str, Any]] = None,
-    ) -> List[str]:
-        notes: List[str] = []
-        topic = self._compact_text_value(intent_facets.get("condition_or_topic"), limit=80) or "the requested clinical topic"
-        role = self._flatten_text(intent_facets.get("phenotype_role")).replace("_", " ") or "phenotype"
-        notes.append(f"Selected shortlisted candidates align with {topic} as a {role}-oriented study intent.")
-
-        for row in shortlist_rows[:3]:
-            if not isinstance(row, dict):
-                continue
-            name = row.get("name") or row.get("phenotype_name") or str(row.get("phenotype_id") or "candidate")
-            candidate_role = self._flatten_text(row.get("phenotype_role")).replace("_", " ") or "phenotype"
-            candidate_topic = self._compact_text_value(row.get("primary_clinical_topic"), limit=80) or name
-            notes.append(f"Included {name} as a {candidate_role} candidate focused on {candidate_topic}.")
-
-        enforcement = shortlist_enforcement or {}
-        replaced_ids = [str(pid) for pid in (enforcement.get("replaced_ids") or []) if pid not in (None, "")]
-        duplicate_topic_ids = [str(pid) for pid in (enforcement.get("duplicate_topic_ids") or []) if pid not in (None, "")]
-        if replaced_ids:
-            notes.append(
-                "Shortlist replaced lower-quality candidates after rerank enforcement: "
-                + ", ".join(replaced_ids[:4])
-                + "."
-            )
-        if duplicate_topic_ids:
-            notes.append(
-                "Near-duplicate topical variants were removed to preserve distinct recommendation coverage: "
-                + ", ".join(duplicate_topic_ids[:4])
-                + "."
-            )
-        return notes
-
-    def _enforce_shortlist_against_rerank(
-        self,
-        shortlist_ids: List[str],
-        ranked_candidates: List[Dict[str, Any]],
-        intent_facets: Dict[str, Any],
-        study_intent: str,
-        max_results: int,
-        max_shortlist: int,
-    ) -> tuple[List[str], Dict[str, Any]]:
-        target_count = self._shortlist_target_count(max_results=max_results, max_shortlist=max_shortlist)
-        strict_top_k = min(len(ranked_candidates), max(target_count + 1, min(max_shortlist, 5)))
-        strict_pool = ranked_candidates[:strict_top_k]
-        strict_pool_ids = [row.get("phenotype_id") for row in strict_pool if row.get("phenotype_id")]
-        strict_pool_set = set(strict_pool_ids)
-        strict_pool_by_id = {
-            str(row.get("phenotype_id")): row
-            for row in strict_pool
-            if isinstance(row, dict) and row.get("phenotype_id") not in (None, "")
-        }
-
-        blocked_candidate_reasons: Dict[str, str] = {}
-        preferred_pool_ids: List[str] = []
-        blocked_pool_ids: List[str] = []
-        for phenotype_id in strict_pool_ids:
-            row = strict_pool_by_id.get(str(phenotype_id)) or {}
-            block_reason = self._shortlist_candidate_block_reason(
-                row=row,
-                intent_facets=intent_facets,
-                study_intent=study_intent,
-            )
-            if block_reason:
-                blocked_candidate_reasons[str(phenotype_id)] = block_reason
-                blocked_pool_ids.append(str(phenotype_id))
-            else:
-                preferred_pool_ids.append(str(phenotype_id))
-
-        filtered_shortlist: List[str] = []
-        dropped_ids: List[str] = []
-        replaced_ids: List[str] = []
-        plain_diagnosis_fill_skipped_ids: List[str] = []
-        quality_threshold_skipped_ids: List[str] = []
-        seen: set[str] = set()
-        for phenotype_id in shortlist_ids or []:
-            phenotype_id = str(phenotype_id)
-            if phenotype_id not in strict_pool_set:
-                if phenotype_id not in (None, ""):
-                    dropped_ids.append(phenotype_id)
-                continue
-            if phenotype_id in blocked_candidate_reasons:
-                replaced_ids.append(phenotype_id)
-                continue
-            if phenotype_id not in seen:
-                filtered_shortlist.append(phenotype_id)
-                seen.add(phenotype_id)
-
-        final_shortlist: List[str] = []
-        for phenotype_id in preferred_pool_ids:
-            if phenotype_id not in filtered_shortlist or phenotype_id in final_shortlist:
-                continue
-            row = strict_pool_by_id.get(str(phenotype_id)) or {}
-            if not self._allow_plain_diagnosis_fill(
-                row=row,
-                intent_facets=intent_facets,
-                study_intent=study_intent,
-                current_count=len(final_shortlist),
-            ):
-                plain_diagnosis_fill_skipped_ids.append(str(phenotype_id))
-                continue
-            if not self._allow_quality_threshold_fill(
-                row=row,
-                intent_facets=intent_facets,
-                study_intent=study_intent,
-                current_count=len(final_shortlist),
-            ):
-                quality_threshold_skipped_ids.append(str(phenotype_id))
-                continue
-            final_shortlist.append(phenotype_id)
-        for phenotype_id in preferred_pool_ids:
-            if phenotype_id in final_shortlist:
-                continue
-            row = strict_pool_by_id.get(str(phenotype_id)) or {}
-            if not self._allow_plain_diagnosis_fill(
-                row=row,
-                intent_facets=intent_facets,
-                study_intent=study_intent,
-                current_count=len(final_shortlist),
-            ):
-                if str(phenotype_id) not in plain_diagnosis_fill_skipped_ids:
-                    plain_diagnosis_fill_skipped_ids.append(str(phenotype_id))
-                continue
-            if not self._allow_quality_threshold_fill(
-                row=row,
-                intent_facets=intent_facets,
-                study_intent=study_intent,
-                current_count=len(final_shortlist),
-            ):
-                if str(phenotype_id) not in quality_threshold_skipped_ids:
-                    quality_threshold_skipped_ids.append(str(phenotype_id))
-                continue
-            final_shortlist.append(phenotype_id)
-            if len(final_shortlist) >= target_count:
-                break
-        if not final_shortlist:
-            final_shortlist = preferred_pool_ids[:target_count]
-
-        dedupe_diagnostics = {
-            "duplicate_topic_ids": [],
-            "backfilled_ids": [],
-            "applied": False,
-        }
-        if self._should_dedupe_shortlist(intent_facets=intent_facets, study_intent=study_intent):
-            final_shortlist, dedupe_diagnostics = self._dedupe_shortlist_ids(
-                shortlist_ids=final_shortlist,
-                candidate_rows_by_id=strict_pool_by_id,
-                backfill_ids=preferred_pool_ids,
-                target_count=target_count,
-            )
-
-        diagnostics = {
-            "strict_top_k": strict_top_k,
-            "strict_pool_ids": strict_pool_ids,
-            "planner_input_shortlist_ids": [str(pid) for pid in shortlist_ids or [] if pid not in (None, "")],
-            "dropped_ids": dropped_ids,
-            "replaced_ids": replaced_ids,
-            "blocked_pool_ids": blocked_pool_ids,
-            "blocked_candidate_reasons": blocked_candidate_reasons,
-            "preferred_pool_ids": preferred_pool_ids,
-            "plain_diagnosis_fill_skipped_ids": plain_diagnosis_fill_skipped_ids,
-            "quality_threshold_skipped_ids": quality_threshold_skipped_ids,
-            "duplicate_topic_ids": dedupe_diagnostics.get("duplicate_topic_ids") or [],
-            "dedupe_backfilled_ids": dedupe_diagnostics.get("backfilled_ids") or [],
-            "dedupe_applied": bool(dedupe_diagnostics.get("applied")),
-            "enforced_shortlist_ids": final_shortlist,
-            "enforced": final_shortlist != [str(pid) for pid in shortlist_ids or [] if pid not in (None, "")],
-        }
-        return final_shortlist, diagnostics
-
     def _candidate_metadata_priority(
         self,
         row: Dict[str, Any],
@@ -1604,8 +1280,10 @@ class StudyAgent:
                 "details": full,
             }
 
-        all_candidates = full.get("results") or []
-        all_candidates, exclusion_diagnostics = self._apply_metadata_exclusions(all_candidates, exclude_metadata)
+        retrieved_candidates = full.get("results") or []
+        retrieved_count = len(retrieved_candidates)
+        all_candidates, exclusion_diagnostics = self._apply_metadata_exclusions(retrieved_candidates, exclude_metadata)
+        exclusion_count = len(exclusion_diagnostics)
         if candidate_limit is None:
             candidate_limit = int(os.getenv("LLM_CANDIDATE_LIMIT", "5"))
         candidate_limit = max(0, int(candidate_limit))
@@ -1684,9 +1362,12 @@ class StudyAgent:
                 "details": plan_prompt_bundle,
             }
 
-        planning_window = int(os.getenv("LLM_PLANNING_CANDIDATE_LIMIT", str(max(candidate_limit, 12))))
-        planning_window = max(candidate_limit, planning_window)
-        planning_window = min(max(0, planning_window), len(all_candidates))
+        planning_budget = self._resolve_recommendation_budget(
+            max_results=max_results,
+            candidate_limit=candidate_limit,
+            available_candidates=len(all_candidates),
+        )
+        planning_window = planning_budget["planning_window"]
         planning_seed_candidates = all_candidates[:planning_window]
         planning_candidate_ids = [row.get("phenotype_id") for row in planning_seed_candidates if row.get("phenotype_id")]
         planning_hydrated = self._hydrate_phenotype_summaries(planning_candidate_ids, planning_seed_candidates)
@@ -1697,8 +1378,13 @@ class StudyAgent:
             recommendation_role=recommendation_role,
             workflow_type=workflow_type,
         )
-        planning_top_band = int(os.getenv("LLM_PLANNING_TOP_BAND", str(max((max_results or 0) + 2, 5))))
-        planning_top_band = max(1, min(planning_top_band, len(planning_ranked))) if planning_ranked else 0
+        planning_budget = self._resolve_recommendation_budget(
+            max_results=max_results,
+            candidate_limit=candidate_limit,
+            available_candidates=len(all_candidates),
+            ranked_count=len(planning_ranked),
+        )
+        planning_top_band = planning_budget["planning_top_band"]
         planner_allowed_candidates = planning_ranked[:planning_top_band] if planning_top_band else []
         planning_candidates = self._build_compact_planning_candidates(planner_allowed_candidates)
         self._log_debug(
@@ -1903,6 +1589,27 @@ class StudyAgent:
             "candidates": planning_rerank_diagnostics,
         }
         diagnostics["candidate_exclusions"] = exclusion_diagnostics
+        diagnostics["effective_limits"] = {
+            "top_k": top_k,
+            "candidate_offset": candidate_offset or 0,
+            "candidate_limit": candidate_limit,
+            "max_results": max_results,
+            "planning_window": planning_window,
+            "planning_top_band": planning_top_band,
+            "strict_top_k": shortlist_enforcement.get("strict_top_k"),
+        }
+        diagnostics["stage_counts"] = {
+            "retrieved": retrieved_count,
+            "after_metadata_exclusions": len(all_candidates),
+            "metadata_excluded": exclusion_count,
+            "planning_window": len(planning_seed_candidates),
+            "planning_reranked": len(planning_ranked),
+            "planner_allowed": len(planning_candidates),
+            "shortlist": len(shortlist_ids),
+            "hydrated_shortlist": len(hydrated_candidates),
+            "selected_for_final": len(selected_candidates),
+            "final_recommendations": len(core_result.get("phenotype_recommendations") or []),
+        }
         diagnostics["role_match_gate"] = {
             "required_kind": strict_role_match_kind,
             "matched_candidate_ids": role_match_candidate_ids,
