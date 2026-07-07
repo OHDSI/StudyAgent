@@ -269,7 +269,6 @@ class StudyAgent(PhenotypeRecommendationMixin):
         ...
 
 
-class StudyAgent:
     def __init__(
         self,
         mcp_client: Optional[MCPClient] = None,

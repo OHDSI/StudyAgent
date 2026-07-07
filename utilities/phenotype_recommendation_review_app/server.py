@@ -109,10 +109,11 @@ def _build_recommendation_payload(payload: dict) -> tuple[dict | None, str | Non
     acp_payload = {
         "study_intent": study_intent,
         "top_k": top_k,
-        "candidate_offset": candidate_offset,
         "max_results": max_results,
         "candidate_limit": candidate_limit,
     }
+    if payload.get("candidate_offset") is not None and str(payload.get("candidate_offset")).strip() != "":
+        acp_payload["candidate_offset"] = candidate_offset
     recommendation_role = _optional_text(payload.get("recommendation_role"))
     workflow_type = _optional_text(payload.get("workflow_type"))
     exclude_metadata = _normalize_exclude_metadata(payload.get("exclude_metadata"))
