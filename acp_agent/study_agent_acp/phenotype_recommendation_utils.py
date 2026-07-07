@@ -1,4 +1,5 @@
 import json
+import os
 import re
 from typing import Any, Dict, List, Optional
 
@@ -196,6 +197,37 @@ class PhenotypeRecommendationMixin:
     def _shortlist_target_count(self, max_results: int, max_shortlist: int) -> int:
         return max(1, min(max_shortlist, max(max_results, 3)))
 
+    def _resolve_recommendation_budget(
+        self,
+        *,
+        max_results: int,
+        candidate_limit: int,
+        available_candidates: int,
+        ranked_count: Optional[int] = None,
+    ) -> Dict[str, int]:
+        shortlist_target_count = self._shortlist_target_count(
+            max_results=max_results,
+            max_shortlist=candidate_limit,
+        )
+        planning_window = int(os.getenv("LLM_PLANNING_CANDIDATE_LIMIT", str(max(candidate_limit, 12))))
+        planning_window = max(candidate_limit, planning_window)
+        planning_window = min(max(0, planning_window), available_candidates)
+
+        budget = {
+            "candidate_limit": candidate_limit,
+            "shortlist_target_count": shortlist_target_count,
+            "planning_window": planning_window,
+        }
+        if ranked_count is None:
+            return budget
+
+        planning_top_band = int(os.getenv("LLM_PLANNING_TOP_BAND", str(max(max_results + 2, 5))))
+        planning_top_band = max(1, min(planning_top_band, ranked_count)) if ranked_count else 0
+        strict_top_k = min(ranked_count, max(shortlist_target_count + 1, min(candidate_limit, 5)))
+        budget["planning_top_band"] = planning_top_band
+        budget["strict_top_k"] = strict_top_k
+        return budget
+
     def _shortlist_candidate_block_reason(
         self,
         row: Dict[str, Any],
@@ -389,8 +421,14 @@ class PhenotypeRecommendationMixin:
         max_results: int,
         max_shortlist: int,
     ) -> tuple[List[str], Dict[str, Any]]:
-        target_count = self._shortlist_target_count(max_results=max_results, max_shortlist=max_shortlist)
-        strict_top_k = min(len(ranked_candidates), max(target_count + 1, min(max_shortlist, 5)))
+        budget = self._resolve_recommendation_budget(
+            max_results=max_results,
+            candidate_limit=max_shortlist,
+            available_candidates=len(ranked_candidates),
+            ranked_count=len(ranked_candidates),
+        )
+        target_count = budget["shortlist_target_count"]
+        strict_top_k = budget["strict_top_k"]
         strict_pool = ranked_candidates[:strict_top_k]
         strict_pool_ids = [row.get("phenotype_id") for row in strict_pool if row.get("phenotype_id")]
         strict_pool_set = set(strict_pool_ids)

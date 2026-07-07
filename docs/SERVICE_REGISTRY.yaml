@@ -13,12 +13,19 @@ services:
     input:
       - study_intent
       - top_k
+      - candidate_offset
       - max_results
       - candidate_limit
+      - recommendation_role
+      - workflow_type
+      - exclude_metadata
     output:
       - recommendations
       - candidate_count
       - candidate_limit
+      - candidate_offset
+      - diagnostics.effective_limits
+      - diagnostics.stage_counts
     validation:
       - core.phenotype_recommendations filters to allowed cohortIds
       - user confirmation before any writes
