@@ -132,6 +132,116 @@
   .studyAgentSlashWriteProjectJson(runtime_state, .studyAgentSlashRuntimeStatePath(base_dir))
 }
 
+.studyAgentSlashPathLooksLikeNestedProjectRelative <- function(path, base_dir) {
+  path <- trimws(as.character(path %||% ""))
+  if (!nzchar(path)) return(FALSE)
+  if (grepl("^(?:/|~|[A-Za-z]:[/\\])", path)) return(FALSE)
+  normalized <- chartr("\\", "/", path)
+  prefix <- paste0(basename(normalizePath(base_dir, winslash = "/", mustWork = FALSE)), "/")
+  startsWith(normalized, prefix)
+}
+
+.studyAgentSlashConfiguredExecutionRoots <- function(base_dir,
+                                                     project_state = NULL,
+                                                     prefer_confirmed = TRUE) {
+  project_state <- project_state %||% tryCatch(.studyAgentSlashReadProjectState(base_dir), error = function(e) NULL)
+  study_context <- (project_state %||% list())$study_context %||% list()
+  confirmed <- study_context$execution_roots %||% list()
+
+  resolve_saved_path <- function(path) {
+    path <- trimws(as.character(path %||% ""))
+    if (!nzchar(path)) return(NULL)
+    .studyAgentSlashResolveArtifactPath(path, base_dir)
+  }
+
+  confirmed_results <- resolve_saved_path(confirmed$results_root %||% "")
+  confirmed_work <- resolve_saved_path(confirmed$work_root %||% "")
+
+  configured_results_input <- ""
+  configured_work_input <- ""
+  configured_results <- NULL
+  configured_work <- NULL
+  exec_settings_path <- file.path(base_dir, "strategus-execution-settings.json")
+  if (file.exists(exec_settings_path)) {
+    exec_cfg <- tryCatch(readStrategusExecutionSettings(exec_settings_path), error = function(e) NULL)
+    if (is.list(exec_cfg)) {
+      configured_results_input <- trimws(as.character(exec_cfg$resultsFolder %||% ""))
+      configured_work_input <- trimws(as.character(exec_cfg$workFolder %||% ""))
+      if (nzchar(configured_results_input)) configured_results <- .studyAgentSlashResolveArtifactPath(configured_results_input, base_dir)
+      if (nzchar(configured_work_input)) configured_work <- .studyAgentSlashResolveArtifactPath(configured_work_input, base_dir)
+    }
+  }
+
+  warnings <- character(0)
+  if (.studyAgentSlashPathLooksLikeNestedProjectRelative(configured_results_input, base_dir)) {
+    warnings <- c(warnings, sprintf("resultsFolder looks project-relative and may duplicate the project root: %s", configured_results_input))
+  }
+  if (.studyAgentSlashPathLooksLikeNestedProjectRelative(configured_work_input, base_dir)) {
+    warnings <- c(warnings, sprintf("workFolder looks project-relative and may duplicate the project root: %s", configured_work_input))
+  }
+
+  preferred_results <- if (isTRUE(prefer_confirmed) && !is.null(confirmed_results)) confirmed_results else configured_results
+  preferred_work <- if (isTRUE(prefer_confirmed) && !is.null(confirmed_work)) confirmed_work else configured_work
+  if (is.null(preferred_results)) preferred_results <- configured_results %||% confirmed_results
+  if (is.null(preferred_work)) preferred_work <- configured_work %||% confirmed_work
+
+  list(
+    results_root = preferred_results,
+    work_root = preferred_work,
+    confirmed_results_root = confirmed_results,
+    confirmed_work_root = confirmed_work,
+    configured_results_root = configured_results,
+    configured_work_root = configured_work,
+    configured_results_input = configured_results_input,
+    configured_work_input = configured_work_input,
+    warnings = as.list(unique(warnings))
+  )
+}
+
+.studyAgentSlashPersistExecutionRoots <- function(base_dir,
+                                                  project_state = NULL,
+                                                  results_root = NULL,
+                                                  work_root = NULL,
+                                                  source = "user_confirmed",
+                                                  warnings = character(0),
+                                                  write = TRUE) {
+  project_state <- project_state %||% .studyAgentSlashReadProjectState(base_dir)
+  configured <- .studyAgentSlashConfiguredExecutionRoots(base_dir, project_state = project_state, prefer_confirmed = FALSE)
+
+  resolve_root <- function(path, fallback = NULL) {
+    path <- trimws(as.character(path %||% ""))
+    if (!nzchar(path)) return(fallback)
+    .studyAgentSlashResolveArtifactPath(path, base_dir)
+  }
+
+  resolved_results <- resolve_root(results_root, fallback = configured$configured_results_root %||% NULL)
+  resolved_work <- resolve_root(work_root, fallback = configured$configured_work_root %||% NULL)
+  warning_values <- unique(c(
+    as.character(unlist(configured$warnings %||% character(0), use.names = FALSE)),
+    as.character(warnings %||% character(0))
+  ))
+  warning_values <- warning_values[nzchar(warning_values)]
+
+  if (is.null(project_state$study_context) || !is.list(project_state$study_context)) {
+    project_state$study_context <- list()
+  }
+  project_state$study_context$execution_roots <- Filter(Negate(is.null), list(
+    results_root = if (!is.null(resolved_results) && nzchar(as.character(resolved_results))) .studyAgentSlashRelativizeProjectPath(resolved_results, base_dir) else NULL,
+    work_root = if (!is.null(resolved_work) && nzchar(as.character(resolved_work))) .studyAgentSlashRelativizeProjectPath(resolved_work, base_dir) else NULL,
+    source = as.character(source %||% "user_confirmed"),
+    confirmed_at = .studyAgentSlashNowTimestamp(),
+    warnings = if (length(warning_values) > 0) as.list(warning_values) else NULL
+  ))
+
+  if (!isTRUE(write)) return(project_state)
+  .studyAgentSlashWriteProjectState(project_state, base_dir)
+  if (file.exists(.studyAgentSlashRuntimeStatePath(base_dir))) {
+    reconciled <- .studyAgentSlashReconcileProjectState(base_dir, project_state = project_state, write = TRUE)
+    return(reconciled$project_state %||% project_state)
+  }
+  project_state
+}
+
 .studyAgentSlashRegisterProjectArtifact <- function(project_state,
                                                     artifact_id,
                                                     path,

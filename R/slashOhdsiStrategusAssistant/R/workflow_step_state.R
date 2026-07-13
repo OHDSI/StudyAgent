@@ -180,18 +180,12 @@
 }
 
 
-.studyAgentSlashExecutionArtifactPaths <- function(base_dir) {
-  exec_settings_path <- file.path(base_dir, "strategus-execution-settings.json")
-  if (!file.exists(exec_settings_path)) return(character(0))
-  exec_cfg <- tryCatch(readStrategusExecutionSettings(exec_settings_path), error = function(e) NULL)
-  if (!is.list(exec_cfg)) return(character(0))
-  raw_paths <- Filter(nzchar, trimws(as.character(c(
-    exec_cfg$resultsFolder %||% "",
-    exec_cfg$workFolder %||% ""
-  ))))
-  resolved <- unique(vapply(raw_paths, function(path) {
-    .studyAgentSlashResolveArtifactPath(path, base_dir)
-  }, character(1)))
+.studyAgentSlashExecutionArtifactPaths <- function(base_dir, project_state = NULL) {
+  roots <- .studyAgentSlashConfiguredExecutionRoots(base_dir, project_state = project_state, prefer_confirmed = TRUE)
+  resolved <- unique(Filter(nzchar, trimws(as.character(c(
+    roots$results_root %||% "",
+    roots$work_root %||% ""
+  )))))
   unique(vapply(resolved, function(path) {
     .studyAgentSlashRelativizeProjectPath(path, base_dir)
   }, character(1)))
@@ -220,7 +214,7 @@
     )
   }
   if (step_id %in% c("diagnostics", "cm_spec", "incidence_spec")) {
-    override_paths <- c(override_paths, .studyAgentSlashExecutionArtifactPaths(base_dir))
+    override_paths <- c(override_paths, .studyAgentSlashExecutionArtifactPaths(base_dir, project_state = project_state))
   }
   unique(override_paths[nzchar(override_paths)])
 }
