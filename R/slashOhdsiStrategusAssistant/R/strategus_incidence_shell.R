@@ -533,11 +533,13 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     if (!file.exists(db_details_path)) {
       write_json(list(
         dbms = "postgresql",
+        authType = "username_password",
         DB_SERVER = "",
         DB_PORT = "5432",
         DB_USER = "",
         DB_PASS = "",
         DB_DRIVER_PATH = "",
+        DATABASECONNECTOR_JAR_FOLDER = "",
         extraSettings = "sslmode=disable"
       ), db_details_path)
     }
@@ -2146,11 +2148,13 @@ Available exploration commands
     if (!file.exists(db_details_path)) {
       write_json(list(
         dbms = "postgresql",
+        authType = "username_password",
         DB_SERVER = "",
         DB_PORT = "5432",
         DB_USER = "",
         DB_PASS = "",
         DB_DRIVER_PATH = "",
+        DATABASECONNECTOR_JAR_FOLDER = "",
         extraSettings = "sslmode=disable"
       ), db_details_path)
     }
