@@ -1,35 +1,65 @@
 # study-agent MCP server
 
-Exposes core tools via MCP for reuse across agents, plus phenotype retrieval and prompt bundle tools.
+`mcp_server/` contains the MCP-side implementation for reusable study-agent tools, prompt bundles, retrieval components, vocabulary helpers, and Keeper-related logic.
 
-## Tool Inventory
+This README is intentionally thin. Tool registration, prompt bundles, and service boundaries are evolving, so the maintained documentation under [`docs/`](../docs/) should be treated as the primary reference surface.
 
-Phenotype retrieval + metadata:
-- `phenotype_search`
-- `phenotype_recommendations`
-- `phenotype_improvements`
-- `phenotype_fetch_summary`
-- `phenotype_fetch_definition`
-- `phenotype_list_similar`
-- `phenotype_reindex`
-- `phenotype_index_status`
-- `phenotype_prompt_bundle`
-- `phenotype_recommendation_advice`
+## Prompt Bundles
 
-Study design linting:
-- `propose_concept_set_diff`
-- `cohort_lint`
-- `lint_prompt_bundle`
+A standing project convention is that prompts sent to LLMs should be as declarative and editable outside of code as practical.
 
-Keeper validation:
-- `keeper_prompt_bundle`
-- `keeper_sanitize_row`
-- `keeper_build_prompt`
-- `keeper_parse_response`
+Most LLM-facing interactions therefore live under [`mcp_server/prompts/`](./prompts/) in per-task subfolders. The common pattern is:
 
-Authoring new MCP tools: see `docs/MCP_TOOL_AUTHORING.md`.
+- `overview_*.md`: brief task overview and role framing
+- `spec_*.md`: task-specific instructions and constraints
+- `output_schema_*.json` or equivalent output contract artifact
 
-## Running MCP over HTTP (recommended for cross-platform stability)
+Some tools add additional prompt artifacts when needed, such as:
+
+- `system_prompt_*.md`
+- domain configuration files such as `.yaml`
+- templates such as `template_*.md`
+- workflow-specific JSON templates such as `cmAnalysis_template.json`
+
+Current prompt families include:
+
+- [`prompts/phenotype/`](./prompts/phenotype/)
+- [`prompts/keeper/`](./prompts/keeper/)
+- [`prompts/keeper_concept_sets/`](./prompts/keeper_concept_sets/)
+- [`prompts/lint/`](./prompts/lint/)
+- [`prompts/workflow_dialogue/`](./prompts/workflow_dialogue/)
+- [`prompts/case_causal_review/`](./prompts/case_causal_review/)
+- [`prompts/cohort_methods/`](./prompts/cohort_methods/)
+
+## Where To Look
+
+For service and workflow orientation, start with:
+
+- [`docs/SERVICE_REGISTRY.yaml`](../docs/SERVICE_REGISTRY.yaml)
+- [`docs/WORKFLOW_PHENOTYPE_RECOMMENDATION.md`](../docs/WORKFLOW_PHENOTYPE_RECOMMENDATION.md)
+- [`docs/WORKFLOW_CONTEXT_DIALOGUE_SLASH_OHDSI.md`](../docs/WORKFLOW_CONTEXT_DIALOGUE_SLASH_OHDSI.md)
+- [`docs/WORKFLOW_COHORT_METHODS.md`](../docs/WORKFLOW_COHORT_METHODS.md)
+- [`docs/WORKFLOW_INCIDENCE.md`](../docs/WORKFLOW_INCIDENCE.md)
+- [`docs/SPEC_KEEPER_INTERFACE.md`](../docs/SPEC_KEEPER_INTERFACE.md)
+- [`docs/PHENOTYPE_VALIDATION_REVIEW.md`](../docs/PHENOTYPE_VALIDATION_REVIEW.md)
+- [`docs/MCP_TOOL_AUTHORING.md`](../docs/MCP_TOOL_AUTHORING.md)
+
+Use `SERVICE_REGISTRY.yaml` as an important metadata surface, but not as the only source of truth for current runtime behavior.
+
+## ACP Connection Modes
+
+MCP is the tool-serving side of the system. ACP is the orchestration side, and ACP can attach to MCP in two supported ways:
+
+- HTTP mode: ACP connects to a separately running MCP server via `STUDY_AGENT_MCP_URL`
+- Managed stdio mode: ACP launches MCP as a subprocess via `STUDY_AGENT_MCP_COMMAND` and optional `STUDY_AGENT_MCP_ARGS`
+
+In ACP code, `StudyAgent` depends on an `MCPClient` protocol rather than a specific transport implementation. ACP startup then injects either `HttpMCPClient` or `StdioMCPClient`.
+
+HTTP is the recommended local runtime because it is easier to inspect and debug, but stdio remains a supported integration mode.
+
+## Running MCP over HTTP
+
+Recommended local MCP runtime:
 
 ```bash
 export MCP_TRANSPORT=http

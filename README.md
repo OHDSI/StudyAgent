@@ -252,6 +252,7 @@ curl -s -X POST http://127.0.0.1:8765/flows/phenotype_validation_review \
 ## Where To Go Next
 
 - Installation, smoke tests (see `doit list`), and provider-specific examples: [docs/TESTING.md](docs/TESTING.md)
+- Environment-variable reference across ACP, MCP, retrieval, Keeper, and R workflows: [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md)
 - Implemented service inventory: [docs/SERVICE_REGISTRY.yaml](docs/SERVICE_REGISTRY.yaml)
 - Docker setup: see `compose.yaml` and `.env.example`. The default containerized phenotype index path is `./data/phenotype_index` on the host, mounted to `/data/phenotype_index` in the container.
 - ACP and MCP component details: [acp_agent/README.md](acp_agent/README.md), [mcp_server/README.md](mcp_server/README.md)
