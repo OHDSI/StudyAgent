@@ -33,6 +33,8 @@ def test_runner_reconciles_derived_state_and_persists_step_state() -> None:
 def test_project_state_supports_build_phase_status_finalization() -> None:
     source = STATE_SOURCE.read_text(encoding="utf-8")
     assert '.studyAgentSlashFinalizeBuildProjectState <- function(' in source
+    assert '.studyAgentSlashConfiguredExecutionRoots <- function(' in source
+    assert '.studyAgentSlashPersistExecutionRoots <- function(' in source
     assert 'completed_steps = character(0)' in source
     assert 'skipped_steps = character(0)' in source
     assert 'failed_steps = character(0)' in source
@@ -99,6 +101,18 @@ def test_cohort_method_shell_execution_menu_has_help_and_exit_confirmation() -> 
 
 def test_incidence_shell_execution_menu_has_help_and_exit_confirmation() -> None:
     _assert_execution_menu_help_and_exit_guards(INCIDENCE_SOURCE.read_text(encoding="utf-8"))
+
+
+def test_shells_prompt_to_confirm_execution_roots_on_resume() -> None:
+    cohort_source = COHORT_SOURCE.read_text(encoding="utf-8")
+    incidence_source = INCIDENCE_SOURCE.read_text(encoding="utf-8")
+    for source in (cohort_source, incidence_source):
+        assert 'confirm_resume_execution_roots <- function() {' in source
+        assert 'Use these execution roots for resumed artifact discovery?' in source
+        assert 'Results root [' in source
+        assert 'Work root [' in source
+        assert 'Use full paths here if the configured roots are ambiguous.' in source
+        assert '.studyAgentSlashPersistExecutionRoots(' in source
 
 
 def test_cohort_method_shell_exposes_backup_reset_restore_menu_surface() -> None:
@@ -181,6 +195,7 @@ def test_dialogue_session_supports_reusable_ask_method() -> None:
 def test_exploration_registry_defines_first_slice_commands() -> None:
     source = EXPLORATION_SOURCE.read_text(encoding="utf-8")
     assert '.studyAgentSlashBuildArtifactRegistry <- function(base_dir) {' in source
+    assert '.studyAgentSlashDiscoverStrategusExecutionRoots <- function(base_dir, project_state = NULL) {' in source
     assert '.studyAgentSlashResolveArtifactPath <- function(path, base_dir) {' in source
     assert '.studyAgentSlashRunExplorationCommand <- function(base_dir, command_id) {' in source
     assert '.studyAgentSlashSupportsDataViewer <- function() {' in source

@@ -313,8 +313,6 @@ def cohort_methods_spec_to_shell_recommendation(
 ) -> Dict[str, Any]:
     """Project a validated cohort-method spec into the 4-key recommendation shape the
     cohort-methods R shell expects.
-
-    See docs/COHORT_METHODS_SPECIFICATIONS_RECOMMENDATION_DESIGN.md §6.
     """
     cspa = (cohort_methods_spec or {}).get("createStudyPopArgs") or {}
     cmda = (cohort_methods_spec or {}).get("getDbCohortMethodDataArgs") or {}

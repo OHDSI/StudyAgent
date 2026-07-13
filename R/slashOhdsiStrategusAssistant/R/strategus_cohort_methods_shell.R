@@ -3789,6 +3789,62 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   project_state_path <- .studyAgentSlashProjectStatePath(base_dir)
   runtime_state_path <- .studyAgentSlashRuntimeStatePath(base_dir)
 
+  confirm_resume_execution_roots <- function() {
+    if (!file.exists(project_state_path)) return(invisible(NULL))
+    project_state <- .studyAgentSlashReadProjectState(base_dir)
+    roots <- .studyAgentSlashConfiguredExecutionRoots(base_dir, project_state = project_state, prefer_confirmed = TRUE)
+    results_root <- as.character(roots$results_root %||% "")
+    work_root <- as.character(roots$work_root %||% "")
+    warnings <- as.character(unlist(roots$warnings %||% character(0), use.names = FALSE))
+
+    cat("\nExecution roots for resume\n")
+    cat(sprintf("  - results: %s\n", if (nzchar(results_root)) results_root else "<not set>"))
+    cat(sprintf("  - work: %s\n", if (nzchar(work_root)) work_root else "<not set>"))
+    if (length(warnings) > 0) {
+      cat("Warnings\n")
+      for (warning in warnings) cat(sprintf("  - %s\n", warning))
+      cat("Use full paths here if the configured roots are ambiguous.\n")
+    }
+
+    use_current <- TRUE
+    if (isTRUE(interactive)) {
+      use_current <- prompt_yesno("Use these execution roots for resumed artifact discovery?", default = length(warnings) == 0)
+    }
+    if (!isTRUE(use_current) && isTRUE(interactive)) {
+      entered_results <- trimws(readline_with_dialogue(sprintf("Results root [%s]: ", results_root)))
+      entered_work <- trimws(readline_with_dialogue(sprintf("Work root [%s]: ", work_root)))
+      if (!nzchar(entered_results)) entered_results <- results_root
+      if (!nzchar(entered_work)) entered_work <- work_root
+      manual_warnings <- character(0)
+      if (.studyAgentSlashPathLooksLikeNestedProjectRelative(entered_results, base_dir)) {
+        manual_warnings <- c(manual_warnings, sprintf("results root still looks nested under the project directory name: %s", entered_results))
+      }
+      if (.studyAgentSlashPathLooksLikeNestedProjectRelative(entered_work, base_dir)) {
+        manual_warnings <- c(manual_warnings, sprintf("work root still looks nested under the project directory name: %s", entered_work))
+      }
+      .studyAgentSlashPersistExecutionRoots(
+        base_dir = base_dir,
+        project_state = project_state,
+        results_root = entered_results,
+        work_root = entered_work,
+        source = "resume_prompt",
+        warnings = manual_warnings,
+        write = TRUE
+      )
+      return(invisible(NULL))
+    }
+
+    .studyAgentSlashPersistExecutionRoots(
+      base_dir = base_dir,
+      project_state = project_state,
+      results_root = results_root,
+      work_root = work_root,
+      source = "resume_confirmed",
+      write = TRUE
+    )
+    invisible(NULL)
+  }
+
   print_execution_status <- function() {
     if (!file.exists(project_state_path)) {
       cat("No study-agent project manifest found.\n")
@@ -4331,6 +4387,7 @@ Available exploration commands
 
   if (isTRUE(resume) && file.exists(project_state_path) && file.exists(runtime_state_path)) {
     cat("\nExisting study-agent project detected.\n")
+    confirm_resume_execution_roots()
     print_execution_status()
     if (isTRUE(interactive) && prompt_yesno("Resume existing generated workflow execution in this shell?", default = TRUE)) {
       menu_result <- run_execution_menu(prompt_first = FALSE)
@@ -6218,11 +6275,13 @@ Available exploration commands
     if (!file.exists(db_details_path)) {
       write_json(list(
         dbms = "postgresql",
+        authType = "username_password",
         DB_SERVER = "",
         DB_PORT = "5432",
         DB_USER = "",
         DB_PASS = "",
         DB_DRIVER_PATH = "",
+        DATABASECONNECTOR_JAR_FOLDER = "",
         extraSettings = "sslmode=disable"
       ), db_details_path)
     }
@@ -7497,6 +7556,12 @@ Keeper review saved: %s reviewed row(s)
     completed_steps = build_completed_steps,
     skipped_steps = build_skipped_steps,
     failed_steps = build_failed_steps
+  )
+  project_init$project_state <- .studyAgentSlashPersistExecutionRoots(
+    base_dir = base_dir,
+    project_state = project_init$project_state %||% NULL,
+    source = "project_init",
+    write = TRUE
   )
   state$project_state_path <- project_state_path
   state$runtime_state_path <- runtime_state_path

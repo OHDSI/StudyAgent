@@ -166,12 +166,28 @@ Generated scripts that connect to the database expect these site-specific files 
 ```
 {
   "dbms": "postgresql",
+  "authType": "username_password",
   "DB_SERVER": "localhost",
   "DB_PORT": "5432",
   "DB_USER": "ohdsi",
   "DB_PASS": "change_me",
   "DB_DRIVER_PATH": "",
+  "DATABASECONNECTOR_JAR_FOLDER": "",
   "extraSettings": "sslmode=disable"
+}
+```
+
+For Windows-integrated SQL Server authentication, omit `DB_USER` / `DB_PASS` and set `authType` to `"windows"`. If your site requires the Microsoft JDBC auth DLL/JAR location, set `DATABASECONNECTOR_JAR_FOLDER`; the generated scripts already call `createStrategusConnectionDetails()`, so that helper will export the env var before creating `connectionDetails`. Example:
+
+```
+{
+  "dbms": "sql server",
+  "authType": "windows",
+  "DB_SERVER": "your-sql-host",
+  "DB_PORT": "1433",
+  "DB_DRIVER_PATH": "",
+  "DATABASECONNECTOR_JAR_FOLDER": "C:/path/to/sqljdbc_and_auth",
+  "extraSettings": ""
 }
 ```
 

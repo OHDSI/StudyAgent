@@ -1,44 +1,76 @@
 # study-agent ACP agent
-Orchestrates user interaction and calls MCP tools. No direct data plane access unless explicitly required.
 
-## ACP Server Configuration
+`acp_agent/` contains the ACP-side orchestration layer for user-facing study-agent flows. ACP exposes the runtime HTTP surface, coordinates LLM-backed flow execution, and connects to MCP tools over HTTP or managed stdio.
 
-- `STUDY_AGENT_HOST` (default `127.0.0.1`)
-- `STUDY_AGENT_PORT` (default `8765`)
-- `STUDY_AGENT_LOG_DIR` (optional; when set, ACP/MCP write rotating log files in that directory)
-- `STUDY_AGENT_LOG_MAX_BYTES` (default `10485760`)
-- `STUDY_AGENT_LOG_BACKUP_COUNT` (default `5`)
-- `ACP_LOG_LEVEL` (default `INFO`)
-- `ACP_LOG_FILE` (optional explicit ACP log path; overrides `STUDY_AGENT_LOG_DIR`)
-- Shutdown: Prefer stopping the ACP process (SIGINT/SIGTERM) so the MCP subprocess is closed cleanly. Killing the MCP directly can leave defunct processes.
+This README is intentionally thin. The environment surface spans ACP, MCP, retrieval, Keeper tooling, and R workflows, so the maintained documentation under [`docs/`](../docs/) should be treated as the primary reference surface rather than this directory README.
 
-## LLM Configuration (OpenAI-compatible)
+## What ACP Does
 
-Set these environment variables to enable LLM calls from ACP:
+ACP is the orchestration and control-plane layer for implemented flows such as:
 
-- `LLM_API_URL` (default `http://localhost:3000/api/chat/completions`)
-- `LLM_API_KEY` (required)
-- `LLM_MODEL` (default `agentstudyassistant`)
-- `LLM_TIMEOUT` (default `300`)
-- `LLM_LOG` (default `0`)
-- `LLM_LOG_PROMPT` (default `0`)
-- `LLM_LOG_RESPONSE` (default `0`)
-- `LLM_LOG_JSON` (default `0`)
-- `LLM_DRY_RUN` (default `0`)
-- `LLM_USE_RESPONSES` (default `0`, use OpenAI Responses API payload/parse instead of Chat Completions; unrelated to MCP tool use)
-- `LLM_CANDIDATE_LIMIT` (default `5`)
-- `LLM_RECOMMENDATION_TOP_K` (default `20`)
-- `LLM_RECOMMENDATION_MAX_RESULTS` (default `3`)
-- `STUDY_AGENT_MCP_TIMEOUT` (default `240`)
-- `EMBED_TIMEOUT` (default `120`)
+- phenotype recommendation and related advice / intent-splitting flows
+- workflow context dialogue
+- Keeper-backed review and concept-generation flows
+- cohort-method and incidence workflow support surfaces
 
-Recommended timeout ladder for constrained deployments:
+The current runtime surface is defined by the actual server implementation and the maintained service metadata:
 
-- `ACP_TIMEOUT > LLM_TIMEOUT > STUDY_AGENT_MCP_TIMEOUT`
-- Recommended starting point: `ACP_TIMEOUT=360`, `LLM_TIMEOUT=300`, `STUDY_AGENT_MCP_TIMEOUT=240`
+- [`acp_agent/study_agent_acp/server.py`](./study_agent_acp/server.py)
+- [`docs/SERVICE_REGISTRY.yaml`](../docs/SERVICE_REGISTRY.yaml)
 
-ACP recommendation flows now expose explicit diagnostics and fallback metadata including `llm_status`, `llm_duration_seconds`, `llm_parse_stage`, `llm_schema_valid`, `fallback_reason`, and `fallback_mode`.
+Use `SERVICE_REGISTRY.yaml` as an important metadata surface, but not as the only source of truth for runtime behavior.
 
-To estimate environment-specific starting values instead of relying only on defaults, run `doit calibrate_timeouts`. It writes a recommended timeout env fragment and a JSON timing summary based on repeated ACP smoke-flow samples.
+## ACP To MCP Client Model
 
-See `docs/TESTING.md` for CLI smoke tests.
+ACP does not construct MCP tool calls inside `StudyAgent` directly. Instead, ACP startup builds a concrete MCP client and injects it into `StudyAgent`.
+
+The key distinction is:
+
+- `MCPClient` in `study_agent_acp/agent.py` is a typing `Protocol`, not a concrete implementation
+- ACP startup instantiates either an HTTP client or a managed stdio client
+- `StudyAgent` receives that client through `StudyAgent(mcp_client=...)`
+
+Current startup modes are:
+
+- HTTP MCP: set `STUDY_AGENT_MCP_URL`; ACP builds `HttpMCPClient` and sends MCP requests over HTTP
+- Managed stdio MCP: set `STUDY_AGENT_MCP_COMMAND` and optional `STUDY_AGENT_MCP_ARGS`; ACP builds `StdioMCPClient` and manages an MCP subprocess
+- No MCP client: ACP can still run limited core or fallback paths when supported
+
+This is a dependency-injection boundary between ACP orchestration and MCP tool serving. The bootstrap logic lives in [`acp_agent/study_agent_acp/server.py`](./study_agent_acp/server.py), while the interface expected by `StudyAgent` lives in [`acp_agent/study_agent_acp/agent.py`](./study_agent_acp/agent.py).
+
+## Environment And Runtime Setup
+
+For the comprehensive environment-variable reference, start with:
+
+- [`docs/ENVIRONMENT.md`](../docs/ENVIRONMENT.md)
+- [`docs/TESTING.md`](../docs/TESTING.md)
+- [`docs/PHENOTYPE_INDEXING.md`](../docs/PHENOTYPE_INDEXING.md)
+
+Recommended local MCP + ACP startup:
+
+```bash
+export MCP_TRANSPORT=http
+export MCP_HOST=127.0.0.1
+export MCP_PORT=8790
+export MCP_PATH=/mcp
+study-agent-mcp
+```
+
+```bash
+export STUDY_AGENT_MCP_URL="http://127.0.0.1:8790/mcp"
+export STUDY_AGENT_HOST=127.0.0.1
+export STUDY_AGENT_PORT=8765
+study-agent-acp
+```
+
+## Where To Look
+
+For workflow and service orientation, start with:
+
+- [`docs/ENVIRONMENT.md`](../docs/ENVIRONMENT.md)
+- [`docs/SERVICE_REGISTRY.yaml`](../docs/SERVICE_REGISTRY.yaml)
+- [`docs/WORKFLOW_PHENOTYPE_RECOMMENDATION.md`](../docs/WORKFLOW_PHENOTYPE_RECOMMENDATION.md)
+- [`docs/WORKFLOW_CONTEXT_DIALOGUE_SLASH_OHDSI.md`](../docs/WORKFLOW_CONTEXT_DIALOGUE_SLASH_OHDSI.md)
+- [`docs/WORKFLOW_COHORT_METHODS.md`](../docs/WORKFLOW_COHORT_METHODS.md)
+- [`docs/WORKFLOW_INCIDENCE.md`](../docs/WORKFLOW_INCIDENCE.md)
+- [`docs/PHENOTYPE_VALIDATION_REVIEW.md`](../docs/PHENOTYPE_VALIDATION_REVIEW.md)

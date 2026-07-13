@@ -119,23 +119,17 @@
 .studyAgentSlashDiscoverDiagnosticsRoots <- function(base_dir, project_state = NULL) {
   project_state <- project_state %||% tryCatch(.studyAgentSlashReadProjectState(base_dir), error = function(e) list())
   study_context <- project_state$study_context %||% list()
+  exec_roots <- .studyAgentSlashConfiguredExecutionRoots(base_dir, project_state = project_state, prefer_confirmed = TRUE)
   candidates <- c(
     as.character(study_context$cm_diagnostics_dir %||% ""),
     as.character(study_context$cm_results_dir %||% ""),
     file.path(base_dir, "cm-diagnostics"),
-    file.path(base_dir, "cm-results")
+    file.path(base_dir, "cm-results"),
+    as.character(exec_roots$results_root %||% ""),
+    as.character(exec_roots$work_root %||% ""),
+    as.character(exec_roots$configured_results_root %||% ""),
+    as.character(exec_roots$configured_work_root %||% "")
   )
-  exec_settings_path <- file.path(base_dir, "strategus-execution-settings.json")
-  if (file.exists(exec_settings_path)) {
-    exec_cfg <- tryCatch(readStrategusExecutionSettings(exec_settings_path), error = function(e) NULL)
-    if (is.list(exec_cfg)) {
-      candidates <- c(
-        candidates,
-        as.character(exec_cfg$resultsFolder %||% ""),
-        as.character(exec_cfg$workFolder %||% "")
-      )
-    }
-  }
   candidates <- unique(Filter(nzchar, trimws(as.character(candidates))))
   resolved <- unique(vapply(candidates, function(item) {
     .studyAgentSlashResolveArtifactPath(item, base_dir)
@@ -382,17 +376,10 @@
 
 
 .studyAgentSlashDiscoverStrategusExecutionRoots <- function(base_dir, project_state = NULL) {
-  exec_settings_path <- file.path(base_dir, "strategus-execution-settings.json")
-  if (!file.exists(exec_settings_path)) {
-    return(list(results_root = NULL, work_root = NULL))
-  }
-  exec_cfg <- tryCatch(readStrategusExecutionSettings(exec_settings_path), error = function(e) NULL)
-  if (!is.list(exec_cfg)) {
-    return(list(results_root = NULL, work_root = NULL))
-  }
+  roots <- .studyAgentSlashConfiguredExecutionRoots(base_dir, project_state = project_state, prefer_confirmed = TRUE)
   list(
-    results_root = .studyAgentSlashResolveArtifactPath(exec_cfg$resultsFolder %||% "", base_dir),
-    work_root = .studyAgentSlashResolveArtifactPath(exec_cfg$workFolder %||% "", base_dir)
+    results_root = roots$results_root %||% roots$configured_results_root %||% NULL,
+    work_root = roots$work_root %||% roots$configured_work_root %||% NULL
   )
 }
 
@@ -856,60 +843,57 @@
   registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cm_diagnostics_dir", diagnostics_dir, base_dir, step_id = "diagnostics", tags = c("diagnostics", "results"), preview_kind = "dir")
   registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cm_results_dir", results_dir, base_dir, step_id = "cm_spec", tags = c("cohort_method", "results"), preview_kind = "dir")
 
-  exec_settings_path <- file.path(base_dir, "strategus-execution-settings.json")
-  if (file.exists(exec_settings_path)) {
-    exec_cfg <- tryCatch(readStrategusExecutionSettings(exec_settings_path), error = function(e) NULL)
-    if (is.list(exec_cfg)) {
-      results_root <- .studyAgentSlashResolveArtifactPath(exec_cfg$resultsFolder %||% "", base_dir)
-      work_root <- .studyAgentSlashResolveArtifactPath(exec_cfg$workFolder %||% "", base_dir)
-      registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cohort_generation_results_dir", results_root, base_dir, step_id = "generate_cohorts", tags = c("results", "cohort_generation"), preview_kind = "dir")
-      registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cohort_generation_work_dir", work_root, base_dir, step_id = "generate_cohorts", tags = c("work", "cohort_generation"), preview_kind = "dir")
-      registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "strategus_results_dir", results_root, base_dir, step_id = if (identical(project_state$workflow_type %||% "", "strategus_cohort_methods")) "cm_spec" else "incidence_spec", tags = c("results", "strategus"), preview_kind = "dir")
-      registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "strategus_work_dir", work_root, base_dir, step_id = if (identical(project_state$workflow_type %||% "", "strategus_cohort_methods")) "cm_spec" else "incidence_spec", tags = c("work", "strategus"), preview_kind = "dir")
-      diagnostics_results_dir <- file.path(results_root, "CohortDiagnosticsModule")
-      diagnostics_work_dir <- file.path(work_root, "CohortDiagnosticsModule")
-      if (dir.exists(diagnostics_results_dir)) {
-        registry <- .studyAgentSlashRegisterExplorationArtifact(
-          registry = registry,
-          id = "diagnostics_results_module_dir",
-          artifact_class = "cohort_diagnostics_module_dir",
-          path = diagnostics_results_dir,
-          base_dir = base_dir,
-          step_id = "diagnostics",
-          explorable = TRUE,
-          preview_kind = "dir",
-          tags = c("diagnostics", "results")
-        )
-      }
-      if (dir.exists(diagnostics_work_dir)) {
-        registry <- .studyAgentSlashRegisterExplorationArtifact(
-          registry = registry,
-          id = "diagnostics_work_module_dir",
-          artifact_class = "cohort_diagnostics_work_dir",
-          path = diagnostics_work_dir,
-          base_dir = base_dir,
-          step_id = "diagnostics",
-          explorable = TRUE,
-          preview_kind = "dir",
-          tags = c("diagnostics", "work")
-        )
-      }
-      cg_dir <- file.path(results_root, "CohortGeneratorModule")
-      registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cohort_generation_module_dir", cg_dir, base_dir, step_id = "generate_cohorts", tags = c("results", "cohort_generation"), preview_kind = "dir")
-      registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cg_cohort_count_csv", file.path(cg_dir, "cg_cohort_count.csv"), base_dir, step_id = "generate_cohorts", tags = c("results", "counts"))
-      registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cg_cohort_definition_csv", file.path(cg_dir, "cg_cohort_definition.csv"), base_dir, step_id = "generate_cohorts", tags = c("results", "definitions"))
-      registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cg_cohort_inclusion_csv", file.path(cg_dir, "cg_cohort_inclusion.csv"), base_dir, step_id = "generate_cohorts", tags = c("results", "inclusion"))
-      registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cg_cohort_inc_result_csv", file.path(cg_dir, "cg_cohort_inc_result.csv"), base_dir, step_id = "generate_cohorts", tags = c("results", "inclusion"))
-      registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cg_cohort_inc_stats_csv", file.path(cg_dir, "cg_cohort_inc_stats.csv"), base_dir, step_id = "generate_cohorts", tags = c("results", "inclusion"))
-      registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cg_cohort_summary_stats_csv", file.path(cg_dir, "cg_cohort_summary_stats.csv"), base_dir, step_id = "generate_cohorts", tags = c("results", "summary"))
-      incidence_step_id <- if (identical(project_state$workflow_type %||% "", "strategus_cohort_methods")) "cm_spec" else "incidence_spec"
-      ci_dir <- file.path(results_root, "CohortIncidenceModule")
-      registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cohort_incidence_module_dir", ci_dir, base_dir, step_id = incidence_step_id, tags = c("results", "incidence"), preview_kind = "dir")
-      registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "ci_incidence_summary_csv", file.path(ci_dir, "ci_incidence_summary.csv"), base_dir, step_id = incidence_step_id, tags = c("results", "incidence", "summary"))
-      registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "ci_target_def_csv", file.path(ci_dir, "ci_target_def.csv"), base_dir, step_id = incidence_step_id, tags = c("results", "incidence", "definitions"))
-      registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "ci_outcome_def_csv", file.path(ci_dir, "ci_outcome_def.csv"), base_dir, step_id = incidence_step_id, tags = c("results", "incidence", "definitions"))
-      registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "ci_tar_def_csv", file.path(ci_dir, "ci_tar_def.csv"), base_dir, step_id = incidence_step_id, tags = c("results", "incidence", "definitions"))
+  exec_roots <- .studyAgentSlashDiscoverStrategusExecutionRoots(base_dir, project_state = project_state)
+  results_root <- as.character(exec_roots$results_root %||% "")
+  work_root <- as.character(exec_roots$work_root %||% "")
+  if (nzchar(results_root) || nzchar(work_root)) {
+    registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cohort_generation_results_dir", results_root, base_dir, step_id = "generate_cohorts", tags = c("results", "cohort_generation"), preview_kind = "dir")
+    registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cohort_generation_work_dir", work_root, base_dir, step_id = "generate_cohorts", tags = c("work", "cohort_generation"), preview_kind = "dir")
+    registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "strategus_results_dir", results_root, base_dir, step_id = if (identical(project_state$workflow_type %||% "", "strategus_cohort_methods")) "cm_spec" else "incidence_spec", tags = c("results", "strategus"), preview_kind = "dir")
+    registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "strategus_work_dir", work_root, base_dir, step_id = if (identical(project_state$workflow_type %||% "", "strategus_cohort_methods")) "cm_spec" else "incidence_spec", tags = c("work", "strategus"), preview_kind = "dir")
+    diagnostics_results_dir <- file.path(results_root, "CohortDiagnosticsModule")
+    diagnostics_work_dir <- file.path(work_root, "CohortDiagnosticsModule")
+    if (dir.exists(diagnostics_results_dir)) {
+      registry <- .studyAgentSlashRegisterExplorationArtifact(
+        registry = registry,
+        id = "diagnostics_results_module_dir",
+        artifact_class = "cohort_diagnostics_module_dir",
+        path = diagnostics_results_dir,
+        base_dir = base_dir,
+        step_id = "diagnostics",
+        explorable = TRUE,
+        preview_kind = "dir",
+        tags = c("diagnostics", "results")
+      )
     }
+    if (dir.exists(diagnostics_work_dir)) {
+      registry <- .studyAgentSlashRegisterExplorationArtifact(
+        registry = registry,
+        id = "diagnostics_work_module_dir",
+        artifact_class = "cohort_diagnostics_work_dir",
+        path = diagnostics_work_dir,
+        base_dir = base_dir,
+        step_id = "diagnostics",
+        explorable = TRUE,
+        preview_kind = "dir",
+        tags = c("diagnostics", "work")
+      )
+    }
+    cg_dir <- file.path(results_root, "CohortGeneratorModule")
+    registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cohort_generation_module_dir", cg_dir, base_dir, step_id = "generate_cohorts", tags = c("results", "cohort_generation"), preview_kind = "dir")
+    registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cg_cohort_count_csv", file.path(cg_dir, "cg_cohort_count.csv"), base_dir, step_id = "generate_cohorts", tags = c("results", "counts"))
+    registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cg_cohort_definition_csv", file.path(cg_dir, "cg_cohort_definition.csv"), base_dir, step_id = "generate_cohorts", tags = c("results", "definitions"))
+    registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cg_cohort_inclusion_csv", file.path(cg_dir, "cg_cohort_inclusion.csv"), base_dir, step_id = "generate_cohorts", tags = c("results", "inclusion"))
+    registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cg_cohort_inc_result_csv", file.path(cg_dir, "cg_cohort_inc_result.csv"), base_dir, step_id = "generate_cohorts", tags = c("results", "inclusion"))
+    registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cg_cohort_inc_stats_csv", file.path(cg_dir, "cg_cohort_inc_stats.csv"), base_dir, step_id = "generate_cohorts", tags = c("results", "inclusion"))
+    registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cg_cohort_summary_stats_csv", file.path(cg_dir, "cg_cohort_summary_stats.csv"), base_dir, step_id = "generate_cohorts", tags = c("results", "summary"))
+    incidence_step_id <- if (identical(project_state$workflow_type %||% "", "strategus_cohort_methods")) "cm_spec" else "incidence_spec"
+    ci_dir <- file.path(results_root, "CohortIncidenceModule")
+    registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "cohort_incidence_module_dir", ci_dir, base_dir, step_id = incidence_step_id, tags = c("results", "incidence"), preview_kind = "dir")
+    registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "ci_incidence_summary_csv", file.path(ci_dir, "ci_incidence_summary.csv"), base_dir, step_id = incidence_step_id, tags = c("results", "incidence", "summary"))
+    registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "ci_target_def_csv", file.path(ci_dir, "ci_target_def.csv"), base_dir, step_id = incidence_step_id, tags = c("results", "incidence", "definitions"))
+    registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "ci_outcome_def_csv", file.path(ci_dir, "ci_outcome_def.csv"), base_dir, step_id = incidence_step_id, tags = c("results", "incidence", "definitions"))
+    registry <- .studyAgentSlashMaybeRegisterKnownArtifact(registry, "ci_tar_def_csv", file.path(ci_dir, "ci_tar_def.csv"), base_dir, step_id = incidence_step_id, tags = c("results", "incidence", "definitions"))
   }
 
   registry

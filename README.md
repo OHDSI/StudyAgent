@@ -4,9 +4,12 @@ This repository is building an agent-style interface for common OHDSI study desi
 
 The current implementation provides:
 
-- Phenotype recommendation for target and outcome cohort selection
-- Keeper-assisted concept generation, profile extraction, and row adjudication for phenotype validation
-- Shells for the HADES incidence rate analysis and CohortMethod real-world evidence generation methods that call the ACP/MCP flows and provide interactive run and inspection features along with `/ohdsi` contextualized question answering. 
+- Phenotype recommendations for target, comparator, and outcome cohort selection
+- Phenotype validation using AI-assisted concept generation, profile extraction, and row adjudication for phenotype validation (i.e., an ACP service for [Keeper](https://github.com/OHDSI/Keeper) functionality)
+- R-based interactive shells to specify and run real-world evidence generation using HADES incidence rate analysis and CohortMethod methods
+- Support for `/ohdsi` AI interactive run and inspection features and contextualized question answering. 
+
+This project is in beta testing. The videos below provide an overview of the current state for R-Hades support.
 
 [VIDEO: Overview of Study Agent for AI-Assisted Real-world evidence generation](https://www.youtube.com/watch?v=rMxnmEGWoO4)
 
@@ -25,19 +28,23 @@ The current implementation provides:
 
 -----
 
+### How it works
+
+
 The project separates orchestration from deterministic tooling:
 
-- `acp_agent/`: ACP server that exposes the flow endpoints and handles LLM orchestration
-- `mcp_server/`: MCP server that exposes retrieval, prompt, vocabulary, and Keeper tools
+- `acp_agent/`: [Agent Client Protocol](https://agentclientprotocol.com/get-started/introduction) (ACP) server that exposes the flow endpoints and handles LLM orchestration
+- `mcp_server/`: [Model Context Protocol](https://modelcontextprotocol.io/docs/getting-started/intro) (MCP) server that exposes retrieval, prompt, vocabulary, concept search, case validateion, and numerous other tools. Many of the tools reside in the project but others do not. ACP specification and tool registration allows for extension beyond this project. 
 - `core/`: pure validation and business logic shared by ACP and MCP
-- `R/slashOhdsiStrategusAssistant/`: R-side Strategus workflow package and canonical shell entrypoints
+- `R/slashOhdsiStrategusAssistant/`: R-side Strategus workflow package and canonical shell entrypoints. This will likely eventually evolve to become a separate R HADES package.
+- `R/slashOhdsiAcpClient/' : R-side interface to connect R with the ACP using REST calls. This will likely eventually evolve to become a separate R HADES package.
 
-## What Problems This Solves
+## What problems this project solves
 
 Researchers often have three immediate bottlenecks when designing an OHDSI study:
 
 - finding a reasonable starting phenotype definition for a study intent
-- refining or validating that phenotype before using it in downstream analyses
+- refining and/or validating that phenotype before using it in downstream analyses
 - moving from phenotype selection into a reproducible study workflow
 
 This repo addresses those bottlenecks by combining:
@@ -45,9 +52,9 @@ This repo addresses those bottlenecks by combining:
 - phenotype retrieval from an indexed phenotype library
 - constrained LLM ranking or critique with deterministic validation
 - Keeper-oriented tooling for concept generation, OMOP profile extraction, and row-level adjudication using sanitized summaries only
-- R shells that turn selected cohorts into reproducible Strategus incidence and cohort-method workflows
+- R shells that turn selected cohorts into reproducible HADES Strategus incidence and cohort-method workflows. The code in the HADES toolstack is deterministic and the R shells provide AI support where users frequently need assistance creating the Strategus specification that coordinates the HADES tools.
 
-At no point should raw row-level patient data be sent directly to an LLM.
+At no point should raw row-level patient data be sent directly to an LLM. Data shared with LLM is scrubbed to remove any protected health information prior to transactions. Any uncertainty leads to the termination of the transaction before any data is sent. 
 
 ## What Is Usable Now
 
@@ -85,9 +92,9 @@ Primary references:
 - [docs/ROADMAP.md](docs/ROADMAP.md)
 - [docs/R_PACKAGE_ARCHITECTURE_PLAN.md](docs/R_PACKAGE_ARCHITECTURE_PLAN.md)
 
-### 2. Keeper-Assisted Phenotype Validation
+### 2.  Phenotype Validation
 
-This is the other strong implemented story. It covers concept generation through case-review input preparation and row adjudication.
+This covers concept generation through case-review input preparation and row adjudication.
 
 Implemented workflow:
 
@@ -110,33 +117,27 @@ Primary references:
 - [docs/PHENOTYPE_VALIDATION_REVIEW.md](docs/PHENOTYPE_VALIDATION_REVIEW.md)
 - [docs/TESTING.md](docs/TESTING.md)
 
-## End-To-End Workflows
+## End-To-End workflows implemented in R 
 
-### Workflow A: Go from study intent to suggested phenotypes
-
-Use this when you need a defensible starting cohort definition for a target or outcome.
+### Workflow A:  HADES real-world evidence generation using incidence rate analysis
 
 1. Start MCP and ACP
-2. Call `phenotype_recommendation` with a study intent
-3. Review returned candidates and diagnostics
-4. If needed, call `phenotype_recommendation_advice` for next-step guidance
-5. Optionally call `phenotype_improvements` on a selected cohort
-6. If you are working in R, continue through `slashOhdsiStrategusAssistant::runStrategusIncidenceShell()`
+2. Continue through `slashOhdsiStrategusAssistant::runStrategusIncidenceShell()`
 
-### Workflow B: Go from clinical event to keeper-assisted validation review
+See scripts/demo_strategus_incidence_rate.R
+
+### Workflow B: :  HADES real-world evidence generation using CohortMethod
 
 Use this when you need a practical validation loop around a phenotype.
 
-1. Call `keeper_concept_sets_generate` for the phenotype of interest
-2. Approve the concept sets you want to use for extraction
-3. Call `keeper_profiles_generate` against your OMOP data
-4. Take one generated `rows[]` entry at a time
-5. Send the sanitized row to `phenotype_validation_review`
-6. Repeat row adjudication as needed to review more sampled cases
+1. Start MCP and ACP
+2. Continue through `slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell()`
+
+scripts/demo_strategus_cohort_method.R
 
 ## Quickstart
 
-### Install
+### Install this package in development mode
 
 ```bash
 pip install -e ".[dev]"
@@ -194,7 +195,7 @@ export LLM_API_URL="<URL_BASE>/api/chat/completions"
 export LLM_MODEL=<MODEL_NAME>
 ```
 
-This has been tested with [Open webui](https://docs.openwebui.com/), with locally hosted models, and [LLM Shim](https://github.com/dbmi-pitt/llm-shim) with access to cloud services (tested with openai and bedrock models) and an embedding model serviced using the HugginFace Text Embedding Interface service. 
+This has been tested with [Open webui](https://docs.openwebui.com/), with locally hosted models, and [LLM Shim](https://github.com/dbmi-pitt/llm-shim) with access to cloud services (tested with openai and bedrock models) and an embedding model serviced using the HuggingFace Text Embedding Interface service. 
 
 If you want phenotype retrieval, you also need an indexed phenotype library. See [docs/PHENOTYPE_INDEXING.md](docs/PHENOTYPE_INDEXING.md).
 
@@ -207,7 +208,7 @@ Current indexing workflow:
 The retrieval layer reads from `PHENOTYPE_INDEX_DIR`, which should point to the built output directory. The source phenotype files do not need to live under that directory. In the default Docker/Compose setup, the index is expected on the host at `./data/phenotype_index` and is mounted into the container at `/data/phenotype_index`. If you set `PHENOTYPE_INDEX_DIR` in `.env`, make sure the mounted volume path is updated to match; otherwise the container will still only see the default mounted index location.
 
 
-## Minimal Examples
+## Minimal examples of ACP flows
 
 ### Phenotype recommendation
 
@@ -250,7 +251,8 @@ curl -s -X POST http://127.0.0.1:8765/flows/phenotype_validation_review \
 
 ## Where To Go Next
 
-- Installation, smoke tests, and provider-specific examples: [docs/TESTING.md](docs/TESTING.md)
+- Installation, smoke tests (see `doit list`), and provider-specific examples: [docs/TESTING.md](docs/TESTING.md)
+- Environment-variable reference across ACP, MCP, retrieval, Keeper, and R workflows: [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md)
 - Implemented service inventory: [docs/SERVICE_REGISTRY.yaml](docs/SERVICE_REGISTRY.yaml)
 - Docker setup: see `compose.yaml` and `.env.example`. The default containerized phenotype index path is `./data/phenotype_index` on the host, mounted to `/data/phenotype_index` in the container.
 - ACP and MCP component details: [acp_agent/README.md](acp_agent/README.md), [mcp_server/README.md](mcp_server/README.md)
@@ -265,9 +267,9 @@ curl -s -X POST http://127.0.0.1:8765/flows/phenotype_validation_review \
 
 Near-term priorities:
 
-- strengthen phenotype recommendation and improvement workflows for study design and Strategus handoff
-- expand Keeper-assisted concept generation and profile-review workflows for phenotype validation
-- improve researcher-facing workflow documentation, smoke tests, and deployment guidance
+- Beta testing and UX improvements
+- Hardening of the agent harness as a standard OHDSI environment evolves
+- Integration with Atlas as a client 
 
 Active expansion areas:
 

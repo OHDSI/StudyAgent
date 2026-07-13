@@ -1,6 +1,6 @@
 # Roadmap
 
-This document keeps future-looking material out of the top-level README while preserving the broader direction for the project.
+Some ideas for future work. Feel free to do a pull request to add your ideas! 
 
 ## Near Term
 
@@ -33,7 +33,7 @@ These items are directional and should not be read as fully implemented.
 
 - `strategus_*`: compose, compare, edit, critique, and debug Strategus JSON
 
-### Search And Suggest Services
+### Improving and validating search and suggest services
 
 - `phenotype_recommendations`
 - `phenotype_improvements`
@@ -42,7 +42,7 @@ These items are directional and should not be read as fully implemented.
 - `propose_comparator`
 - `propose_adjustment_set`
 
-### Study Component Testing, Improvement, And Linting
+### Study component testing, improvement, and linting
 
 - `propose_concept_set_diff`
 - `phenotype_characterize`
