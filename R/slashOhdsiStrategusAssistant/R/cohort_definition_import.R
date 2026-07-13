@@ -170,8 +170,182 @@
   )
   dir.create(imported_def_dir, recursive = TRUE, showWarnings = FALSE)
   cache_path <- .studyAgentSlashImportedCohortDefinitionPath(imported$source_id, imported_def_dir)
+  alias_path <- .studyAgentSlashImportedCohortAliasPath(imported$cohort_definition_id, imported_def_dir)
   jsonlite::write_json(imported$cohort_json, cache_path, pretty = TRUE, auto_unbox = TRUE)
+  jsonlite::write_json(imported$cohort_json, alias_path, pretty = TRUE, auto_unbox = TRUE)
   imported$cache_path <- cache_path
+  imported$alias_path <- alias_path
   imported$metadata$cache_path <- cache_path
   imported
+}
+
+
+.studyAgentSlashValidateCohortDefinitionJson <- function(cohort_json, source_label = "cohort definition") {
+  if (!is.list(cohort_json) || is.null(cohort_json$PrimaryCriteria) || is.null(cohort_json$ConceptSets)) {
+    stop(sprintf(
+      "%s does not look like a Circe SIMPLE_EXPRESSION JSON payload.",
+      source_label
+    ))
+  }
+  invisible(cohort_json)
+}
+
+.studyAgentSlashSanitizeCohortSourceSlug <- function(value) {
+  value <- trimws(as.character(value %||% ""))
+  if (!nzchar(value)) value <- "cohort"
+  value <- gsub("\\.[Jj][Ss][Oo][Nn]$", "", value)
+  value <- gsub("[^A-Za-z0-9_.-]+", "_", value)
+  value <- gsub("_+", "_", value)
+  value <- gsub("^_+|_+$", "", value)
+  if (!nzchar(value)) value <- "cohort"
+  value
+}
+
+.studyAgentSlashStableImportedCohortId <- function(value) {
+  chars <- utf8ToInt(as.character(value %||% "cohort"))
+  hash <- 0L
+  for (ch in chars) {
+    hash <- (hash * 131L + as.integer(ch)) %% 900000L
+  }
+  as.integer(100000L + hash)
+}
+
+.studyAgentSlashInferImportedCohortDefinitionId <- function(cohort_json,
+                                                            source_value,
+                                                            explicit_id = NULL) {
+  explicit_id <- suppressWarnings(as.integer(explicit_id))
+  if (!is.na(explicit_id) && explicit_id > 0L) return(explicit_id)
+  json_id <- suppressWarnings(as.integer(cohort_json$id %||% cohort_json$cohortDefinitionId %||% cohort_json$cohort_definition_id))
+  if (!is.na(json_id) && json_id > 0L) return(json_id)
+  .studyAgentSlashStableImportedCohortId(source_value)
+}
+
+.studyAgentSlashImportedFileSourceId <- function(source_type,
+                                                 cohort_definition_id,
+                                                 slug) {
+  source_type <- trimws(as.character(source_type %||% "file"))
+  if (!(source_type %in% c("file", "directory"))) {
+    stop("source_type must be 'file' or 'directory'.")
+  }
+  cohort_definition_id <- suppressWarnings(as.integer(cohort_definition_id))
+  if (is.na(cohort_definition_id) || cohort_definition_id <= 0L) {
+    stop("cohort_definition_id must be a positive integer.")
+  }
+  slug <- .studyAgentSlashSanitizeCohortSourceSlug(slug)
+  sprintf("%s:%s:%s", if (identical(source_type, "directory")) "dir" else "file", cohort_definition_id, slug)
+}
+
+.studyAgentSlashReadFileCohortDefinition <- function(path,
+                                                     source_type = "file",
+                                                     cohort_definition_id = NULL) {
+  source_path <- normalizePath(as.character(path %||% ""), winslash = "/", mustWork = FALSE)
+  if (!file.exists(source_path)) {
+    stop(sprintf("Cohort definition file not found: %s", source_path))
+  }
+  cohort_json <- tryCatch(
+    jsonlite::read_json(source_path, simplifyVector = FALSE),
+    error = function(e) {
+      stop(sprintf("Failed to parse cohort definition JSON at %s: %s", source_path, conditionMessage(e)))
+    }
+  )
+  .studyAgentSlashValidateCohortDefinitionJson(cohort_json, source_label = sprintf("Cohort definition file %s", source_path))
+  inferred_id <- .studyAgentSlashInferImportedCohortDefinitionId(
+    cohort_json = cohort_json,
+    source_value = source_path,
+    explicit_id = cohort_definition_id
+  )
+  file_slug <- .studyAgentSlashSanitizeCohortSourceSlug(basename(source_path))
+  source_id <- .studyAgentSlashImportedFileSourceId(source_type, inferred_id, file_slug)
+  cohort_name <- as.character(
+    cohort_json$name %||%
+      cohort_json$Name %||%
+      cohort_json$cohortName %||%
+      cohort_json$cohort_name %||%
+      sprintf("Cohort %s", inferred_id)
+  )
+  list(
+    source_id = source_id,
+    cohort_definition_id = inferred_id,
+    cohort_name = cohort_name,
+    cohort_json = cohort_json,
+    metadata = list(
+      source_type = if (identical(source_type, "directory")) "directory" else "file",
+      source_id = source_id,
+      source_path = source_path,
+      source_schema = NA_character_,
+      cohort_definition_id = inferred_id,
+      cohort_name = cohort_name,
+      logic_description = sprintf(
+        "Imported from local cohort JSON file %s.",
+        source_path
+      )
+    )
+  )
+}
+
+.studyAgentSlashImportFileCohortDefinition <- function(path,
+                                                       imported_def_dir,
+                                                       source_type = "file",
+                                                       cohort_definition_id = NULL) {
+  imported <- .studyAgentSlashReadFileCohortDefinition(
+    path = path,
+    source_type = source_type,
+    cohort_definition_id = cohort_definition_id
+  )
+  dir.create(imported_def_dir, recursive = TRUE, showWarnings = FALSE)
+  cache_path <- .studyAgentSlashImportedCohortDefinitionPath(imported$source_id, imported_def_dir)
+  alias_path <- .studyAgentSlashImportedCohortAliasPath(imported$cohort_definition_id, imported_def_dir)
+  jsonlite::write_json(imported$cohort_json, cache_path, pretty = TRUE, auto_unbox = TRUE)
+  jsonlite::write_json(imported$cohort_json, alias_path, pretty = TRUE, auto_unbox = TRUE)
+  imported$cache_path <- cache_path
+  imported$alias_path <- alias_path
+  imported$metadata$cache_path <- cache_path
+  imported
+}
+
+.studyAgentSlashListLocalCohortDefinitionFiles <- function(directory,
+                                                           limit = 100L) {
+  dir_path <- normalizePath(as.character(directory %||% ""), winslash = "/", mustWork = FALSE)
+  if (!dir.exists(dir_path)) {
+    stop(sprintf("Cohort definition directory not found: %s", dir_path))
+  }
+  limit <- suppressWarnings(as.integer(limit %||% 100L))
+  if (is.na(limit) || limit <= 0L) limit <- 100L
+  files <- list.files(dir_path, pattern = "\\.[Jj][Ss][Oo][Nn]$", full.names = TRUE)
+  if (length(files) == 0L) {
+    return(data.frame(
+      cohort_definition_id = integer(0),
+      cohort_name = character(0),
+      path = character(0),
+      source_id = character(0),
+      stringsAsFactors = FALSE
+    ))
+  }
+  rows <- lapply(files, function(file_path) {
+    parsed <- tryCatch(
+      .studyAgentSlashReadFileCohortDefinition(file_path, source_type = "directory"),
+      error = function(e) NULL
+    )
+    if (is.null(parsed)) return(NULL)
+    data.frame(
+      cohort_definition_id = as.integer(parsed$cohort_definition_id),
+      cohort_name = as.character(parsed$cohort_name %||% basename(file_path)),
+      path = normalizePath(file_path, winslash = "/", mustWork = FALSE),
+      source_id = as.character(parsed$source_id %||% ""),
+      stringsAsFactors = FALSE
+    )
+  })
+  rows <- Filter(Negate(is.null), rows)
+  if (length(rows) == 0L) {
+    return(data.frame(
+      cohort_definition_id = integer(0),
+      cohort_name = character(0),
+      path = character(0),
+      source_id = character(0),
+      stringsAsFactors = FALSE
+    ))
+  }
+  out <- do.call(rbind, rows)
+  out <- out[order(out$cohort_name, out$cohort_definition_id, out$path), , drop = FALSE]
+  utils::head(out, n = limit)
 }

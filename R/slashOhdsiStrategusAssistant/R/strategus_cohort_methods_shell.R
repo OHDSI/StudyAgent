@@ -2657,12 +2657,379 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     )
   }
 
-  resolve_index_definition_path <- function(source_id, index_def_dir) {
+  selection_record_from_import <- function(imported) {
+    imported$metadata
+  }
+
+  seed_db_details_template <- function(path) {
+    if (!file.exists(path)) {
+      write_json(list(
+        dbms = "postgresql",
+        authType = "username_password",
+        DB_SERVER = "",
+        DB_PORT = "5432",
+        DB_USER = "",
+        DB_PASS = "",
+        DB_DRIVER_PATH = "",
+        DATABASECONNECTOR_JAR_FOLDER = "",
+        extraSettings = "sslmode=disable"
+      ), path)
+    }
+    invisible(path)
+  }
+
+  choose_selection_source_mode <- function(role_label, allow_index = TRUE) {
+    if (!isTRUE(interactive)) {
+      if (isTRUE(allow_index)) return("index")
+      stop("Non-interactive direct cohort acquisition requires explicit source handling and is not implemented for this shell.")
+    }
+    repeat {
+      prompt <- if (isTRUE(allow_index)) {
+        sprintf("Source for %s cohort [Enter=index search, db=existing database cohort, file=JSON file, dir=directory]: ", role_label)
+      } else {
+        sprintf("Source for %s cohort [db=existing database cohort, file=JSON file, dir=directory]: ", role_label)
+      }
+      entered <- trimws(readline_with_navigation(prompt))
+      if (is_back_signal(entered)) return(entered)
+      lowered <- tolower(entered)
+      if (isTRUE(allow_index) && (!nzchar(lowered) || lowered %in% c("index", "search", "s", "recommend"))) return("index")
+      if (lowered %in% c("db", "database", "existing")) return("database")
+      if (lowered %in% c("file", "json", "local")) return("file")
+      if (lowered %in% c("dir", "directory", "folder")) return("directory")
+      cat(if (isTRUE(allow_index)) "Enter index, db, file, or dir.\n" else "Enter db, file, or dir.\n")
+    }
+  }
+
+  direct_role_statement_default <- function(role_label, study_intent) {
+    intent <- trimws(as.character(study_intent %||% ""))
+    if (nzchar(intent)) {
+      sprintf("%s cohort provided directly for study intent: %s", role_label, intent)
+    } else {
+      sprintf("%s cohort provided directly by user", role_label)
+    }
+  }
+
+  cohort_source_db_details_need_configuration <- function(path) {
+    db_config <- tryCatch(readStrategusDbDetails(path), error = function(e) NULL)
+    if (is.null(db_config)) return(TRUE)
+    auth_type <- tolower(trimws(as.character(
+      db_config$authType %||%
+        db_config$authenticationType %||%
+        if (isTRUE(db_config$useWindowsAuth %||% FALSE)) "windows" else "username_password"
+    )))
+    if (!nzchar(auth_type)) auth_type <- "username_password"
+    server <- trimws(as.character(db_config$DB_SERVER %||% db_config$server %||% ""))
+    if (!nzchar(server)) return(TRUE)
+    if (auth_type %in% c("windows", "integrated", "integrated_windows")) return(FALSE)
+    user <- trimws(as.character(db_config$DB_USER %||% db_config$user %||% ""))
+    password <- trimws(as.character(db_config$DB_PASS %||% db_config$password %||% ""))
+    !nzchar(user) || !nzchar(password)
+  }
+
+  prompt_database_cohort_imports <- function(role_label, allow_multiple = FALSE) {
+    db_details_path <- file.path(base_dir, "strategus-cohort-source-db-details.json")
+    seed_db_details_template(db_details_path)
+    if (isTRUE(cohort_source_db_details_need_configuration(db_details_path))) {
+      cat(sprintf(
+        "Database cohort import requires a populated %s. Fill in the cohort-source DB connection details there and then retry the db import option.\n",
+        db_details_path
+      ))
+      return(NULL)
+    }
+    connectionDetails <- tryCatch(
+      createStrategusConnectionDetails(path = db_details_path),
+      error = function(e) e
+    )
+    if (inherits(connectionDetails, "error")) {
+      cat(sprintf(
+        "Cannot use database cohort import until %s is populated: %s
+",
+        db_details_path,
+        conditionMessage(connectionDetails)
+      ))
+      return(NULL)
+    }
+    repeat {
+      schema_value <- readline_with_navigation(sprintf(
+        "Schema containing cohort_definition and cohort_definition_details for the %s cohort: ",
+        role_label
+      ))
+      if (is_back_signal(schema_value)) return(schema_value)
+      schema_value <- trimws(as.character(schema_value %||% ""))
+      if (!nzchar(schema_value)) {
+        cat("Enter a schema name.
+")
+        next
+      }
+      search_term <- trimws(readline_with_dialogue(sprintf(
+        "Optional %s cohort name search term [Enter=list candidates]: ",
+        role_label
+      )))
+      candidates <- tryCatch(
+        .studyAgentSlashListDatabaseCohortDefinitions(
+          connectionDetails = connectionDetails,
+          cohort_database_schema = schema_value,
+          search_term = search_term,
+          limit = 50L
+        ),
+        error = function(e) e
+      )
+      if (inherits(candidates, "error")) {
+        cat(sprintf("Database cohort lookup failed: %s
+", conditionMessage(candidates)))
+        next
+      }
+      if (nrow(candidates) == 0) {
+        cat("No matching cohort definitions were found. Try a different schema or search term.
+")
+        next
+      }
+      preview <- data.frame(
+        cohort_definition_id = candidates$cohort_definition_id,
+        cohort_name = candidates$cohort_name,
+        stringsAsFactors = FALSE
+      )
+      preview <- preview[order(preview$cohort_definition_id, preview$cohort_name), , drop = FALSE]
+      rownames(preview) <- seq_len(nrow(preview))
+      cat(sprintf("
+Available %s cohort definitions from %s
+", role_label, schema_value))
+      print(preview, row.names = TRUE)
+      labels <- sprintf("[%s] %s", preview$cohort_definition_id, preview$cohort_name)
+      selected_ids <- integer(0)
+      invalid <- character(0)
+      if (isTRUE(interactive)) {
+        menu_pick <- tryCatch(
+          utils::select.list(
+            labels,
+            multiple = isTRUE(allow_multiple),
+            title = sprintf("Select %s cohort definition%s", role_label, if (isTRUE(allow_multiple)) "(s)" else "")
+          ),
+          error = function(e) NULL
+        )
+        if (length(menu_pick) > 0 && any(nzchar(menu_pick))) {
+          selected_ids <- unique(vapply(menu_pick[nzchar(menu_pick)], function(label) {
+            idx <- which(labels == label)[1]
+            preview$cohort_definition_id[[idx]]
+          }, integer(1)))
+        }
+      }
+      if (length(selected_ids) == 0) {
+        selection_prompt <- if (isTRUE(allow_multiple)) {
+          sprintf("Select %s cohort row numbers or cohort_definition ids (comma-separated): ", role_label)
+        } else {
+          sprintf("Select the %s cohort row number or cohort_definition id: ", role_label)
+        }
+        selected_raw <- trimws(readline_with_dialogue(selection_prompt))
+        if (!nzchar(selected_raw)) {
+          cat("No cohort selected.
+")
+          next
+        }
+        selected_parts <- trimws(strsplit(selected_raw, ",", fixed = TRUE)[[1]])
+        selected_parts <- selected_parts[nzchar(selected_parts)]
+        for (part in selected_parts) {
+          parsed <- suppressWarnings(as.integer(part))
+          if (is.na(parsed)) {
+            invalid <- c(invalid, part)
+          } else if (parsed >= 1L && parsed <= nrow(preview)) {
+            selected_ids <- c(selected_ids, preview$cohort_definition_id[[parsed]])
+          } else if (parsed %in% preview$cohort_definition_id) {
+            selected_ids <- c(selected_ids, parsed)
+          } else {
+            invalid <- c(invalid, part)
+          }
+        }
+      }
+      selected_ids <- unique(selected_ids)
+      if (length(invalid) > 0 || length(selected_ids) == 0) {
+        cat(sprintf("Invalid selection: %s
+", paste(unique(invalid), collapse = ", ")))
+        next
+      }
+      imported <- lapply(selected_ids, function(id) {
+        .studyAgentSlashImportDatabaseCohortDefinition(
+          connectionDetails = connectionDetails,
+          cohort_database_schema = schema_value,
+          cohort_definition_id = id,
+          imported_def_dir = imported_definition_dir
+        )
+      })
+      return(imported)
+    }
+  }
+
+  prompt_file_cohort_imports <- function(role_label, allow_multiple = FALSE) {
+    repeat {
+      prompt <- if (isTRUE(allow_multiple)) {
+        sprintf("Path to %s cohort JSON file(s) [comma-separated]: ", role_label)
+      } else {
+        sprintf("Path to %s cohort JSON file: ", role_label)
+      }
+      entered <- trimws(readline_with_navigation(prompt))
+      if (is_back_signal(entered)) return(entered)
+      if (!nzchar(entered)) {
+        cat("Enter a cohort JSON file path.
+")
+        next
+      }
+      parts <- trimws(strsplit(entered, ",", fixed = TRUE)[[1]])
+      parts <- parts[nzchar(parts)]
+      if (!isTRUE(allow_multiple) && length(parts) > 1L) {
+        cat("Select exactly one cohort JSON file for this role.
+")
+        next
+      }
+      imported <- tryCatch(
+        lapply(parts, function(file_path) {
+          .studyAgentSlashImportFileCohortDefinition(
+            path = file_path,
+            imported_def_dir = imported_definition_dir,
+            source_type = "file"
+          )
+        }),
+        error = function(e) e
+      )
+      if (inherits(imported, "error")) {
+        cat(sprintf("File cohort import failed: %s
+", conditionMessage(imported)))
+        next
+      }
+      return(imported)
+    }
+  }
+
+  prompt_directory_cohort_imports <- function(role_label, allow_multiple = FALSE) {
+    repeat {
+      directory <- trimws(readline_with_navigation(sprintf(
+        "Directory containing %s cohort JSON files: ",
+        role_label
+      )))
+      if (is_back_signal(directory)) return(directory)
+      if (!nzchar(directory)) {
+        cat("Enter a directory path.
+")
+        next
+      }
+      candidates <- tryCatch(
+        .studyAgentSlashListLocalCohortDefinitionFiles(directory, limit = 100L),
+        error = function(e) e
+      )
+      if (inherits(candidates, "error")) {
+        cat(sprintf("Directory cohort lookup failed: %s
+", conditionMessage(candidates)))
+        next
+      }
+      if (nrow(candidates) == 0) {
+        cat("No readable cohort JSON files were found in that directory.
+")
+        next
+      }
+      preview <- data.frame(
+        cohort_definition_id = candidates$cohort_definition_id,
+        cohort_name = candidates$cohort_name,
+        path = candidates$path,
+        stringsAsFactors = FALSE
+      )
+      rownames(preview) <- seq_len(nrow(preview))
+      cat(sprintf("
+Available %s cohort JSON files from %s
+", role_label, normalizePath(directory, winslash = "/", mustWork = FALSE)))
+      print(preview, row.names = TRUE)
+      labels <- sprintf("[%s] %s", preview$cohort_definition_id, preview$cohort_name)
+      selected_rows <- integer(0)
+      invalid <- character(0)
+      if (isTRUE(interactive)) {
+        menu_pick <- tryCatch(
+          utils::select.list(
+            labels,
+            multiple = isTRUE(allow_multiple),
+            title = sprintf("Select %s cohort JSON%s", role_label, if (isTRUE(allow_multiple)) "(s)" else "")
+          ),
+          error = function(e) NULL
+        )
+        if (length(menu_pick) > 0 && any(nzchar(menu_pick))) {
+          selected_rows <- unique(vapply(menu_pick[nzchar(menu_pick)], function(label) {
+            which(labels == label)[1]
+          }, integer(1)))
+        }
+      }
+      if (length(selected_rows) == 0) {
+        selection_prompt <- if (isTRUE(allow_multiple)) {
+          sprintf("Select %s cohort row numbers (comma-separated): ", role_label)
+        } else {
+          sprintf("Select the %s cohort row number: ", role_label)
+        }
+        selected_raw <- trimws(readline_with_dialogue(selection_prompt))
+        if (!nzchar(selected_raw)) {
+          cat("No cohort selected.
+")
+          next
+        }
+        selected_parts <- trimws(strsplit(selected_raw, ",", fixed = TRUE)[[1]])
+        selected_parts <- selected_parts[nzchar(selected_parts)]
+        for (part in selected_parts) {
+          parsed <- suppressWarnings(as.integer(part))
+          if (is.na(parsed) || parsed < 1L || parsed > nrow(preview)) {
+            invalid <- c(invalid, part)
+          } else {
+            selected_rows <- c(selected_rows, parsed)
+          }
+        }
+      }
+      selected_rows <- unique(selected_rows)
+      if (length(invalid) > 0 || length(selected_rows) == 0) {
+        cat(sprintf("Invalid selection: %s
+", paste(unique(invalid), collapse = ", ")))
+        next
+      }
+      imported <- tryCatch(
+        lapply(selected_rows, function(row_idx) {
+          .studyAgentSlashImportFileCohortDefinition(
+            path = preview$path[[row_idx]],
+            imported_def_dir = imported_definition_dir,
+            source_type = "directory"
+          )
+        }),
+        error = function(e) e
+      )
+      if (inherits(imported, "error")) {
+        cat(sprintf("Directory cohort import failed: %s
+", conditionMessage(imported)))
+        next
+      }
+      return(imported)
+    }
+  }
+
+  default_cohort_id_from_source <- function(source_id) {
+    source_id <- trimws(as.character(source_id %||% ""))
+    if (!nzchar(source_id)) return(NA_integer_)
+    if (grepl("^ohdsi:[0-9]+$", source_id)) {
+      return(suppressWarnings(as.integer(sub("^ohdsi:", "", source_id))))
+    }
+    if (grepl("^db:[A-Za-z][A-Za-z0-9_]*:[0-9]+$", source_id)) {
+      return(suppressWarnings(as.integer(sub("^db:[A-Za-z][A-Za-z0-9_]*:([0-9]+)$", "\1", source_id))))
+    }
+    if (grepl("^(file|dir):[0-9]+:[A-Za-z0-9_.-]+$", source_id)) {
+      return(suppressWarnings(as.integer(sub("^(file|dir):([0-9]+):[A-Za-z0-9_.-]+$", "\2", source_id))))
+    }
+    suppressWarnings(as.integer(source_id))
+  }
+
+  resolve_index_definition_path <- function(source_id, index_def_dir, imported_def_dir = NULL) {
     source_text <- trimws(as.character(source_id %||% ""))
+    if (grepl("^(db:[A-Za-z][A-Za-z0-9_]*:[0-9]+|file:[0-9]+:[A-Za-z0-9_.-]+|dir:[0-9]+:[A-Za-z0-9_.-]+)$", source_text)) {
+      candidate <- .studyAgentSlashImportedCohortDefinitionPath(source_text, imported_def_dir)
+      if (file.exists(candidate)) return(candidate)
+    }
     candidates <- character(0)
     if (nzchar(source_text)) {
       candidates <- c(candidates, file.path(index_def_dir, sprintf("%s.json", source_text)))
       if (grepl("^[0-9]+$", source_text)) {
+        if (!is.null(imported_def_dir) && nzchar(as.character(imported_def_dir))) {
+          candidates <- c(candidates, .studyAgentSlashImportedCohortAliasPath(source_text, imported_def_dir))
+        }
         candidates <- c(candidates, file.path(index_def_dir, sprintf("ohdsi__%s.json", source_text)))
       }
       if (grepl("^[A-Za-z0-9_]+:[A-Za-z0-9_.-]+$", source_text)) {
@@ -2678,8 +3045,8 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     hit
   }
 
-  copy_cohort_json_multi <- function(source_id, dest_id, dest_dirs, index_def_dir) {
-    src <- resolve_index_definition_path(source_id, index_def_dir)
+  copy_cohort_json_multi <- function(source_id, dest_id, dest_dirs, index_def_dir, imported_def_dir = NULL) {
+    src <- resolve_index_definition_path(source_id, index_def_dir, imported_def_dir = imported_def_dir)
     if (is.na(src) || !file.exists(src)) {
       stop(sprintf("Cohort JSON not found for source %s in %s", source_id, index_def_dir))
     }
@@ -2975,7 +3342,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   }
 
   assert_cohort_json_exists <- function(source_id, index_def_dir, label) {
-    src <- resolve_index_definition_path(source_id, index_def_dir)
+    src <- resolve_index_definition_path(source_id, index_def_dir, imported_definition_dir)
     if (is.na(src) || !file.exists(src)) {
       stop(sprintf("%s cohort JSON not found for source %s in %s", label, source_id, index_def_dir))
     }
@@ -2983,7 +3350,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   }
 
   cohort_json_exists <- function(source_id, index_def_dir) {
-    src <- resolve_index_definition_path(source_id, index_def_dir)
+    src <- resolve_index_definition_path(source_id, index_def_dir, imported_definition_dir)
     !is.na(src) && file.exists(src)
   }
 
@@ -3741,6 +4108,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   keeper_dir <- file.path(base_dir, "keeper-case-review")
   analysis_settings_dir <- file.path(base_dir, "analysis-settings")
   scripts_dir <- file.path(base_dir, "scripts")
+  imported_definition_dir <- file.path(base_dir, "imported-cohort-definitions")
   cm_results_dir <- file.path(base_dir, "cm-results")
   cm_diagnostics_dir <- file.path(base_dir, "cm-diagnostics")
   cm_data_dir <- file.path(base_dir, "cm-data")
@@ -3749,8 +4117,8 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     output_dir, selected_dir, patched_dir, selected_target_dir, selected_comparator_dir,
     selected_outcome_dir, patched_target_dir, patched_comparator_dir, patched_outcome_dir,
     concept_sets_dir,
-    keeper_dir, analysis_settings_dir, scripts_dir, cm_results_dir, cm_diagnostics_dir,
-    cm_data_dir
+    keeper_dir, analysis_settings_dir, scripts_dir, imported_definition_dir,
+    cm_results_dir, cm_diagnostics_dir, cm_data_dir
   )
   for (dir_path in dirs) ensure_dir(dir_path)
 
@@ -4584,6 +4952,10 @@ Available exploration commands
     length(explicit_comparator_ids_from_args) == 1 &&
     length(explicit_outcome_ids_from_args) > 0
   skip_intent_split_and_recommendation <- FALSE
+  direct_acquisition_mode <- FALSE
+  skip_phenotype_improvements <- FALSE
+  skip_reason <- NULL
+  skip_prompt_source <- "not_prompted"
   explicit_outcome_statements_from_args <- character(0)
   if (isTRUE(all_cohort_ids_from_function_args) && isTRUE(interactive)) {
     cat("\nAll target, comparator, and outcome cohort IDs were provided as function arguments:\n")
@@ -4594,6 +4966,23 @@ Available exploration commands
       "Skip study intent split, phenotype recommendation, and phenotype improvements, and use these cohort IDs directly?",
       default = TRUE
     )
+    if (isTRUE(skip_intent_split_and_recommendation)) {
+      skip_phenotype_improvements <- TRUE
+      skip_reason <- "all_cohort_ids_provided"
+      skip_prompt_source <- "interactive_user_choice"
+    }
+  }
+  if (!isTRUE(skip_intent_split_and_recommendation) && isTRUE(interactive)) {
+    direct_acquisition_mode <- prompt_yesno(
+      "Skip ACP intent split and phenotype recommendation and acquire cohorts directly?",
+      default = FALSE
+    )
+    if (isTRUE(direct_acquisition_mode)) {
+      skip_intent_split_and_recommendation <- TRUE
+      skip_phenotype_improvements <- FALSE
+      skip_reason <- "interactive_direct_acquisition"
+      skip_prompt_source <- "interactive_user_choice"
+    }
   }
 
   cohort_id_statement <- function(role_label, ids) {
@@ -4610,26 +4999,45 @@ Available exploration commands
   }
 
   if (isTRUE(skip_intent_split_and_recommendation)) {
-    target_statement_default <- first_nonempty(
-      target_statement_default,
-      cohort_id_statement("Target", explicit_target_ids_from_args)
-    )
-    comparator_statement_default <- first_nonempty(
-      comparator_statement_default,
-      cohort_id_statement("Comparator", explicit_comparator_ids_from_args)
-    )
-    explicit_outcome_statements_from_args <- vapply(explicit_outcome_ids_from_args, function(id) {
-      cohort_id_statement("Outcome", as.integer(id))
-    }, character(1))
-    outcome_statement_default <- first_nonempty(
-      outcome_statement_default,
-      explicit_outcome_statements_from_args
-    )
-    outcome_statements_default <- combine_statement_list(
-      outcome_statement_default,
-      outcome_statements_default,
-      explicit_outcome_statements_from_args
-    )
+    if (isTRUE(direct_acquisition_mode)) {
+      target_statement_default <- first_nonempty(
+        target_statement_default,
+        direct_role_statement_default("Target", studyIntent)
+      )
+      comparator_statement_default <- first_nonempty(
+        comparator_statement_default,
+        direct_role_statement_default("Comparator", studyIntent)
+      )
+      outcome_statement_default <- first_nonempty(
+        outcome_statement_default,
+        direct_role_statement_default("Outcome", studyIntent)
+      )
+      outcome_statements_default <- combine_statement_list(
+        outcome_statement_default,
+        outcome_statements_default
+      )
+    } else {
+      target_statement_default <- first_nonempty(
+        target_statement_default,
+        cohort_id_statement("Target", explicit_target_ids_from_args)
+      )
+      comparator_statement_default <- first_nonempty(
+        comparator_statement_default,
+        cohort_id_statement("Comparator", explicit_comparator_ids_from_args)
+      )
+      explicit_outcome_statements_from_args <- vapply(explicit_outcome_ids_from_args, function(id) {
+        cohort_id_statement("Outcome", as.integer(id))
+      }, character(1))
+      outcome_statement_default <- first_nonempty(
+        outcome_statement_default,
+        explicit_outcome_statements_from_args
+      )
+      outcome_statements_default <- combine_statement_list(
+        outcome_statement_default,
+        outcome_statements_default,
+        explicit_outcome_statements_from_args
+      )
+    }
   }
 
   cohort_methods_intent_split_source <- "not_run"
@@ -4640,10 +5048,14 @@ Available exploration commands
     nonempty_string(outcome_statement_default)
 
   if (isTRUE(skip_intent_split_and_recommendation)) {
-    cohort_methods_intent_split_source <- "skipped_explicit_cohort_ids"
+    cohort_methods_intent_split_source <- if (isTRUE(direct_acquisition_mode)) "interactive_direct_acquisition" else "skipped_explicit_cohort_ids"
     cohort_methods_intent_split_status <- "skipped"
     if (isTRUE(interactive)) {
-      cat("\nSkipping study intent split, phenotype recommendation, and phenotype improvements for explicit cohort IDs.\n")
+      if (isTRUE(direct_acquisition_mode)) {
+        cat("\nSkipping study intent split and phenotype recommendation for direct cohort acquisition.\n")
+      } else {
+        cat("\nSkipping study intent split, phenotype recommendation, and phenotype improvements for explicit cohort IDs.\n")
+      }
     }
   } else if (!isTRUE(have_all_statement_defaults)) {
     if (isTRUE(interactive)) {
@@ -4718,7 +5130,7 @@ Available exploration commands
 
   outcome_statements_default <- combine_statement_list(outcome_statement_default, outcome_statements_default)
 
-  if (isTRUE(skip_intent_split_and_recommendation)) {
+  if (isTRUE(skip_intent_split_and_recommendation) && !isTRUE(direct_acquisition_mode)) {
     targetStatement <- target_statement_default
     comparatorStatement <- comparator_statement_default
     outcomeStatements <- outcome_statements_default
@@ -4804,45 +5216,115 @@ Available exploration commands
     }
   }
   improvements_results <- list()
-  use_function_argument_ids_for_selection <- !(
-    isTRUE(all_cohort_ids_from_function_args) &&
-      isTRUE(interactive) &&
+  use_function_argument_ids_for_selection <- isTRUE(all_cohort_ids_from_function_args) && !(
+    isTRUE(interactive) &&
       !isTRUE(skip_intent_split_and_recommendation)
   )
   preferred_target_ids <- if (isTRUE(use_function_argument_ids_for_selection)) targetCohortId else NULL
   preferred_comparator_ids <- if (isTRUE(use_function_argument_ids_for_selection)) comparatorCohortId else NULL
 
   repeat {
-  target_rec <- run_role_recommendation(
-    role_label = "Target",
-    statement = targetStatement,
-    output_path = recs_target_path,
-    top_k = topK,
-    max_results = maxResults,
-    candidate_limit = candidateLimit,
-    allow_multiple = FALSE,
-    preferred_selected_ids = if (isTRUE(should_force_role_reselection("target"))) NULL else preferred_target_ids,
-    preferred_selection_source = "function_argument",
-    cached_selected_ids = if (isTRUE(should_force_role_reselection("target"))) NULL else cached_inputs$target_cohort_id %||% NULL,
-    selected_cache_label = "target cohort selection",
-    selected_cache_dir = selected_target_dir,
-    cohort_method_cache = list(
-      selection = list(
-        selected_ids = if (isTRUE(should_force_role_reselection("target"))) NULL else cached_cm_target_selection$selected_ids %||% NULL,
-        cache_dir = selected_target_dir
-      )
-    ),
-    incidence_cache = list(
-      selection = list(
-        selected_ids = if (isTRUE(should_force_role_reselection("target"))) NULL else cached_incidence_target_selection$selected_ids %||% NULL,
-        cache_dir = incidence_selected_target_dir,
-        label = "incidence target cohort selection"
-      )
-    ),
-    recommendation_role = "target",
-    workflow_type = "cohort_methods",
-    exclude_metadata = list(executable_definition_status = list("codes_only"))
-  )
+  if (isTRUE(skip_intent_split_and_recommendation) && isTRUE(all_cohort_ids_from_function_args) && !isTRUE(direct_acquisition_mode)) {
+    target_rec <- list(
+      selected_ids = as.integer(explicit_target_ids_from_args),
+      selected_source_id = as.character(explicit_target_ids_from_args[[1]]),
+      selection_source = "function_argument_direct",
+      recommendation_path = json_string_or_null(NULL),
+      recommendation_source = "function_argument_direct",
+      used_cached_recommendation = FALSE,
+      used_cached_selection = FALSE,
+      used_window2 = FALSE,
+      used_advice = FALSE,
+      statement = targetStatement
+    )
+  } else {
+    target_source_mode <- choose_selection_source_mode("target", allow_index = !isTRUE(skip_intent_split_and_recommendation))
+    if (is_back_signal(target_source_mode)) next
+
+    if (identical(target_source_mode, "database")) {
+    imported_target <- prompt_database_cohort_imports("target", allow_multiple = FALSE)
+    if (is_back_signal(imported_target)) next
+    if (is.null(imported_target) || length(imported_target) == 0) next
+    imported_target <- imported_target[[1]]
+    target_rec <- list(
+      selected_ids = as.integer(imported_target$cohort_definition_id),
+      selected_source_id = as.character(imported_target$source_id %||% ""),
+      selection_source = "database_import",
+      recommendation_path = json_string_or_null(NULL),
+      recommendation_source = "database_import",
+      used_cached_recommendation = FALSE,
+      used_cached_selection = FALSE,
+      used_window2 = FALSE,
+      used_advice = FALSE,
+      statement = targetStatement
+    )
+  } else if (identical(target_source_mode, "file")) {
+    imported_target <- prompt_file_cohort_imports("target", allow_multiple = FALSE)
+    if (is_back_signal(imported_target)) next
+    if (is.null(imported_target) || length(imported_target) == 0) next
+    imported_target <- imported_target[[1]]
+    target_rec <- list(
+      selected_ids = as.integer(imported_target$cohort_definition_id),
+      selected_source_id = as.character(imported_target$source_id %||% ""),
+      selection_source = "file_import",
+      recommendation_path = json_string_or_null(NULL),
+      recommendation_source = "file_import",
+      used_cached_recommendation = FALSE,
+      used_cached_selection = FALSE,
+      used_window2 = FALSE,
+      used_advice = FALSE,
+      statement = targetStatement
+    )
+  } else if (identical(target_source_mode, "directory")) {
+    imported_target <- prompt_directory_cohort_imports("target", allow_multiple = FALSE)
+    if (is_back_signal(imported_target)) next
+    if (is.null(imported_target) || length(imported_target) == 0) next
+    imported_target <- imported_target[[1]]
+    target_rec <- list(
+      selected_ids = as.integer(imported_target$cohort_definition_id),
+      selected_source_id = as.character(imported_target$source_id %||% ""),
+      selection_source = "directory_import",
+      recommendation_path = json_string_or_null(NULL),
+      recommendation_source = "directory_import",
+      used_cached_recommendation = FALSE,
+      used_cached_selection = FALSE,
+      used_window2 = FALSE,
+      used_advice = FALSE,
+      statement = targetStatement
+    )
+  } else {
+    target_rec <- run_role_recommendation(
+      role_label = "Target",
+      statement = targetStatement,
+      output_path = recs_target_path,
+      top_k = topK,
+      max_results = maxResults,
+      candidate_limit = candidateLimit,
+      allow_multiple = FALSE,
+      preferred_selected_ids = if (isTRUE(should_force_role_reselection("target"))) NULL else preferred_target_ids,
+      preferred_selection_source = "function_argument",
+      cached_selected_ids = if (isTRUE(should_force_role_reselection("target"))) NULL else cached_inputs$target_cohort_id %||% NULL,
+      selected_cache_label = "target cohort selection",
+      selected_cache_dir = selected_target_dir,
+      cohort_method_cache = list(
+        selection = list(
+          selected_ids = if (isTRUE(should_force_role_reselection("target"))) NULL else cached_cm_target_selection$selected_ids %||% NULL,
+          cache_dir = selected_target_dir
+        )
+      ),
+      incidence_cache = list(
+        selection = list(
+          selected_ids = if (isTRUE(should_force_role_reselection("target"))) NULL else cached_incidence_target_selection$selected_ids %||% NULL,
+          cache_dir = incidence_selected_target_dir,
+          label = "incidence target cohort selection"
+        )
+      ),
+      recommendation_role = "target",
+      workflow_type = "cohort_methods",
+      exclude_metadata = list(executable_definition_status = list("codes_only"))
+    )
+  }
+  }
 
   targetCohortId <- resolve_single_selection(
     selected_ids = target_rec$selected_ids,
@@ -4904,16 +5386,17 @@ Available exploration commands
     as.integer(new_ids)
   }
   new_target_id <- map_ids(selected_target_id)
-  copy_cohort_json_multi(selected_target_id, new_target_id, c(selected_target_dir, selected_dir), index_def_dir)
+  target_source_for_copy <- target_rec$selected_source_id %||% selected_target_id
+  copy_cohort_json_multi(target_source_for_copy, new_target_id, c(selected_target_dir, selected_dir), index_def_dir, imported_def_dir = imported_definition_dir)
   ensure_patched_outputs_cleared()
-  improvements_results$target <- if (isTRUE(skip_intent_split_and_recommendation)) {
+  improvements_results$target <- if (isTRUE(skip_phenotype_improvements)) {
     skipped_role_improvements(
       role_key = "target",
       role_label = "Target",
       cohort_ids = new_target_id,
       patched_role_dir = patched_target_dir,
       improvements_path = improvements_target_path,
-      reason = "explicit_cohort_ids_skip_confirmed"
+      reason = skip_reason %||% "direct_cohort_acquisition_skip_confirmed"
     )
   } else {
     run_role_improvement_gate(
@@ -4933,36 +5416,107 @@ Available exploration commands
   }
 
   repeat {
-  comparator_rec <- run_role_recommendation(
-    role_label = "Comparator",
-    statement = comparatorStatement,
-    output_path = recs_comparator_path,
-    top_k = topK,
-    max_results = maxResults,
-    candidate_limit = candidateLimit,
-    allow_multiple = FALSE,
-    preferred_selected_ids = if (isTRUE(should_force_role_reselection("comparator"))) NULL else preferred_comparator_ids,
-    preferred_selection_source = "function_argument",
-    cached_selected_ids = if (isTRUE(should_force_role_reselection("comparator"))) NULL else cached_inputs$comparator_cohort_id %||% NULL,
-    selected_cache_label = "comparator cohort selection",
-    selected_cache_dir = selected_comparator_dir,
-    cohort_method_cache = list(
-      selection = list(
-        selected_ids = if (isTRUE(should_force_role_reselection("comparator"))) NULL else cached_cm_comparator_selection$selected_ids %||% NULL,
-        cache_dir = selected_comparator_dir
-      )
-    ),
-    incidence_cache = list(
-      selection = list(
-        selected_ids = NULL,
-        cache_dir = NULL,
-        label = NULL
-      )
-    ),
-    recommendation_role = "comparator",
-    workflow_type = "cohort_methods",
-    exclude_metadata = list(executable_definition_status = list("codes_only"))
-  )
+  if (isTRUE(skip_intent_split_and_recommendation) && isTRUE(all_cohort_ids_from_function_args) && !isTRUE(direct_acquisition_mode)) {
+    comparator_rec <- list(
+      selected_ids = as.integer(explicit_comparator_ids_from_args),
+      selected_source_id = as.character(explicit_comparator_ids_from_args[[1]]),
+      selection_source = "function_argument_direct",
+      recommendation_path = json_string_or_null(NULL),
+      recommendation_source = "function_argument_direct",
+      used_cached_recommendation = FALSE,
+      used_cached_selection = FALSE,
+      used_window2 = FALSE,
+      used_advice = FALSE,
+      statement = comparatorStatement
+    )
+  } else {
+    comparator_source_mode <- choose_selection_source_mode("comparator", allow_index = !isTRUE(skip_intent_split_and_recommendation))
+    if (is_back_signal(comparator_source_mode)) next
+
+    if (identical(comparator_source_mode, "database")) {
+    imported_comparator <- prompt_database_cohort_imports("comparator", allow_multiple = FALSE)
+    if (is_back_signal(imported_comparator)) next
+    if (is.null(imported_comparator) || length(imported_comparator) == 0) next
+    imported_comparator <- imported_comparator[[1]]
+    comparator_rec <- list(
+      selected_ids = as.integer(imported_comparator$cohort_definition_id),
+      selected_source_id = as.character(imported_comparator$source_id %||% ""),
+      selection_source = "database_import",
+      recommendation_path = json_string_or_null(NULL),
+      recommendation_source = "database_import",
+      used_cached_recommendation = FALSE,
+      used_cached_selection = FALSE,
+      used_window2 = FALSE,
+      used_advice = FALSE,
+      statement = comparatorStatement
+    )
+  } else if (identical(comparator_source_mode, "file")) {
+    imported_comparator <- prompt_file_cohort_imports("comparator", allow_multiple = FALSE)
+    if (is_back_signal(imported_comparator)) next
+    if (is.null(imported_comparator) || length(imported_comparator) == 0) next
+    imported_comparator <- imported_comparator[[1]]
+    comparator_rec <- list(
+      selected_ids = as.integer(imported_comparator$cohort_definition_id),
+      selected_source_id = as.character(imported_comparator$source_id %||% ""),
+      selection_source = "file_import",
+      recommendation_path = json_string_or_null(NULL),
+      recommendation_source = "file_import",
+      used_cached_recommendation = FALSE,
+      used_cached_selection = FALSE,
+      used_window2 = FALSE,
+      used_advice = FALSE,
+      statement = comparatorStatement
+    )
+  } else if (identical(comparator_source_mode, "directory")) {
+    imported_comparator <- prompt_directory_cohort_imports("comparator", allow_multiple = FALSE)
+    if (is_back_signal(imported_comparator)) next
+    if (is.null(imported_comparator) || length(imported_comparator) == 0) next
+    imported_comparator <- imported_comparator[[1]]
+    comparator_rec <- list(
+      selected_ids = as.integer(imported_comparator$cohort_definition_id),
+      selected_source_id = as.character(imported_comparator$source_id %||% ""),
+      selection_source = "directory_import",
+      recommendation_path = json_string_or_null(NULL),
+      recommendation_source = "directory_import",
+      used_cached_recommendation = FALSE,
+      used_cached_selection = FALSE,
+      used_window2 = FALSE,
+      used_advice = FALSE,
+      statement = comparatorStatement
+    )
+  } else {
+    comparator_rec <- run_role_recommendation(
+      role_label = "Comparator",
+      statement = comparatorStatement,
+      output_path = recs_comparator_path,
+      top_k = topK,
+      max_results = maxResults,
+      candidate_limit = candidateLimit,
+      allow_multiple = FALSE,
+      preferred_selected_ids = if (isTRUE(should_force_role_reselection("comparator"))) NULL else preferred_comparator_ids,
+      preferred_selection_source = "function_argument",
+      cached_selected_ids = if (isTRUE(should_force_role_reselection("comparator"))) NULL else cached_inputs$comparator_cohort_id %||% NULL,
+      selected_cache_label = "comparator cohort selection",
+      selected_cache_dir = selected_comparator_dir,
+      cohort_method_cache = list(
+        selection = list(
+          selected_ids = if (isTRUE(should_force_role_reselection("comparator"))) NULL else cached_cm_comparator_selection$selected_ids %||% NULL,
+          cache_dir = selected_comparator_dir
+        )
+      ),
+      incidence_cache = list(
+        selection = list(
+          selected_ids = NULL,
+          cache_dir = NULL,
+          label = NULL
+        )
+      ),
+      recommendation_role = "comparator",
+      workflow_type = "cohort_methods",
+      exclude_metadata = list(executable_definition_status = list("codes_only"))
+    )
+  }
+  }
 
   comparatorCohortId <- resolve_single_selection(
     selected_ids = comparator_rec$selected_ids,
@@ -4985,15 +5539,16 @@ Available exploration commands
   }
   selected_comparator_id <- as.integer(comparatorCohortId)
   new_comparator_id <- map_ids(selected_comparator_id)
-  copy_cohort_json_multi(selected_comparator_id, new_comparator_id, c(selected_comparator_dir, selected_dir), index_def_dir)
-  improvements_results$comparator <- if (isTRUE(skip_intent_split_and_recommendation)) {
+  comparator_source_for_copy <- comparator_rec$selected_source_id %||% selected_comparator_id
+  copy_cohort_json_multi(comparator_source_for_copy, new_comparator_id, c(selected_comparator_dir, selected_dir), index_def_dir, imported_def_dir = imported_definition_dir)
+  improvements_results$comparator <- if (isTRUE(skip_phenotype_improvements)) {
     skipped_role_improvements(
       role_key = "comparator",
       role_label = "Comparator",
       cohort_ids = new_comparator_id,
       patched_role_dir = patched_comparator_dir,
       improvements_path = improvements_comparator_path,
-      reason = "explicit_cohort_ids_skip_confirmed"
+      reason = skip_reason %||% "direct_cohort_acquisition_skip_confirmed"
     )
   } else {
     run_role_improvement_gate(
@@ -5013,83 +5568,152 @@ Available exploration commands
   }
 
   repeat {
-  cached_input_outcome_ids <- if (isTRUE(should_force_role_reselection("outcome"))) integer(0) else normalize_selected_ids(
-    cached_inputs$outcome_cohort_ids %||% NULL,
-    "cached outcome cohort IDs",
-    allow_multiple = TRUE
-  )
-  preferred_outcome_ids <- normalize_selected_ids(
-    if (isTRUE(should_force_role_reselection("outcome"))) NULL else if (isTRUE(use_function_argument_ids_for_selection)) outcomeCohortIds else NULL,
-    "Outcome cohort IDs",
-    allow_multiple = TRUE
-  )
-  preferred_outcome_source <- "function_argument"
-  if (length(preferred_outcome_ids) == 0 &&
-      length(outcomeStatements) <= 1 &&
-      length(cached_input_outcome_ids) > 0) {
-    preferred_outcome_ids <- cached_input_outcome_ids
-    preferred_outcome_source <- "cached_manual_input"
-  }
-  outcome_recommendation_path <- function(i) {
-    if (identical(as.integer(i), 1L)) return(recs_outcome_path)
-    file.path(output_dir, sprintf("recommendations_outcome_%s.json", as.integer(i)))
-  }
-  run_per_outcome_recommendations <- length(outcomeStatements) > 1 &&
-    length(preferred_outcome_ids) == 0
-  if (isTRUE(run_per_outcome_recommendations)) {
-    outcome_recs <- lapply(seq_along(outcomeStatements), function(i) {
-      run_role_recommendation(
-        role_label = if (identical(as.integer(i), 1L)) "Outcome" else sprintf("Outcome %s", i),
-        statement = outcomeStatements[[i]],
-        output_path = outcome_recommendation_path(i),
+  if (isTRUE(skip_intent_split_and_recommendation) && isTRUE(all_cohort_ids_from_function_args) && !isTRUE(direct_acquisition_mode)) {
+    outcome_recs <- list(list(
+      selected_ids = as.integer(explicit_outcome_ids_from_args),
+      selected_source_ids = as.character(explicit_outcome_ids_from_args),
+      recommendation_path = json_string_or_null(NULL),
+      recommendation_source = "function_argument_direct",
+      selection_source = "function_argument_direct",
+      used_cached_recommendation = FALSE,
+      used_cached_selection = FALSE,
+      used_window2 = FALSE,
+      used_advice = FALSE,
+      statement = outcomeStatement
+    ))
+  } else {
+    outcome_source_mode <- choose_selection_source_mode("outcome", allow_index = !isTRUE(skip_intent_split_and_recommendation))
+    if (is_back_signal(outcome_source_mode)) next
+
+    if (identical(outcome_source_mode, "database")) {
+    imported_outcomes <- prompt_database_cohort_imports("outcome", allow_multiple = TRUE)
+    if (is_back_signal(imported_outcomes)) next
+    if (is.null(imported_outcomes) || length(imported_outcomes) == 0) next
+    outcome_recs <- list(list(
+      selected_ids = as.integer(vapply(imported_outcomes, function(item) item$cohort_definition_id, integer(1))),
+      selected_source_ids = as.character(vapply(imported_outcomes, function(item) item$source_id %||% "", character(1))),
+      recommendation_path = json_string_or_null(NULL),
+      recommendation_source = "database_import",
+      selection_source = "database_import",
+      used_cached_recommendation = FALSE,
+      used_cached_selection = FALSE,
+      used_window2 = FALSE,
+      used_advice = FALSE,
+      statement = outcomeStatement
+    ))
+  } else if (identical(outcome_source_mode, "file")) {
+    imported_outcomes <- prompt_file_cohort_imports("outcome", allow_multiple = TRUE)
+    if (is_back_signal(imported_outcomes)) next
+    if (is.null(imported_outcomes) || length(imported_outcomes) == 0) next
+    outcome_recs <- list(list(
+      selected_ids = as.integer(vapply(imported_outcomes, function(item) item$cohort_definition_id, integer(1))),
+      selected_source_ids = as.character(vapply(imported_outcomes, function(item) item$source_id %||% "", character(1))),
+      recommendation_path = json_string_or_null(NULL),
+      recommendation_source = "file_import",
+      selection_source = "file_import",
+      used_cached_recommendation = FALSE,
+      used_cached_selection = FALSE,
+      used_window2 = FALSE,
+      used_advice = FALSE,
+      statement = outcomeStatement
+    ))
+  } else if (identical(outcome_source_mode, "directory")) {
+    imported_outcomes <- prompt_directory_cohort_imports("outcome", allow_multiple = TRUE)
+    if (is_back_signal(imported_outcomes)) next
+    if (is.null(imported_outcomes) || length(imported_outcomes) == 0) next
+    outcome_recs <- list(list(
+      selected_ids = as.integer(vapply(imported_outcomes, function(item) item$cohort_definition_id, integer(1))),
+      selected_source_ids = as.character(vapply(imported_outcomes, function(item) item$source_id %||% "", character(1))),
+      recommendation_path = json_string_or_null(NULL),
+      recommendation_source = "directory_import",
+      selection_source = "directory_import",
+      used_cached_recommendation = FALSE,
+      used_cached_selection = FALSE,
+      used_window2 = FALSE,
+      used_advice = FALSE,
+      statement = outcomeStatement
+    ))
+  } else {
+    cached_input_outcome_ids <- if (isTRUE(should_force_role_reselection("outcome"))) integer(0) else normalize_selected_ids(
+      cached_inputs$outcome_cohort_ids %||% NULL,
+      "cached outcome cohort IDs",
+      allow_multiple = TRUE
+    )
+    preferred_outcome_ids <- normalize_selected_ids(
+      if (isTRUE(should_force_role_reselection("outcome"))) NULL else if (isTRUE(use_function_argument_ids_for_selection)) outcomeCohortIds else NULL,
+      "Outcome cohort IDs",
+      allow_multiple = TRUE
+    )
+    preferred_outcome_source <- "function_argument"
+    if (length(preferred_outcome_ids) == 0 &&
+        length(outcomeStatements) <= 1 &&
+        length(cached_input_outcome_ids) > 0) {
+      preferred_outcome_ids <- cached_input_outcome_ids
+      preferred_outcome_source <- "cached_manual_input"
+    }
+    outcome_recommendation_path <- function(i) {
+      if (identical(as.integer(i), 1L)) return(recs_outcome_path)
+      file.path(output_dir, sprintf("recommendations_outcome_%s.json", as.integer(i)))
+    }
+    run_per_outcome_recommendations <- length(outcomeStatements) > 1 &&
+      length(preferred_outcome_ids) == 0
+    if (isTRUE(run_per_outcome_recommendations)) {
+      outcome_recs <- lapply(seq_along(outcomeStatements), function(i) {
+        run_role_recommendation(
+          role_label = if (identical(as.integer(i), 1L)) "Outcome" else sprintf("Outcome %s", i),
+          statement = outcomeStatements[[i]],
+          output_path = outcome_recommendation_path(i),
+          top_k = topK,
+          max_results = maxResults,
+          candidate_limit = candidateLimit,
+          allow_multiple = FALSE,
+          preferred_selected_ids = NULL,
+          preferred_selection_source = "function_argument",
+          cached_selected_ids = NULL,
+          selected_cache_label = NULL,
+          selected_cache_dir = NULL,
+          cohort_method_cache = NULL,
+          incidence_cache = NULL,
+          recommendation_role = "outcome",
+          workflow_type = "cohort_methods",
+          exclude_metadata = list(executable_definition_status = list("codes_only"))
+        )
+      })
+    } else {
+      outcome_recs <- list(run_role_recommendation(
+        role_label = "Outcome",
+        statement = outcomeStatement,
+        output_path = recs_outcome_path,
         top_k = topK,
         max_results = maxResults,
         candidate_limit = candidateLimit,
-        allow_multiple = FALSE,
-        preferred_selected_ids = NULL,
-        preferred_selection_source = "function_argument",
-        cached_selected_ids = NULL,
-        selected_cache_label = NULL,
-        selected_cache_dir = NULL,
-        cohort_method_cache = NULL,
-        incidence_cache = NULL,
+        allow_multiple = TRUE,
+        preferred_selected_ids = preferred_outcome_ids,
+        preferred_selection_source = preferred_outcome_source,
+        cached_selected_ids = if (isTRUE(should_force_role_reselection("outcome"))) NULL else cached_inputs$outcome_cohort_ids %||% NULL,
+        selected_cache_label = "outcome cohort selections",
+        selected_cache_dir = selected_outcome_dir,
+        cohort_method_cache = list(
+          selection = list(
+            selected_ids = if (isTRUE(should_force_role_reselection("outcome"))) NULL else cached_cm_outcome_selection$selected_ids %||% NULL,
+            cache_dir = selected_outcome_dir
+          )
+        ),
+        incidence_cache = list(
+          selection = list(
+            selected_ids = if (isTRUE(should_force_role_reselection("outcome"))) NULL else cached_incidence_outcome_selection$selected_ids %||% NULL,
+            cache_dir = incidence_selected_outcome_dir,
+            label = "incidence outcome cohort selection"
+          )
+        ),
         recommendation_role = "outcome",
         workflow_type = "cohort_methods",
         exclude_metadata = list(executable_definition_status = list("codes_only"))
-      )
-    })
-  } else {
-    outcome_recs <- list(run_role_recommendation(
-      role_label = "Outcome",
-      statement = outcomeStatement,
-      output_path = recs_outcome_path,
-      top_k = topK,
-      max_results = maxResults,
-      candidate_limit = candidateLimit,
-      allow_multiple = TRUE,
-      preferred_selected_ids = preferred_outcome_ids,
-      preferred_selection_source = preferred_outcome_source,
-      cached_selected_ids = if (isTRUE(should_force_role_reselection("outcome"))) NULL else cached_inputs$outcome_cohort_ids %||% NULL,
-      selected_cache_label = "outcome cohort selections",
-      selected_cache_dir = selected_outcome_dir,
-      cohort_method_cache = list(
-        selection = list(
-          selected_ids = if (isTRUE(should_force_role_reselection("outcome"))) NULL else cached_cm_outcome_selection$selected_ids %||% NULL,
-          cache_dir = selected_outcome_dir
-        )
-      ),
-      incidence_cache = list(
-        selection = list(
-          selected_ids = if (isTRUE(should_force_role_reselection("outcome"))) NULL else cached_incidence_outcome_selection$selected_ids %||% NULL,
-          cache_dir = incidence_selected_outcome_dir,
-          label = "incidence outcome cohort selection"
-        )
-      ),
-      recommendation_role = "outcome",
-      workflow_type = "cohort_methods",
-      exclude_metadata = list(executable_definition_status = list("codes_only"))
-    ))
+      ))
+    }
   }
+  }
+
   outcome_recommendations <- lapply(seq_along(outcome_recs), function(i) {
     rec <- outcome_recs[[i]]
     list(
@@ -5174,18 +5798,20 @@ Available exploration commands
   }
   selected_outcome_ids <- as.integer(outcomeCohortIds)
   new_outcome_ids <- map_ids(selected_outcome_ids)
+  outcome_source_ids_for_copy <- outcome_rec$selected_source_ids %||% as.list(selected_outcome_ids)
 
   for (i in seq_along(selected_outcome_ids)) {
-    copy_cohort_json_multi(selected_outcome_ids[[i]], new_outcome_ids[[i]], c(selected_outcome_dir, selected_dir), index_def_dir)
+    source_for_copy <- outcome_source_ids_for_copy[[min(i, length(outcome_source_ids_for_copy))]] %||% selected_outcome_ids[[i]]
+    copy_cohort_json_multi(source_for_copy, new_outcome_ids[[i]], c(selected_outcome_dir, selected_dir), index_def_dir, imported_def_dir = imported_definition_dir)
   }
-  improvements_results$outcome <- if (isTRUE(skip_intent_split_and_recommendation)) {
+  improvements_results$outcome <- if (isTRUE(skip_phenotype_improvements)) {
     skipped_role_improvements(
       role_key = "outcome",
       role_label = "Outcome",
       cohort_ids = new_outcome_ids,
       patched_role_dir = patched_outcome_dir,
       improvements_path = improvements_outcome_path,
-      reason = "explicit_cohort_ids_skip_confirmed"
+      reason = skip_reason %||% "direct_cohort_acquisition_skip_confirmed"
     )
   } else {
     run_role_improvement_gate(
@@ -5806,10 +6432,11 @@ Available exploration commands
     intent_split_status = cohort_methods_intent_split_status,
     intent_split_path = json_string_or_null(if (file.exists(cohort_methods_intent_split_path)) cohort_methods_intent_split_path else NULL),
     explicit_cohort_ids_supplied = isTRUE(all_cohort_ids_from_function_args),
+    direct_acquisition_mode = isTRUE(direct_acquisition_mode),
     skip_intent_split_and_recommendation = isTRUE(skip_intent_split_and_recommendation),
-    skip_phenotype_improvements = isTRUE(skip_intent_split_and_recommendation),
-    skip_reason = json_string_or_null(if (isTRUE(skip_intent_split_and_recommendation)) "all_cohort_ids_provided" else NULL),
-    skip_prompt_source = if (isTRUE(all_cohort_ids_from_function_args) && isTRUE(interactive)) "interactive_user_choice" else "not_prompted",
+    skip_phenotype_improvements = isTRUE(skip_phenotype_improvements),
+    skip_reason = json_string_or_null(skip_reason),
+    skip_prompt_source = skip_prompt_source,
     study_intent = studyIntent,
     target_statement = targetStatement,
     comparator_statement = comparatorStatement,
@@ -5828,10 +6455,11 @@ Available exploration commands
     cohort_methods_intent_split_source = cohort_methods_intent_split_source,
     cohort_methods_intent_split_status = cohort_methods_intent_split_status,
     explicit_cohort_ids_supplied = isTRUE(all_cohort_ids_from_function_args),
+    direct_acquisition_mode = isTRUE(direct_acquisition_mode),
     skip_intent_split_and_recommendation = isTRUE(skip_intent_split_and_recommendation),
-    skip_phenotype_improvements = isTRUE(skip_intent_split_and_recommendation),
-    skip_reason = json_string_or_null(if (isTRUE(skip_intent_split_and_recommendation)) "all_cohort_ids_provided" else NULL),
-    skip_prompt_source = if (isTRUE(all_cohort_ids_from_function_args) && isTRUE(interactive)) "interactive_user_choice" else "not_prompted",
+    skip_phenotype_improvements = isTRUE(skip_phenotype_improvements),
+    skip_reason = json_string_or_null(skip_reason),
+    skip_prompt_source = skip_prompt_source,
     use_function_argument_ids_for_selection = isTRUE(use_function_argument_ids_for_selection),
     comparison_label = comparisonLabel,
     target_cohort_id = as.integer(targetCohortId),
@@ -5953,6 +6581,10 @@ Available exploration commands
     cohort_roles_path
   )
 
+  target_source_id <- as.character(target_rec$selected_source_id %||% selected_target_id)
+  comparator_source_id <- as.character(comparator_rec$selected_source_id %||% selected_comparator_id)
+  outcome_source_ids <- outcome_rec$selected_source_ids %||% as.list(as.character(selected_outcome_ids))
+
   cm_comparisons <- list(
     comparisons = list(
       list(
@@ -5960,20 +6592,23 @@ Available exploration commands
         label = comparisonLabel,
         study_intent = studyIntent,
         target = list(
-          source_id = as.integer(selected_target_id),
+          source_id = target_source_id,
+          source_type = as.character(target_rec$selection_source %||% 'recommendation'),
           cohort_id = as.integer(new_target_id),
           name = target_name,
           original_name = target_original_name
         ),
         comparator = list(
-          source_id = as.integer(selected_comparator_id),
+          source_id = comparator_source_id,
+          source_type = as.character(comparator_rec$selection_source %||% 'recommendation'),
           cohort_id = as.integer(new_comparator_id),
           name = comparator_name,
           original_name = comparator_original_name
         ),
         outcomes = lapply(seq_along(new_outcome_ids), function(i) {
           list(
-            source_id = as.integer(selected_outcome_ids[[i]]),
+            source_id = as.character(outcome_source_ids[[i]] %||% selected_outcome_ids[[i]]),
+            source_type = as.character(outcome_rec$selection_source %||% 'recommendation'),
             cohort_id = as.integer(new_outcome_ids[[i]]),
             name = outcome_names[[i]],
             original_name = outcome_original_names[[i]],
@@ -6216,10 +6851,11 @@ Available exploration commands
     cohort_methods_intent_split_source = cohort_methods_intent_split_source,
     cohort_methods_intent_split_status = cohort_methods_intent_split_status,
     explicit_cohort_ids_supplied = isTRUE(all_cohort_ids_from_function_args),
+    direct_acquisition_mode = isTRUE(direct_acquisition_mode),
     skip_intent_split_and_recommendation = isTRUE(skip_intent_split_and_recommendation),
-    skip_phenotype_improvements = isTRUE(skip_intent_split_and_recommendation),
-    skip_reason = json_string_or_null(if (isTRUE(skip_intent_split_and_recommendation)) "all_cohort_ids_provided" else NULL),
-    skip_prompt_source = if (isTRUE(all_cohort_ids_from_function_args) && isTRUE(interactive)) "interactive_user_choice" else "not_prompted",
+    skip_phenotype_improvements = isTRUE(skip_phenotype_improvements),
+    skip_reason = json_string_or_null(skip_reason),
+    skip_prompt_source = skip_prompt_source,
     use_function_argument_ids_for_selection = isTRUE(use_function_argument_ids_for_selection),
     resume_enabled = isTRUE(resume),
     remap_cohort_ids = use_mapping,
@@ -6270,21 +6906,11 @@ Available exploration commands
   )
   seed_strategus_runtime_templates <- function(base_dir) {
     db_details_path <- file.path(base_dir, "strategus-db-details.json")
+    cohort_source_db_details_path <- file.path(base_dir, "strategus-cohort-source-db-details.json")
     execution_settings_path <- file.path(base_dir, "strategus-execution-settings.json")
 
-    if (!file.exists(db_details_path)) {
-      write_json(list(
-        dbms = "postgresql",
-        authType = "username_password",
-        DB_SERVER = "",
-        DB_PORT = "5432",
-        DB_USER = "",
-        DB_PASS = "",
-        DB_DRIVER_PATH = "",
-        DATABASECONNECTOR_JAR_FOLDER = "",
-        extraSettings = "sslmode=disable"
-      ), db_details_path)
-    }
+    seed_db_details_template(db_details_path)
+    seed_db_details_template(cohort_source_db_details_path)
 
     if (!file.exists(execution_settings_path)) {
       write_json(list(
@@ -6303,14 +6929,17 @@ Available exploration commands
 
     list(
       db_details_path = db_details_path,
+      cohort_source_db_details_path = cohort_source_db_details_path,
       execution_settings_path = execution_settings_path
     )
   }
 
   runtime_template_paths <- seed_strategus_runtime_templates(base_dir)
   db_details_path <- runtime_template_paths$db_details_path
+  cohort_source_db_details_path <- runtime_template_paths$cohort_source_db_details_path
   execution_settings_path <- runtime_template_paths$execution_settings_path
   state$strategus_db_details_path <- db_details_path
+  state$strategus_cohort_source_db_details_path <- cohort_source_db_details_path
   state$strategus_execution_settings_path <- execution_settings_path
   write_json(state, state_path)
 
@@ -7571,11 +8200,11 @@ Keeper review saved: %s reviewed row(s)
     cat("\n== Session Summary ==\n")
     cat(sprintf("Study intent: %s\n", studyIntent))
     cat(sprintf("Comparison: %s\n", comparisonLabel))
-    cat(sprintf("Target: %s (atlas %s -> cohort %s)\n", target_name, selected_target_id, new_target_id))
-    cat(sprintf("Comparator: %s (atlas %s -> cohort %s)\n", comparator_name, selected_comparator_id, new_comparator_id))
+    cat(sprintf("Target: %s (source %s -> cohort %s)\n", target_name, target_source_id, new_target_id))
+    cat(sprintf("Comparator: %s (source %s -> cohort %s)\n", comparator_name, comparator_source_id, new_comparator_id))
     cat("Outcomes:\n")
     for (i in seq_along(new_outcome_ids)) {
-      cat(sprintf("  - %s (atlas %s -> cohort %s)\n", outcome_names[[i]], selected_outcome_ids[[i]], new_outcome_ids[[i]]))
+      cat(sprintf("  - %s (source %s -> cohort %s)\n", outcome_names[[i]], outcome_source_ids[[i]] %||% selected_outcome_ids[[i]], new_outcome_ids[[i]]))
     }
     if (isTRUE(negative_control_enabled)) {
       cat(sprintf("Negative control concept set: %s\n", negativeControlConceptSetId))

@@ -12,7 +12,7 @@ generation plus in-shell execution for a CohortIncidence analysis.
 - Calls `phenotype_intent_split` to derive target and outcome cohort statements.
 - Calls `phenotype_recommendation` separately for target and outcome cohorts.
 - Lets the user select accepted target/outcome phenotypes and optionally remap cohort IDs.
-- When the phenotype index is missing a usable cohort, the shell can instead import an existing OHDSI cohort definition from a database schema that exposes `cohort_definition` plus `cohort_definition_details` with `SIMPLE_EXPRESSION` JSON payloads. Imported definitions are validated, cached under the workflow directory, and then treated like local cohort artifacts for the rest of the run.
+- For target and outcome roles, the shell can acquire cohort definitions from four sources: phenotype-index recommendation, an existing database cohort definition, a local cohort JSON file, or a directory of local cohort JSON files. Imported definitions are validated, cached under the workflow directory, and then treated like local cohort artifacts for the rest of the run. Database cohort-definition imports use `strategus-cohort-source-db-details.json`, so sites can keep that source connection separate from the execution DB used for patient-level analytics.
 - Calls `phenotype_improvements` for each selected cohort and lets the user apply improvements immediately.
 - Captures explicit time-at-risk and strata settings for the incidence analysis.
 - Supports `/back` at major stage boundaries while keeping `/ohdsi` dialogue available during the workflow.
@@ -88,6 +88,7 @@ Generated scripts that connect to the database expect these site-specific files 
 `outputDir`:
 
 - Template `strategus-db-details.json`
+  Purpose: execution DB for Strategus / CDM / work / results / vocabulary access.
 
 ```
 {
@@ -114,6 +115,25 @@ For Windows-integrated SQL Server authentication, omit `DB_USER` / `DB_PASS` and
   "DB_DRIVER_PATH": "",
   "DATABASECONNECTOR_JAR_FOLDER": "C:/path/to/sqljdbc_and_auth",
   "extraSettings": ""
+}
+```
+
+- Template `strategus-cohort-source-db-details.json`
+  Purpose: optional separate database connection used only when importing cohort definitions from an existing database schema. This lets sites keep cohort-definition source access separate from the execution DB used for patient-level analytics.
+
+The format matches `strategus-db-details.json`. Example for a postgres-backed cohort-definition source:
+
+```
+{
+  "dbms": "postgresql",
+  "authType": "username_password",
+  "DB_SERVER": "atlas-db-host",
+  "DB_PORT": "5432",
+  "DB_USER": "atlas_reader",
+  "DB_PASS": "change_me",
+  "DB_DRIVER_PATH": "",
+  "DATABASECONNECTOR_JAR_FOLDER": "",
+  "extraSettings": "sslmode=disable"
 }
 ```
 

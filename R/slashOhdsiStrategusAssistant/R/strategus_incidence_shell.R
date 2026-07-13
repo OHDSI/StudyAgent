@@ -433,7 +433,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
 
   phenotype_definition_path <- function(phenotype_id, index_def_dir, imported_def_dir = NULL) {
     phenotype_id <- as.character(phenotype_id %||% "")
-    if (grepl("^db:[A-Za-z][A-Za-z0-9_]*:[0-9]+$", phenotype_id)) {
+    if (grepl("^(db:[A-Za-z][A-Za-z0-9_]*:[0-9]+|file:[0-9]+:[A-Za-z0-9_.-]+|dir:[0-9]+:[A-Za-z0-9_.-]+)$", phenotype_id)) {
       return(.studyAgentSlashImportedCohortDefinitionPath(phenotype_id, imported_def_dir))
     }
     file.path(index_def_dir, sprintf("%s.json", gsub(":", "__", phenotype_id, fixed = TRUE)))
@@ -441,14 +441,14 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
 
   stop_if_unsupported_selected <- function(phenotype_ids, role_label) {
     supported <- grepl("^ohdsi:[0-9]+$", phenotype_ids %||% character(0)) |
-      grepl("^db:[A-Za-z][A-Za-z0-9_]*:[0-9]+$", phenotype_ids %||% character(0))
+      grepl("^(db:[A-Za-z][A-Za-z0-9_]*:[0-9]+|file:[0-9]+:[A-Za-z0-9_.-]+|dir:[0-9]+:[A-Za-z0-9_.-]+)$", phenotype_ids %||% character(0))
     unsupported <- phenotype_ids[!supported]
     if (length(unsupported) > 0) {
       stop(
         sprintf(
           paste0(
             "Selected %s cohort source ids include unsupported values (%s). ",
-            "Supported ids are OHDSI phenotype ids and imported database cohort ids."
+            "Supported ids are OHDSI phenotype ids, imported database cohort ids, and imported local cohort JSON ids."
           ),
           role_label,
           paste(unique(unsupported), collapse = ", ")
@@ -464,7 +464,10 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
       return(suppressWarnings(as.integer(sub("^ohdsi:", "", source_id))))
     }
     if (grepl("^db:[A-Za-z][A-Za-z0-9_]*:[0-9]+$", source_id)) {
-      return(suppressWarnings(as.integer(sub("^db:[A-Za-z][A-Za-z0-9_]*:([0-9]+)$", "\\1", source_id))))
+      return(suppressWarnings(as.integer(sub("^db:[A-Za-z][A-Za-z0-9_]*:([0-9]+)$", "\1", source_id))))
+    }
+    if (grepl("^(file|dir):[0-9]+:[A-Za-z0-9_.-]+$", source_id)) {
+      return(suppressWarnings(as.integer(sub("^(file|dir):([0-9]+):[A-Za-z0-9_.-]+$", "\2", source_id))))
     }
     suppressWarnings(as.integer(source_id))
   }
@@ -512,25 +515,8 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     imported$metadata
   }
 
-  choose_selection_source_mode <- function(role_label) {
-    if (!isTRUE(interactive)) return("index")
-    repeat {
-      entered <- trimws(readline_with_navigation(sprintf(
-        "Source for %s cohort [Enter=index search, db=existing database cohort]: ",
-        role_label
-      )))
-      if (is_back_signal(entered)) return(entered)
-      lowered <- tolower(entered)
-      if (!nzchar(lowered) || lowered %in% c("index", "search", "s")) return("index")
-      if (lowered %in% c("db", "database", "existing")) return("database")
-      cat("Enter index or db.
-")
-    }
-  }
-
-  prompt_database_cohort_imports <- function(role_label, allow_multiple = FALSE) {
-    db_details_path <- file.path(base_dir, "strategus-db-details.json")
-    if (!file.exists(db_details_path)) {
+  seed_db_details_template <- function(path) {
+    if (!file.exists(path)) {
       write_json(list(
         dbms = "postgresql",
         authType = "username_password",
@@ -541,7 +527,68 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
         DB_DRIVER_PATH = "",
         DATABASECONNECTOR_JAR_FOLDER = "",
         extraSettings = "sslmode=disable"
-      ), db_details_path)
+      ), path)
+    }
+    invisible(path)
+  }
+
+  choose_selection_source_mode <- function(role_label, allow_index = TRUE) {
+    if (!isTRUE(interactive)) {
+      if (isTRUE(allow_index)) return("index")
+      stop("Non-interactive direct cohort acquisition requires explicit source handling and is not implemented for this shell.")
+    }
+    repeat {
+      prompt <- if (isTRUE(allow_index)) {
+        sprintf("Source for %s cohort [Enter=index search, db=existing database cohort, file=JSON file, dir=directory]: ", role_label)
+      } else {
+        sprintf("Source for %s cohort [db=existing database cohort, file=JSON file, dir=directory]: ", role_label)
+      }
+      entered <- trimws(readline_with_navigation(prompt))
+      if (is_back_signal(entered)) return(entered)
+      lowered <- tolower(entered)
+      if (isTRUE(allow_index) && (!nzchar(lowered) || lowered %in% c("index", "search", "s", "recommend"))) return("index")
+      if (lowered %in% c("db", "database", "existing")) return("database")
+      if (lowered %in% c("file", "json", "local")) return("file")
+      if (lowered %in% c("dir", "directory", "folder")) return("directory")
+      cat(if (isTRUE(allow_index)) "Enter index, db, file, or dir.\n" else "Enter db, file, or dir.\n")
+    }
+  }
+
+  default_direct_statement <- function(role_label, study_intent) {
+    intent <- trimws(as.character(study_intent %||% ""))
+    if (nzchar(intent)) {
+      sprintf("%s cohort provided directly for study intent: %s", role_label, intent)
+    } else {
+      sprintf("%s cohort provided directly by user", role_label)
+    }
+  }
+
+  cohort_source_db_details_need_configuration <- function(path) {
+    db_config <- tryCatch(readStrategusDbDetails(path), error = function(e) NULL)
+    if (is.null(db_config)) return(TRUE)
+    auth_type <- tolower(trimws(as.character(
+      db_config$authType %||%
+        db_config$authenticationType %||%
+        if (isTRUE(db_config$useWindowsAuth %||% FALSE)) "windows" else "username_password"
+    )))
+    if (!nzchar(auth_type)) auth_type <- "username_password"
+    server <- trimws(as.character(db_config$DB_SERVER %||% db_config$server %||% ""))
+    if (!nzchar(server)) return(TRUE)
+    if (auth_type %in% c("windows", "integrated", "integrated_windows")) return(FALSE)
+    user <- trimws(as.character(db_config$DB_USER %||% db_config$user %||% ""))
+    password <- trimws(as.character(db_config$DB_PASS %||% db_config$password %||% ""))
+    !nzchar(user) || !nzchar(password)
+  }
+
+  prompt_database_cohort_imports <- function(role_label, allow_multiple = FALSE) {
+    db_details_path <- file.path(base_dir, "strategus-cohort-source-db-details.json")
+    seed_db_details_template(db_details_path)
+    if (isTRUE(cohort_source_db_details_need_configuration(db_details_path))) {
+      cat(sprintf(
+        "Database cohort import requires a populated %s. Fill in the cohort-source DB connection details there and then retry the db import option.\n",
+        db_details_path
+      ))
+      return(NULL)
     }
     connectionDetails <- tryCatch(
       createStrategusConnectionDetails(path = db_details_path),
@@ -669,6 +716,149 @@ Available %s cohort definitions from %s
           imported_def_dir = imported_definition_dir
         )
       })
+      return(imported)
+    }
+  }
+
+  prompt_file_cohort_imports <- function(role_label, allow_multiple = FALSE) {
+    repeat {
+      prompt <- if (isTRUE(allow_multiple)) {
+        sprintf("Path to %s cohort JSON file(s) [comma-separated]: ", role_label)
+      } else {
+        sprintf("Path to %s cohort JSON file: ", role_label)
+      }
+      entered <- trimws(readline_with_navigation(prompt))
+      if (is_back_signal(entered)) return(entered)
+      if (!nzchar(entered)) {
+        cat("Enter a cohort JSON file path.
+")
+        next
+      }
+      parts <- trimws(strsplit(entered, ",", fixed = TRUE)[[1]])
+      parts <- parts[nzchar(parts)]
+      if (!isTRUE(allow_multiple) && length(parts) > 1L) {
+        cat("Select exactly one cohort JSON file for this role.
+")
+        next
+      }
+      imported <- tryCatch(
+        lapply(parts, function(file_path) {
+          .studyAgentSlashImportFileCohortDefinition(
+            path = file_path,
+            imported_def_dir = imported_definition_dir,
+            source_type = "file"
+          )
+        }),
+        error = function(e) e
+      )
+      if (inherits(imported, "error")) {
+        cat(sprintf("File cohort import failed: %s
+", conditionMessage(imported)))
+        next
+      }
+      return(imported)
+    }
+  }
+
+  prompt_directory_cohort_imports <- function(role_label, allow_multiple = FALSE) {
+    repeat {
+      directory <- trimws(readline_with_navigation(sprintf(
+        "Directory containing %s cohort JSON files: ",
+        role_label
+      )))
+      if (is_back_signal(directory)) return(directory)
+      if (!nzchar(directory)) {
+        cat("Enter a directory path.
+")
+        next
+      }
+      candidates <- tryCatch(
+        .studyAgentSlashListLocalCohortDefinitionFiles(directory, limit = 100L),
+        error = function(e) e
+      )
+      if (inherits(candidates, "error")) {
+        cat(sprintf("Directory cohort lookup failed: %s
+", conditionMessage(candidates)))
+        next
+      }
+      if (nrow(candidates) == 0) {
+        cat("No readable cohort JSON files were found in that directory.
+")
+        next
+      }
+      preview <- data.frame(
+        cohort_definition_id = candidates$cohort_definition_id,
+        cohort_name = candidates$cohort_name,
+        path = candidates$path,
+        stringsAsFactors = FALSE
+      )
+      rownames(preview) <- seq_len(nrow(preview))
+      cat(sprintf("
+Available %s cohort JSON files from %s
+", role_label, normalizePath(directory, winslash = "/", mustWork = FALSE)))
+      print(preview, row.names = TRUE)
+      labels <- sprintf("[%s] %s", preview$cohort_definition_id, preview$cohort_name)
+      selected_rows <- integer(0)
+      invalid <- character(0)
+      if (isTRUE(interactive)) {
+        menu_pick <- tryCatch(
+          utils::select.list(
+            labels,
+            multiple = isTRUE(allow_multiple),
+            title = sprintf("Select %s cohort JSON%s", role_label, if (isTRUE(allow_multiple)) "(s)" else "")
+          ),
+          error = function(e) NULL
+        )
+        if (length(menu_pick) > 0 && any(nzchar(menu_pick))) {
+          selected_rows <- unique(vapply(menu_pick[nzchar(menu_pick)], function(label) {
+            which(labels == label)[1]
+          }, integer(1)))
+        }
+      }
+      if (length(selected_rows) == 0) {
+        selection_prompt <- if (isTRUE(allow_multiple)) {
+          sprintf("Select %s cohort row numbers (comma-separated): ", role_label)
+        } else {
+          sprintf("Select the %s cohort row number: ", role_label)
+        }
+        selected_raw <- trimws(readline_with_dialogue(selection_prompt))
+        if (!nzchar(selected_raw)) {
+          cat("No cohort selected.
+")
+          next
+        }
+        selected_parts <- trimws(strsplit(selected_raw, ",", fixed = TRUE)[[1]])
+        selected_parts <- selected_parts[nzchar(selected_parts)]
+        for (part in selected_parts) {
+          parsed <- suppressWarnings(as.integer(part))
+          if (is.na(parsed) || parsed < 1L || parsed > nrow(preview)) {
+            invalid <- c(invalid, part)
+          } else {
+            selected_rows <- c(selected_rows, parsed)
+          }
+        }
+      }
+      selected_rows <- unique(selected_rows)
+      if (length(invalid) > 0 || length(selected_rows) == 0) {
+        cat(sprintf("Invalid selection: %s
+", paste(unique(invalid), collapse = ", ")))
+        next
+      }
+      imported <- tryCatch(
+        lapply(selected_rows, function(row_idx) {
+          .studyAgentSlashImportFileCohortDefinition(
+            path = preview$path[[row_idx]],
+            imported_def_dir = imported_definition_dir,
+            source_type = "directory"
+          )
+        }),
+        error = function(e) e
+      )
+      if (inherits(imported, "error")) {
+        cat(sprintf("Directory cohort import failed: %s
+", conditionMessage(imported)))
+        next
+      }
       return(imported)
     }
   }
@@ -1389,6 +1579,11 @@ Available exploration commands
   }
 
   default_intent <- studyIntent %||% "What is the risk of GI bleed in new users of Celecoxib compared to new users of Diclofenac?"
+  skip_intent_split_and_recommendation <- FALSE
+  skip_phenotype_improvements <- FALSE
+  direct_acquisition_mode <- FALSE
+  skip_reason <- NULL
+  skip_prompt_source <- "not_prompted"
   repeat {
     if (interactive) {
       set_dialogue_context("study_intent", context = list(default_intent = default_intent))
@@ -1402,53 +1597,94 @@ Available exploration commands
       if (is.null(studyIntent) || !nzchar(trimws(studyIntent))) studyIntent <- default_intent
     }
 
-    if (interactive) {
-      cat("\nConnecting to ACP...\n")
+    direct_acquisition_mode <- FALSE
+    skip_intent_split_and_recommendation <- FALSE
+    skip_phenotype_improvements <- FALSE
+    skip_reason <- NULL
+    skip_prompt_source <- if (isTRUE(interactive)) "interactive_user_choice" else "not_prompted"
+    if (isTRUE(interactive)) {
+      direct_acquisition_mode <- prompt_yesno(
+        "Skip ACP intent split and phenotype recommendation and acquire cohorts directly?",
+        default = FALSE
+      )
+      skip_intent_split_and_recommendation <- isTRUE(direct_acquisition_mode)
+      if (isTRUE(direct_acquisition_mode)) {
+        skip_reason <- "interactive_direct_acquisition"
+      }
     }
-    acp_connect(acpUrl)
 
     intent_split_path <- file.path(output_dir, "intent_split.json")
     intent_response <- NULL
-    if (interactive) {
-      cat("\n== Step 1: Parse study intent into target/outcome statements ==\n")
-    }
-    set_dialogue_context("intent_split", context = list(study_intent = studyIntent))
-    if (maybe_use_cache(intent_split_path, "intent split")) {
-      intent_response <- read_json(intent_split_path)
-    } else {
-      message("Calling ACP flow: phenotype_intent_split")
-      intent_response <- acp_try("/flows/phenotype_intent_split", list(study_intent = studyIntent), "intent_split")
-      write_json(intent_response, intent_split_path)
-    }
-    intent_core <- intent_response$intent_split %||% intent_response
-    target_statement <- intent_core$target_statement %||% ""
-    outcome_statement <- intent_core$outcome_statement %||% ""
-    rationale <- intent_core$rationale %||% ""
-    if (interactive) {
-      if (nzchar(rationale)) {
-        cat("\nSuggested rationale:\n")
-        cat(rationale, "\n")
-      }
-      if (length(intent_core$questions %||% list()) > 0) {
-        cat("Questions to clarify:\n")
-        for (q in intent_core$questions) cat(sprintf("  - %s\n", q))
-      }
-      back_to_study_intent <- FALSE
-      repeat {
-        set_dialogue_context("intent_split", "target", context = list(study_intent = studyIntent, target_statement = target_statement, outcome_statement = outcome_statement))
-        inp <- readline_with_navigation(sprintf("Target cohort statement [%s]: ", target_statement))
-        if (is_back_signal(inp)) {
-          back_to_study_intent <- TRUE
+    target_statement <- default_direct_statement("Target", studyIntent)
+    outcome_statement <- default_direct_statement("Outcome", studyIntent)
+
+    if (isTRUE(direct_acquisition_mode)) {
+      if (interactive) {
+        cat("\n== Step 1: Direct cohort acquisition ==\n")
+        back_to_study_intent <- FALSE
+        repeat {
+          set_dialogue_context("intent_split", "target", context = list(study_intent = studyIntent, target_statement = target_statement, outcome_statement = outcome_statement, direct_acquisition_mode = TRUE))
+          inp <- readline_with_navigation(sprintf("Target cohort statement [%s]: ", target_statement))
+          if (is_back_signal(inp)) {
+            back_to_study_intent <- TRUE
+            break
+          }
+          if (nzchar(trimws(inp))) target_statement <- inp
+          set_dialogue_context("intent_split", "outcome", context = list(study_intent = studyIntent, target_statement = target_statement, outcome_statement = outcome_statement, direct_acquisition_mode = TRUE))
+          inp <- readline_with_navigation(sprintf("Outcome cohort statement [%s]: ", outcome_statement))
+          if (is_back_signal(inp)) next
+          if (nzchar(trimws(inp))) outcome_statement <- inp
           break
         }
-        if (nzchar(trimws(inp))) target_statement <- inp
-        set_dialogue_context("intent_split", "outcome", context = list(study_intent = studyIntent, target_statement = target_statement, outcome_statement = outcome_statement))
-        inp <- readline_with_navigation(sprintf("Outcome cohort statement [%s]: ", outcome_statement))
-        if (is_back_signal(inp)) next
-        if (nzchar(trimws(inp))) outcome_statement <- inp
-        break
+        if (isTRUE(back_to_study_intent)) next
       }
-      if (isTRUE(back_to_study_intent)) next
+    } else {
+      if (interactive) {
+        cat("\nConnecting to ACP...\n")
+      }
+      acp_connect(acpUrl)
+
+      if (interactive) {
+        cat("\n== Step 1: Parse study intent into target/outcome statements ==\n")
+      }
+      set_dialogue_context("intent_split", context = list(study_intent = studyIntent))
+      if (maybe_use_cache(intent_split_path, "intent split")) {
+        intent_response <- read_json(intent_split_path)
+      } else {
+        message("Calling ACP flow: phenotype_intent_split")
+        intent_response <- acp_try("/flows/phenotype_intent_split", list(study_intent = studyIntent), "intent_split")
+        write_json(intent_response, intent_split_path)
+      }
+      intent_core <- intent_response$intent_split %||% intent_response
+      target_statement <- intent_core$target_statement %||% ""
+      outcome_statement <- intent_core$outcome_statement %||% ""
+      rationale <- intent_core$rationale %||% ""
+      if (interactive) {
+        if (nzchar(rationale)) {
+          cat("\nSuggested rationale:\n")
+          cat(rationale, "\n")
+        }
+        if (length(intent_core$questions %||% list()) > 0) {
+          cat("Questions to clarify:\n")
+          for (q in intent_core$questions) cat(sprintf("  - %s\n", q))
+        }
+        back_to_study_intent <- FALSE
+        repeat {
+          set_dialogue_context("intent_split", "target", context = list(study_intent = studyIntent, target_statement = target_statement, outcome_statement = outcome_statement))
+          inp <- readline_with_navigation(sprintf("Target cohort statement [%s]: ", target_statement))
+          if (is_back_signal(inp)) {
+            back_to_study_intent <- TRUE
+            break
+          }
+          if (nzchar(trimws(inp))) target_statement <- inp
+          set_dialogue_context("intent_split", "outcome", context = list(study_intent = studyIntent, target_statement = target_statement, outcome_statement = outcome_statement))
+          inp <- readline_with_navigation(sprintf("Outcome cohort statement [%s]: ", outcome_statement))
+          if (is_back_signal(inp)) next
+          if (nzchar(trimws(inp))) outcome_statement <- inp
+          break
+        }
+        if (isTRUE(back_to_study_intent)) next
+      }
     }
     if (!nzchar(trimws(target_statement))) stop("Missing target cohort statement.")
     if (!nzchar(trimws(outcome_statement))) stop("Missing outcome cohort statement.")
@@ -1471,7 +1707,7 @@ Available exploration commands
   selection_manifest_path <- file.path(output_dir, "selected_cohort_sources.json")
 
   repeat {
-    target_source_mode <- choose_selection_source_mode("target")
+    target_source_mode <- choose_selection_source_mode("target", allow_index = !isTRUE(skip_intent_split_and_recommendation))
     if (is_back_signal(target_source_mode)) next
 
     if (identical(target_source_mode, "database")) {
@@ -1759,7 +1995,7 @@ Available exploration commands
 
 
   repeat {
-    outcome_source_mode <- choose_selection_source_mode("outcome")
+    outcome_source_mode <- choose_selection_source_mode("outcome", allow_index = !isTRUE(skip_intent_split_and_recommendation))
     if (is_back_signal(outcome_source_mode)) next
 
     if (identical(outcome_source_mode, "database")) {
@@ -2101,6 +2337,11 @@ Available exploration commands
     study_intent = studyIntent,
     target_statement = target_statement,
     outcome_statement = outcome_statement,
+    skip_intent_split_and_recommendation = isTRUE(skip_intent_split_and_recommendation),
+    skip_phenotype_improvements = isTRUE(skip_phenotype_improvements),
+    direct_acquisition_mode = isTRUE(direct_acquisition_mode),
+    skip_reason = skip_reason,
+    skip_prompt_source = skip_prompt_source,
     output_dir = output_dir,
     selected_dir = selected_dir,
     patched_dir = patched_dir,
@@ -2143,21 +2384,11 @@ Available exploration commands
 
   seed_strategus_runtime_templates <- function(base_dir) {
     db_details_path <- file.path(base_dir, "strategus-db-details.json")
+    cohort_source_db_details_path <- file.path(base_dir, "strategus-cohort-source-db-details.json")
     execution_settings_path <- file.path(base_dir, "strategus-execution-settings.json")
 
-    if (!file.exists(db_details_path)) {
-      write_json(list(
-        dbms = "postgresql",
-        authType = "username_password",
-        DB_SERVER = "",
-        DB_PORT = "5432",
-        DB_USER = "",
-        DB_PASS = "",
-        DB_DRIVER_PATH = "",
-        DATABASECONNECTOR_JAR_FOLDER = "",
-        extraSettings = "sslmode=disable"
-      ), db_details_path)
-    }
+    seed_db_details_template(db_details_path)
+    seed_db_details_template(cohort_source_db_details_path)
 
     if (!file.exists(execution_settings_path)) {
       write_json(list(
@@ -2176,14 +2407,17 @@ Available exploration commands
 
     list(
       db_details_path = db_details_path,
+      cohort_source_db_details_path = cohort_source_db_details_path,
       execution_settings_path = execution_settings_path
     )
   }
 
   runtime_template_paths <- seed_strategus_runtime_templates(base_dir)
   db_details_path <- runtime_template_paths$db_details_path
+  cohort_source_db_details_path <- runtime_template_paths$cohort_source_db_details_path
   execution_settings_path <- runtime_template_paths$execution_settings_path
   state$strategus_db_details_path <- db_details_path
+  state$strategus_cohort_source_db_details_path <- cohort_source_db_details_path
   state$strategus_execution_settings_path <- execution_settings_path
   write_json(state, state_path)
 

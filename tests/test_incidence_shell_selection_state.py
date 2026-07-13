@@ -77,6 +77,7 @@ def test_shell_seeds_runtime_templates_and_generated_scripts_use_them() -> None:
     assert 'seed_strategus_runtime_templates <- function(base_dir)' in source
     assert 'strategus-db-details.json' in source
     assert 'strategus-execution-settings.json' in source
+    assert 'strategus-cohort-source-db-details.json' in source
     assert 'execution_settings_path = execution_settings_path,' in source
 
     script03_start = source.index('script_03 <- c(')
@@ -110,7 +111,7 @@ def test_shell_seeds_runtime_templates_and_generated_scripts_use_them() -> None:
 def test_shell_can_import_existing_database_cohorts() -> None:
     source = SOURCE.read_text(encoding="utf-8")
 
-    assert 'Source for %s cohort [Enter=index search, db=existing database cohort]:' in source
+    assert 'Source for %s cohort [Enter=index search, db=existing database cohort, file=JSON file, dir=directory]:' in source
     assert 'prompt_database_cohort_imports <- function(role_label, allow_multiple = FALSE)' in source
     assert 'selected_cohort_sources.json' in source
     assert 'imported-cohort-definitions' in source
@@ -128,6 +129,28 @@ def test_database_import_helper_requires_simple_expression_json() -> None:
     assert 'Circe SIMPLE_EXPRESSION JSON payload' in source
 
 
+
+
+def test_local_file_import_helpers_and_alias_cache_are_present() -> None:
+    source = IMPORT_HELPER_SOURCE.read_text(encoding="utf-8")
+
+    assert '.studyAgentSlashImportedCohortAliasPath' in source
+    assert '.studyAgentSlashReadFileCohortDefinition' in source
+    assert '.studyAgentSlashImportFileCohortDefinition' in source
+    assert '.studyAgentSlashListLocalCohortDefinitionFiles' in source
+    assert "source_type must be 'file' or 'directory'." in source
+
+
+def test_incidence_shell_supports_file_and_directory_cohort_imports() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+
+    assert 'prompt_file_cohort_imports <- function(role_label, allow_multiple = FALSE)' in source
+    assert 'prompt_directory_cohort_imports <- function(role_label, allow_multiple = FALSE)' in source
+    assert 'strategus-cohort-source-db-details.json' in source
+    assert 'cohort_source_db_details_need_configuration <- function(path)' in source
+    assert 'Database cohort import requires a populated %s.' in source
+    assert 'imported local cohort JSON ids' in source
+
 def test_generated_diagnostics_explorer_launcher_script_is_emitted() -> None:
     source = SOURCE.read_text(encoding="utf-8")
 
@@ -140,3 +163,13 @@ def test_generated_diagnostics_explorer_launcher_script_is_emitted() -> None:
     assert "sqliteDbPath" in block
     assert "createMergedResultsFile" in block
     assert "Run this script in a second R session" in block
+
+
+def test_incidence_shell_supports_direct_cohort_acquisition_bypass() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+
+    assert 'Skip ACP intent split and phenotype recommendation and acquire cohorts directly?' in source
+    assert 'choose_selection_source_mode <- function(role_label, allow_index = TRUE)' in source
+    assert 'Source for %s cohort [db=existing database cohort, file=JSON file, dir=directory]:' in source
+    assert 'default_direct_statement <- function(role_label, study_intent)' in source
+    assert 'direct_acquisition_mode = isTRUE(direct_acquisition_mode)' in source

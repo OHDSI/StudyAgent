@@ -26,12 +26,12 @@ Workflow diagrams live in `docs/WORKFLOW_COHORT_METHODS.md`.
    - `comparatorStatement`
    - one or more outcome statements (`outcomeStatement` remains the primary/first outcome for compatibility)
    - when multiple outcome statements are suggested interactively, choose the subset to keep or enter none/0 to provide a manual outcome before editing or adding statements
-3. Role-specific phenotype recommendation / cache reuse for target, comparator, and outcome cohorts.
+3. Role-specific cohort acquisition for target, comparator, and outcome cohorts using phenotype-index recommendation, an existing cohort-definition database, a local cohort JSON file, or a directory of local cohort JSON files. Recommendation and cache reuse remain available inside this step when the index-backed path is chosen.
    Interactive runs ask for short analysis labels for selected cohorts and the comparison; labels must
    be 100 characters or fewer because downstream Strategus/Characterization result tables use short
    identifier fields.
 4. Optional cohort ID remap step to avoid collisions (`remapCohortIds`).
-5. Copy cohort JSON definitions from `indexDir/definitions` into selected cohort folders.
+5. Normalize the chosen cohort JSON definitions into the workflow's selected cohort folders, including cached imports under `imported-cohort-definitions/` when the source was a database or local file path.
 6. Optional negative control and covariate concept-set IDs are still captured as placeholders.
 7. Configure one analytic-settings profile through `step_by_step`, `free_text`, or cached/function-argument inputs.
    Analytic settings are always collected in this stage and confirmed before finalization.
@@ -152,6 +152,9 @@ Current execution-menu capabilities:
 
 Current behavior notes:
 
+- For target, comparator, and outcome roles, the shell can now acquire cohort definitions from phenotype-index recommendation, an existing database cohort definition, a local cohort JSON file, or a directory of local cohort JSON files. Imported definitions are validated, cached under `imported-cohort-definitions/`, and then treated like local working artifacts for downstream steps.
+- When a database cohort-definition source is used, the shell reads `strategus-cohort-source-db-details.json` instead of the execution-oriented `strategus-db-details.json`, allowing the cohort-definition source DB to differ from the patient-level execution DB.
+
 - Exiting the execution menu asks for confirmation unless the workflow is already complete.
 - Invalid step or exploration input no longer exits the shell; the menu stays active and prints valid choices.
 - `inspect_v <step>` and `explore_v <command-id>` try to open tabular results with `utils::View(...)` when an interactive viewer is available.
@@ -162,6 +165,7 @@ Generated scripts that connect to the database expect these site-specific files 
 `outputDir`:
 
 - Template `strategus-db-details.json`
+  Purpose: execution DB for Strategus / CDM / work / results / vocabulary access.
 
 ```
 {
@@ -188,6 +192,25 @@ For Windows-integrated SQL Server authentication, omit `DB_USER` / `DB_PASS` and
   "DB_DRIVER_PATH": "",
   "DATABASECONNECTOR_JAR_FOLDER": "C:/path/to/sqljdbc_and_auth",
   "extraSettings": ""
+}
+```
+
+- Template `strategus-cohort-source-db-details.json`
+  Purpose: optional separate database connection used only when importing cohort definitions from an existing database schema. This lets sites keep cohort-definition source access separate from the execution DB used for patient-level analytics.
+
+The format matches `strategus-db-details.json`. Example for a postgres-backed cohort-definition source:
+
+```
+{
+  "dbms": "postgresql",
+  "authType": "username_password",
+  "DB_SERVER": "atlas-db-host",
+  "DB_PORT": "5432",
+  "DB_USER": "atlas_reader",
+  "DB_PASS": "change_me",
+  "DB_DRIVER_PATH": "",
+  "DATABASECONNECTOR_JAR_FOLDER": "",
+  "extraSettings": "sslmode=disable"
 }
 ```
 
