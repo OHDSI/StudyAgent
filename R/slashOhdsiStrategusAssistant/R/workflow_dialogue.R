@@ -49,6 +49,36 @@ set_workflow_dialogue_context <- function(dialogue_state,
 #' @param response ACP workflow dialogue response
 #' @return invisible NULL
 #' @export
+
+workflow_dialogue_prompt_width <- function() {
+  option_width <- suppressWarnings(as.integer(getOption("studyAgent.promptWidth", 88L)))
+  console_width <- suppressWarnings(as.integer(getOption("width", 80L)))
+  widths <- c(option_width, console_width)
+  widths <- widths[!is.na(widths) & widths > 20L]
+  if (length(widths) == 0) return(80L)
+  as.integer(min(widths))
+}
+
+wrap_workflow_dialogue_prompt <- function(prompt) {
+  prompt <- as.character(prompt %||% "")
+  if (!nzchar(prompt)) return(prompt)
+  trailing_space <- grepl("[[:space:]]$", prompt)
+  segments <- strsplit(gsub("", "", prompt), "
+", fixed = TRUE)[[1]]
+  width <- workflow_dialogue_prompt_width()
+  wrapped_segments <- vapply(segments, function(segment) {
+    if (!nzchar(segment)) return("")
+    paste(strwrap(segment, width = width, exdent = 2), collapse = "
+")
+  }, character(1))
+  wrapped <- paste(wrapped_segments, collapse = "
+")
+  if (isTRUE(trailing_space) && !grepl("[[:space:]]$", wrapped)) {
+    wrapped <- paste0(wrapped, " ")
+  }
+  wrapped
+}
+
 render_workflow_dialogue_response <- function(response) {
   core <- response$dialogue %||% response
   cat("\n== OHDSI Guidance ==\n")
@@ -161,7 +191,7 @@ new_workflow_dialogue_session <- function(interactive = TRUE,
 
   readline_with_dialogue <- function(prompt, allow_back = FALSE) {
     repeat {
-      entered <- readline(prompt)
+      entered <- readline(wrap_workflow_dialogue_prompt(prompt))
       trimmed <- trimws(as.character(entered %||% ""))
       if (isTRUE(allow_back) && identical(trimmed, "/back")) {
         return(new_workflow_navigation_signal("back"))

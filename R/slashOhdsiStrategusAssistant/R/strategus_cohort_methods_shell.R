@@ -1573,6 +1573,7 @@
 #' @param incidenceOutputDir optional incidence workflow directory for artifact reuse
 #' @param interactive whether to prompt for inputs
 #' @param bannerPath optional path to ASCII banner
+#' @param showBanner when FALSE, suppress the startup ASCII banner
 #' @param studyAgentBaseDir base directory to resolve relative paths
 #' @param reset when TRUE, delete outputDir before running
 #' @param allowCache reuse cached artifacts when present
@@ -1606,6 +1607,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
                                            incidenceOutputDir = "demo-strategus-cohort-incidence",
                                            interactive = TRUE,
                                            bannerPath = "ohdsi-logo-ascii.txt",
+                                           showBanner = TRUE,
                                            studyAgentBaseDir = Sys.getenv("STUDY_AGENT_BASE_DIR", ""),
                                            reset = FALSE,
                                            allowCache = TRUE,
@@ -1662,8 +1664,36 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   )
   dialogue_state <- dialogue_session$state
   set_dialogue_context <- dialogue_session$set_context
-  readline_with_dialogue <- dialogue_session$readline
+  raw_readline_with_dialogue <- dialogue_session$readline
   is_back_signal <- function(value) inherits(value, "workflow_navigation_signal") && identical(value$action %||% "", "back")
+  build_help_mode <- new.env(parent = emptyenv())
+  build_help_mode$enabled <- isTRUE(interactive)
+
+  print_current_build_help <- function() {
+    help_lines <- .studyAgentSlashWorkflowBuildHelpLines(
+      workflow_type = "strategus_cohort_methods",
+      step = dialogue_state$current_step %||% "",
+      role = dialogue_state$current_role %||% "",
+      context = dialogue_state$current_context %||% list()
+    )
+    cat("\nBuild help\n")
+    for (line in help_lines) cat(sprintf("%s\n", line))
+    cat("\n")
+    invisible(NULL)
+  }
+
+  readline_with_dialogue <- function(prompt, allow_back = FALSE) {
+    repeat {
+      entered <- raw_readline_with_dialogue(prompt, allow_back = allow_back)
+      if (is_back_signal(entered) || !isTRUE(build_help_mode$enabled)) return(entered)
+      lowered <- tolower(trimws(as.character(entered %||% "")))
+      if (lowered %in% c("h", "help")) {
+        print_current_build_help()
+        next
+      }
+      return(entered)
+    }
+  }
   readline_with_navigation <- function(prompt) readline_with_dialogue(prompt, allow_back = TRUE)
 
   prompt_yesno <- function(prompt, default = TRUE) {
@@ -2193,6 +2223,18 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     )
   }
 
+  catalog_state <- new.env(parent = emptyenv())
+  catalog_state$loaded <- FALSE
+  catalog_state$data <- NULL
+
+  get_catalog_df <- function() {
+    if (!isTRUE(catalog_state$loaded)) {
+      catalog_state$data <- load_catalog(index_dir)
+      catalog_state$loaded <- TRUE
+    }
+    catalog_state$data
+  }
+
   recommendation_name <- function(rec) {
     first_nonempty(rec$cohortName, rec$phenotype_name, rec$name, "<unknown>")
   }
@@ -2246,7 +2288,8 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     )
   }
 
-  lookup_catalog_value <- function(cohort_id, catalog_df, field = "name", fallback = NULL) {
+  lookup_catalog_value <- function(cohort_id, field = "name", fallback = NULL) {
+    catalog_df <- get_catalog_df()
     idx <- which(catalog_df$cohortId == as.integer(cohort_id))[1]
     if (!is.na(idx)) {
       value <- catalog_df[[field]][[idx]]
@@ -2255,21 +2298,21 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     fallback %||% sprintf("Cohort %s", cohort_id)
   }
 
-  format_cohort_selection_summary <- function(selected_ids, catalog_df) {
+  format_cohort_selection_summary <- function(selected_ids) {
     ids <- as.integer(unique(selected_ids[!is.na(selected_ids)]))
     if (length(ids) == 0) return(NULL)
     labels <- vapply(ids, function(id) {
       sprintf(
         "%s (ID %s)",
-        lookup_catalog_value(id, catalog_df, "name", sprintf("Cohort %s", id)),
+        lookup_catalog_value(id, "name", sprintf("Cohort %s", id)),
         id
       )
     }, character(1))
     paste(labels, collapse = ", ")
   }
 
-  cache_label_with_selection <- function(label, selected_ids, catalog_df) {
-    selection_summary <- format_cohort_selection_summary(selected_ids, catalog_df)
+  cache_label_with_selection <- function(label, selected_ids) {
+    selection_summary <- format_cohort_selection_summary(selected_ids)
     if (is.null(selection_summary) || !nzchar(trimws(selection_summary))) return(label)
     sprintf("%s [%s]", label, selection_summary)
   }
@@ -2309,6 +2352,123 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     default_value <- trimws(as.character(default %||% ""))
     entered <- readline_with_dialogue(sprintf("%s statement [%s]: ", label, default_value))
     if (nzchar(trimws(entered))) trimws(entered) else default_value
+  }
+
+  prompt_statement_navigation <- function(label, default = NULL) {
+    if (!isTRUE(interactive)) return(default)
+    default_value <- trimws(as.character(default %||% ""))
+    entered <- readline_with_navigation(sprintf("%s statement [%s]: ", label, default_value))
+    if (is_back_signal(entered)) return(entered)
+    if (nzchar(trimws(entered))) trimws(entered) else default_value
+  }
+
+  prompt_outcome_statements_navigation <- function(defaults) {
+    defaults <- dedupe_statement_list(defaults)
+    if (!isTRUE(interactive)) return(defaults)
+    if (length(defaults) > 1) {
+      cat("\nSuggested outcome statements:\n")
+      for (i in seq_along(defaults)) {
+        cat(sprintf("  %s. %s\n", i, defaults[[i]]))
+      }
+      default_selection <- paste(seq_along(defaults), collapse = ",")
+      use_manual_outcome <- FALSE
+      repeat {
+        entered <- readline_with_navigation(sprintf(
+          "Keep outcome statements [%s] (comma-separated numbers, 0/none to enter manually, Enter keeps all): ",
+          default_selection
+        ))
+        if (is_back_signal(entered)) return(entered)
+        entered <- trimws(as.character(entered %||% ""))
+        if (!nzchar(entered)) {
+          selected <- seq_along(defaults)
+        } else if (tolower(entered) %in% c("a", "all")) {
+          selected <- seq_along(defaults)
+        } else if (tolower(entered) %in% c("0", "n", "none")) {
+          selected <- integer(0)
+          use_manual_outcome <- TRUE
+        } else {
+          selected <- suppressWarnings(parse_ids(entered))
+          selected <- unique(selected[!is.na(selected)])
+        }
+        invalid <- setdiff(selected, seq_along(defaults))
+        if (!isTRUE(use_manual_outcome) && (length(selected) == 0 || length(invalid) > 0)) {
+          cat(sprintf("Please enter one or more valid outcome numbers, such as 1 or 1,3, or 0/none to enter manually. Valid choices: %s\n", default_selection))
+          next
+        }
+        defaults <- defaults[selected]
+        break
+      }
+      cat("Press Enter to keep each selected statement, or type an edited statement.\n")
+    }
+    if (length(defaults) == 0) {
+      entered <- prompt_statement_navigation("Outcome", default = "")
+      if (is_back_signal(entered)) return(entered)
+      return(dedupe_statement_list(entered))
+    }
+    resolved <- as.character(defaults)
+    idx <- 1L
+    while (idx <= length(resolved)) {
+      label <- if (length(resolved) == 1) "Outcome" else sprintf("Outcome %s", idx)
+      entered <- prompt_statement_navigation(label, default = resolved[[idx]])
+      if (is_back_signal(entered)) {
+        if (idx == 1L) return(entered)
+        idx <- idx - 1L
+        next
+      }
+      resolved[[idx]] <- entered
+      idx <- idx + 1L
+    }
+    repeat {
+      add_another <- prompt_yesno_navigation("Add another outcome statement?", default = FALSE)
+      if (is_back_signal(add_another)) {
+        idx <- length(resolved)
+        while (idx >= 1L) {
+          label <- if (length(resolved) == 1) "Outcome" else sprintf("Outcome %s", idx)
+          entered <- prompt_statement_navigation(label, default = resolved[[idx]])
+          if (is_back_signal(entered)) {
+            if (idx == 1L) return(entered)
+            idx <- idx - 1L
+            next
+          }
+          resolved[[idx]] <- entered
+          break
+        }
+        next
+      }
+      if (!isTRUE(add_another)) break
+      next_label <- sprintf("Outcome %s", length(resolved) + 1L)
+      entered <- prompt_statement_navigation(next_label, default = "")
+      if (is_back_signal(entered)) next
+      resolved <- c(resolved, entered)
+    }
+    dedupe_statement_list(resolved)
+  }
+
+  default_direct_study_intent <- function(target_statement, comparator_statement, outcome_statement) {
+    sprintf(
+      "Compare the rate of occurrence of outcome %s between %s and %s.",
+      trimws(as.character(outcome_statement %||% "")),
+      trimws(as.character(target_statement %||% "")),
+      trimws(as.character(comparator_statement %||% ""))
+    )
+  }
+
+  ensure_study_intent_from_role_statements <- function(study_intent, target_statement, comparator_statement, outcome_statement) {
+    resolved <- trimws(as.character(study_intent %||% ""))
+    if (nzchar(resolved)) return(resolved)
+    template_intent <- default_direct_study_intent(target_statement, comparator_statement, outcome_statement)
+    if (!isTRUE(interactive)) return(template_intent)
+    set_dialogue_context("study_intent", context = list(
+      default_intent = template_intent,
+      target_statement = target_statement,
+      comparator_statement = comparator_statement,
+      outcome_statement = outcome_statement,
+      generated_from_role_statements = TRUE
+    ))
+    entered <- readline_with_navigation(sprintf("Study intent derived from cohort statements [%s]: ", template_intent))
+    if (is_back_signal(entered)) return(entered)
+    entered <- trimws(as.character(entered %||% ""))
+    if (nzchar(entered)) entered else template_intent
   }
 
   acp_timeout_seconds <- function(default = 180) {
@@ -2445,8 +2605,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
         cohort_method_cache$selection$cache_dir,
         cache_label_with_selection(
           selected_cache_label %||% sprintf("%s cohort selection", role_key),
-          cached_selected_ids,
-          catalog_df
+          cached_selected_ids
         )
       )) {
         return(list(
@@ -2472,8 +2631,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
         incidence_cache$selection$cache_dir,
         cache_label_with_selection(
           incidence_cache$selection$label %||% sprintf("incidence %s cohort selection", role_key),
-          incidence_selected_ids,
-          catalog_df
+          incidence_selected_ids
         )
       )) {
         return(list(
@@ -2657,12 +2815,104 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     )
   }
 
-  resolve_index_definition_path <- function(source_id, index_def_dir) {
+  selection_record_from_import <- function(imported) {
+    .studyAgentSlashSelectionRecordFromImport(imported)
+  }
+
+  seed_db_details_template <- function(path) {
+    .studyAgentSlashSeedDbDetailsTemplate(path, write_json = write_json)
+  }
+
+  choose_selection_source_mode <- function(role_label, allow_index = TRUE) {
+    .studyAgentSlashChooseSelectionSourceMode(
+      role_label = role_label,
+      allow_index = allow_index,
+      interactive = interactive,
+      readline_with_navigation = readline_with_navigation,
+      is_back_signal = is_back_signal
+    )
+  }
+
+  direct_role_statement_default <- function(role_label, study_intent) {
+    intent <- trimws(as.character(study_intent %||% ""))
+    if (nzchar(intent)) {
+      sprintf("%s cohort provided directly for study intent: %s", role_label, intent)
+    } else {
+      sprintf("%s cohort provided directly by user", role_label)
+    }
+  }
+
+  cohort_source_db_details_need_configuration <- function(path) {
+    .studyAgentSlashCohortSourceDbDetailsNeedConfiguration(path, readStrategusDbDetails = readStrategusDbDetails)
+  }
+
+  prompt_database_cohort_imports <- function(role_label, allow_multiple = FALSE) {
+    .studyAgentSlashPromptDatabaseCohortImports(
+      role_label = role_label,
+      allow_multiple = allow_multiple,
+      base_dir = base_dir,
+      imported_definition_dir = imported_definition_dir,
+      interactive = interactive,
+      readline_with_navigation = readline_with_navigation,
+      readline_with_dialogue = readline_with_dialogue,
+      is_back_signal = is_back_signal,
+      write_json = write_json,
+      readStrategusDbDetails = readStrategusDbDetails,
+      normalizeStrategusDbConfig = normalizeStrategusDbConfig,
+      createStrategusConnectionDetails = createStrategusConnectionDetails
+    )
+  }
+
+  prompt_file_cohort_imports <- function(role_label, allow_multiple = FALSE) {
+    .studyAgentSlashPromptFileCohortImports(
+      role_label = role_label,
+      allow_multiple = allow_multiple,
+      imported_definition_dir = imported_definition_dir,
+      readline_with_navigation = readline_with_navigation,
+      is_back_signal = is_back_signal
+    )
+  }
+
+  prompt_directory_cohort_imports <- function(role_label, allow_multiple = FALSE) {
+    .studyAgentSlashPromptDirectoryCohortImports(
+      role_label = role_label,
+      allow_multiple = allow_multiple,
+      imported_definition_dir = imported_definition_dir,
+      interactive = interactive,
+      readline_with_navigation = readline_with_navigation,
+      readline_with_dialogue = readline_with_dialogue,
+      is_back_signal = is_back_signal
+    )
+  }
+
+  default_cohort_id_from_source <- function(source_id) {
+    source_id <- trimws(as.character(source_id %||% ""))
+    if (!nzchar(source_id)) return(NA_integer_)
+    if (grepl("^ohdsi:[0-9]+$", source_id)) {
+      return(suppressWarnings(as.integer(sub("^ohdsi:", "", source_id))))
+    }
+    if (grepl("^db:[A-Za-z][A-Za-z0-9_]*:[0-9]+$", source_id)) {
+      return(suppressWarnings(as.integer(sub("^db:[A-Za-z][A-Za-z0-9_]*:([0-9]+)$", "\\1", source_id))))
+    }
+    if (grepl("^(file|dir):[0-9]+:[A-Za-z0-9_.-]+$", source_id)) {
+      return(suppressWarnings(as.integer(sub("^(file|dir):([0-9]+):[A-Za-z0-9_.-]+$", "\\2", source_id))))
+    }
+    suppressWarnings(as.integer(source_id))
+  }
+
+  resolve_index_definition_path <- function(source_id, index_def_dir, imported_def_dir = NULL) {
     source_text <- trimws(as.character(source_id %||% ""))
+    if (grepl("^(db:[A-Za-z][A-Za-z0-9_]*:[0-9]+|file:[0-9]+:[A-Za-z0-9_.-]+|dir:[0-9]+:[A-Za-z0-9_.-]+)$", source_text)) {
+      candidate <- .studyAgentSlashImportedCohortDefinitionPath(source_text, imported_def_dir)
+      if (file.exists(candidate)) return(candidate)
+    }
     candidates <- character(0)
     if (nzchar(source_text)) {
       candidates <- c(candidates, file.path(index_def_dir, sprintf("%s.json", source_text)))
       if (grepl("^[0-9]+$", source_text)) {
+        if (!is.null(imported_def_dir) && nzchar(as.character(imported_def_dir))) {
+          candidates <- c(candidates, .studyAgentSlashImportedCohortAliasPath(source_text, imported_def_dir))
+        }
         candidates <- c(candidates, file.path(index_def_dir, sprintf("ohdsi__%s.json", source_text)))
       }
       if (grepl("^[A-Za-z0-9_]+:[A-Za-z0-9_.-]+$", source_text)) {
@@ -2678,8 +2928,8 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     hit
   }
 
-  copy_cohort_json_multi <- function(source_id, dest_id, dest_dirs, index_def_dir) {
-    src <- resolve_index_definition_path(source_id, index_def_dir)
+  copy_cohort_json_multi <- function(source_id, dest_id, dest_dirs, index_def_dir, imported_def_dir = NULL) {
+    src <- resolve_index_definition_path(source_id, index_def_dir, imported_def_dir = imported_def_dir)
     if (is.na(src) || !file.exists(src)) {
       stop(sprintf("Cohort JSON not found for source %s in %s", source_id, index_def_dir))
     }
@@ -2975,7 +3225,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   }
 
   assert_cohort_json_exists <- function(source_id, index_def_dir, label) {
-    src <- resolve_index_definition_path(source_id, index_def_dir)
+    src <- resolve_index_definition_path(source_id, index_def_dir, imported_definition_dir)
     if (is.na(src) || !file.exists(src)) {
       stop(sprintf("%s cohort JSON not found for source %s in %s", label, source_id, index_def_dir))
     }
@@ -2983,7 +3233,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   }
 
   cohort_json_exists <- function(source_id, index_def_dir) {
-    src <- resolve_index_definition_path(source_id, index_def_dir)
+    src <- resolve_index_definition_path(source_id, index_def_dir, imported_definition_dir)
     !is.na(src) && file.exists(src)
   }
 
@@ -3715,7 +3965,6 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   incidence_base_dir <- normalizePath(incidence_base_dir, winslash = "/", mustWork = FALSE)
   index_dir <- resolve_path(indexDir, study_base_dir)
   index_dir <- normalizePath(index_dir, winslash = "/", mustWork = FALSE)
-  catalog_df <- load_catalog(index_dir)
   analytic_settings_description_path_resolved <- if (is.null(analyticSettingsDescriptionPath)) {
     NULL
   } else {
@@ -3741,6 +3990,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   keeper_dir <- file.path(base_dir, "keeper-case-review")
   analysis_settings_dir <- file.path(base_dir, "analysis-settings")
   scripts_dir <- file.path(base_dir, "scripts")
+  imported_definition_dir <- file.path(base_dir, "imported-cohort-definitions")
   cm_results_dir <- file.path(base_dir, "cm-results")
   cm_diagnostics_dir <- file.path(base_dir, "cm-diagnostics")
   cm_data_dir <- file.path(base_dir, "cm-data")
@@ -3749,8 +3999,8 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     output_dir, selected_dir, patched_dir, selected_target_dir, selected_comparator_dir,
     selected_outcome_dir, patched_target_dir, patched_comparator_dir, patched_outcome_dir,
     concept_sets_dir,
-    keeper_dir, analysis_settings_dir, scripts_dir, cm_results_dir, cm_diagnostics_dir,
-    cm_data_dir
+    keeper_dir, analysis_settings_dir, scripts_dir, imported_definition_dir,
+    cm_results_dir, cm_diagnostics_dir, cm_data_dir
   )
   for (dir_path in dirs) ensure_dir(dir_path)
 
@@ -4149,6 +4399,11 @@ Available exploration commands
   run_execution_menu <- function(prompt_first = TRUE) {
     if (!isTRUE(interactive)) return(invisible(list(action = "exit")))
     if (!file.exists(project_state_path) || !file.exists(runtime_state_path)) return(invisible(list(action = "exit")))
+    prior_build_help_mode <- isTRUE(build_help_mode$enabled)
+    build_help_mode$enabled <- FALSE
+    on.exit({
+      build_help_mode$enabled <- prior_build_help_mode
+    }, add = TRUE)
     valid_revise_scopes <- c("build", "intent", "target", "comparator", "outcome")
     normalize_revise_scope <- function(command_text) {
       if (command_text %in% c("rev", "revise")) return("build")
@@ -4378,7 +4633,7 @@ Available exploration commands
       alt <- file.path(getwd(), "OHDSI-Study-Agent", bannerPath)
       if (file.exists(alt)) banner_path <- normalizePath(alt, winslash = "/", mustWork = FALSE)
     }
-    if (file.exists(banner_path)) {
+    if (isTRUE(showBanner) && file.exists(banner_path)) {
       cat(paste(readLines(banner_path, warn = FALSE), collapse = "\n"), "\n")
     }
     cat("\nStudy Agent: Strategus CohortMethod shell\n")
@@ -4414,11 +4669,14 @@ Available exploration commands
   }
 
   default_intent <- studyIntent %||% cached_inputs$study_intent %||%
-    "Compare a target exposure versus a comparator exposure on one or more outcomes using a cohort method design."
+    ""
   repeat {
+    blank_study_intent_direct <- FALSE
     if (isTRUE(interactive)) {
       set_dialogue_context("study_intent", context = list(default_intent = default_intent))
-      entered <- readline_with_navigation(sprintf("Study intent [%s]: ", default_intent))
+      entered <- readline_with_navigation(sprintf(
+        "Study intent [Enter to acquire cohorts directly]: "
+      ))
       if (is_back_signal(entered)) {
         cat("Already at the first step\n")
         next
@@ -4426,7 +4684,8 @@ Available exploration commands
       if (nzchar(trimws(entered))) {
         studyIntent <- entered
       } else {
-        studyIntent <- default_intent
+        studyIntent <- ""
+        blank_study_intent_direct <- TRUE
       }
     } else if (is.null(studyIntent) || !nzchar(trimws(studyIntent))) {
       studyIntent <- default_intent
@@ -4584,23 +4843,50 @@ Available exploration commands
     length(explicit_comparator_ids_from_args) == 1 &&
     length(explicit_outcome_ids_from_args) > 0
   skip_intent_split_and_recommendation <- FALSE
+  direct_acquisition_mode <- FALSE
+  skip_phenotype_improvements <- FALSE
+  skip_reason <- NULL
+  skip_prompt_source <- "not_prompted"
   explicit_outcome_statements_from_args <- character(0)
   if (isTRUE(all_cohort_ids_from_function_args) && isTRUE(interactive)) {
     cat("\nAll target, comparator, and outcome cohort IDs were provided as function arguments:\n")
-    cat(sprintf("  Target: %s\n", format_cohort_selection_summary(explicit_target_ids_from_args, catalog_df)))
-    cat(sprintf("  Comparator: %s\n", format_cohort_selection_summary(explicit_comparator_ids_from_args, catalog_df)))
-    cat(sprintf("  Outcome: %s\n", format_cohort_selection_summary(explicit_outcome_ids_from_args, catalog_df)))
+    cat(sprintf("  Target: %s\n", format_cohort_selection_summary(explicit_target_ids_from_args)))
+    cat(sprintf("  Comparator: %s\n", format_cohort_selection_summary(explicit_comparator_ids_from_args)))
+    cat(sprintf("  Outcome: %s\n", format_cohort_selection_summary(explicit_outcome_ids_from_args)))
     skip_intent_split_and_recommendation <- prompt_yesno(
       "Skip study intent split, phenotype recommendation, and phenotype improvements, and use these cohort IDs directly?",
       default = TRUE
     )
+    if (isTRUE(skip_intent_split_and_recommendation)) {
+      skip_phenotype_improvements <- TRUE
+      skip_reason <- "all_cohort_ids_provided"
+      skip_prompt_source <- "interactive_user_choice"
+    }
+  }
+  if (!isTRUE(skip_intent_split_and_recommendation) && isTRUE(blank_study_intent_direct)) {
+    direct_acquisition_mode <- TRUE
+    skip_intent_split_and_recommendation <- TRUE
+    skip_phenotype_improvements <- FALSE
+    skip_reason <- "blank_study_intent_direct_acquisition"
+    skip_prompt_source <- "blank_study_intent"
+  } else if (!isTRUE(skip_intent_split_and_recommendation) && isTRUE(interactive)) {
+    direct_acquisition_mode <- prompt_yesno(
+      "Skip ACP intent split and enter cohort role statements directly?",
+      default = FALSE
+    )
+    if (isTRUE(direct_acquisition_mode)) {
+      skip_intent_split_and_recommendation <- TRUE
+      skip_phenotype_improvements <- FALSE
+      skip_reason <- "interactive_direct_acquisition"
+      skip_prompt_source <- "interactive_user_choice"
+    }
   }
 
   cohort_id_statement <- function(role_label, ids) {
     ids <- as.integer(ids[!is.na(ids)])
     if (length(ids) == 0) return(NULL)
     labels <- vapply(ids, function(id) {
-      lookup_catalog_value(id, catalog_df, "name", sprintf("Cohort %s", id))
+      lookup_catalog_value(id, "name", sprintf("Cohort %s", id))
     }, character(1))
     if (length(ids) == 1) {
       return(sprintf("%s cohort: %s (ID %s)", role_label, labels[[1]], ids[[1]]))
@@ -4610,26 +4896,45 @@ Available exploration commands
   }
 
   if (isTRUE(skip_intent_split_and_recommendation)) {
-    target_statement_default <- first_nonempty(
-      target_statement_default,
-      cohort_id_statement("Target", explicit_target_ids_from_args)
-    )
-    comparator_statement_default <- first_nonempty(
-      comparator_statement_default,
-      cohort_id_statement("Comparator", explicit_comparator_ids_from_args)
-    )
-    explicit_outcome_statements_from_args <- vapply(explicit_outcome_ids_from_args, function(id) {
-      cohort_id_statement("Outcome", as.integer(id))
-    }, character(1))
-    outcome_statement_default <- first_nonempty(
-      outcome_statement_default,
-      explicit_outcome_statements_from_args
-    )
-    outcome_statements_default <- combine_statement_list(
-      outcome_statement_default,
-      outcome_statements_default,
-      explicit_outcome_statements_from_args
-    )
+    if (isTRUE(direct_acquisition_mode)) {
+      target_statement_default <- first_nonempty(
+        target_statement_default,
+        direct_role_statement_default("Target", studyIntent)
+      )
+      comparator_statement_default <- first_nonempty(
+        comparator_statement_default,
+        direct_role_statement_default("Comparator", studyIntent)
+      )
+      outcome_statement_default <- first_nonempty(
+        outcome_statement_default,
+        direct_role_statement_default("Outcome", studyIntent)
+      )
+      outcome_statements_default <- combine_statement_list(
+        outcome_statement_default,
+        outcome_statements_default
+      )
+    } else {
+      target_statement_default <- first_nonempty(
+        target_statement_default,
+        cohort_id_statement("Target", explicit_target_ids_from_args)
+      )
+      comparator_statement_default <- first_nonempty(
+        comparator_statement_default,
+        cohort_id_statement("Comparator", explicit_comparator_ids_from_args)
+      )
+      explicit_outcome_statements_from_args <- vapply(explicit_outcome_ids_from_args, function(id) {
+        cohort_id_statement("Outcome", as.integer(id))
+      }, character(1))
+      outcome_statement_default <- first_nonempty(
+        outcome_statement_default,
+        explicit_outcome_statements_from_args
+      )
+      outcome_statements_default <- combine_statement_list(
+        outcome_statement_default,
+        outcome_statements_default,
+        explicit_outcome_statements_from_args
+      )
+    }
   }
 
   cohort_methods_intent_split_source <- "not_run"
@@ -4640,10 +4945,14 @@ Available exploration commands
     nonempty_string(outcome_statement_default)
 
   if (isTRUE(skip_intent_split_and_recommendation)) {
-    cohort_methods_intent_split_source <- "skipped_explicit_cohort_ids"
+    cohort_methods_intent_split_source <- if (isTRUE(direct_acquisition_mode)) "interactive_direct_acquisition" else "skipped_explicit_cohort_ids"
     cohort_methods_intent_split_status <- "skipped"
     if (isTRUE(interactive)) {
-      cat("\nSkipping study intent split, phenotype recommendation, and phenotype improvements for explicit cohort IDs.\n")
+      if (isTRUE(direct_acquisition_mode)) {
+        cat("\nSkipping study intent split and using manually entered cohort role statements.\n")
+      } else {
+        cat("\nSkipping study intent split, phenotype recommendation, and phenotype improvements for explicit cohort IDs.\n")
+      }
     }
   } else if (!isTRUE(have_all_statement_defaults)) {
     if (isTRUE(interactive)) {
@@ -4718,31 +5027,64 @@ Available exploration commands
 
   outcome_statements_default <- combine_statement_list(outcome_statement_default, outcome_statements_default)
 
-  if (isTRUE(skip_intent_split_and_recommendation)) {
+  if (isTRUE(skip_intent_split_and_recommendation) && !isTRUE(direct_acquisition_mode)) {
     targetStatement <- target_statement_default
     comparatorStatement <- comparator_statement_default
     outcomeStatements <- outcome_statements_default
     outcomeStatement <- first_nonempty(outcomeStatements)
   } else {
-    set_dialogue_context("intent_split", "target", context = list(
-      target_statement = target_statement_default,
-      comparator_statement = comparator_statement_default,
-      outcome_statements = outcome_statements_default
-    ))
-    targetStatement <- prompt_statement("Target", default = target_statement_default)
-    set_dialogue_context("intent_split", "comparator", context = list(
-      target_statement = targetStatement,
-      comparator_statement = comparator_statement_default,
-      outcome_statements = outcome_statements_default
-    ))
-    comparatorStatement <- prompt_statement("Comparator", default = comparator_statement_default)
-    set_dialogue_context("intent_split", "outcome", context = list(
-      target_statement = targetStatement,
-      comparator_statement = comparatorStatement,
-      outcome_statements = outcome_statements_default
-    ))
-    outcomeStatements <- prompt_outcome_statements(outcome_statements_default)
+    statement_step <- "target"
+    back_to_study_intent <- FALSE
+    targetStatement <- target_statement_default
+    comparatorStatement <- comparator_statement_default
+    outcomeStatements <- outcome_statements_default
     outcomeStatement <- first_nonempty(outcomeStatements)
+    repeat {
+      if (identical(statement_step, "target")) {
+        set_dialogue_context("intent_split", "target", context = list(
+          target_statement = targetStatement,
+          comparator_statement = comparatorStatement,
+          outcome_statements = outcomeStatements
+        ))
+        entered <- prompt_statement_navigation("Target", default = targetStatement)
+        if (is_back_signal(entered)) {
+          back_to_study_intent <- TRUE
+          break
+        }
+        targetStatement <- entered
+        statement_step <- "comparator"
+        next
+      }
+      if (identical(statement_step, "comparator")) {
+        set_dialogue_context("intent_split", "comparator", context = list(
+          target_statement = targetStatement,
+          comparator_statement = comparatorStatement,
+          outcome_statements = outcomeStatements
+        ))
+        entered <- prompt_statement_navigation("Comparator", default = comparatorStatement)
+        if (is_back_signal(entered)) {
+          statement_step <- "target"
+          next
+        }
+        comparatorStatement <- entered
+        statement_step <- "outcome"
+        next
+      }
+      set_dialogue_context("intent_split", "outcome", context = list(
+        target_statement = targetStatement,
+        comparator_statement = comparatorStatement,
+        outcome_statements = outcomeStatements
+      ))
+      entered <- prompt_outcome_statements_navigation(outcomeStatements)
+      if (is_back_signal(entered)) {
+        statement_step <- "comparator"
+        next
+      }
+      outcomeStatements <- entered
+      outcomeStatement <- first_nonempty(outcomeStatements)
+      break
+    }
+    if (isTRUE(back_to_study_intent)) next
   }
 
   if (!nonempty_string(targetStatement) || !nonempty_string(comparatorStatement) || !nonempty_string(outcomeStatement)) {
@@ -4752,6 +5094,14 @@ Available exploration commands
       "reuse a valid cache, or run ACP with /flows/cohort_methods_intent_split available."
     )
   }
+
+  studyIntent <- ensure_study_intent_from_role_statements(
+    study_intent = studyIntent,
+    target_statement = targetStatement,
+    comparator_statement = comparatorStatement,
+    outcome_statement = outcomeStatement
+  )
+  if (is_back_signal(studyIntent)) next
 
   if (isTRUE(interactive)) {
     gate <- readline_with_navigation("Press Enter to continue to target cohort selection, or type /back: ")
@@ -4804,45 +5154,91 @@ Available exploration commands
     }
   }
   improvements_results <- list()
-  use_function_argument_ids_for_selection <- !(
-    isTRUE(all_cohort_ids_from_function_args) &&
-      isTRUE(interactive) &&
+  use_function_argument_ids_for_selection <- isTRUE(all_cohort_ids_from_function_args) && !(
+    isTRUE(interactive) &&
       !isTRUE(skip_intent_split_and_recommendation)
   )
   preferred_target_ids <- if (isTRUE(use_function_argument_ids_for_selection)) targetCohortId else NULL
   preferred_comparator_ids <- if (isTRUE(use_function_argument_ids_for_selection)) comparatorCohortId else NULL
 
   repeat {
-  target_rec <- run_role_recommendation(
-    role_label = "Target",
-    statement = targetStatement,
-    output_path = recs_target_path,
-    top_k = topK,
-    max_results = maxResults,
-    candidate_limit = candidateLimit,
-    allow_multiple = FALSE,
-    preferred_selected_ids = if (isTRUE(should_force_role_reselection("target"))) NULL else preferred_target_ids,
-    preferred_selection_source = "function_argument",
-    cached_selected_ids = if (isTRUE(should_force_role_reselection("target"))) NULL else cached_inputs$target_cohort_id %||% NULL,
-    selected_cache_label = "target cohort selection",
-    selected_cache_dir = selected_target_dir,
-    cohort_method_cache = list(
-      selection = list(
-        selected_ids = if (isTRUE(should_force_role_reselection("target"))) NULL else cached_cm_target_selection$selected_ids %||% NULL,
-        cache_dir = selected_target_dir
+  if (isTRUE(skip_intent_split_and_recommendation) && isTRUE(all_cohort_ids_from_function_args) && !isTRUE(direct_acquisition_mode)) {
+    target_rec <- list(
+      selected_ids = as.integer(explicit_target_ids_from_args),
+      selected_source_id = as.character(explicit_target_ids_from_args[[1]]),
+      selection_source = "function_argument_direct",
+      recommendation_path = json_string_or_null(NULL),
+      recommendation_source = "function_argument_direct",
+      used_cached_recommendation = FALSE,
+      used_cached_selection = FALSE,
+      used_window2 = FALSE,
+      used_advice = FALSE,
+      statement = targetStatement
+    )
+  } else {
+    target_source_mode <- choose_selection_source_mode("target", allow_index = !isTRUE(skip_intent_split_and_recommendation) || isTRUE(direct_acquisition_mode))
+    if (is_back_signal(target_source_mode)) next
+
+    imported_target_selection <- .studyAgentSlashAcquireImportedRoleSelection(
+      source_mode = target_source_mode,
+      role_label = "target",
+      allow_multiple = FALSE,
+      interactive = interactive,
+      prompt_database_imports = prompt_database_cohort_imports,
+      prompt_file_imports = prompt_file_cohort_imports,
+      prompt_directory_imports = prompt_directory_cohort_imports,
+      selection_record_from_import = selection_record_from_import
+    )
+    if (is_back_signal(imported_target_selection)) next
+
+    if (!is.null(imported_target_selection)) {
+      if (!identical(imported_target_selection$action %||% "", "handled")) next
+      imported_target <- imported_target_selection$imported[[1]]
+      target_rec <- list(
+        selected_ids = as.integer(imported_target_selection$selected_ids),
+        selected_source_id = as.character(imported_target$source_id %||% ""),
+        selection_source = paste0(target_source_mode, "_import"),
+        recommendation_path = json_string_or_null(NULL),
+        recommendation_source = paste0(target_source_mode, "_import"),
+        used_cached_recommendation = FALSE,
+        used_cached_selection = FALSE,
+        used_window2 = FALSE,
+        used_advice = FALSE,
+        statement = targetStatement
       )
-    ),
-    incidence_cache = list(
-      selection = list(
-        selected_ids = if (isTRUE(should_force_role_reselection("target"))) NULL else cached_incidence_target_selection$selected_ids %||% NULL,
-        cache_dir = incidence_selected_target_dir,
-        label = "incidence target cohort selection"
-      )
-    ),
-    recommendation_role = "target",
-    workflow_type = "cohort_methods",
-    exclude_metadata = list(executable_definition_status = list("codes_only"))
-  )
+    } else {
+    target_rec <- run_role_recommendation(
+      role_label = "Target",
+      statement = targetStatement,
+      output_path = recs_target_path,
+      top_k = topK,
+      max_results = maxResults,
+      candidate_limit = candidateLimit,
+      allow_multiple = FALSE,
+      preferred_selected_ids = if (isTRUE(should_force_role_reselection("target"))) NULL else preferred_target_ids,
+      preferred_selection_source = "function_argument",
+      cached_selected_ids = if (isTRUE(should_force_role_reselection("target"))) NULL else cached_inputs$target_cohort_id %||% NULL,
+      selected_cache_label = "target cohort selection",
+      selected_cache_dir = selected_target_dir,
+      cohort_method_cache = list(
+        selection = list(
+          selected_ids = if (isTRUE(should_force_role_reselection("target"))) NULL else cached_cm_target_selection$selected_ids %||% NULL,
+          cache_dir = selected_target_dir
+        )
+      ),
+      incidence_cache = list(
+        selection = list(
+          selected_ids = if (isTRUE(should_force_role_reselection("target"))) NULL else cached_incidence_target_selection$selected_ids %||% NULL,
+          cache_dir = incidence_selected_target_dir,
+          label = "incidence target cohort selection"
+        )
+      ),
+      recommendation_role = "target",
+      workflow_type = "cohort_methods",
+      exclude_metadata = list(executable_definition_status = list("codes_only"))
+    )
+  }
+  }
 
   targetCohortId <- resolve_single_selection(
     selected_ids = target_rec$selected_ids,
@@ -4871,8 +5267,7 @@ Available exploration commands
     outcomeCohortIds,
     cached_inputs$target_cohort_id %||% NULL,
     cached_inputs$comparator_cohort_id %||% NULL,
-    cached_inputs$outcome_cohort_ids %||% NULL,
-    catalog_df$cohortId
+    cached_inputs$outcome_cohort_ids %||% NULL
   )))
   default_cohort_id_base_ids <- default_cohort_id_base_ids[!is.na(default_cohort_id_base_ids)]
   default_cohort_id_base <- if (length(default_cohort_id_base_ids) > 0) {
@@ -4904,16 +5299,17 @@ Available exploration commands
     as.integer(new_ids)
   }
   new_target_id <- map_ids(selected_target_id)
-  copy_cohort_json_multi(selected_target_id, new_target_id, c(selected_target_dir, selected_dir), index_def_dir)
+  target_source_for_copy <- target_rec$selected_source_id %||% selected_target_id
+  copy_cohort_json_multi(target_source_for_copy, new_target_id, c(selected_target_dir, selected_dir), index_def_dir, imported_def_dir = imported_definition_dir)
   ensure_patched_outputs_cleared()
-  improvements_results$target <- if (isTRUE(skip_intent_split_and_recommendation)) {
+  improvements_results$target <- if (isTRUE(skip_phenotype_improvements)) {
     skipped_role_improvements(
       role_key = "target",
       role_label = "Target",
       cohort_ids = new_target_id,
       patched_role_dir = patched_target_dir,
       improvements_path = improvements_target_path,
-      reason = "explicit_cohort_ids_skip_confirmed"
+      reason = skip_reason %||% "direct_cohort_acquisition_skip_confirmed"
     )
   } else {
     run_role_improvement_gate(
@@ -4933,36 +5329,83 @@ Available exploration commands
   }
 
   repeat {
-  comparator_rec <- run_role_recommendation(
-    role_label = "Comparator",
-    statement = comparatorStatement,
-    output_path = recs_comparator_path,
-    top_k = topK,
-    max_results = maxResults,
-    candidate_limit = candidateLimit,
-    allow_multiple = FALSE,
-    preferred_selected_ids = if (isTRUE(should_force_role_reselection("comparator"))) NULL else preferred_comparator_ids,
-    preferred_selection_source = "function_argument",
-    cached_selected_ids = if (isTRUE(should_force_role_reselection("comparator"))) NULL else cached_inputs$comparator_cohort_id %||% NULL,
-    selected_cache_label = "comparator cohort selection",
-    selected_cache_dir = selected_comparator_dir,
-    cohort_method_cache = list(
-      selection = list(
-        selected_ids = if (isTRUE(should_force_role_reselection("comparator"))) NULL else cached_cm_comparator_selection$selected_ids %||% NULL,
-        cache_dir = selected_comparator_dir
+  if (isTRUE(skip_intent_split_and_recommendation) && isTRUE(all_cohort_ids_from_function_args) && !isTRUE(direct_acquisition_mode)) {
+    comparator_rec <- list(
+      selected_ids = as.integer(explicit_comparator_ids_from_args),
+      selected_source_id = as.character(explicit_comparator_ids_from_args[[1]]),
+      selection_source = "function_argument_direct",
+      recommendation_path = json_string_or_null(NULL),
+      recommendation_source = "function_argument_direct",
+      used_cached_recommendation = FALSE,
+      used_cached_selection = FALSE,
+      used_window2 = FALSE,
+      used_advice = FALSE,
+      statement = comparatorStatement
+    )
+  } else {
+    comparator_source_mode <- choose_selection_source_mode("comparator", allow_index = !isTRUE(skip_intent_split_and_recommendation) || isTRUE(direct_acquisition_mode))
+    if (is_back_signal(comparator_source_mode)) next
+
+    imported_comparator_selection <- .studyAgentSlashAcquireImportedRoleSelection(
+      source_mode = comparator_source_mode,
+      role_label = "comparator",
+      allow_multiple = FALSE,
+      interactive = interactive,
+      prompt_database_imports = prompt_database_cohort_imports,
+      prompt_file_imports = prompt_file_cohort_imports,
+      prompt_directory_imports = prompt_directory_cohort_imports,
+      selection_record_from_import = selection_record_from_import
+    )
+    if (is_back_signal(imported_comparator_selection)) next
+
+    if (!is.null(imported_comparator_selection)) {
+      if (!identical(imported_comparator_selection$action %||% "", "handled")) next
+      imported_comparator <- imported_comparator_selection$imported[[1]]
+      comparator_rec <- list(
+        selected_ids = as.integer(imported_comparator_selection$selected_ids),
+        selected_source_id = as.character(imported_comparator$source_id %||% ""),
+        selection_source = paste0(comparator_source_mode, "_import"),
+        recommendation_path = json_string_or_null(NULL),
+        recommendation_source = paste0(comparator_source_mode, "_import"),
+        used_cached_recommendation = FALSE,
+        used_cached_selection = FALSE,
+        used_window2 = FALSE,
+        used_advice = FALSE,
+        statement = comparatorStatement
       )
-    ),
-    incidence_cache = list(
-      selection = list(
-        selected_ids = NULL,
-        cache_dir = NULL,
-        label = NULL
-      )
-    ),
-    recommendation_role = "comparator",
-    workflow_type = "cohort_methods",
-    exclude_metadata = list(executable_definition_status = list("codes_only"))
-  )
+    } else {
+    comparator_rec <- run_role_recommendation(
+      role_label = "Comparator",
+      statement = comparatorStatement,
+      output_path = recs_comparator_path,
+      top_k = topK,
+      max_results = maxResults,
+      candidate_limit = candidateLimit,
+      allow_multiple = FALSE,
+      preferred_selected_ids = if (isTRUE(should_force_role_reselection("comparator"))) NULL else preferred_comparator_ids,
+      preferred_selection_source = "function_argument",
+      cached_selected_ids = if (isTRUE(should_force_role_reselection("comparator"))) NULL else cached_inputs$comparator_cohort_id %||% NULL,
+      selected_cache_label = "comparator cohort selection",
+      selected_cache_dir = selected_comparator_dir,
+      cohort_method_cache = list(
+        selection = list(
+          selected_ids = if (isTRUE(should_force_role_reselection("comparator"))) NULL else cached_cm_comparator_selection$selected_ids %||% NULL,
+          cache_dir = selected_comparator_dir
+        )
+      ),
+      incidence_cache = list(
+        selection = list(
+          selected_ids = NULL,
+          cache_dir = NULL,
+          label = NULL
+        )
+      ),
+      recommendation_role = "comparator",
+      workflow_type = "cohort_methods",
+      exclude_metadata = list(executable_definition_status = list("codes_only"))
+    )
+  }
+  }
 
   comparatorCohortId <- resolve_single_selection(
     selected_ids = comparator_rec$selected_ids,
@@ -4985,15 +5428,16 @@ Available exploration commands
   }
   selected_comparator_id <- as.integer(comparatorCohortId)
   new_comparator_id <- map_ids(selected_comparator_id)
-  copy_cohort_json_multi(selected_comparator_id, new_comparator_id, c(selected_comparator_dir, selected_dir), index_def_dir)
-  improvements_results$comparator <- if (isTRUE(skip_intent_split_and_recommendation)) {
+  comparator_source_for_copy <- comparator_rec$selected_source_id %||% selected_comparator_id
+  copy_cohort_json_multi(comparator_source_for_copy, new_comparator_id, c(selected_comparator_dir, selected_dir), index_def_dir, imported_def_dir = imported_definition_dir)
+  improvements_results$comparator <- if (isTRUE(skip_phenotype_improvements)) {
     skipped_role_improvements(
       role_key = "comparator",
       role_label = "Comparator",
       cohort_ids = new_comparator_id,
       patched_role_dir = patched_comparator_dir,
       improvements_path = improvements_comparator_path,
-      reason = "explicit_cohort_ids_skip_confirmed"
+      reason = skip_reason %||% "direct_cohort_acquisition_skip_confirmed"
     )
   } else {
     run_role_improvement_gate(
@@ -5013,83 +5457,130 @@ Available exploration commands
   }
 
   repeat {
-  cached_input_outcome_ids <- if (isTRUE(should_force_role_reselection("outcome"))) integer(0) else normalize_selected_ids(
-    cached_inputs$outcome_cohort_ids %||% NULL,
-    "cached outcome cohort IDs",
-    allow_multiple = TRUE
-  )
-  preferred_outcome_ids <- normalize_selected_ids(
-    if (isTRUE(should_force_role_reselection("outcome"))) NULL else if (isTRUE(use_function_argument_ids_for_selection)) outcomeCohortIds else NULL,
-    "Outcome cohort IDs",
-    allow_multiple = TRUE
-  )
-  preferred_outcome_source <- "function_argument"
-  if (length(preferred_outcome_ids) == 0 &&
-      length(outcomeStatements) <= 1 &&
-      length(cached_input_outcome_ids) > 0) {
-    preferred_outcome_ids <- cached_input_outcome_ids
-    preferred_outcome_source <- "cached_manual_input"
-  }
-  outcome_recommendation_path <- function(i) {
-    if (identical(as.integer(i), 1L)) return(recs_outcome_path)
-    file.path(output_dir, sprintf("recommendations_outcome_%s.json", as.integer(i)))
-  }
-  run_per_outcome_recommendations <- length(outcomeStatements) > 1 &&
-    length(preferred_outcome_ids) == 0
-  if (isTRUE(run_per_outcome_recommendations)) {
-    outcome_recs <- lapply(seq_along(outcomeStatements), function(i) {
-      run_role_recommendation(
-        role_label = if (identical(as.integer(i), 1L)) "Outcome" else sprintf("Outcome %s", i),
-        statement = outcomeStatements[[i]],
-        output_path = outcome_recommendation_path(i),
+  if (isTRUE(skip_intent_split_and_recommendation) && isTRUE(all_cohort_ids_from_function_args) && !isTRUE(direct_acquisition_mode)) {
+    outcome_recs <- list(list(
+      selected_ids = as.integer(explicit_outcome_ids_from_args),
+      selected_source_ids = as.character(explicit_outcome_ids_from_args),
+      recommendation_path = json_string_or_null(NULL),
+      recommendation_source = "function_argument_direct",
+      selection_source = "function_argument_direct",
+      used_cached_recommendation = FALSE,
+      used_cached_selection = FALSE,
+      used_window2 = FALSE,
+      used_advice = FALSE,
+      statement = outcomeStatement
+    ))
+  } else {
+    outcome_source_mode <- choose_selection_source_mode("outcome", allow_index = !isTRUE(skip_intent_split_and_recommendation) || isTRUE(direct_acquisition_mode))
+    if (is_back_signal(outcome_source_mode)) next
+
+    imported_outcome_selection <- .studyAgentSlashAcquireImportedRoleSelection(
+      source_mode = outcome_source_mode,
+      role_label = "outcome",
+      allow_multiple = TRUE,
+      interactive = interactive,
+      prompt_database_imports = prompt_database_cohort_imports,
+      prompt_file_imports = prompt_file_cohort_imports,
+      prompt_directory_imports = prompt_directory_cohort_imports,
+      selection_record_from_import = selection_record_from_import
+    )
+    if (is_back_signal(imported_outcome_selection)) next
+
+    if (!is.null(imported_outcome_selection)) {
+      if (!identical(imported_outcome_selection$action %||% "", "handled")) next
+      outcome_recs <- list(list(
+        selected_ids = as.integer(imported_outcome_selection$selected_ids),
+        selected_source_ids = as.character(imported_outcome_selection$selected_source_ids),
+        recommendation_path = json_string_or_null(NULL),
+        recommendation_source = paste0(outcome_source_mode, "_import"),
+        selection_source = paste0(outcome_source_mode, "_import"),
+        used_cached_recommendation = FALSE,
+        used_cached_selection = FALSE,
+        used_window2 = FALSE,
+        used_advice = FALSE,
+        statement = outcomeStatement
+      ))
+    } else {
+    cached_input_outcome_ids <- if (isTRUE(should_force_role_reselection("outcome"))) integer(0) else normalize_selected_ids(
+      cached_inputs$outcome_cohort_ids %||% NULL,
+      "cached outcome cohort IDs",
+      allow_multiple = TRUE
+    )
+    preferred_outcome_ids <- normalize_selected_ids(
+      if (isTRUE(should_force_role_reselection("outcome"))) NULL else if (isTRUE(use_function_argument_ids_for_selection)) outcomeCohortIds else NULL,
+      "Outcome cohort IDs",
+      allow_multiple = TRUE
+    )
+    preferred_outcome_source <- "function_argument"
+    if (length(preferred_outcome_ids) == 0 &&
+        length(outcomeStatements) <= 1 &&
+        length(cached_input_outcome_ids) > 0) {
+      preferred_outcome_ids <- cached_input_outcome_ids
+      preferred_outcome_source <- "cached_manual_input"
+    }
+    outcome_recommendation_path <- function(i) {
+      if (identical(as.integer(i), 1L)) return(recs_outcome_path)
+      file.path(output_dir, sprintf("recommendations_outcome_%s.json", as.integer(i)))
+    }
+    run_per_outcome_recommendations <- length(outcomeStatements) > 1 &&
+      length(preferred_outcome_ids) == 0
+    if (isTRUE(run_per_outcome_recommendations)) {
+      outcome_recs <- lapply(seq_along(outcomeStatements), function(i) {
+        run_role_recommendation(
+          role_label = if (identical(as.integer(i), 1L)) "Outcome" else sprintf("Outcome %s", i),
+          statement = outcomeStatements[[i]],
+          output_path = outcome_recommendation_path(i),
+          top_k = topK,
+          max_results = maxResults,
+          candidate_limit = candidateLimit,
+          allow_multiple = FALSE,
+          preferred_selected_ids = NULL,
+          preferred_selection_source = "function_argument",
+          cached_selected_ids = NULL,
+          selected_cache_label = NULL,
+          selected_cache_dir = NULL,
+          cohort_method_cache = NULL,
+          incidence_cache = NULL,
+          recommendation_role = "outcome",
+          workflow_type = "cohort_methods",
+          exclude_metadata = list(executable_definition_status = list("codes_only"))
+        )
+      })
+    } else {
+      outcome_recs <- list(run_role_recommendation(
+        role_label = "Outcome",
+        statement = outcomeStatement,
+        output_path = recs_outcome_path,
         top_k = topK,
         max_results = maxResults,
         candidate_limit = candidateLimit,
-        allow_multiple = FALSE,
-        preferred_selected_ids = NULL,
-        preferred_selection_source = "function_argument",
-        cached_selected_ids = NULL,
-        selected_cache_label = NULL,
-        selected_cache_dir = NULL,
-        cohort_method_cache = NULL,
-        incidence_cache = NULL,
+        allow_multiple = TRUE,
+        preferred_selected_ids = preferred_outcome_ids,
+        preferred_selection_source = preferred_outcome_source,
+        cached_selected_ids = if (isTRUE(should_force_role_reselection("outcome"))) NULL else cached_inputs$outcome_cohort_ids %||% NULL,
+        selected_cache_label = "outcome cohort selections",
+        selected_cache_dir = selected_outcome_dir,
+        cohort_method_cache = list(
+          selection = list(
+            selected_ids = if (isTRUE(should_force_role_reselection("outcome"))) NULL else cached_cm_outcome_selection$selected_ids %||% NULL,
+            cache_dir = selected_outcome_dir
+          )
+        ),
+        incidence_cache = list(
+          selection = list(
+            selected_ids = if (isTRUE(should_force_role_reselection("outcome"))) NULL else cached_incidence_outcome_selection$selected_ids %||% NULL,
+            cache_dir = incidence_selected_outcome_dir,
+            label = "incidence outcome cohort selection"
+          )
+        ),
         recommendation_role = "outcome",
         workflow_type = "cohort_methods",
         exclude_metadata = list(executable_definition_status = list("codes_only"))
-      )
-    })
-  } else {
-    outcome_recs <- list(run_role_recommendation(
-      role_label = "Outcome",
-      statement = outcomeStatement,
-      output_path = recs_outcome_path,
-      top_k = topK,
-      max_results = maxResults,
-      candidate_limit = candidateLimit,
-      allow_multiple = TRUE,
-      preferred_selected_ids = preferred_outcome_ids,
-      preferred_selection_source = preferred_outcome_source,
-      cached_selected_ids = if (isTRUE(should_force_role_reselection("outcome"))) NULL else cached_inputs$outcome_cohort_ids %||% NULL,
-      selected_cache_label = "outcome cohort selections",
-      selected_cache_dir = selected_outcome_dir,
-      cohort_method_cache = list(
-        selection = list(
-          selected_ids = if (isTRUE(should_force_role_reselection("outcome"))) NULL else cached_cm_outcome_selection$selected_ids %||% NULL,
-          cache_dir = selected_outcome_dir
-        )
-      ),
-      incidence_cache = list(
-        selection = list(
-          selected_ids = if (isTRUE(should_force_role_reselection("outcome"))) NULL else cached_incidence_outcome_selection$selected_ids %||% NULL,
-          cache_dir = incidence_selected_outcome_dir,
-          label = "incidence outcome cohort selection"
-        )
-      ),
-      recommendation_role = "outcome",
-      workflow_type = "cohort_methods",
-      exclude_metadata = list(executable_definition_status = list("codes_only"))
-    ))
+      ))
+    }
   }
+  }
+
   outcome_recommendations <- lapply(seq_along(outcome_recs), function(i) {
     rec <- outcome_recs[[i]]
     list(
@@ -5174,18 +5665,20 @@ Available exploration commands
   }
   selected_outcome_ids <- as.integer(outcomeCohortIds)
   new_outcome_ids <- map_ids(selected_outcome_ids)
+  outcome_source_ids_for_copy <- outcome_rec$selected_source_ids %||% as.list(selected_outcome_ids)
 
   for (i in seq_along(selected_outcome_ids)) {
-    copy_cohort_json_multi(selected_outcome_ids[[i]], new_outcome_ids[[i]], c(selected_outcome_dir, selected_dir), index_def_dir)
+    source_for_copy <- outcome_source_ids_for_copy[[min(i, length(outcome_source_ids_for_copy))]] %||% selected_outcome_ids[[i]]
+    copy_cohort_json_multi(source_for_copy, new_outcome_ids[[i]], c(selected_outcome_dir, selected_dir), index_def_dir, imported_def_dir = imported_definition_dir)
   }
-  improvements_results$outcome <- if (isTRUE(skip_intent_split_and_recommendation)) {
+  improvements_results$outcome <- if (isTRUE(skip_phenotype_improvements)) {
     skipped_role_improvements(
       role_key = "outcome",
       role_label = "Outcome",
       cohort_ids = new_outcome_ids,
       patched_role_dir = patched_outcome_dir,
       improvements_path = improvements_outcome_path,
-      reason = "explicit_cohort_ids_skip_confirmed"
+      reason = skip_reason %||% "direct_cohort_acquisition_skip_confirmed"
     )
   } else {
     run_role_improvement_gate(
@@ -5212,11 +5705,11 @@ Available exploration commands
   do_comparator_improvements <- isTRUE(improvements_results$comparator$prompt_choice)
   do_outcome_improvements <- isTRUE(improvements_results$outcome$prompt_choice)
 
-  target_original_name <- lookup_catalog_value(targetCohortId, catalog_df, "name", sprintf("Target cohort %s", targetCohortId))
-  comparator_original_name <- lookup_catalog_value(comparatorCohortId, catalog_df, "name", sprintf("Comparator cohort %s", comparatorCohortId))
+  target_original_name <- lookup_catalog_value(targetCohortId, "name", sprintf("Target cohort %s", targetCohortId))
+  comparator_original_name <- lookup_catalog_value(comparatorCohortId, "name", sprintf("Comparator cohort %s", comparatorCohortId))
   outcome_original_names <- vapply(
     outcomeCohortIds,
-    function(id) lookup_catalog_value(id, catalog_df, "name", sprintf("Outcome cohort %s", id)),
+    function(id) lookup_catalog_value(id, "name", sprintf("Outcome cohort %s", id)),
     character(1)
   )
   target_name <- prompt_analysis_label(
@@ -5232,11 +5725,11 @@ Available exploration commands
     default_label <- if (!is.null(cached_labels) && length(cached_labels) >= i) cached_labels[[i]] else outcome_original_names[[i]]
     prompt_analysis_label(sprintf("Outcome %s", i), default_label)
   }, character(1))
-  target_desc <- lookup_catalog_value(targetCohortId, catalog_df, "short_description", "")
-  comparator_desc <- lookup_catalog_value(comparatorCohortId, catalog_df, "short_description", "")
+  target_desc <- lookup_catalog_value(targetCohortId, "short_description", "")
+  comparator_desc <- lookup_catalog_value(comparatorCohortId, "short_description", "")
   outcome_descs <- vapply(
     outcomeCohortIds,
-    function(id) lookup_catalog_value(id, catalog_df, "short_description", ""),
+    function(id) lookup_catalog_value(id, "short_description", ""),
     character(1)
   )
 
@@ -5806,10 +6299,11 @@ Available exploration commands
     intent_split_status = cohort_methods_intent_split_status,
     intent_split_path = json_string_or_null(if (file.exists(cohort_methods_intent_split_path)) cohort_methods_intent_split_path else NULL),
     explicit_cohort_ids_supplied = isTRUE(all_cohort_ids_from_function_args),
+    direct_acquisition_mode = isTRUE(direct_acquisition_mode),
     skip_intent_split_and_recommendation = isTRUE(skip_intent_split_and_recommendation),
-    skip_phenotype_improvements = isTRUE(skip_intent_split_and_recommendation),
-    skip_reason = json_string_or_null(if (isTRUE(skip_intent_split_and_recommendation)) "all_cohort_ids_provided" else NULL),
-    skip_prompt_source = if (isTRUE(all_cohort_ids_from_function_args) && isTRUE(interactive)) "interactive_user_choice" else "not_prompted",
+    skip_phenotype_improvements = isTRUE(skip_phenotype_improvements),
+    skip_reason = json_string_or_null(skip_reason),
+    skip_prompt_source = skip_prompt_source,
     study_intent = studyIntent,
     target_statement = targetStatement,
     comparator_statement = comparatorStatement,
@@ -5828,10 +6322,11 @@ Available exploration commands
     cohort_methods_intent_split_source = cohort_methods_intent_split_source,
     cohort_methods_intent_split_status = cohort_methods_intent_split_status,
     explicit_cohort_ids_supplied = isTRUE(all_cohort_ids_from_function_args),
+    direct_acquisition_mode = isTRUE(direct_acquisition_mode),
     skip_intent_split_and_recommendation = isTRUE(skip_intent_split_and_recommendation),
-    skip_phenotype_improvements = isTRUE(skip_intent_split_and_recommendation),
-    skip_reason = json_string_or_null(if (isTRUE(skip_intent_split_and_recommendation)) "all_cohort_ids_provided" else NULL),
-    skip_prompt_source = if (isTRUE(all_cohort_ids_from_function_args) && isTRUE(interactive)) "interactive_user_choice" else "not_prompted",
+    skip_phenotype_improvements = isTRUE(skip_phenotype_improvements),
+    skip_reason = json_string_or_null(skip_reason),
+    skip_prompt_source = skip_prompt_source,
     use_function_argument_ids_for_selection = isTRUE(use_function_argument_ids_for_selection),
     comparison_label = comparisonLabel,
     target_cohort_id = as.integer(targetCohortId),
@@ -5953,6 +6448,10 @@ Available exploration commands
     cohort_roles_path
   )
 
+  target_source_id <- as.character(target_rec$selected_source_id %||% selected_target_id)
+  comparator_source_id <- as.character(comparator_rec$selected_source_id %||% selected_comparator_id)
+  outcome_source_ids <- outcome_rec$selected_source_ids %||% as.list(as.character(selected_outcome_ids))
+
   cm_comparisons <- list(
     comparisons = list(
       list(
@@ -5960,20 +6459,23 @@ Available exploration commands
         label = comparisonLabel,
         study_intent = studyIntent,
         target = list(
-          source_id = as.integer(selected_target_id),
+          source_id = target_source_id,
+          source_type = as.character(target_rec$selection_source %||% 'recommendation'),
           cohort_id = as.integer(new_target_id),
           name = target_name,
           original_name = target_original_name
         ),
         comparator = list(
-          source_id = as.integer(selected_comparator_id),
+          source_id = comparator_source_id,
+          source_type = as.character(comparator_rec$selection_source %||% 'recommendation'),
           cohort_id = as.integer(new_comparator_id),
           name = comparator_name,
           original_name = comparator_original_name
         ),
         outcomes = lapply(seq_along(new_outcome_ids), function(i) {
           list(
-            source_id = as.integer(selected_outcome_ids[[i]]),
+            source_id = as.character(outcome_source_ids[[i]] %||% selected_outcome_ids[[i]]),
+            source_type = as.character(outcome_rec$selection_source %||% 'recommendation'),
             cohort_id = as.integer(new_outcome_ids[[i]]),
             name = outcome_names[[i]],
             original_name = outcome_original_names[[i]],
@@ -6216,10 +6718,11 @@ Available exploration commands
     cohort_methods_intent_split_source = cohort_methods_intent_split_source,
     cohort_methods_intent_split_status = cohort_methods_intent_split_status,
     explicit_cohort_ids_supplied = isTRUE(all_cohort_ids_from_function_args),
+    direct_acquisition_mode = isTRUE(direct_acquisition_mode),
     skip_intent_split_and_recommendation = isTRUE(skip_intent_split_and_recommendation),
-    skip_phenotype_improvements = isTRUE(skip_intent_split_and_recommendation),
-    skip_reason = json_string_or_null(if (isTRUE(skip_intent_split_and_recommendation)) "all_cohort_ids_provided" else NULL),
-    skip_prompt_source = if (isTRUE(all_cohort_ids_from_function_args) && isTRUE(interactive)) "interactive_user_choice" else "not_prompted",
+    skip_phenotype_improvements = isTRUE(skip_phenotype_improvements),
+    skip_reason = json_string_or_null(skip_reason),
+    skip_prompt_source = skip_prompt_source,
     use_function_argument_ids_for_selection = isTRUE(use_function_argument_ids_for_selection),
     resume_enabled = isTRUE(resume),
     remap_cohort_ids = use_mapping,
@@ -6268,49 +6771,12 @@ Available exploration commands
     comparator_ids = as.integer(new_comparator_id),
     outcome_ids = as.integer(new_outcome_ids)
   )
-  seed_strategus_runtime_templates <- function(base_dir) {
-    db_details_path <- file.path(base_dir, "strategus-db-details.json")
-    execution_settings_path <- file.path(base_dir, "strategus-execution-settings.json")
-
-    if (!file.exists(db_details_path)) {
-      write_json(list(
-        dbms = "postgresql",
-        authType = "username_password",
-        DB_SERVER = "",
-        DB_PORT = "5432",
-        DB_USER = "",
-        DB_PASS = "",
-        DB_DRIVER_PATH = "",
-        DATABASECONNECTOR_JAR_FOLDER = "",
-        extraSettings = "sslmode=disable"
-      ), db_details_path)
-    }
-
-    if (!file.exists(execution_settings_path)) {
-      write_json(list(
-        cdmDatabaseSchema = "",
-        workDatabaseSchema = "",
-        resultsDatabaseSchema = "",
-        vocabularyDatabaseSchema = "",
-        cohortTable = "cohort",
-        workFolder = file.path(base_dir, "work"),
-        resultsFolder = file.path(base_dir, "results"),
-        cohortIdFieldName = "cohort_definition_id",
-        maxCores = 4,
-        incremental = FALSE
-      ), execution_settings_path)
-    }
-
-    list(
-      db_details_path = db_details_path,
-      execution_settings_path = execution_settings_path
-    )
-  }
-
-  runtime_template_paths <- seed_strategus_runtime_templates(base_dir)
+  runtime_template_paths <- .studyAgentSlashSeedRuntimeTemplates(base_dir, write_json = write_json)
   db_details_path <- runtime_template_paths$db_details_path
+  cohort_source_db_details_path <- runtime_template_paths$cohort_source_db_details_path
   execution_settings_path <- runtime_template_paths$execution_settings_path
   state$strategus_db_details_path <- db_details_path
+  state$strategus_cohort_source_db_details_path <- cohort_source_db_details_path
   state$strategus_execution_settings_path <- execution_settings_path
   write_json(state, state_path)
 
@@ -7571,11 +8037,11 @@ Keeper review saved: %s reviewed row(s)
     cat("\n== Session Summary ==\n")
     cat(sprintf("Study intent: %s\n", studyIntent))
     cat(sprintf("Comparison: %s\n", comparisonLabel))
-    cat(sprintf("Target: %s (atlas %s -> cohort %s)\n", target_name, selected_target_id, new_target_id))
-    cat(sprintf("Comparator: %s (atlas %s -> cohort %s)\n", comparator_name, selected_comparator_id, new_comparator_id))
+    cat(sprintf("Target: %s (source %s -> cohort %s)\n", target_name, target_source_id, new_target_id))
+    cat(sprintf("Comparator: %s (source %s -> cohort %s)\n", comparator_name, comparator_source_id, new_comparator_id))
     cat("Outcomes:\n")
     for (i in seq_along(new_outcome_ids)) {
-      cat(sprintf("  - %s (atlas %s -> cohort %s)\n", outcome_names[[i]], selected_outcome_ids[[i]], new_outcome_ids[[i]]))
+      cat(sprintf("  - %s (source %s -> cohort %s)\n", outcome_names[[i]], outcome_source_ids[[i]] %||% selected_outcome_ids[[i]], new_outcome_ids[[i]]))
     }
     if (isTRUE(negative_control_enabled)) {
       cat(sprintf("Negative control concept set: %s\n", negativeControlConceptSetId))

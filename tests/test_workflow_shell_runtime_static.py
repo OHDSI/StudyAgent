@@ -192,6 +192,15 @@ def test_dialogue_session_supports_reusable_ask_method() -> None:
     assert 'ask = ask_dialogue' in source
 
 
+def test_workflow_dialogue_mapping_defines_build_help_lines() -> None:
+    source = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workflow_dialogue_mapping.R").read_text(encoding="utf-8")
+    runtime = repo_path("R", "slashOhdsiStrategusAssistant", "R", "slash_ohdsi_runtime.R").read_text(encoding="utf-8")
+    assert 'workflow_build_help_lines <- function(workflow_type, step, role = "", context = list()) {' in source
+    assert '"Commands for this step:"' in source
+    assert '"  - /ohdsi <question>: ask for workflow-aware OHDSI guidance"' in source
+    assert '.studyAgentSlashWorkflowBuildHelpLines <- function(workflow_type, step, role = "", context = list()) {' in runtime
+
+
 def test_exploration_registry_defines_first_slice_commands() -> None:
     source = EXPLORATION_SOURCE.read_text(encoding="utf-8")
     assert '.studyAgentSlashBuildArtifactRegistry <- function(base_dir) {' in source

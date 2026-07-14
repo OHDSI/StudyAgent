@@ -8,6 +8,7 @@ from _repo_paths import repo_path
 
 
 SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_cohort_methods_shell.R")
+ACQUISITION_HELPER_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "cohort_acquisition.R")
 EXECUTION_SETTINGS_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "execution_settings.R")
 
 def _generated_script_block(source: str, script_name: str, filename: str) -> str:
@@ -266,6 +267,31 @@ def test_cohort_method_spec_accepts_generated_argument_shape() -> None:
     )
     assert result.returncode == 0, result.stderr
 
+
+def test_cohort_method_shell_derives_study_intent_and_supports_build_help() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+    helper = ACQUISITION_HELPER_SOURCE.read_text(encoding="utf-8")
+
+    assert 'showBanner = TRUE' in source
+    assert 'build_help_mode <- new.env(parent = emptyenv())' in source
+    assert 'print_current_build_help <- function() {' in source
+    assert '.studyAgentSlashWorkflowBuildHelpLines(' in source
+    assert 'default_direct_study_intent <- function(target_statement, comparator_statement, outcome_statement) {' in source
+    assert 'Study intent derived from cohort statements [%s]:' in source
+    assert 'Compare the rate of occurrence of outcome %s between %s and %s.' in source
+    assert 'studyIntent <- ensure_study_intent_from_role_statements(' in source
+    assert '.studyAgentSlashSeedRuntimeTemplates <- function(base_dir, write_json) {' in helper
+    assert '.studyAgentSlashSeedRuntimeTemplates(base_dir, write_json = write_json)' in source
+
+
+def test_cohort_method_shell_lazy_loads_catalog_instead_of_loading_it_at_startup() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+
+    assert 'catalog_state <- new.env(parent = emptyenv())' in source
+    assert 'get_catalog_df <- function() {' in source
+    assert 'catalog_state$data <- load_catalog(index_dir)' in source
+    assert 'catalog_df <- load_catalog(index_dir)' not in source
+
 def test_diagnostics_explorer_launcher_script_is_generated() -> None:
     source = SOURCE.read_text(encoding="utf-8")
     block = _generated_script_block(source, "script_08", "08_launch_diagnostics_explorer.R")
@@ -275,3 +301,62 @@ def test_diagnostics_explorer_launcher_script_is_generated() -> None:
     assert "sqliteDbPath" in block
     assert "createMergedResultsFile" in block
     assert "Run this script in a second R session" in block
+
+
+def test_cohort_method_shell_supports_multiple_cohort_acquisition_modes() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+    helper = ACQUISITION_HELPER_SOURCE.read_text(encoding="utf-8")
+
+    assert 'Source for %s cohort [ai=agentic search (default), file=JSON file, dir=directory, db=database cohort]:' in helper
+    assert 'prompt_database_cohort_imports <- function(role_label, allow_multiple = FALSE)' in source
+    assert 'prompt_file_cohort_imports <- function(role_label, allow_multiple = FALSE)' in source
+    assert 'prompt_directory_cohort_imports <- function(role_label, allow_multiple = FALSE)' in source
+    assert 'strategus-cohort-source-db-details.json' in helper
+    assert 'cohort_source_db_details_need_configuration <- function(path)' in source
+    assert 'Database cohort import requires a populated %s.' in helper
+    assert 'imported-cohort-definitions' in source
+
+
+def test_cohort_method_shell_persists_neutral_source_metadata_for_imported_cohorts() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+
+    assert 'target_source_id <- as.character(target_rec$selected_source_id %||% selected_target_id)' in source
+    assert "source_type = as.character(target_rec$selection_source %||% 'recommendation')" in source
+    assert "source_type = as.character(comparator_rec$selection_source %||% 'recommendation')" in source
+    assert "source_type = as.character(outcome_rec$selection_source %||% 'recommendation')" in source
+    assert 'Target: %s (source %s -> cohort %s)' in source
+    assert 'Comparator: %s (source %s -> cohort %s)' in source
+    assert '  - %s (source %s -> cohort %s)' in source
+    assert 'atlas %s -> cohort %s' not in source
+
+
+def test_cohort_method_shell_supports_direct_cohort_acquisition_bypass() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+    helper = ACQUISITION_HELPER_SOURCE.read_text(encoding="utf-8")
+
+    assert 'Study intent [Enter to acquire cohorts directly]:' in source
+    assert 'choose_selection_source_mode <- function(role_label, allow_index = TRUE)' in source
+    assert 'Source for %s cohort [file=JSON file, dir=directory, db=database cohort]:' in helper
+    assert 'direct_role_statement_default <- function(role_label, study_intent)' in source
+    assert 'selection_source = "function_argument_direct"' in source
+    assert 'direct_acquisition_mode = isTRUE(direct_acquisition_mode)' in source
+
+
+def test_cohort_method_shell_statement_entry_supports_back_navigation() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+
+    assert 'prompt_statement_navigation <- function(label, default = NULL) {' in source
+    assert 'prompt_outcome_statements_navigation <- function(defaults) {' in source
+    assert 'statement_step <- "target"' in source
+    assert 'if (identical(statement_step, "comparator")) {' in source
+    assert 'statement_step <- "comparator"' in source
+    assert 'statement_step <- "outcome"' in source
+    assert 'back_to_study_intent <- TRUE' in source
+    assert 'entered <- prompt_outcome_statements_navigation(outcomeStatements)' in source
+
+
+def test_cohort_method_shell_still_supports_explicit_direct_bypass_prompt() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+
+    assert "Skip ACP intent split and enter cohort role statements directly?" in source
+    assert "blank_study_intent_direct_acquisition" in source

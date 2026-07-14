@@ -5,6 +5,7 @@ from _repo_paths import repo_path
 
 SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_incidence_shell.R")
 IMPORT_HELPER_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "cohort_definition_import.R")
+ACQUISITION_HELPER_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "cohort_acquisition.R")
 
 def test_outcome_selection_state_is_initialized_before_target_mapping_prompt() -> None:
     source = SOURCE.read_text(encoding="utf-8")
@@ -73,11 +74,14 @@ def test_generated_incidence_script_uses_persisted_time_at_risk_settings() -> No
 
 def test_shell_seeds_runtime_templates_and_generated_scripts_use_them() -> None:
     source = SOURCE.read_text(encoding="utf-8")
+    helper = ACQUISITION_HELPER_SOURCE.read_text(encoding="utf-8")
 
-    assert 'seed_strategus_runtime_templates <- function(base_dir)' in source
+    assert '.studyAgentSlashSeedRuntimeTemplates <- function(base_dir, write_json) {' in helper
     assert 'strategus-db-details.json' in source
     assert 'strategus-execution-settings.json' in source
+    assert 'strategus-cohort-source-db-details.json' in helper
     assert 'execution_settings_path = execution_settings_path,' in source
+    assert '.studyAgentSlashSeedRuntimeTemplates(base_dir, write_json = write_json)' in source
 
     script03_start = source.index('script_03 <- c(')
     script03_end = source.index('write_lines(file.path(scripts_dir, "03_generate_cohorts.R")', script03_start)
@@ -109,8 +113,9 @@ def test_shell_seeds_runtime_templates_and_generated_scripts_use_them() -> None:
 
 def test_shell_can_import_existing_database_cohorts() -> None:
     source = SOURCE.read_text(encoding="utf-8")
+    helper = ACQUISITION_HELPER_SOURCE.read_text(encoding="utf-8")
 
-    assert 'Source for %s cohort [Enter=index search, db=existing database cohort]:' in source
+    assert 'Source for %s cohort [ai=agentic search (default), file=JSON file, dir=directory, db=database cohort]:' in helper
     assert 'prompt_database_cohort_imports <- function(role_label, allow_multiple = FALSE)' in source
     assert 'selected_cohort_sources.json' in source
     assert 'imported-cohort-definitions' in source
@@ -128,6 +133,29 @@ def test_database_import_helper_requires_simple_expression_json() -> None:
     assert 'Circe SIMPLE_EXPRESSION JSON payload' in source
 
 
+
+
+def test_local_file_import_helpers_and_alias_cache_are_present() -> None:
+    source = IMPORT_HELPER_SOURCE.read_text(encoding="utf-8")
+
+    assert '.studyAgentSlashImportedCohortAliasPath' in source
+    assert '.studyAgentSlashReadFileCohortDefinition' in source
+    assert '.studyAgentSlashImportFileCohortDefinition' in source
+    assert '.studyAgentSlashListLocalCohortDefinitionFiles' in source
+    assert "source_type must be 'file' or 'directory'." in source
+
+
+def test_incidence_shell_supports_file_and_directory_cohort_imports() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+    helper = ACQUISITION_HELPER_SOURCE.read_text(encoding="utf-8")
+
+    assert 'prompt_file_cohort_imports <- function(role_label, allow_multiple = FALSE)' in source
+    assert 'prompt_directory_cohort_imports <- function(role_label, allow_multiple = FALSE)' in source
+    assert 'strategus-cohort-source-db-details.json' in helper
+    assert 'cohort_source_db_details_need_configuration <- function(path)' in source
+    assert 'Database cohort import requires a populated %s.' in helper
+    assert 'imported local cohort JSON ids' in helper
+
 def test_generated_diagnostics_explorer_launcher_script_is_emitted() -> None:
     source = SOURCE.read_text(encoding="utf-8")
 
@@ -140,3 +168,34 @@ def test_generated_diagnostics_explorer_launcher_script_is_emitted() -> None:
     assert "sqliteDbPath" in block
     assert "createMergedResultsFile" in block
     assert "Run this script in a second R session" in block
+
+
+def test_incidence_shell_supports_direct_cohort_acquisition_bypass() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+    helper = ACQUISITION_HELPER_SOURCE.read_text(encoding="utf-8")
+
+    assert 'Study intent [Enter to acquire cohorts directly]:' in source
+    assert 'choose_selection_source_mode <- function(role_label, allow_index = TRUE)' in source
+    assert 'Source for %s cohort [file=JSON file, dir=directory, db=database cohort]:' in helper
+    assert 'default_direct_statement <- function(role_label, study_intent)' in source
+    assert 'direct_acquisition_mode = isTRUE(direct_acquisition_mode)' in source
+
+
+def test_incidence_shell_still_supports_explicit_direct_bypass_prompt() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+
+    assert "Skip ACP intent split and enter cohort role statements directly?" in source
+    assert "blank_study_intent_direct_acquisition" in source
+
+
+def test_incidence_shell_derives_study_intent_and_supports_build_help() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+
+    assert 'showBanner = TRUE' in source
+    assert 'build_help_mode <- new.env(parent = emptyenv())' in source
+    assert 'print_current_build_help <- function() {' in source
+    assert '.studyAgentSlashWorkflowBuildHelpLines(' in source
+    assert 'default_direct_study_intent <- function(target_statement, outcome_statement) {' in source
+    assert 'Study intent derived from cohort statements [%s]:' in source
+    assert 'Summarize the incidence of the outcome %s in patients from the target cohort %s.' in source
+    assert 'studyIntent <- ensure_study_intent_from_role_statements(studyIntent, target_statement, outcome_statement)' in source

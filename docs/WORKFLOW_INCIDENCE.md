@@ -9,9 +9,14 @@ Strategus execution pipeline.
 ```mermaid
 flowchart TD
   A[Start: runStrategusIncidenceShell] --> B[Enter Study Intent]
-  B --> C[phenotype_intent_split]
+  B --> B1{Blank?}
+  B1 -- No --> C[phenotype_intent_split]
+  B1 -- Yes --> C0[Enter Target/Outcome Statements Directly]
+  C0 --> C1[Confirm or Edit Derived Study Intent]
   C --> D[Target Statement]
   C --> E[Outcome Statement]
+  C1 --> D
+  C1 --> E
 
   D --> F[Target Recommendations]
   F --> G{Acceptable?}
@@ -50,6 +55,8 @@ flowchart TD
   AG --> AH[Generate Scripts 01-08]
   AH --> AI[End]
 ```
+
+Build-mode note: interactive users can type `h` at the major design prompts to see step-specific help, `/back` at supported boundaries to revisit the prior step, and `/ohdsi <question>` for contextual guidance.
 
 ## Strategus Execution Context
 

@@ -20,24 +20,30 @@ Workflow diagrams live in `docs/WORKFLOW_COHORT_METHODS.md`.
 ## Current Stage Flow
 
 1. Manual collection of required identifiers:
-   - `studyIntent`
+   - `studyIntent`, or direct cohort-statement entry when the study-intent prompt is left blank
 2. ACP-assisted split of `studyIntent` into:
    - `targetStatement`
    - `comparatorStatement`
    - one or more outcome statements (`outcomeStatement` remains the primary/first outcome for compatibility)
    - when multiple outcome statements are suggested interactively, choose the subset to keep or enter none/0 to provide a manual outcome before editing or adding statements
-3. Role-specific phenotype recommendation / cache reuse for target, comparator, and outcome cohorts.
+3. Role-specific cohort acquisition for target, comparator, and outcome cohorts using phenotype-index recommendation, an existing cohort-definition database, a local cohort JSON file, or a directory of local cohort JSON files. Recommendation and cache reuse remain available inside this step when the index-backed path is chosen.
    Interactive runs ask for short analysis labels for selected cohorts and the comparison; labels must
    be 100 characters or fewer because downstream Strategus/Characterization result tables use short
    identifier fields.
+   When direct acquisition starts from a blank study intent, the shell derives a default study-intent sentence from the confirmed target/comparator/outcome statements, lets the user edit it, and then persists the confirmed value for downstream state and `/ohdsi` context.
 4. Optional cohort ID remap step to avoid collisions (`remapCohortIds`).
-5. Copy cohort JSON definitions from `indexDir/definitions` into selected cohort folders.
+5. Normalize the chosen cohort JSON definitions into the workflow's selected cohort folders, including cached imports under `imported-cohort-definitions/` when the source was a database or local file path.
 6. Optional negative control and covariate concept-set IDs are still captured as placeholders.
 7. Configure one analytic-settings profile through `step_by_step`, `free_text`, or cached/function-argument inputs.
    Analytic settings are always collected in this stage and confirmed before finalization.
 8. Optionally run ACP-based Keeper review inline with reuse/resume controls and bounded Keeper stage gates around domain generation and case review.
 9. Generate scripts in `scripts/` for cohort generation, Keeper review, diagnostics, CohortMethod spec/execution, and an optional Diagnostics Explorer launcher, including `07_cm_spec.R` and `08_launch_diagnostics_explorer.R`.
 10. Optionally enter run/resume mode in the same shell to execute generated steps, inspect artifacts, ask `/ohdsi` questions, or return to build mode with `revise ...`.
+
+Build-mode interaction notes:
+
+- `h` / `help` at the major design prompts shows step-appropriate help and then returns to the same prompt.
+- `showBanner = FALSE` suppresses the startup ASCII art without changing workflow behavior.
 
 ## Analytic Settings
 
@@ -152,6 +158,9 @@ Current execution-menu capabilities:
 
 Current behavior notes:
 
+- For target, comparator, and outcome roles, the shell can now acquire cohort definitions from phenotype-index recommendation, an existing database cohort definition, a local cohort JSON file, or a directory of local cohort JSON files. Imported definitions are validated, cached under `imported-cohort-definitions/`, and then treated like local working artifacts for downstream steps.
+- When a database cohort-definition source is used, the shell reads `strategus-cohort-source-db-details.json` instead of the execution-oriented `strategus-db-details.json`, allowing the cohort-definition source DB to differ from the patient-level execution DB.
+
 - Exiting the execution menu asks for confirmation unless the workflow is already complete.
 - Invalid step or exploration input no longer exits the shell; the menu stays active and prints valid choices.
 - `inspect_v <step>` and `explore_v <command-id>` try to open tabular results with `utils::View(...)` when an interactive viewer is available.
@@ -162,6 +171,7 @@ Generated scripts that connect to the database expect these site-specific files 
 `outputDir`:
 
 - Template `strategus-db-details.json`
+  Purpose: execution DB for Strategus / CDM / work / results / vocabulary access.
 
 ```
 {
@@ -188,6 +198,25 @@ For Windows-integrated SQL Server authentication, omit `DB_USER` / `DB_PASS` and
   "DB_DRIVER_PATH": "",
   "DATABASECONNECTOR_JAR_FOLDER": "C:/path/to/sqljdbc_and_auth",
   "extraSettings": ""
+}
+```
+
+- Template `strategus-cohort-source-db-details.json`
+  Purpose: optional separate database connection used only when importing cohort definitions from an existing database schema. This lets sites keep cohort-definition source access separate from the execution DB used for patient-level analytics.
+
+The format matches `strategus-db-details.json`. Example for a postgres-backed cohort-definition source:
+
+```
+{
+  "dbms": "postgresql",
+  "authType": "username_password",
+  "DB_SERVER": "atlas-db-host",
+  "DB_PORT": "5432",
+  "DB_USER": "atlas_reader",
+  "DB_PASS": "change_me",
+  "DB_DRIVER_PATH": "",
+  "DATABASECONNECTOR_JAR_FOLDER": "",
+  "extraSettings": "sslmode=disable"
 }
 ```
 
@@ -235,5 +264,6 @@ Current Keeper specifics:
 ## Notes
 
 - This stage is designed as a bridge: it combines ACP/MCP-assisted intent split, phenotype recommendation/improvement, analytic-settings recommendation, and ACP-based Keeper review with reproducible Strategus script generation.
-- Interactive runs support `/back` at major stage boundaries for study intent, target selection, comparator selection, outcome selection, study configuration, and Keeper-review entry while keeping `/ohdsi` available for contextual guidance. The execution menu help now also reminds users that `/ohdsi` is available during run/resume mode.
+- Interactive runs support `/back` at major stage boundaries for study intent, target selection, comparator selection, outcome selection, study configuration, and Keeper-review entry while keeping `/ohdsi` available for contextual guidance. Build-mode `h` / `help` is also available at the major design prompts, and the execution menu help reminds users that `/ohdsi` is available during run/resume mode.
+- When direct acquisition begins from a blank study-intent prompt, the shell still requires a persisted study intent before downstream configuration continues; it derives that default from the confirmed target/comparator/outcome statements and lets the user edit it before saving.
 - If no Keeper artifacts exist yet, the shell suppresses the inline Keeper reuse/resume prompts instead of asking about caches unconditionally.

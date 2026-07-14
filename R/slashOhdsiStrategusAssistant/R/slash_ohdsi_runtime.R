@@ -116,6 +116,15 @@
   )
 }
 
+.studyAgentSlashWorkflowBuildHelpLines <- function(workflow_type, step, role = "", context = list()) {
+  workflow_build_help_lines(
+    workflow_type = workflow_type,
+    step = step,
+    role = role,
+    context = context
+  )
+}
+
 .studyAgentSlashWorkflowContextDialogue <- function(client, stage_context, message) {
   slashOhdsiAcpClient::acp_workflow_context_dialogue(
     client = client,

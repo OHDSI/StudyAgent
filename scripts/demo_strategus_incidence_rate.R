@@ -26,28 +26,29 @@ invisible(connect_study_agent_acp())
 # Note: this clears only `demo-strategus-cohort-incidence`. If you plan to reuse its
 # cached artifacts during resume, leave the directory intact.
 
-## (RELEVANT PHENOTYPE TEST) This intent should yield stronger phenotype candidates:
+## Run a shell-based workflow to specify and execute an incidence-rate analysis
 slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
   outputDir = "demo-strategus-cohort-incidence",
   acpUrl = "http://127.0.0.1:8765",
   studyAgentBaseDir = repo_root,
   indexDir = "data/phenotype_index_cipher_omop",
-  studyIntent = "Enter an incidence  rate research question involving a single target and single outcome",
+  showBanner = FALSE,
   executionTableDisplay = "viewer"
 )
 
 ############
 ## Use this to resume from cached artifacts and regenerate output scripts.
-slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
-  outputDir = "demo-strategus-cohort-incidence",
-  acpUrl = "http://127.0.0.1:8765",
-  studyAgentBaseDir = repo_root,
-  resume = TRUE,
-  allowCache = TRUE,
-  promptOnCache = TRUE,
-  interactive = TRUE,
-  indexDir = "data/phenotype_index_cipher_omop"
-)
+## slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
+##   outputDir = "demo-strategus-cohort-incidence",
+##   acpUrl = "http://127.0.0.1:8765",
+##   studyAgentBaseDir = repo_root,
+##   resume = TRUE,
+##   allowCache = TRUE,
+##   promptOnCache = TRUE,
+##   showBanner = FALSE,
+##   interactive = TRUE,
+##   indexDir = "data/phenotype_index_cipher_omop"
+## )
 
 ## Use this to resume from cached artifacts and regenerate output scripts without prompts.
 ## slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
@@ -69,3 +70,4 @@ slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
 #   studyAgentBaseDir = repo_root,
 #   indexDir = "data/phenotype_index_cipher_omop"
 # )
+
