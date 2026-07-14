@@ -2223,6 +2223,18 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     )
   }
 
+  catalog_state <- new.env(parent = emptyenv())
+  catalog_state$loaded <- FALSE
+  catalog_state$data <- NULL
+
+  get_catalog_df <- function() {
+    if (!isTRUE(catalog_state$loaded)) {
+      catalog_state$data <- load_catalog(index_dir)
+      catalog_state$loaded <- TRUE
+    }
+    catalog_state$data
+  }
+
   recommendation_name <- function(rec) {
     first_nonempty(rec$cohortName, rec$phenotype_name, rec$name, "<unknown>")
   }
@@ -2276,7 +2288,8 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     )
   }
 
-  lookup_catalog_value <- function(cohort_id, catalog_df, field = "name", fallback = NULL) {
+  lookup_catalog_value <- function(cohort_id, field = "name", fallback = NULL) {
+    catalog_df <- get_catalog_df()
     idx <- which(catalog_df$cohortId == as.integer(cohort_id))[1]
     if (!is.na(idx)) {
       value <- catalog_df[[field]][[idx]]
@@ -2285,21 +2298,21 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     fallback %||% sprintf("Cohort %s", cohort_id)
   }
 
-  format_cohort_selection_summary <- function(selected_ids, catalog_df) {
+  format_cohort_selection_summary <- function(selected_ids) {
     ids <- as.integer(unique(selected_ids[!is.na(selected_ids)]))
     if (length(ids) == 0) return(NULL)
     labels <- vapply(ids, function(id) {
       sprintf(
         "%s (ID %s)",
-        lookup_catalog_value(id, catalog_df, "name", sprintf("Cohort %s", id)),
+        lookup_catalog_value(id, "name", sprintf("Cohort %s", id)),
         id
       )
     }, character(1))
     paste(labels, collapse = ", ")
   }
 
-  cache_label_with_selection <- function(label, selected_ids, catalog_df) {
-    selection_summary <- format_cohort_selection_summary(selected_ids, catalog_df)
+  cache_label_with_selection <- function(label, selected_ids) {
+    selection_summary <- format_cohort_selection_summary(selected_ids)
     if (is.null(selection_summary) || !nzchar(trimws(selection_summary))) return(label)
     sprintf("%s [%s]", label, selection_summary)
   }
@@ -2339,6 +2352,96 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     default_value <- trimws(as.character(default %||% ""))
     entered <- readline_with_dialogue(sprintf("%s statement [%s]: ", label, default_value))
     if (nzchar(trimws(entered))) trimws(entered) else default_value
+  }
+
+  prompt_statement_navigation <- function(label, default = NULL) {
+    if (!isTRUE(interactive)) return(default)
+    default_value <- trimws(as.character(default %||% ""))
+    entered <- readline_with_navigation(sprintf("%s statement [%s]: ", label, default_value))
+    if (is_back_signal(entered)) return(entered)
+    if (nzchar(trimws(entered))) trimws(entered) else default_value
+  }
+
+  prompt_outcome_statements_navigation <- function(defaults) {
+    defaults <- dedupe_statement_list(defaults)
+    if (!isTRUE(interactive)) return(defaults)
+    if (length(defaults) > 1) {
+      cat("\nSuggested outcome statements:\n")
+      for (i in seq_along(defaults)) {
+        cat(sprintf("  %s. %s\n", i, defaults[[i]]))
+      }
+      default_selection <- paste(seq_along(defaults), collapse = ",")
+      use_manual_outcome <- FALSE
+      repeat {
+        entered <- readline_with_navigation(sprintf(
+          "Keep outcome statements [%s] (comma-separated numbers, 0/none to enter manually, Enter keeps all): ",
+          default_selection
+        ))
+        if (is_back_signal(entered)) return(entered)
+        entered <- trimws(as.character(entered %||% ""))
+        if (!nzchar(entered)) {
+          selected <- seq_along(defaults)
+        } else if (tolower(entered) %in% c("a", "all")) {
+          selected <- seq_along(defaults)
+        } else if (tolower(entered) %in% c("0", "n", "none")) {
+          selected <- integer(0)
+          use_manual_outcome <- TRUE
+        } else {
+          selected <- suppressWarnings(parse_ids(entered))
+          selected <- unique(selected[!is.na(selected)])
+        }
+        invalid <- setdiff(selected, seq_along(defaults))
+        if (!isTRUE(use_manual_outcome) && (length(selected) == 0 || length(invalid) > 0)) {
+          cat(sprintf("Please enter one or more valid outcome numbers, such as 1 or 1,3, or 0/none to enter manually. Valid choices: %s\n", default_selection))
+          next
+        }
+        defaults <- defaults[selected]
+        break
+      }
+      cat("Press Enter to keep each selected statement, or type an edited statement.\n")
+    }
+    if (length(defaults) == 0) {
+      entered <- prompt_statement_navigation("Outcome", default = "")
+      if (is_back_signal(entered)) return(entered)
+      return(dedupe_statement_list(entered))
+    }
+    resolved <- as.character(defaults)
+    idx <- 1L
+    while (idx <= length(resolved)) {
+      label <- if (length(resolved) == 1) "Outcome" else sprintf("Outcome %s", idx)
+      entered <- prompt_statement_navigation(label, default = resolved[[idx]])
+      if (is_back_signal(entered)) {
+        if (idx == 1L) return(entered)
+        idx <- idx - 1L
+        next
+      }
+      resolved[[idx]] <- entered
+      idx <- idx + 1L
+    }
+    repeat {
+      add_another <- prompt_yesno_navigation("Add another outcome statement?", default = FALSE)
+      if (is_back_signal(add_another)) {
+        idx <- length(resolved)
+        while (idx >= 1L) {
+          label <- if (length(resolved) == 1) "Outcome" else sprintf("Outcome %s", idx)
+          entered <- prompt_statement_navigation(label, default = resolved[[idx]])
+          if (is_back_signal(entered)) {
+            if (idx == 1L) return(entered)
+            idx <- idx - 1L
+            next
+          }
+          resolved[[idx]] <- entered
+          break
+        }
+        next
+      }
+      if (!isTRUE(add_another)) break
+      next_label <- sprintf("Outcome %s", length(resolved) + 1L)
+      entered <- prompt_statement_navigation(next_label, default = "")
+      if (is_back_signal(entered)) next
+      resolved <- c(resolved, entered)
+    }
+    dedupe_statement_list(resolved)
   }
 
   default_direct_study_intent <- function(target_statement, comparator_statement, outcome_statement) {
@@ -2502,8 +2605,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
         cohort_method_cache$selection$cache_dir,
         cache_label_with_selection(
           selected_cache_label %||% sprintf("%s cohort selection", role_key),
-          cached_selected_ids,
-          catalog_df
+          cached_selected_ids
         )
       )) {
         return(list(
@@ -2529,8 +2631,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
         incidence_cache$selection$cache_dir,
         cache_label_with_selection(
           incidence_cache$selection$label %||% sprintf("incidence %s cohort selection", role_key),
-          incidence_selected_ids,
-          catalog_df
+          incidence_selected_ids
         )
       )) {
         return(list(
@@ -3864,7 +3965,6 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   incidence_base_dir <- normalizePath(incidence_base_dir, winslash = "/", mustWork = FALSE)
   index_dir <- resolve_path(indexDir, study_base_dir)
   index_dir <- normalizePath(index_dir, winslash = "/", mustWork = FALSE)
-  catalog_df <- load_catalog(index_dir)
   analytic_settings_description_path_resolved <- if (is.null(analyticSettingsDescriptionPath)) {
     NULL
   } else {
@@ -4750,9 +4850,9 @@ Available exploration commands
   explicit_outcome_statements_from_args <- character(0)
   if (isTRUE(all_cohort_ids_from_function_args) && isTRUE(interactive)) {
     cat("\nAll target, comparator, and outcome cohort IDs were provided as function arguments:\n")
-    cat(sprintf("  Target: %s\n", format_cohort_selection_summary(explicit_target_ids_from_args, catalog_df)))
-    cat(sprintf("  Comparator: %s\n", format_cohort_selection_summary(explicit_comparator_ids_from_args, catalog_df)))
-    cat(sprintf("  Outcome: %s\n", format_cohort_selection_summary(explicit_outcome_ids_from_args, catalog_df)))
+    cat(sprintf("  Target: %s\n", format_cohort_selection_summary(explicit_target_ids_from_args)))
+    cat(sprintf("  Comparator: %s\n", format_cohort_selection_summary(explicit_comparator_ids_from_args)))
+    cat(sprintf("  Outcome: %s\n", format_cohort_selection_summary(explicit_outcome_ids_from_args)))
     skip_intent_split_and_recommendation <- prompt_yesno(
       "Skip study intent split, phenotype recommendation, and phenotype improvements, and use these cohort IDs directly?",
       default = TRUE
@@ -4786,7 +4886,7 @@ Available exploration commands
     ids <- as.integer(ids[!is.na(ids)])
     if (length(ids) == 0) return(NULL)
     labels <- vapply(ids, function(id) {
-      lookup_catalog_value(id, catalog_df, "name", sprintf("Cohort %s", id))
+      lookup_catalog_value(id, "name", sprintf("Cohort %s", id))
     }, character(1))
     if (length(ids) == 1) {
       return(sprintf("%s cohort: %s (ID %s)", role_label, labels[[1]], ids[[1]]))
@@ -4933,25 +5033,58 @@ Available exploration commands
     outcomeStatements <- outcome_statements_default
     outcomeStatement <- first_nonempty(outcomeStatements)
   } else {
-    set_dialogue_context("intent_split", "target", context = list(
-      target_statement = target_statement_default,
-      comparator_statement = comparator_statement_default,
-      outcome_statements = outcome_statements_default
-    ))
-    targetStatement <- prompt_statement("Target", default = target_statement_default)
-    set_dialogue_context("intent_split", "comparator", context = list(
-      target_statement = targetStatement,
-      comparator_statement = comparator_statement_default,
-      outcome_statements = outcome_statements_default
-    ))
-    comparatorStatement <- prompt_statement("Comparator", default = comparator_statement_default)
-    set_dialogue_context("intent_split", "outcome", context = list(
-      target_statement = targetStatement,
-      comparator_statement = comparatorStatement,
-      outcome_statements = outcome_statements_default
-    ))
-    outcomeStatements <- prompt_outcome_statements(outcome_statements_default)
+    statement_step <- "target"
+    back_to_study_intent <- FALSE
+    targetStatement <- target_statement_default
+    comparatorStatement <- comparator_statement_default
+    outcomeStatements <- outcome_statements_default
     outcomeStatement <- first_nonempty(outcomeStatements)
+    repeat {
+      if (identical(statement_step, "target")) {
+        set_dialogue_context("intent_split", "target", context = list(
+          target_statement = targetStatement,
+          comparator_statement = comparatorStatement,
+          outcome_statements = outcomeStatements
+        ))
+        entered <- prompt_statement_navigation("Target", default = targetStatement)
+        if (is_back_signal(entered)) {
+          back_to_study_intent <- TRUE
+          break
+        }
+        targetStatement <- entered
+        statement_step <- "comparator"
+        next
+      }
+      if (identical(statement_step, "comparator")) {
+        set_dialogue_context("intent_split", "comparator", context = list(
+          target_statement = targetStatement,
+          comparator_statement = comparatorStatement,
+          outcome_statements = outcomeStatements
+        ))
+        entered <- prompt_statement_navigation("Comparator", default = comparatorStatement)
+        if (is_back_signal(entered)) {
+          statement_step <- "target"
+          next
+        }
+        comparatorStatement <- entered
+        statement_step <- "outcome"
+        next
+      }
+      set_dialogue_context("intent_split", "outcome", context = list(
+        target_statement = targetStatement,
+        comparator_statement = comparatorStatement,
+        outcome_statements = outcomeStatements
+      ))
+      entered <- prompt_outcome_statements_navigation(outcomeStatements)
+      if (is_back_signal(entered)) {
+        statement_step <- "comparator"
+        next
+      }
+      outcomeStatements <- entered
+      outcomeStatement <- first_nonempty(outcomeStatements)
+      break
+    }
+    if (isTRUE(back_to_study_intent)) next
   }
 
   if (!nonempty_string(targetStatement) || !nonempty_string(comparatorStatement) || !nonempty_string(outcomeStatement)) {
@@ -4963,7 +5096,7 @@ Available exploration commands
   }
 
   studyIntent <- ensure_study_intent_from_role_statements(
-    studyIntent = studyIntent,
+    study_intent = studyIntent,
     target_statement = targetStatement,
     comparator_statement = comparatorStatement,
     outcome_statement = outcomeStatement
@@ -5134,8 +5267,7 @@ Available exploration commands
     outcomeCohortIds,
     cached_inputs$target_cohort_id %||% NULL,
     cached_inputs$comparator_cohort_id %||% NULL,
-    cached_inputs$outcome_cohort_ids %||% NULL,
-    catalog_df$cohortId
+    cached_inputs$outcome_cohort_ids %||% NULL
   )))
   default_cohort_id_base_ids <- default_cohort_id_base_ids[!is.na(default_cohort_id_base_ids)]
   default_cohort_id_base <- if (length(default_cohort_id_base_ids) > 0) {
@@ -5573,11 +5705,11 @@ Available exploration commands
   do_comparator_improvements <- isTRUE(improvements_results$comparator$prompt_choice)
   do_outcome_improvements <- isTRUE(improvements_results$outcome$prompt_choice)
 
-  target_original_name <- lookup_catalog_value(targetCohortId, catalog_df, "name", sprintf("Target cohort %s", targetCohortId))
-  comparator_original_name <- lookup_catalog_value(comparatorCohortId, catalog_df, "name", sprintf("Comparator cohort %s", comparatorCohortId))
+  target_original_name <- lookup_catalog_value(targetCohortId, "name", sprintf("Target cohort %s", targetCohortId))
+  comparator_original_name <- lookup_catalog_value(comparatorCohortId, "name", sprintf("Comparator cohort %s", comparatorCohortId))
   outcome_original_names <- vapply(
     outcomeCohortIds,
-    function(id) lookup_catalog_value(id, catalog_df, "name", sprintf("Outcome cohort %s", id)),
+    function(id) lookup_catalog_value(id, "name", sprintf("Outcome cohort %s", id)),
     character(1)
   )
   target_name <- prompt_analysis_label(
@@ -5593,11 +5725,11 @@ Available exploration commands
     default_label <- if (!is.null(cached_labels) && length(cached_labels) >= i) cached_labels[[i]] else outcome_original_names[[i]]
     prompt_analysis_label(sprintf("Outcome %s", i), default_label)
   }, character(1))
-  target_desc <- lookup_catalog_value(targetCohortId, catalog_df, "short_description", "")
-  comparator_desc <- lookup_catalog_value(comparatorCohortId, catalog_df, "short_description", "")
+  target_desc <- lookup_catalog_value(targetCohortId, "short_description", "")
+  comparator_desc <- lookup_catalog_value(comparatorCohortId, "short_description", "")
   outcome_descs <- vapply(
     outcomeCohortIds,
-    function(id) lookup_catalog_value(id, catalog_df, "short_description", ""),
+    function(id) lookup_catalog_value(id, "short_description", ""),
     character(1)
   )
 

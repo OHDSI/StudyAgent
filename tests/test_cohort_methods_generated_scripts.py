@@ -283,6 +283,15 @@ def test_cohort_method_shell_derives_study_intent_and_supports_build_help() -> N
     assert '.studyAgentSlashSeedRuntimeTemplates <- function(base_dir, write_json) {' in helper
     assert '.studyAgentSlashSeedRuntimeTemplates(base_dir, write_json = write_json)' in source
 
+
+def test_cohort_method_shell_lazy_loads_catalog_instead_of_loading_it_at_startup() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+
+    assert 'catalog_state <- new.env(parent = emptyenv())' in source
+    assert 'get_catalog_df <- function() {' in source
+    assert 'catalog_state$data <- load_catalog(index_dir)' in source
+    assert 'catalog_df <- load_catalog(index_dir)' not in source
+
 def test_diagnostics_explorer_launcher_script_is_generated() -> None:
     source = SOURCE.read_text(encoding="utf-8")
     block = _generated_script_block(source, "script_08", "08_launch_diagnostics_explorer.R")
@@ -331,6 +340,19 @@ def test_cohort_method_shell_supports_direct_cohort_acquisition_bypass() -> None
     assert 'direct_role_statement_default <- function(role_label, study_intent)' in source
     assert 'selection_source = "function_argument_direct"' in source
     assert 'direct_acquisition_mode = isTRUE(direct_acquisition_mode)' in source
+
+
+def test_cohort_method_shell_statement_entry_supports_back_navigation() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+
+    assert 'prompt_statement_navigation <- function(label, default = NULL) {' in source
+    assert 'prompt_outcome_statements_navigation <- function(defaults) {' in source
+    assert 'statement_step <- "target"' in source
+    assert 'if (identical(statement_step, "comparator")) {' in source
+    assert 'statement_step <- "comparator"' in source
+    assert 'statement_step <- "outcome"' in source
+    assert 'back_to_study_intent <- TRUE' in source
+    assert 'entered <- prompt_outcome_statements_navigation(outcomeStatements)' in source
 
 
 def test_cohort_method_shell_still_supports_explicit_direct_bypass_prompt() -> None:

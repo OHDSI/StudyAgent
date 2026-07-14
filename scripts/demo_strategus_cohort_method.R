@@ -32,7 +32,8 @@ slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell(
   acpUrl = "http://127.0.0.1:8765",
   studyAgentBaseDir = repo_root,
   indexDir = "data/phenotype_index_cipher_omop",
-  executionTableDisplay = "viewer"
+  executionTableDisplay = "viewer",
+  showBanner = FALSE
 )
 ## possible study intent:
 ##    Compare new users of GLP-1RA medications vs new users of DPP4-i medications for chronic lower respiratory disease outcomes.
@@ -49,7 +50,8 @@ slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell(
 ##   resume = TRUE,
 ##   allowCache = TRUE,
 ##   promptOnCache = TRUE,
-##   interactive = TRUE
+##   interactive = TRUE,
+##   showBanner = FALSE
 ## )
 
 

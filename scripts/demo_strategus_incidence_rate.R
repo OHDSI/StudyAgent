@@ -32,7 +32,7 @@ slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
   acpUrl = "http://127.0.0.1:8765",
   studyAgentBaseDir = repo_root,
   indexDir = "data/phenotype_index_cipher_omop",
-  #studyIntent = "Enter an incidence  rate research question involving a single target and single outcome",
+  showBanner = FALSE,
   executionTableDisplay = "viewer"
 )
 
@@ -45,6 +45,7 @@ slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
 ##   resume = TRUE,
 ##   allowCache = TRUE,
 ##   promptOnCache = TRUE,
+##   showBanner = FALSE,
 ##   interactive = TRUE,
 ##   indexDir = "data/phenotype_index_cipher_omop"
 ## )
