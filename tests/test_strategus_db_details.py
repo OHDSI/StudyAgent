@@ -77,3 +77,80 @@ def test_username_password_auth_still_requires_credentials() -> None:
         """
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_explicit_db_port_overrides_port_embedded_in_server_when_databaseconnector_is_available() -> None:
+    result = _run_r_or_skip(
+        f"""
+        if (!requireNamespace('DatabaseConnector', quietly = TRUE)) quit(status = 42)
+        source('{SOURCE.as_posix()}')
+        norm1 <- normalizeStrategusDbConfig(
+          dbDetails = list(
+            dbms = 'postgresql',
+            authType = 'username_password',
+            DB_SERVER = 'example-host:5432',
+            DB_PORT = '6432',
+            DB_USER = 'user',
+            DB_PASS = 'pass',
+            extraSettings = 'sslmode=disable'
+          )
+        )
+        if (!identical(as.character(norm1$server), 'example-host')) quit(status = 1)
+        if (!identical(as.character(norm1$port), '6432')) quit(status = 1)
+        td <- createStrategusConnectionDetails(dbDetails = norm1$dbConfig)
+        if (is.null(td)) quit(status = 1)
+        """
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_postgres_host_database_server_preserves_server_and_port_separately() -> None:
+    result = _run_r_or_skip(
+        f"""
+        if (!requireNamespace('DatabaseConnector', quietly = TRUE)) quit(status = 42)
+        source('{SOURCE.as_posix()}')
+        norm <- normalizeStrategusDbConfig(
+          dbDetails = list(
+            dbms = 'postgresql',
+            authType = 'username_password',
+            DB_SERVER = 'localhost/gsph_pace',
+            DB_PORT = '6432',
+            DB_USER = 'user',
+            DB_PASS = 'pass',
+            extraSettings = 'sslmode=disable'
+          )
+        )
+        if (!identical(as.character(norm$effectiveServer), 'localhost/gsph_pace')) quit(status = 1)
+        if (!identical(as.character(norm$effectivePort), '6432')) quit(status = 1)
+        td <- createStrategusConnectionDetails(dbDetails = norm$dbConfig)
+        if (is.null(td)) quit(status = 1)
+        """
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_postgres_host_port_database_with_blank_db_port_is_split_correctly() -> None:
+    result = _run_r_or_skip(
+        f"""
+        if (!requireNamespace('DatabaseConnector', quietly = TRUE)) quit(status = 42)
+        source('{SOURCE.as_posix()}')
+        norm <- normalizeStrategusDbConfig(
+          dbDetails = list(
+            dbms = 'postgresql',
+            authType = 'username_password',
+            DB_SERVER = '127.0.0.1:6432/gsph_pace',
+            DB_PORT = '',
+            DB_USER = 'user',
+            DB_PASS = 'pass',
+            extraSettings = 'sslmode=disable'
+          )
+        )
+        if (!identical(as.character(norm$server), '127.0.0.1/gsph_pace')) quit(status = 1)
+        if (!identical(as.character(norm$port), '6432')) quit(status = 1)
+        if (!identical(as.character(norm$effectiveServer), '127.0.0.1/gsph_pace')) quit(status = 1)
+        if (!identical(as.character(norm$effectivePort), '6432')) quit(status = 1)
+        td <- createStrategusConnectionDetails(dbDetails = norm$dbConfig)
+        if (is.null(td)) quit(status = 1)
+        """
+    )
+    assert result.returncode == 0, result.stderr

@@ -29,6 +29,49 @@
   file.path(imported_def_dir, sprintf("%s.json", gsub(":", "__", source_id, fixed = TRUE)))
 }
 
+.studyAgentSlashFormatDbConnectError <- function(error, connectionDetails = NULL) {
+  `%||%` <- function(x, y) if (is.null(x)) y else x
+  base_message <- conditionMessage(error)
+  details <- character(0)
+  if (inherits(connectionDetails, "connectionDetails")) {
+    details <- c(
+      details,
+      sprintf(
+        "dbms=%s server=%s port=%s pathToDriver=%s",
+        as.character(connectionDetails$dbms %||% ""),
+        as.character(connectionDetails$server %||% ""),
+        as.character(connectionDetails$port %||% ""),
+        as.character(connectionDetails$pathToDriver %||% "")
+      )
+    )
+  }
+  error_classes <- paste(class(error), collapse = ",")
+  if (nzchar(error_classes)) {
+    details <- c(details, sprintf("error_classes=%s", error_classes))
+  }
+  java_detail <- tryCatch({
+    captured <- capture.output(str(error))
+    captured <- trimws(captured)
+    captured <- captured[nzchar(captured)]
+    if (length(captured) == 0) return("")
+    paste(utils::head(captured, 6L), collapse = " | ")
+  }, error = function(e) "")
+  if (nzchar(java_detail)) {
+    details <- c(details, sprintf("detail=%s", java_detail))
+  }
+  if (length(details) == 0) return(base_message)
+  sprintf("%s [%s]", base_message, paste(details, collapse = "; "))
+}
+
+.studyAgentSlashConnectWithDiagnostics <- function(connectionDetails) {
+  tryCatch(
+    DatabaseConnector::connect(connectionDetails),
+    error = function(e) {
+      stop(.studyAgentSlashFormatDbConnectError(e, connectionDetails = connectionDetails), call. = FALSE)
+    }
+  )
+}
+
 .studyAgentSlashListDatabaseCohortDefinitions <- function(connectionDetails,
                                                            cohort_database_schema,
                                                            search_term = NULL,
@@ -43,7 +86,7 @@
     ),
     schema
   )
-  connection <- DatabaseConnector::connect(connectionDetails)
+  connection <- .studyAgentSlashConnectWithDiagnostics(connectionDetails)
   on.exit(DatabaseConnector::disconnect(connection), add = TRUE)
   rows <- DatabaseConnector::querySql(connection, sql)
   if (is.null(rows) || nrow(rows) == 0) {
@@ -97,7 +140,7 @@
     schema,
     cohort_definition_id
   )
-  connection <- DatabaseConnector::connect(connectionDetails)
+  connection <- .studyAgentSlashConnectWithDiagnostics(connectionDetails)
   on.exit(DatabaseConnector::disconnect(connection), add = TRUE)
   rows <- DatabaseConnector::querySql(connection, sql)
   if (is.null(rows) || nrow(rows) == 0) {

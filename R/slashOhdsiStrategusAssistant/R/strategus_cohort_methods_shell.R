@@ -2685,18 +2685,18 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     }
     repeat {
       prompt <- if (isTRUE(allow_index)) {
-        sprintf("Source for %s cohort [Enter=index search, db=existing database cohort, file=JSON file, dir=directory]: ", role_label)
+        sprintf("Source for %s cohort [ai=agentic search (default), file=JSON file, dir=directory, db=database cohort]: ", role_label)
       } else {
-        sprintf("Source for %s cohort [db=existing database cohort, file=JSON file, dir=directory]: ", role_label)
+        sprintf("Source for %s cohort [file=JSON file, dir=directory, db=database cohort]: ", role_label)
       }
       entered <- trimws(readline_with_navigation(prompt))
       if (is_back_signal(entered)) return(entered)
       lowered <- tolower(entered)
-      if (isTRUE(allow_index) && (!nzchar(lowered) || lowered %in% c("index", "search", "s", "recommend"))) return("index")
+      if (isTRUE(allow_index) && (!nzchar(lowered) || lowered %in% c("ai", "index", "search", "s", "recommend", "agentic"))) return("index")
       if (lowered %in% c("db", "database", "existing")) return("database")
       if (lowered %in% c("file", "json", "local")) return("file")
       if (lowered %in% c("dir", "directory", "folder")) return("directory")
-      cat(if (isTRUE(allow_index)) "Enter index, db, file, or dir.\n" else "Enter db, file, or dir.\n")
+      cat(if (isTRUE(allow_index)) "Choose ai, file, dir, or db, or press Enter for the default.\n" else "Choose file, dir, or db.\n")
     }
   }
 
@@ -2736,20 +2736,48 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
       ))
       return(NULL)
     }
-    connectionDetails <- tryCatch(
-      createStrategusConnectionDetails(path = db_details_path),
-      error = function(e) e
-    )
-    if (inherits(connectionDetails, "error")) {
-      cat(sprintf(
-        "Cannot use database cohort import until %s is populated: %s
-",
-        db_details_path,
-        conditionMessage(connectionDetails)
-      ))
-      return(NULL)
-    }
     repeat {
+      if (isTRUE(cohort_source_db_details_need_configuration(db_details_path))) {
+        cat(sprintf(
+          "Database cohort import requires a populated %s. Fill in the cohort-source DB connection details there and then retry the db import option.
+",
+          db_details_path
+        ))
+        return(NULL)
+      }
+      normalized_db_config <- tryCatch(
+        normalizeStrategusDbConfig(path = db_details_path),
+        error = function(e) e
+      )
+      if (inherits(normalized_db_config, "error")) {
+        cat(sprintf(
+          "Cannot use database cohort import until %s is populated: %s
+",
+          db_details_path,
+          conditionMessage(normalized_db_config)
+        ))
+        return(NULL)
+      }
+      cat(sprintf(
+        "Using %s connection details: server=%s, port=%s, authType=%s\n",
+        as.character(normalized_db_config$dbms %||% "database"),
+        as.character(normalized_db_config$server %||% ""),
+        as.character(normalized_db_config$port %||% ""),
+        as.character(normalized_db_config$authType %||% "")
+      ))
+      connectionDetails <- tryCatch(
+        createStrategusConnectionDetails(path = db_details_path, dbDetails = normalized_db_config$dbConfig),
+        error = function(e) e
+      )
+      if (inherits(connectionDetails, "error")) {
+        cat(sprintf(
+          "Cannot use database cohort import until %s is populated: %s
+",
+          db_details_path,
+          conditionMessage(connectionDetails)
+        ))
+        return(NULL)
+      }
       schema_value <- readline_with_navigation(sprintf(
         "Schema containing cohort_definition and cohort_definition_details for the %s cohort: ",
         role_label
@@ -4782,14 +4810,13 @@ Available exploration commands
   }
 
   default_intent <- studyIntent %||% cached_inputs$study_intent %||%
-    "Compare a target exposure versus a comparator exposure on one or more outcomes using a cohort method design."
+    ""
   repeat {
     blank_study_intent_direct <- FALSE
     if (isTRUE(interactive)) {
       set_dialogue_context("study_intent", context = list(default_intent = default_intent))
       entered <- readline_with_navigation(sprintf(
-        "Study intent [Enter to acquire cohorts directly; example: %s]: ",
-        default_intent
+        "Study intent [Enter to acquire cohorts directly]: "
       ))
       if (is_back_signal(entered)) {
         cat("Already at the first step\n")
@@ -4985,7 +5012,7 @@ Available exploration commands
     skip_prompt_source <- "blank_study_intent"
   } else if (!isTRUE(skip_intent_split_and_recommendation) && isTRUE(interactive)) {
     direct_acquisition_mode <- prompt_yesno(
-      "Skip ACP intent split and phenotype recommendation and acquire cohorts directly?",
+      "Skip ACP intent split and enter cohort role statements directly?",
       default = FALSE
     )
     if (isTRUE(direct_acquisition_mode)) {
@@ -5063,7 +5090,7 @@ Available exploration commands
     cohort_methods_intent_split_status <- "skipped"
     if (isTRUE(interactive)) {
       if (isTRUE(direct_acquisition_mode)) {
-        cat("\nSkipping study intent split and phenotype recommendation for direct cohort acquisition.\n")
+        cat("\nSkipping study intent split and using manually entered cohort role statements.\n")
       } else {
         cat("\nSkipping study intent split, phenotype recommendation, and phenotype improvements for explicit cohort IDs.\n")
       }
@@ -5249,7 +5276,7 @@ Available exploration commands
       statement = targetStatement
     )
   } else {
-    target_source_mode <- choose_selection_source_mode("target", allow_index = !isTRUE(skip_intent_split_and_recommendation))
+    target_source_mode <- choose_selection_source_mode("target", allow_index = !isTRUE(skip_intent_split_and_recommendation) || isTRUE(direct_acquisition_mode))
     if (is_back_signal(target_source_mode)) next
 
     if (identical(target_source_mode, "database")) {
@@ -5441,7 +5468,7 @@ Available exploration commands
       statement = comparatorStatement
     )
   } else {
-    comparator_source_mode <- choose_selection_source_mode("comparator", allow_index = !isTRUE(skip_intent_split_and_recommendation))
+    comparator_source_mode <- choose_selection_source_mode("comparator", allow_index = !isTRUE(skip_intent_split_and_recommendation) || isTRUE(direct_acquisition_mode))
     if (is_back_signal(comparator_source_mode)) next
 
     if (identical(comparator_source_mode, "database")) {
@@ -5593,7 +5620,7 @@ Available exploration commands
       statement = outcomeStatement
     ))
   } else {
-    outcome_source_mode <- choose_selection_source_mode("outcome", allow_index = !isTRUE(skip_intent_split_and_recommendation))
+    outcome_source_mode <- choose_selection_source_mode("outcome", allow_index = !isTRUE(skip_intent_split_and_recommendation) || isTRUE(direct_acquisition_mode))
     if (is_back_signal(outcome_source_mode)) next
 
     if (identical(outcome_source_mode, "database")) {

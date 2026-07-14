@@ -111,7 +111,7 @@ def test_shell_seeds_runtime_templates_and_generated_scripts_use_them() -> None:
 def test_shell_can_import_existing_database_cohorts() -> None:
     source = SOURCE.read_text(encoding="utf-8")
 
-    assert 'Source for %s cohort [Enter=index search, db=existing database cohort, file=JSON file, dir=directory]:' in source
+    assert 'Source for %s cohort [ai=agentic search (default), file=JSON file, dir=directory, db=database cohort]:' in source
     assert 'prompt_database_cohort_imports <- function(role_label, allow_multiple = FALSE)' in source
     assert 'selected_cohort_sources.json' in source
     assert 'imported-cohort-definitions' in source
@@ -168,9 +168,9 @@ def test_generated_diagnostics_explorer_launcher_script_is_emitted() -> None:
 def test_incidence_shell_supports_direct_cohort_acquisition_bypass() -> None:
     source = SOURCE.read_text(encoding="utf-8")
 
-    assert 'Study intent [Enter to acquire cohorts directly; example: %s]:' in source
+    assert 'Study intent [Enter to acquire cohorts directly]:' in source
     assert 'choose_selection_source_mode <- function(role_label, allow_index = TRUE)' in source
-    assert 'Source for %s cohort [db=existing database cohort, file=JSON file, dir=directory]:' in source
+    assert 'Source for %s cohort [file=JSON file, dir=directory, db=database cohort]:' in source
     assert 'default_direct_statement <- function(role_label, study_intent)' in source
     assert 'direct_acquisition_mode = isTRUE(direct_acquisition_mode)' in source
 
@@ -178,5 +178,5 @@ def test_incidence_shell_supports_direct_cohort_acquisition_bypass() -> None:
 def test_incidence_shell_still_supports_explicit_direct_bypass_prompt() -> None:
     source = SOURCE.read_text(encoding="utf-8")
 
-    assert "Skip ACP intent split and phenotype recommendation and acquire cohorts directly?" in source
+    assert "Skip ACP intent split and enter cohort role statements directly?" in source
     assert "blank_study_intent_direct_acquisition" in source

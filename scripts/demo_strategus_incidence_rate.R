@@ -69,3 +69,4 @@ slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
 #   studyAgentBaseDir = repo_root,
 #   indexDir = "data/phenotype_index_cipher_omop"
 # )
+
