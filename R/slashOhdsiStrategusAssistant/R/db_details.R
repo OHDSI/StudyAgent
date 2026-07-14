@@ -68,7 +68,8 @@ normalizeStrategusDbConfig <- function(path = file.path(getwd(), "strategus-db-d
   effectiveServer <- server
   effectivePort <- port
   user <- null_if_blank(dbConfig$DB_USER %||% dbConfig$user)
-  password <- null_if_blank(dbConfig$DB_PASS %||% dbConfig$password)
+  raw_password <- dbConfig$DB_PASS %||% dbConfig$password
+  password <- if (is.null(raw_password)) NULL else as.character(raw_password)
   pathToDriver <- null_if_blank(dbConfig$DB_DRIVER_PATH %||% dbConfig$pathToDriver)
   jarFolder <- null_if_blank(dbConfig$DATABASECONNECTOR_JAR_FOLDER %||% dbConfig$databaseConnectorJarFolder %||% dbConfig$jarFolder)
   extraSettings <- null_if_blank(dbConfig$extraSettings)
@@ -103,7 +104,7 @@ createStrategusConnectionDetails <- function(path = file.path(getwd(), "strategu
   normalized <- normalizeStrategusDbConfig(path = path, dbDetails = dbDetails)
   user <- normalized$user
   password <- normalized$password
-  if (!isTRUE(normalized$useIntegratedAuth) && (is.null(user) || is.null(password) || !nzchar(as.character(user)) || !nzchar(as.character(password)))) {
+  if (!isTRUE(normalized$useIntegratedAuth) && (is.null(user) || !nzchar(as.character(user)) || is.null(password))) {
     stop("Database credentials must be provided in strategus-db-details.json (DB_USER/DB_PASS or user/password) unless authType requests integrated Windows authentication.")
   }
 

@@ -9,6 +9,7 @@ from _repo_paths import repo_path
 SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "db_details.R")
 COHORT_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_cohort_methods_shell.R")
 INCIDENCE_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_incidence_shell.R")
+ACQUISITION_HELPER_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "cohort_acquisition.R")
 
 
 def _run_r_or_skip(expression: str) -> subprocess.CompletedProcess[str]:
@@ -30,9 +31,9 @@ def test_db_details_helper_supports_integrated_auth_and_jar_folder() -> None:
 
 
 def test_shell_seed_templates_include_auth_type_and_jar_folder() -> None:
-    for source in (COHORT_SOURCE.read_text(encoding="utf-8"), INCIDENCE_SOURCE.read_text(encoding="utf-8")):
-        assert 'authType = "username_password"' in source
-        assert 'DATABASECONNECTOR_JAR_FOLDER = ""' in source
+    source = ACQUISITION_HELPER_SOURCE.read_text(encoding="utf-8")
+    assert 'authType = "username_password"' in source
+    assert 'DATABASECONNECTOR_JAR_FOLDER = ""' in source
 
 
 def test_integrated_auth_can_omit_user_and_password_when_databaseconnector_is_available() -> None:

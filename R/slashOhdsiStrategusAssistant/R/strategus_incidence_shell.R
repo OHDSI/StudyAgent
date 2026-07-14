@@ -440,21 +440,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   }
 
   stop_if_unsupported_selected <- function(phenotype_ids, role_label) {
-    supported <- grepl("^ohdsi:[0-9]+$", phenotype_ids %||% character(0)) |
-      grepl("^(db:[A-Za-z][A-Za-z0-9_]*:[0-9]+|file:[0-9]+:[A-Za-z0-9_.-]+|dir:[0-9]+:[A-Za-z0-9_.-]+)$", phenotype_ids %||% character(0))
-    unsupported <- phenotype_ids[!supported]
-    if (length(unsupported) > 0) {
-      stop(
-        sprintf(
-          paste0(
-            "Selected %s cohort source ids include unsupported values (%s). ",
-            "Supported ids are OHDSI phenotype ids, imported database cohort ids, and imported local cohort JSON ids."
-          ),
-          role_label,
-          paste(unique(unsupported), collapse = ", ")
-        )
-      )
-    }
+    .studyAgentSlashStopIfUnsupportedSelected(phenotype_ids, role_label)
   }
 
   default_cohort_id_from_source <- function(source_id) {
@@ -464,94 +450,42 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
       return(suppressWarnings(as.integer(sub("^ohdsi:", "", source_id))))
     }
     if (grepl("^db:[A-Za-z][A-Za-z0-9_]*:[0-9]+$", source_id)) {
-      return(suppressWarnings(as.integer(sub("^db:[A-Za-z][A-Za-z0-9_]*:([0-9]+)$", "\1", source_id))))
+      return(suppressWarnings(as.integer(sub("^db:[A-Za-z][A-Za-z0-9_]*:([0-9]+)$", "\\1", source_id))))
     }
     if (grepl("^(file|dir):[0-9]+:[A-Za-z0-9_.-]+$", source_id)) {
-      return(suppressWarnings(as.integer(sub("^(file|dir):([0-9]+):[A-Za-z0-9_.-]+$", "\2", source_id))))
+      return(suppressWarnings(as.integer(sub("^(file|dir):([0-9]+):[A-Za-z0-9_.-]+$", "\\2", source_id))))
     }
     suppressWarnings(as.integer(source_id))
   }
 
   default_cohort_ids_from_sources <- function(source_ids, role_label = "selected") {
-    source_ids <- as.character(source_ids %||% character(0))
-    if (length(source_ids) == 0) return(integer(0))
-    derived <- vapply(source_ids, default_cohort_id_from_source, integer(1))
-    if (any(is.na(derived))) {
-      bad <- source_ids[is.na(derived)]
-      stop(sprintf(
-        "Could not derive numeric cohort IDs for %s phenotype(s): %s",
-        role_label,
-        paste(unique(bad), collapse = ", ")
-      ))
-    }
-    as.integer(derived)
+    .studyAgentSlashDefaultCohortIdsFromSources(source_ids, role_label = role_label)
   }
 
   copy_cohort_json_multi <- function(source_id, dest_id, dest_dirs, index_def_dir, imported_def_dir = NULL) {
-    src <- phenotype_definition_path(source_id, index_def_dir, imported_def_dir = imported_def_dir)
-    if (!file.exists(src)) stop(sprintf("Cohort JSON not found: %s", src))
-    dests <- character(0)
-    for (dest_dir in dest_dirs) {
-      ensure_dir(dest_dir)
-      dest <- file.path(dest_dir, sprintf("%s.json", dest_id))
-      file.copy(src, dest, overwrite = TRUE)
-      dests <- c(dests, dest)
-    }
-    dests
+    .studyAgentSlashCopyCohortJsonMulti(source_id, dest_id, dest_dirs, index_def_dir, imported_def_dir = imported_def_dir, ensure_dir = ensure_dir)
   }
 
   selection_record_from_recommendation <- function(rec) {
-    list(
-      source_type = "index",
-      source_id = as.character(rec$phenotype_id %||% ""),
-      source_schema = NA_character_,
-      cohort_definition_id = default_cohort_id_from_source(rec$phenotype_id %||% NULL),
-      cohort_name = as.character(rec$phenotype_name %||% ""),
-      logic_description = rec$justification %||% NA_character_
-    )
+    .studyAgentSlashSelectionRecordFromRecommendation(rec)
   }
 
   selection_record_from_import <- function(imported) {
-    imported$metadata
+    .studyAgentSlashSelectionRecordFromImport(imported)
   }
 
   seed_db_details_template <- function(path) {
-    if (!file.exists(path)) {
-      write_json(list(
-        dbms = "postgresql",
-        authType = "username_password",
-        DB_SERVER = "",
-        DB_PORT = "5432",
-        DB_USER = "",
-        DB_PASS = "",
-        DB_DRIVER_PATH = "",
-        DATABASECONNECTOR_JAR_FOLDER = "",
-        extraSettings = "sslmode=disable"
-      ), path)
-    }
-    invisible(path)
+    .studyAgentSlashSeedDbDetailsTemplate(path, write_json = write_json)
   }
 
   choose_selection_source_mode <- function(role_label, allow_index = TRUE) {
-    if (!isTRUE(interactive)) {
-      if (isTRUE(allow_index)) return("index")
-      stop("Non-interactive direct cohort acquisition requires explicit source handling and is not implemented for this shell.")
-    }
-    repeat {
-      prompt <- if (isTRUE(allow_index)) {
-        sprintf("Source for %s cohort [ai=agentic search (default), file=JSON file, dir=directory, db=database cohort]: ", role_label)
-      } else {
-        sprintf("Source for %s cohort [file=JSON file, dir=directory, db=database cohort]: ", role_label)
-      }
-      entered <- trimws(readline_with_navigation(prompt))
-      if (is_back_signal(entered)) return(entered)
-      lowered <- tolower(entered)
-      if (isTRUE(allow_index) && (!nzchar(lowered) || lowered %in% c("ai", "index", "search", "s", "recommend", "agentic"))) return("index")
-      if (lowered %in% c("db", "database", "existing")) return("database")
-      if (lowered %in% c("file", "json", "local")) return("file")
-      if (lowered %in% c("dir", "directory", "folder")) return("directory")
-      cat(if (isTRUE(allow_index)) "Choose ai, file, dir, or db, or press Enter for the default.\n" else "Choose file, dir, or db.\n")
-    }
+    .studyAgentSlashChooseSelectionSourceMode(
+      role_label = role_label,
+      allow_index = allow_index,
+      interactive = interactive,
+      readline_with_navigation = readline_with_navigation,
+      is_back_signal = is_back_signal
+    )
   }
 
   default_direct_statement <- function(role_label, study_intent) {
@@ -564,331 +498,46 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   }
 
   cohort_source_db_details_need_configuration <- function(path) {
-    db_config <- tryCatch(readStrategusDbDetails(path), error = function(e) NULL)
-    if (is.null(db_config)) return(TRUE)
-    auth_type <- tolower(trimws(as.character(
-      db_config$authType %||%
-        db_config$authenticationType %||%
-        if (isTRUE(db_config$useWindowsAuth %||% FALSE)) "windows" else "username_password"
-    )))
-    if (!nzchar(auth_type)) auth_type <- "username_password"
-    server <- trimws(as.character(db_config$DB_SERVER %||% db_config$server %||% ""))
-    if (!nzchar(server)) return(TRUE)
-    if (auth_type %in% c("windows", "integrated", "integrated_windows")) return(FALSE)
-    user <- trimws(as.character(db_config$DB_USER %||% db_config$user %||% ""))
-    password <- trimws(as.character(db_config$DB_PASS %||% db_config$password %||% ""))
-    !nzchar(user) || !nzchar(password)
+    .studyAgentSlashCohortSourceDbDetailsNeedConfiguration(path, readStrategusDbDetails = readStrategusDbDetails)
   }
 
   prompt_database_cohort_imports <- function(role_label, allow_multiple = FALSE) {
-    db_details_path <- file.path(base_dir, "strategus-cohort-source-db-details.json")
-    seed_db_details_template(db_details_path)
-    if (isTRUE(cohort_source_db_details_need_configuration(db_details_path))) {
-      cat(sprintf(
-        "Database cohort import requires a populated %s. Fill in the cohort-source DB connection details there and then retry the db import option.\n",
-        db_details_path
-      ))
-      return(NULL)
-    }
-    repeat {
-      if (isTRUE(cohort_source_db_details_need_configuration(db_details_path))) {
-        cat(sprintf(
-          "Database cohort import requires a populated %s. Fill in the cohort-source DB connection details there and then retry the db import option.
-",
-          db_details_path
-        ))
-        return(NULL)
-      }
-      normalized_db_config <- tryCatch(
-        normalizeStrategusDbConfig(path = db_details_path),
-        error = function(e) e
-      )
-      if (inherits(normalized_db_config, "error")) {
-        cat(sprintf(
-          "Cannot use database cohort import until %s is populated: %s
-",
-          db_details_path,
-          conditionMessage(normalized_db_config)
-        ))
-        return(NULL)
-      }
-      cat(sprintf(
-        "Using %s connection details: server=%s, port=%s, authType=%s\n",
-        as.character(normalized_db_config$dbms %||% "database"),
-        as.character(normalized_db_config$server %||% ""),
-        as.character(normalized_db_config$port %||% ""),
-        as.character(normalized_db_config$authType %||% "")
-      ))
-      connectionDetails <- tryCatch(
-        createStrategusConnectionDetails(path = db_details_path, dbDetails = normalized_db_config$dbConfig),
-        error = function(e) e
-      )
-      if (inherits(connectionDetails, "error")) {
-        cat(sprintf(
-          "Cannot use database cohort import until %s is populated: %s
-",
-          db_details_path,
-          conditionMessage(connectionDetails)
-        ))
-        return(NULL)
-      }
-      schema_value <- readline_with_navigation(sprintf(
-        "Schema containing cohort_definition and cohort_definition_details for the %s cohort: ",
-        role_label
-      ))
-      if (is_back_signal(schema_value)) return(schema_value)
-      schema_value <- trimws(as.character(schema_value %||% ""))
-      if (!nzchar(schema_value)) {
-        cat("Enter a schema name.
-")
-        next
-      }
-      search_term <- trimws(readline_with_dialogue(sprintf(
-        "Optional %s cohort name search term [Enter=list candidates]: ",
-        role_label
-      )))
-      candidates <- tryCatch(
-        .studyAgentSlashListDatabaseCohortDefinitions(
-          connectionDetails = connectionDetails,
-          cohort_database_schema = schema_value,
-          search_term = search_term,
-          limit = 50L
-        ),
-        error = function(e) e
-      )
-      if (inherits(candidates, "error")) {
-        cat(sprintf("Database cohort lookup failed: %s
-", conditionMessage(candidates)))
-        next
-      }
-      if (nrow(candidates) == 0) {
-        cat("No matching cohort definitions were found. Try a different schema or search term.
-")
-        next
-      }
-      preview <- data.frame(
-        cohort_definition_id = candidates$cohort_definition_id,
-        cohort_name = candidates$cohort_name,
-        stringsAsFactors = FALSE
-      )
-      preview <- preview[order(preview$cohort_definition_id, preview$cohort_name), , drop = FALSE]
-      rownames(preview) <- seq_len(nrow(preview))
-      cat(sprintf("
-Available %s cohort definitions from %s
-", role_label, schema_value))
-      print(preview, row.names = TRUE)
-      labels <- sprintf("[%s] %s", preview$cohort_definition_id, preview$cohort_name)
-      selected_ids <- integer(0)
-      invalid <- character(0)
-      if (isTRUE(interactive)) {
-        menu_pick <- tryCatch(
-          utils::select.list(
-            labels,
-            multiple = isTRUE(allow_multiple),
-            title = sprintf("Select %s cohort definition%s", role_label, if (isTRUE(allow_multiple)) "(s)" else "")
-          ),
-          error = function(e) NULL
-        )
-        if (length(menu_pick) > 0 && any(nzchar(menu_pick))) {
-          selected_ids <- unique(vapply(menu_pick[nzchar(menu_pick)], function(label) {
-            idx <- which(labels == label)[1]
-            preview$cohort_definition_id[[idx]]
-          }, integer(1)))
-        }
-      }
-      if (length(selected_ids) == 0) {
-        selection_prompt <- if (isTRUE(allow_multiple)) {
-          sprintf("Select %s cohort row numbers or cohort_definition ids (comma-separated): ", role_label)
-        } else {
-          sprintf("Select the %s cohort row number or cohort_definition id: ", role_label)
-        }
-        selected_raw <- trimws(readline_with_dialogue(selection_prompt))
-        if (!nzchar(selected_raw)) {
-          cat("No cohort selected.
-")
-          next
-        }
-        selected_parts <- trimws(strsplit(selected_raw, ",", fixed = TRUE)[[1]])
-        selected_parts <- selected_parts[nzchar(selected_parts)]
-        if (length(selected_parts) == 0) {
-          cat("No cohort selected.
-")
-          next
-        }
-        for (part in selected_parts) {
-          parsed <- suppressWarnings(as.integer(part))
-          if (is.na(parsed)) {
-            invalid <- c(invalid, part)
-            next
-          }
-          if (parsed >= 1L && parsed <= nrow(preview)) {
-            selected_ids <- c(selected_ids, preview$cohort_definition_id[[parsed]])
-          } else if (parsed %in% preview$cohort_definition_id) {
-            selected_ids <- c(selected_ids, parsed)
-          } else {
-            invalid <- c(invalid, part)
-          }
-        }
-      }
-      selected_ids <- unique(selected_ids)
-      if (length(invalid) > 0 || length(selected_ids) == 0) {
-        cat(sprintf("Invalid selection: %s
-", paste(unique(invalid), collapse = ", ")))
-        next
-      }
-      imported <- lapply(selected_ids, function(id) {
-        .studyAgentSlashImportDatabaseCohortDefinition(
-          connectionDetails = connectionDetails,
-          cohort_database_schema = schema_value,
-          cohort_definition_id = id,
-          imported_def_dir = imported_definition_dir
-        )
-      })
-      return(imported)
-    }
+    .studyAgentSlashPromptDatabaseCohortImports(
+      role_label = role_label,
+      allow_multiple = allow_multiple,
+      base_dir = base_dir,
+      imported_definition_dir = imported_definition_dir,
+      interactive = interactive,
+      readline_with_navigation = readline_with_navigation,
+      readline_with_dialogue = readline_with_dialogue,
+      is_back_signal = is_back_signal,
+      write_json = write_json,
+      readStrategusDbDetails = readStrategusDbDetails,
+      normalizeStrategusDbConfig = normalizeStrategusDbConfig,
+      createStrategusConnectionDetails = createStrategusConnectionDetails
+    )
   }
 
   prompt_file_cohort_imports <- function(role_label, allow_multiple = FALSE) {
-    repeat {
-      prompt <- if (isTRUE(allow_multiple)) {
-        sprintf("Path to %s cohort JSON file(s) [comma-separated]: ", role_label)
-      } else {
-        sprintf("Path to %s cohort JSON file: ", role_label)
-      }
-      entered <- trimws(readline_with_navigation(prompt))
-      if (is_back_signal(entered)) return(entered)
-      if (!nzchar(entered)) {
-        cat("Enter a cohort JSON file path.
-")
-        next
-      }
-      parts <- trimws(strsplit(entered, ",", fixed = TRUE)[[1]])
-      parts <- parts[nzchar(parts)]
-      if (!isTRUE(allow_multiple) && length(parts) > 1L) {
-        cat("Select exactly one cohort JSON file for this role.
-")
-        next
-      }
-      imported <- tryCatch(
-        lapply(parts, function(file_path) {
-          .studyAgentSlashImportFileCohortDefinition(
-            path = file_path,
-            imported_def_dir = imported_definition_dir,
-            source_type = "file"
-          )
-        }),
-        error = function(e) e
-      )
-      if (inherits(imported, "error")) {
-        cat(sprintf("File cohort import failed: %s
-", conditionMessage(imported)))
-        next
-      }
-      return(imported)
-    }
+    .studyAgentSlashPromptFileCohortImports(
+      role_label = role_label,
+      allow_multiple = allow_multiple,
+      imported_definition_dir = imported_definition_dir,
+      readline_with_navigation = readline_with_navigation,
+      is_back_signal = is_back_signal
+    )
   }
 
   prompt_directory_cohort_imports <- function(role_label, allow_multiple = FALSE) {
-    repeat {
-      directory <- trimws(readline_with_navigation(sprintf(
-        "Directory containing %s cohort JSON files: ",
-        role_label
-      )))
-      if (is_back_signal(directory)) return(directory)
-      if (!nzchar(directory)) {
-        cat("Enter a directory path.
-")
-        next
-      }
-      candidates <- tryCatch(
-        .studyAgentSlashListLocalCohortDefinitionFiles(directory, limit = 100L),
-        error = function(e) e
-      )
-      if (inherits(candidates, "error")) {
-        cat(sprintf("Directory cohort lookup failed: %s
-", conditionMessage(candidates)))
-        next
-      }
-      if (nrow(candidates) == 0) {
-        cat("No readable cohort JSON files were found in that directory.
-")
-        next
-      }
-      preview <- data.frame(
-        cohort_definition_id = candidates$cohort_definition_id,
-        cohort_name = candidates$cohort_name,
-        path = candidates$path,
-        stringsAsFactors = FALSE
-      )
-      rownames(preview) <- seq_len(nrow(preview))
-      cat(sprintf("
-Available %s cohort JSON files from %s
-", role_label, normalizePath(directory, winslash = "/", mustWork = FALSE)))
-      print(preview, row.names = TRUE)
-      labels <- sprintf("[%s] %s", preview$cohort_definition_id, preview$cohort_name)
-      selected_rows <- integer(0)
-      invalid <- character(0)
-      if (isTRUE(interactive)) {
-        menu_pick <- tryCatch(
-          utils::select.list(
-            labels,
-            multiple = isTRUE(allow_multiple),
-            title = sprintf("Select %s cohort JSON%s", role_label, if (isTRUE(allow_multiple)) "(s)" else "")
-          ),
-          error = function(e) NULL
-        )
-        if (length(menu_pick) > 0 && any(nzchar(menu_pick))) {
-          selected_rows <- unique(vapply(menu_pick[nzchar(menu_pick)], function(label) {
-            which(labels == label)[1]
-          }, integer(1)))
-        }
-      }
-      if (length(selected_rows) == 0) {
-        selection_prompt <- if (isTRUE(allow_multiple)) {
-          sprintf("Select %s cohort row numbers (comma-separated): ", role_label)
-        } else {
-          sprintf("Select the %s cohort row number: ", role_label)
-        }
-        selected_raw <- trimws(readline_with_dialogue(selection_prompt))
-        if (!nzchar(selected_raw)) {
-          cat("No cohort selected.
-")
-          next
-        }
-        selected_parts <- trimws(strsplit(selected_raw, ",", fixed = TRUE)[[1]])
-        selected_parts <- selected_parts[nzchar(selected_parts)]
-        for (part in selected_parts) {
-          parsed <- suppressWarnings(as.integer(part))
-          if (is.na(parsed) || parsed < 1L || parsed > nrow(preview)) {
-            invalid <- c(invalid, part)
-          } else {
-            selected_rows <- c(selected_rows, parsed)
-          }
-        }
-      }
-      selected_rows <- unique(selected_rows)
-      if (length(invalid) > 0 || length(selected_rows) == 0) {
-        cat(sprintf("Invalid selection: %s
-", paste(unique(invalid), collapse = ", ")))
-        next
-      }
-      imported <- tryCatch(
-        lapply(selected_rows, function(row_idx) {
-          .studyAgentSlashImportFileCohortDefinition(
-            path = preview$path[[row_idx]],
-            imported_def_dir = imported_definition_dir,
-            source_type = "directory"
-          )
-        }),
-        error = function(e) e
-      )
-      if (inherits(imported, "error")) {
-        cat(sprintf("Directory cohort import failed: %s
-", conditionMessage(imported)))
-        next
-      }
-      return(imported)
-    }
+    .studyAgentSlashPromptDirectoryCohortImports(
+      role_label = role_label,
+      allow_multiple = allow_multiple,
+      imported_definition_dir = imported_definition_dir,
+      interactive = interactive,
+      readline_with_navigation = readline_with_navigation,
+      readline_with_dialogue = readline_with_dialogue,
+      is_back_signal = is_back_signal
+    )
   }
 
   apply_action <- function(obj, action) {
@@ -1751,20 +1400,33 @@ Available exploration commands
     target_source_mode <- choose_selection_source_mode("target", allow_index = !isTRUE(skip_intent_split_and_recommendation) || isTRUE(direct_acquisition_mode))
     if (is_back_signal(target_source_mode)) next
 
-    if (identical(target_source_mode, "database")) {
-      if (interactive) {
-        cat("\n== Step 2: Target cohort import from database ==\n")
-      }
-      imported_target <- prompt_database_cohort_imports("target", allow_multiple = FALSE)
-      if (is_back_signal(imported_target)) next
-      if (is.null(imported_target) || length(imported_target) == 0) next
-      imported_target <- imported_target[[1]]
-      selected_ids_target <- as.character(imported_target$source_id)
-      selected_target_records <- list(selection_record_from_import(imported_target))
+    imported_target_selection <- .studyAgentSlashAcquireImportedRoleSelection(
+      source_mode = target_source_mode,
+      role_label = "target",
+      allow_multiple = FALSE,
+      interactive = interactive,
+      step_messages = list(
+        database = "Step 2: Target cohort import from database",
+        file = "Step 2: Target cohort import from file",
+        directory = "Step 2: Target cohort import from directory"
+      ),
+      prompt_database_imports = prompt_database_cohort_imports,
+      prompt_file_imports = prompt_file_cohort_imports,
+      prompt_directory_imports = prompt_directory_cohort_imports,
+      selection_record_from_import = selection_record_from_import
+    )
+    if (is_back_signal(imported_target_selection)) next
+
+    if (!is.null(imported_target_selection)) {
+      if (!identical(imported_target_selection$action %||% "", "handled")) next
+      imported_target <- imported_target_selection$imported[[1]]
+      selected_ids_target <- as.character(imported_target_selection$selected_source_ids)
+      selected_target_records <- imported_target_selection$records
       cat(sprintf(
-        "Imported target cohort %s from %s as source id %s.\n",
+        "Imported target cohort %s from %s as source id %s.
+",
         imported_target$metadata$cohort_name %||% "<unknown>",
-        imported_target$metadata$source_schema %||% "<unknown>",
+        imported_target$metadata$source_schema %||% imported_target$metadata$source_path %||% "<unknown>",
         imported_target$source_id %||% "<unknown>"
       ))
     } else {
@@ -2039,16 +1701,33 @@ Available exploration commands
     outcome_source_mode <- choose_selection_source_mode("outcome", allow_index = !isTRUE(skip_intent_split_and_recommendation) || isTRUE(direct_acquisition_mode))
     if (is_back_signal(outcome_source_mode)) next
 
-    if (identical(outcome_source_mode, "database")) {
-      if (interactive) {
-        cat("\n== Step 5: Outcome cohort import from database ==\n")
-      }
-      imported_outcomes <- prompt_database_cohort_imports("outcome", allow_multiple = TRUE)
-      if (is_back_signal(imported_outcomes)) next
-      if (is.null(imported_outcomes) || length(imported_outcomes) == 0) next
-      selected_outcome_records <- lapply(imported_outcomes, selection_record_from_import)
-      selected_ids_outcome <- as.character(vapply(imported_outcomes, function(item) item$source_id %||% "", character(1)))
-      cat(sprintf("Imported %s outcome cohort definition(s) from the database.\n", length(selected_ids_outcome)))
+    imported_outcome_selection <- .studyAgentSlashAcquireImportedRoleSelection(
+      source_mode = outcome_source_mode,
+      role_label = "outcome",
+      allow_multiple = TRUE,
+      interactive = interactive,
+      step_messages = list(
+        database = "Step 5: Outcome cohort import from database",
+        file = "Step 5: Outcome cohort import from file",
+        directory = "Step 5: Outcome cohort import from directory"
+      ),
+      prompt_database_imports = prompt_database_cohort_imports,
+      prompt_file_imports = prompt_file_cohort_imports,
+      prompt_directory_imports = prompt_directory_cohort_imports,
+      selection_record_from_import = selection_record_from_import
+    )
+    if (is_back_signal(imported_outcome_selection)) next
+
+    if (!is.null(imported_outcome_selection)) {
+      if (!identical(imported_outcome_selection$action %||% "", "handled")) next
+      selected_outcome_records <- imported_outcome_selection$records
+      selected_ids_outcome <- as.character(imported_outcome_selection$selected_source_ids)
+      cat(sprintf(
+        "Imported %s outcome cohort definition(s) from %s.
+",
+        length(selected_ids_outcome),
+        outcome_source_mode
+      ))
     } else {
       do_outcome_recs <- !isTRUE(resume) || !has_checkpoint("outcome_advice")
       if (interactive && !do_outcome_recs) {

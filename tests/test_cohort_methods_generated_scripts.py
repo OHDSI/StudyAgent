@@ -8,6 +8,7 @@ from _repo_paths import repo_path
 
 
 SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_cohort_methods_shell.R")
+ACQUISITION_HELPER_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "cohort_acquisition.R")
 EXECUTION_SETTINGS_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "execution_settings.R")
 
 def _generated_script_block(source: str, script_name: str, filename: str) -> str:
@@ -279,14 +280,15 @@ def test_diagnostics_explorer_launcher_script_is_generated() -> None:
 
 def test_cohort_method_shell_supports_multiple_cohort_acquisition_modes() -> None:
     source = SOURCE.read_text(encoding="utf-8")
+    helper = ACQUISITION_HELPER_SOURCE.read_text(encoding="utf-8")
 
-    assert 'Source for %s cohort [ai=agentic search (default), file=JSON file, dir=directory, db=database cohort]:' in source
+    assert 'Source for %s cohort [ai=agentic search (default), file=JSON file, dir=directory, db=database cohort]:' in helper
     assert 'prompt_database_cohort_imports <- function(role_label, allow_multiple = FALSE)' in source
     assert 'prompt_file_cohort_imports <- function(role_label, allow_multiple = FALSE)' in source
     assert 'prompt_directory_cohort_imports <- function(role_label, allow_multiple = FALSE)' in source
-    assert 'strategus-cohort-source-db-details.json' in source
+    assert 'strategus-cohort-source-db-details.json' in helper
     assert 'cohort_source_db_details_need_configuration <- function(path)' in source
-    assert 'Database cohort import requires a populated %s.' in source
+    assert 'Database cohort import requires a populated %s.' in helper
     assert 'imported-cohort-definitions' in source
 
 
@@ -305,10 +307,11 @@ def test_cohort_method_shell_persists_neutral_source_metadata_for_imported_cohor
 
 def test_cohort_method_shell_supports_direct_cohort_acquisition_bypass() -> None:
     source = SOURCE.read_text(encoding="utf-8")
+    helper = ACQUISITION_HELPER_SOURCE.read_text(encoding="utf-8")
 
     assert 'Study intent [Enter to acquire cohorts directly]:' in source
     assert 'choose_selection_source_mode <- function(role_label, allow_index = TRUE)' in source
-    assert 'Source for %s cohort [file=JSON file, dir=directory, db=database cohort]:' in source
+    assert 'Source for %s cohort [file=JSON file, dir=directory, db=database cohort]:' in helper
     assert 'direct_role_statement_default <- function(role_label, study_intent)' in source
     assert 'selection_source = "function_argument_direct"' in source
     assert 'direct_acquisition_mode = isTRUE(direct_acquisition_mode)' in source

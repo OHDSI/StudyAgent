@@ -29,6 +29,18 @@
   file.path(imported_def_dir, sprintf("%s.json", gsub(":", "__", source_id, fixed = TRUE)))
 }
 
+.studyAgentSlashImportedCohortAliasPath <- function(cohort_definition_id, imported_def_dir) {
+  cohort_definition_id <- suppressWarnings(as.integer(cohort_definition_id))
+  imported_def_dir <- as.character(imported_def_dir %||% "")
+  if (is.na(cohort_definition_id) || cohort_definition_id <= 0L) {
+    stop("cohort_definition_id must be a positive integer.")
+  }
+  if (!nzchar(imported_def_dir)) {
+    stop("Provide imported_def_dir for cached cohort definition aliases.")
+  }
+  file.path(imported_def_dir, sprintf("%s.json", cohort_definition_id))
+}
+
 .studyAgentSlashFormatDbConnectError <- function(error, connectionDetails = NULL) {
   `%||%` <- function(x, y) if (is.null(x)) y else x
   base_message <- conditionMessage(error)
@@ -75,10 +87,12 @@
 .studyAgentSlashListDatabaseCohortDefinitions <- function(connectionDetails,
                                                            cohort_database_schema,
                                                            search_term = NULL,
-                                                           limit = 100L) {
+                                                           limit = NULL,
+                                                           sort_by = c("id", "name")) {
   schema <- .studyAgentSlashValidateCohortDefinitionSchema(cohort_database_schema)
-  limit <- suppressWarnings(as.integer(limit %||% 100L))
-  if (is.na(limit) || limit <= 0L) limit <- 100L
+  sort_by <- match.arg(sort_by)
+  limit <- suppressWarnings(as.integer(limit))
+  if (length(limit) == 0L || is.na(limit) || limit <= 0L) limit <- NULL
   sql <- sprintf(
     paste(
       "SELECT id AS cohort_definition_id, name AS cohort_name, expression_type",
@@ -113,8 +127,15 @@
     rows <- rows[keep_rows, , drop = FALSE]
   }
   if (nrow(rows) == 0) return(rows)
-  rows <- rows[order(rows$cohort_name, rows$cohort_definition_id), , drop = FALSE]
-  utils::head(rows, n = limit)
+  if (identical(sort_by, "name")) {
+    rows <- rows[order(rows$cohort_name, rows$cohort_definition_id), , drop = FALSE]
+  } else {
+    rows <- rows[order(rows$cohort_definition_id, rows$cohort_name), , drop = FALSE]
+  }
+  if (!is.null(limit)) {
+    rows <- utils::head(rows, n = limit)
+  }
+  rows
 }
 
 .studyAgentSlashReadDatabaseCohortDefinition <- function(connectionDetails,
@@ -257,9 +278,11 @@
                                                             source_value,
                                                             explicit_id = NULL) {
   explicit_id <- suppressWarnings(as.integer(explicit_id))
-  if (!is.na(explicit_id) && explicit_id > 0L) return(explicit_id)
+  explicit_id <- explicit_id[!is.na(explicit_id)]
+  if (length(explicit_id) > 0L && explicit_id[[1]] > 0L) return(as.integer(explicit_id[[1]]))
   json_id <- suppressWarnings(as.integer(cohort_json$id %||% cohort_json$cohortDefinitionId %||% cohort_json$cohort_definition_id))
-  if (!is.na(json_id) && json_id > 0L) return(json_id)
+  json_id <- json_id[!is.na(json_id)]
+  if (length(json_id) > 0L && json_id[[1]] > 0L) return(as.integer(json_id[[1]]))
   .studyAgentSlashStableImportedCohortId(source_value)
 }
 
