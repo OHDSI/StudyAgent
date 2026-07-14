@@ -168,8 +168,15 @@ def test_generated_diagnostics_explorer_launcher_script_is_emitted() -> None:
 def test_incidence_shell_supports_direct_cohort_acquisition_bypass() -> None:
     source = SOURCE.read_text(encoding="utf-8")
 
-    assert 'Skip ACP intent split and phenotype recommendation and acquire cohorts directly?' in source
+    assert 'Study intent [Enter to acquire cohorts directly; example: %s]:' in source
     assert 'choose_selection_source_mode <- function(role_label, allow_index = TRUE)' in source
     assert 'Source for %s cohort [db=existing database cohort, file=JSON file, dir=directory]:' in source
     assert 'default_direct_statement <- function(role_label, study_intent)' in source
     assert 'direct_acquisition_mode = isTRUE(direct_acquisition_mode)' in source
+
+
+def test_incidence_shell_still_supports_explicit_direct_bypass_prompt() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+
+    assert "Skip ACP intent split and phenotype recommendation and acquire cohorts directly?" in source
+    assert "blank_study_intent_direct_acquisition" in source

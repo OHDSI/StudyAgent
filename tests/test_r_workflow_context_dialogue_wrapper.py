@@ -35,7 +35,10 @@ def test_workflow_dialogue_reader_supports_back_navigation() -> None:
     source = DIALOGUE_SOURCE.read_text(encoding="utf-8")
 
     assert 'new_workflow_navigation_signal <- function(action)' in source
+    assert 'workflow_dialogue_prompt_width <- function() {' in source
+    assert 'wrap_workflow_dialogue_prompt <- function(prompt) {' in source
     assert 'readline_with_dialogue <- function(prompt, allow_back = FALSE)' in source
+    assert 'entered <- readline(wrap_workflow_dialogue_prompt(prompt))' in source
     assert 'if (isTRUE(allow_back) && identical(trimmed, "/back")) {' in source
 
 

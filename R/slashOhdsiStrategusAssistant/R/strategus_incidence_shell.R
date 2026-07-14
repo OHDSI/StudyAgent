@@ -1585,14 +1585,23 @@ Available exploration commands
   skip_reason <- NULL
   skip_prompt_source <- "not_prompted"
   repeat {
+    blank_study_intent_direct <- FALSE
     if (interactive) {
       set_dialogue_context("study_intent", context = list(default_intent = default_intent))
-      entered <- readline_with_navigation(sprintf("Study intent [%s]: ", default_intent))
+      entered <- readline_with_navigation(sprintf(
+        "Study intent [Enter to acquire cohorts directly; example: %s]: ",
+        default_intent
+      ))
       if (is_back_signal(entered)) {
         cat("Already at the first step\n")
         next
       }
-      if (nzchar(trimws(entered))) studyIntent <- entered else studyIntent <- default_intent
+      if (nzchar(trimws(entered))) {
+        studyIntent <- entered
+      } else {
+        studyIntent <- ""
+        blank_study_intent_direct <- TRUE
+      }
     } else {
       if (is.null(studyIntent) || !nzchar(trimws(studyIntent))) studyIntent <- default_intent
     }
@@ -1602,7 +1611,12 @@ Available exploration commands
     skip_phenotype_improvements <- FALSE
     skip_reason <- NULL
     skip_prompt_source <- if (isTRUE(interactive)) "interactive_user_choice" else "not_prompted"
-    if (isTRUE(interactive)) {
+    if (isTRUE(blank_study_intent_direct)) {
+      direct_acquisition_mode <- TRUE
+      skip_intent_split_and_recommendation <- TRUE
+      skip_reason <- "blank_study_intent_direct_acquisition"
+      skip_prompt_source <- "blank_study_intent"
+    } else if (isTRUE(interactive)) {
       direct_acquisition_mode <- prompt_yesno(
         "Skip ACP intent split and phenotype recommendation and acquire cohorts directly?",
         default = FALSE

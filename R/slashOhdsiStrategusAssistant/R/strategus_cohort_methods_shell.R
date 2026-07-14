@@ -4784,9 +4784,13 @@ Available exploration commands
   default_intent <- studyIntent %||% cached_inputs$study_intent %||%
     "Compare a target exposure versus a comparator exposure on one or more outcomes using a cohort method design."
   repeat {
+    blank_study_intent_direct <- FALSE
     if (isTRUE(interactive)) {
       set_dialogue_context("study_intent", context = list(default_intent = default_intent))
-      entered <- readline_with_navigation(sprintf("Study intent [%s]: ", default_intent))
+      entered <- readline_with_navigation(sprintf(
+        "Study intent [Enter to acquire cohorts directly; example: %s]: ",
+        default_intent
+      ))
       if (is_back_signal(entered)) {
         cat("Already at the first step\n")
         next
@@ -4794,7 +4798,8 @@ Available exploration commands
       if (nzchar(trimws(entered))) {
         studyIntent <- entered
       } else {
-        studyIntent <- default_intent
+        studyIntent <- ""
+        blank_study_intent_direct <- TRUE
       }
     } else if (is.null(studyIntent) || !nzchar(trimws(studyIntent))) {
       studyIntent <- default_intent
@@ -4972,7 +4977,13 @@ Available exploration commands
       skip_prompt_source <- "interactive_user_choice"
     }
   }
-  if (!isTRUE(skip_intent_split_and_recommendation) && isTRUE(interactive)) {
+  if (!isTRUE(skip_intent_split_and_recommendation) && isTRUE(blank_study_intent_direct)) {
+    direct_acquisition_mode <- TRUE
+    skip_intent_split_and_recommendation <- TRUE
+    skip_phenotype_improvements <- FALSE
+    skip_reason <- "blank_study_intent_direct_acquisition"
+    skip_prompt_source <- "blank_study_intent"
+  } else if (!isTRUE(skip_intent_split_and_recommendation) && isTRUE(interactive)) {
     direct_acquisition_mode <- prompt_yesno(
       "Skip ACP intent split and phenotype recommendation and acquire cohorts directly?",
       default = FALSE

@@ -32,7 +32,6 @@ slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell(
   acpUrl = "http://127.0.0.1:8765",
   studyAgentBaseDir = repo_root,
   indexDir = "data/phenotype_index_cipher_omop",
-  incidenceOutputDir = "demo-strategus-cohort-incidence",
   executionTableDisplay = "viewer"
 )
 ## possible study intent:

@@ -306,9 +306,16 @@ def test_cohort_method_shell_persists_neutral_source_metadata_for_imported_cohor
 def test_cohort_method_shell_supports_direct_cohort_acquisition_bypass() -> None:
     source = SOURCE.read_text(encoding="utf-8")
 
-    assert 'Skip ACP intent split and phenotype recommendation and acquire cohorts directly?' in source
+    assert 'Study intent [Enter to acquire cohorts directly; example: %s]:' in source
     assert 'choose_selection_source_mode <- function(role_label, allow_index = TRUE)' in source
     assert 'Source for %s cohort [db=existing database cohort, file=JSON file, dir=directory]:' in source
     assert 'direct_role_statement_default <- function(role_label, study_intent)' in source
     assert 'selection_source = "function_argument_direct"' in source
     assert 'direct_acquisition_mode = isTRUE(direct_acquisition_mode)' in source
+
+
+def test_cohort_method_shell_still_supports_explicit_direct_bypass_prompt() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+
+    assert "Skip ACP intent split and phenotype recommendation and acquire cohorts directly?" in source
+    assert "blank_study_intent_direct_acquisition" in source
