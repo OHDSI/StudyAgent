@@ -74,12 +74,14 @@ def test_generated_incidence_script_uses_persisted_time_at_risk_settings() -> No
 
 def test_shell_seeds_runtime_templates_and_generated_scripts_use_them() -> None:
     source = SOURCE.read_text(encoding="utf-8")
+    helper = ACQUISITION_HELPER_SOURCE.read_text(encoding="utf-8")
 
-    assert 'seed_strategus_runtime_templates <- function(base_dir)' in source
+    assert '.studyAgentSlashSeedRuntimeTemplates <- function(base_dir, write_json) {' in helper
     assert 'strategus-db-details.json' in source
     assert 'strategus-execution-settings.json' in source
-    assert 'strategus-cohort-source-db-details.json' in source
+    assert 'strategus-cohort-source-db-details.json' in helper
     assert 'execution_settings_path = execution_settings_path,' in source
+    assert '.studyAgentSlashSeedRuntimeTemplates(base_dir, write_json = write_json)' in source
 
     script03_start = source.index('script_03 <- c(')
     script03_end = source.index('write_lines(file.path(scripts_dir, "03_generate_cohorts.R")', script03_start)
@@ -184,3 +186,16 @@ def test_incidence_shell_still_supports_explicit_direct_bypass_prompt() -> None:
 
     assert "Skip ACP intent split and enter cohort role statements directly?" in source
     assert "blank_study_intent_direct_acquisition" in source
+
+
+def test_incidence_shell_derives_study_intent_and_supports_build_help() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+
+    assert 'showBanner = TRUE' in source
+    assert 'build_help_mode <- new.env(parent = emptyenv())' in source
+    assert 'print_current_build_help <- function() {' in source
+    assert '.studyAgentSlashWorkflowBuildHelpLines(' in source
+    assert 'default_direct_study_intent <- function(target_statement, outcome_statement) {' in source
+    assert 'Study intent derived from cohort statements [%s]:' in source
+    assert 'Summarize the incidence of the outcome %s in patients from the target cohort %s.' in source
+    assert 'studyIntent <- ensure_study_intent_from_role_statements(studyIntent, target_statement, outcome_statement)' in source

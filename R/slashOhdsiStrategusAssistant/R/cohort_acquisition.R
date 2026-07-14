@@ -105,6 +105,36 @@
   invisible(path)
 }
 
+.studyAgentSlashSeedRuntimeTemplates <- function(base_dir, write_json) {
+  db_details_path <- file.path(base_dir, "strategus-db-details.json")
+  cohort_source_db_details_path <- file.path(base_dir, "strategus-cohort-source-db-details.json")
+  execution_settings_path <- file.path(base_dir, "strategus-execution-settings.json")
+
+  .studyAgentSlashSeedDbDetailsTemplate(db_details_path, write_json = write_json)
+  .studyAgentSlashSeedDbDetailsTemplate(cohort_source_db_details_path, write_json = write_json)
+
+  if (!file.exists(execution_settings_path)) {
+    write_json(list(
+      cdmDatabaseSchema = "",
+      workDatabaseSchema = "",
+      resultsDatabaseSchema = "",
+      vocabularyDatabaseSchema = "",
+      cohortTable = "cohort",
+      workFolder = file.path(base_dir, "work"),
+      resultsFolder = file.path(base_dir, "results"),
+      cohortIdFieldName = "cohort_definition_id",
+      maxCores = 4,
+      incremental = FALSE
+    ), execution_settings_path)
+  }
+
+  list(
+    db_details_path = db_details_path,
+    cohort_source_db_details_path = cohort_source_db_details_path,
+    execution_settings_path = execution_settings_path
+  )
+}
+
 .studyAgentSlashCohortSourceDbDetailsNeedConfiguration <- function(path, readStrategusDbDetails) {
   db_config <- tryCatch(readStrategusDbDetails(path), error = function(e) NULL)
   if (is.null(db_config)) return(TRUE)

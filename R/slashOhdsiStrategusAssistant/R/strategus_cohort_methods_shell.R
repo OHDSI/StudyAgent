@@ -1573,6 +1573,7 @@
 #' @param incidenceOutputDir optional incidence workflow directory for artifact reuse
 #' @param interactive whether to prompt for inputs
 #' @param bannerPath optional path to ASCII banner
+#' @param showBanner when FALSE, suppress the startup ASCII banner
 #' @param studyAgentBaseDir base directory to resolve relative paths
 #' @param reset when TRUE, delete outputDir before running
 #' @param allowCache reuse cached artifacts when present
@@ -1606,6 +1607,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
                                            incidenceOutputDir = "demo-strategus-cohort-incidence",
                                            interactive = TRUE,
                                            bannerPath = "ohdsi-logo-ascii.txt",
+                                           showBanner = TRUE,
                                            studyAgentBaseDir = Sys.getenv("STUDY_AGENT_BASE_DIR", ""),
                                            reset = FALSE,
                                            allowCache = TRUE,
@@ -1662,8 +1664,36 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   )
   dialogue_state <- dialogue_session$state
   set_dialogue_context <- dialogue_session$set_context
-  readline_with_dialogue <- dialogue_session$readline
+  raw_readline_with_dialogue <- dialogue_session$readline
   is_back_signal <- function(value) inherits(value, "workflow_navigation_signal") && identical(value$action %||% "", "back")
+  build_help_mode <- new.env(parent = emptyenv())
+  build_help_mode$enabled <- isTRUE(interactive)
+
+  print_current_build_help <- function() {
+    help_lines <- .studyAgentSlashWorkflowBuildHelpLines(
+      workflow_type = "strategus_cohort_methods",
+      step = dialogue_state$current_step %||% "",
+      role = dialogue_state$current_role %||% "",
+      context = dialogue_state$current_context %||% list()
+    )
+    cat("\nBuild help\n")
+    for (line in help_lines) cat(sprintf("%s\n", line))
+    cat("\n")
+    invisible(NULL)
+  }
+
+  readline_with_dialogue <- function(prompt, allow_back = FALSE) {
+    repeat {
+      entered <- raw_readline_with_dialogue(prompt, allow_back = allow_back)
+      if (is_back_signal(entered) || !isTRUE(build_help_mode$enabled)) return(entered)
+      lowered <- tolower(trimws(as.character(entered %||% "")))
+      if (lowered %in% c("h", "help")) {
+        print_current_build_help()
+        next
+      }
+      return(entered)
+    }
+  }
   readline_with_navigation <- function(prompt) readline_with_dialogue(prompt, allow_back = TRUE)
 
   prompt_yesno <- function(prompt, default = TRUE) {
@@ -2309,6 +2339,33 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     default_value <- trimws(as.character(default %||% ""))
     entered <- readline_with_dialogue(sprintf("%s statement [%s]: ", label, default_value))
     if (nzchar(trimws(entered))) trimws(entered) else default_value
+  }
+
+  default_direct_study_intent <- function(target_statement, comparator_statement, outcome_statement) {
+    sprintf(
+      "Compare the rate of occurrence of outcome %s between %s and %s.",
+      trimws(as.character(outcome_statement %||% "")),
+      trimws(as.character(target_statement %||% "")),
+      trimws(as.character(comparator_statement %||% ""))
+    )
+  }
+
+  ensure_study_intent_from_role_statements <- function(study_intent, target_statement, comparator_statement, outcome_statement) {
+    resolved <- trimws(as.character(study_intent %||% ""))
+    if (nzchar(resolved)) return(resolved)
+    template_intent <- default_direct_study_intent(target_statement, comparator_statement, outcome_statement)
+    if (!isTRUE(interactive)) return(template_intent)
+    set_dialogue_context("study_intent", context = list(
+      default_intent = template_intent,
+      target_statement = target_statement,
+      comparator_statement = comparator_statement,
+      outcome_statement = outcome_statement,
+      generated_from_role_statements = TRUE
+    ))
+    entered <- readline_with_navigation(sprintf("Study intent derived from cohort statements [%s]: ", template_intent))
+    if (is_back_signal(entered)) return(entered)
+    entered <- trimws(as.character(entered %||% ""))
+    if (nzchar(entered)) entered else template_intent
   }
 
   acp_timeout_seconds <- function(default = 180) {
@@ -4242,6 +4299,11 @@ Available exploration commands
   run_execution_menu <- function(prompt_first = TRUE) {
     if (!isTRUE(interactive)) return(invisible(list(action = "exit")))
     if (!file.exists(project_state_path) || !file.exists(runtime_state_path)) return(invisible(list(action = "exit")))
+    prior_build_help_mode <- isTRUE(build_help_mode$enabled)
+    build_help_mode$enabled <- FALSE
+    on.exit({
+      build_help_mode$enabled <- prior_build_help_mode
+    }, add = TRUE)
     valid_revise_scopes <- c("build", "intent", "target", "comparator", "outcome")
     normalize_revise_scope <- function(command_text) {
       if (command_text %in% c("rev", "revise")) return("build")
@@ -4471,7 +4533,7 @@ Available exploration commands
       alt <- file.path(getwd(), "OHDSI-Study-Agent", bannerPath)
       if (file.exists(alt)) banner_path <- normalizePath(alt, winslash = "/", mustWork = FALSE)
     }
-    if (file.exists(banner_path)) {
+    if (isTRUE(showBanner) && file.exists(banner_path)) {
       cat(paste(readLines(banner_path, warn = FALSE), collapse = "\n"), "\n")
     }
     cat("\nStudy Agent: Strategus CohortMethod shell\n")
@@ -4899,6 +4961,14 @@ Available exploration commands
       "reuse a valid cache, or run ACP with /flows/cohort_methods_intent_split available."
     )
   }
+
+  studyIntent <- ensure_study_intent_from_role_statements(
+    studyIntent = studyIntent,
+    target_statement = targetStatement,
+    comparator_statement = comparatorStatement,
+    outcome_statement = outcomeStatement
+  )
+  if (is_back_signal(studyIntent)) next
 
   if (isTRUE(interactive)) {
     gate <- readline_with_navigation("Press Enter to continue to target cohort selection, or type /back: ")
@@ -6569,37 +6639,7 @@ Available exploration commands
     comparator_ids = as.integer(new_comparator_id),
     outcome_ids = as.integer(new_outcome_ids)
   )
-  seed_strategus_runtime_templates <- function(base_dir) {
-    db_details_path <- file.path(base_dir, "strategus-db-details.json")
-    cohort_source_db_details_path <- file.path(base_dir, "strategus-cohort-source-db-details.json")
-    execution_settings_path <- file.path(base_dir, "strategus-execution-settings.json")
-
-    seed_db_details_template(db_details_path)
-    seed_db_details_template(cohort_source_db_details_path)
-
-    if (!file.exists(execution_settings_path)) {
-      write_json(list(
-        cdmDatabaseSchema = "",
-        workDatabaseSchema = "",
-        resultsDatabaseSchema = "",
-        vocabularyDatabaseSchema = "",
-        cohortTable = "cohort",
-        workFolder = file.path(base_dir, "work"),
-        resultsFolder = file.path(base_dir, "results"),
-        cohortIdFieldName = "cohort_definition_id",
-        maxCores = 4,
-        incremental = FALSE
-      ), execution_settings_path)
-    }
-
-    list(
-      db_details_path = db_details_path,
-      cohort_source_db_details_path = cohort_source_db_details_path,
-      execution_settings_path = execution_settings_path
-    )
-  }
-
-  runtime_template_paths <- seed_strategus_runtime_templates(base_dir)
+  runtime_template_paths <- .studyAgentSlashSeedRuntimeTemplates(base_dir, write_json = write_json)
   db_details_path <- runtime_template_paths$db_details_path
   cohort_source_db_details_path <- runtime_template_paths$cohort_source_db_details_path
   execution_settings_path <- runtime_template_paths$execution_settings_path

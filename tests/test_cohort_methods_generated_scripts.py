@@ -267,6 +267,22 @@ def test_cohort_method_spec_accepts_generated_argument_shape() -> None:
     )
     assert result.returncode == 0, result.stderr
 
+
+def test_cohort_method_shell_derives_study_intent_and_supports_build_help() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+    helper = ACQUISITION_HELPER_SOURCE.read_text(encoding="utf-8")
+
+    assert 'showBanner = TRUE' in source
+    assert 'build_help_mode <- new.env(parent = emptyenv())' in source
+    assert 'print_current_build_help <- function() {' in source
+    assert '.studyAgentSlashWorkflowBuildHelpLines(' in source
+    assert 'default_direct_study_intent <- function(target_statement, comparator_statement, outcome_statement) {' in source
+    assert 'Study intent derived from cohort statements [%s]:' in source
+    assert 'Compare the rate of occurrence of outcome %s between %s and %s.' in source
+    assert 'studyIntent <- ensure_study_intent_from_role_statements(' in source
+    assert '.studyAgentSlashSeedRuntimeTemplates <- function(base_dir, write_json) {' in helper
+    assert '.studyAgentSlashSeedRuntimeTemplates(base_dir, write_json = write_json)' in source
+
 def test_diagnostics_explorer_launcher_script_is_generated() -> None:
     source = SOURCE.read_text(encoding="utf-8")
     block = _generated_script_block(source, "script_08", "08_launch_diagnostics_explorer.R")

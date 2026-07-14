@@ -160,3 +160,124 @@ build_cohort_methods_workflow_stage_context <- function(study_intent,
   context$legacy_context <- current_context
   context
 }
+
+workflow_build_help_lines <- function(workflow_type, step, role = "", context = list()) {
+  `%||%` <- function(x, y) if (is.null(x)) y else x
+  workflow_type <- as.character(workflow_type %||% "")
+  role <- as.character(role %||% "")
+  context <- compact_workflow_dialogue_context(context %||% list())
+
+  command_lines <- c(
+    "Commands for this step:",
+    "  - h or help: show commands for the current step",
+    "  - /ohdsi <question>: ask for workflow-aware OHDSI guidance",
+    "  - /back: return to the previous supported step boundary",
+    "  - Enter: accept the default value or continue when allowed"
+  )
+
+  if (identical(workflow_type, "strategus_incidence")) {
+    step <- normalize_incidence_dialogue_step(step)
+    step_lines <- switch(
+      step,
+      study_intent_capture = c(
+        "Provide a study intent to let ACP propose target and outcome statements.",
+        "Press Enter on a blank study intent to switch to direct cohort-statement entry."
+      ),
+      intent_split = c(
+        "Enter concise cohort statements for the current role.",
+        "Use direct acquisition when you want to bypass ACP intent splitting and drive role selection yourself."
+      ),
+      target_selection = c(
+        "Choose how to acquire the target cohort: agentic search, database cohort, local JSON file, or directory.",
+        "Selection sources are recorded in project state and imported artifacts are cached locally."
+      ),
+      outcome_selection = c(
+        "Choose how to acquire the outcome cohort: agentic search, database cohort, local JSON file, or directory.",
+        "Selection sources are recorded in project state and imported artifacts are cached locally."
+      ),
+      phenotype_review = c(
+        "Review phenotype improvement suggestions for the active role before continuing.",
+        "You can keep the existing cohort, apply improvements, or skip improvements when they are not useful."
+      ),
+      incidence_design_setup = c(
+        "Configure the incidence build inputs, including cohort ID mapping and execution-root paths.",
+        "These settings shape the generated Strategus scripts and downstream artifact discovery."
+      ),
+      time_at_risk_configuration = c(
+        "Review time-at-risk windows, analysis TAR IDs, and optional strata settings.",
+        "Use the cohort statements and selected cohort IDs as context when deciding the TAR definitions."
+      ),
+      workflow_summary = c(
+        "Review the saved build summary before entering execution mode.",
+        "This is the last build-stage checkpoint before generated steps are run."
+      ),
+      c("Use the current prompt and surrounding context to decide the next input.")
+    )
+  } else {
+    step <- normalize_cohort_methods_dialogue_step(step)
+    step_lines <- switch(
+      step,
+      study_intent_capture = c(
+        "Provide a study intent to let ACP propose target, comparator, and outcome statements.",
+        "Press Enter on a blank study intent to switch to direct cohort-statement entry."
+      ),
+      intent_split = c(
+        "Enter concise cohort statements for the current role.",
+        "If outcome statements are suggested, keep the defaults or edit them into the final analysis wording you want preserved."
+      ),
+      target_selection = c(
+        "Choose how to acquire the target cohort: agentic search, database cohort, local JSON file, or directory.",
+        "Imported cohort definitions are cached and the selection source is persisted in project state."
+      ),
+      comparator_selection = c(
+        "Choose how to acquire the comparator cohort: agentic search, database cohort, local JSON file, or directory.",
+        "Imported cohort definitions are cached and the selection source is persisted in project state."
+      ),
+      outcome_selection = c(
+        "Choose how to acquire the outcome cohort: agentic search, database cohort, local JSON file, or directory.",
+        "Imported cohort definitions are cached and the selection source is persisted in project state."
+      ),
+      phenotype_review = c(
+        "Review phenotype improvement suggestions for the active role before continuing.",
+        "You can keep the existing cohort, apply improvements, or skip improvements when they are not useful."
+      ),
+      analytic_settings_collection = c(
+        "Review the analytic settings profile and any customized sections before generating the cohort-method specification.",
+        "This step controls the generated analysis JSON and the resulting Strategus module arguments."
+      ),
+      cohort_method_spec_recommendation = c(
+        "Review the recommended cohort-method specification details and confirm the persisted settings.",
+        "Use /ohdsi if you want contextual guidance on washout, risk windows, matching, or outcome modeling."
+      ),
+      cohort_method_spec_confirmation = c(
+        "Confirm the final specification inputs before writing the generated cohort-method artifacts.",
+        "Edits here should persist to the saved manual inputs and analysis settings files."
+      ),
+      workflow_summary = c(
+        "Review the saved build summary before entering execution mode.",
+        "This is the last build-stage checkpoint before generated steps are run."
+      ),
+      c("Use the current prompt and surrounding context to decide the next input.")
+    )
+  }
+
+  db_lines <- character(0)
+  if (identical(step, "target_selection") || identical(step, "comparator_selection") || identical(step, "outcome_selection")) {
+    db_lines <- c(
+      "Database import:",
+      "  - db uses strategus-cohort-source-db-details.json, not the execution DB config.",
+      "  - Populate the cohort-source DB template before retrying a db import."
+    )
+  }
+
+  role_line <- if (nzchar(role)) sprintf("Current role: %s", role) else NULL
+  intent_line <- if (nzchar(trimws(as.character(context$study_intent %||% "")))) {
+    sprintf("Current study intent: %s", as.character(context$study_intent))
+  } else if (!is.null(context$generated_from_role_statements) && isTRUE(context$generated_from_role_statements)) {
+    "Current study intent: a derived default will be proposed from the entered cohort statements."
+  } else {
+    NULL
+  }
+
+  c(role_line, intent_line, step_lines, db_lines, command_lines)
+}

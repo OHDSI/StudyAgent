@@ -8,14 +8,16 @@ generation plus in-shell execution for a CohortIncidence analysis.
 
 ## What the shell does
 
-- Prompts for a study intent.
-- Calls `phenotype_intent_split` to derive target and outcome cohort statements.
+- Prompts for a study intent, but also supports direct cohort acquisition when the study-intent prompt is left blank.
+- Calls `phenotype_intent_split` to derive target and outcome cohort statements when ACP intent split is used.
+- When direct acquisition starts from a blank study intent, the shell derives a default study-intent sentence from the confirmed target and outcome statements, lets the user edit it, and then persists the confirmed value for downstream state and `/ohdsi` context.
 - Calls `phenotype_recommendation` separately for target and outcome cohorts.
 - Lets the user select accepted target/outcome phenotypes and optionally remap cohort IDs.
 - For target and outcome roles, the shell can acquire cohort definitions from four sources: phenotype-index recommendation, an existing database cohort definition, a local cohort JSON file, or a directory of local cohort JSON files. Imported definitions are validated, cached under the workflow directory, and then treated like local cohort artifacts for the rest of the run. Database cohort-definition imports use `strategus-cohort-source-db-details.json`, so sites can keep that source connection separate from the execution DB used for patient-level analytics.
 - Calls `phenotype_improvements` for each selected cohort and lets the user apply improvements immediately.
 - Captures explicit time-at-risk and strata settings for the incidence analysis.
 - Supports `/back` at major stage boundaries while keeping `/ohdsi` dialogue available during the workflow.
+- Supports `h` / `help` during major build-mode prompts to show step-appropriate command/help text without leaving the current prompt.
 - Optionally runs ACP-based Keeper concept-set and case-review phases inline or writes standalone Keeper scripts. Inline Keeper runs now expose bounded review gates before and after each concept-set domain and before and after case review.
 - Writes reproducible scripts for recommendation replay, cohort generation, Keeper review, diagnostics, and incidence analysis.
 - Saves session state to `outputs/study_agent_state.json` for traceability.
@@ -69,6 +71,7 @@ Current execution-menu capabilities:
 
 Current behavior notes:
 
+- `showBanner = FALSE` suppresses the startup ASCII art without changing the shell prompts or workflow behavior.
 - Exiting the execution menu asks for confirmation unless the workflow is already complete.
 - Invalid step or exploration input no longer exits the shell; the menu stays active and prints valid choices.
 - `inspect_v <step>` and `explore_v <command-id>` try to open tabular results with `utils::View(...)` when an interactive viewer is available.
@@ -156,7 +159,8 @@ The format matches `strategus-db-details.json`. Example for a postgres-backed co
 ## Notes
 
 - If improvements were applied during the shell session, the scripts are a portable record and do not need to re-apply the same changes.
-- The shell exposes `/ohdsi` guidance throughout the workflow and supports `/back` at the major stage boundaries for study intent, target selection, outcome selection, TAR confirmation, and Keeper-review entry. The execution menu help also reminds users that `/ohdsi` remains available during run/resume mode.
+- The shell exposes `/ohdsi` guidance throughout the workflow and supports `/back` at the major stage boundaries for study intent, target selection, outcome selection, TAR confirmation, and Keeper-review entry. Build-mode `h` / `help` is also available at the major design prompts, and the execution menu help reminds users that `/ohdsi` remains available during run/resume mode.
+- When direct acquisition begins from a blank study-intent prompt, the shell still requires a persisted study intent before downstream configuration continues; it derives that default from the confirmed target and outcome statements and lets the user edit it before saving.
 - Inline Keeper review uses bounded stage gates rather than a fully generic rewind. Users can skip or rerun domains, inspect generated artifacts, adjust review settings, and inspect saved reviewed rows.
 - If no Keeper artifacts exist yet, the shell now suppresses the reuse/resume prompts instead of asking about caches unconditionally.
 - If the initial phenotype recommendations are not acceptable, the shell can request a second window of candidates and then fall back to advisory guidance.

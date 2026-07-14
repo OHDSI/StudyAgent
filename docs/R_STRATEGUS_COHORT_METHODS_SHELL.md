@@ -20,7 +20,7 @@ Workflow diagrams live in `docs/WORKFLOW_COHORT_METHODS.md`.
 ## Current Stage Flow
 
 1. Manual collection of required identifiers:
-   - `studyIntent`
+   - `studyIntent`, or direct cohort-statement entry when the study-intent prompt is left blank
 2. ACP-assisted split of `studyIntent` into:
    - `targetStatement`
    - `comparatorStatement`
@@ -30,6 +30,7 @@ Workflow diagrams live in `docs/WORKFLOW_COHORT_METHODS.md`.
    Interactive runs ask for short analysis labels for selected cohorts and the comparison; labels must
    be 100 characters or fewer because downstream Strategus/Characterization result tables use short
    identifier fields.
+   When direct acquisition starts from a blank study intent, the shell derives a default study-intent sentence from the confirmed target/comparator/outcome statements, lets the user edit it, and then persists the confirmed value for downstream state and `/ohdsi` context.
 4. Optional cohort ID remap step to avoid collisions (`remapCohortIds`).
 5. Normalize the chosen cohort JSON definitions into the workflow's selected cohort folders, including cached imports under `imported-cohort-definitions/` when the source was a database or local file path.
 6. Optional negative control and covariate concept-set IDs are still captured as placeholders.
@@ -38,6 +39,11 @@ Workflow diagrams live in `docs/WORKFLOW_COHORT_METHODS.md`.
 8. Optionally run ACP-based Keeper review inline with reuse/resume controls and bounded Keeper stage gates around domain generation and case review.
 9. Generate scripts in `scripts/` for cohort generation, Keeper review, diagnostics, CohortMethod spec/execution, and an optional Diagnostics Explorer launcher, including `07_cm_spec.R` and `08_launch_diagnostics_explorer.R`.
 10. Optionally enter run/resume mode in the same shell to execute generated steps, inspect artifacts, ask `/ohdsi` questions, or return to build mode with `revise ...`.
+
+Build-mode interaction notes:
+
+- `h` / `help` at the major design prompts shows step-appropriate help and then returns to the same prompt.
+- `showBanner = FALSE` suppresses the startup ASCII art without changing workflow behavior.
 
 ## Analytic Settings
 
@@ -258,5 +264,6 @@ Current Keeper specifics:
 ## Notes
 
 - This stage is designed as a bridge: it combines ACP/MCP-assisted intent split, phenotype recommendation/improvement, analytic-settings recommendation, and ACP-based Keeper review with reproducible Strategus script generation.
-- Interactive runs support `/back` at major stage boundaries for study intent, target selection, comparator selection, outcome selection, study configuration, and Keeper-review entry while keeping `/ohdsi` available for contextual guidance. The execution menu help now also reminds users that `/ohdsi` is available during run/resume mode.
+- Interactive runs support `/back` at major stage boundaries for study intent, target selection, comparator selection, outcome selection, study configuration, and Keeper-review entry while keeping `/ohdsi` available for contextual guidance. Build-mode `h` / `help` is also available at the major design prompts, and the execution menu help reminds users that `/ohdsi` is available during run/resume mode.
+- When direct acquisition begins from a blank study-intent prompt, the shell still requires a persisted study intent before downstream configuration continues; it derives that default from the confirmed target/comparator/outcome statements and lets the user edit it before saving.
 - If no Keeper artifacts exist yet, the shell suppresses the inline Keeper reuse/resume prompts instead of asking about caches unconditionally.

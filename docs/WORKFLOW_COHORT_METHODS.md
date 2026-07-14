@@ -7,10 +7,16 @@ This document captures the current cohort-methods workflow implemented by `slash
 ```mermaid
 flowchart TD
   A["Start: runStrategusCohortMethodsShell"] --> B["Enter Study Intent"]
-  B --> C["cohort_methods_intent_split"]
+  B --> B1{"Blank?"}
+  B1 -- "No" --> C["cohort_methods_intent_split"]
+  B1 -- "Yes" --> C0["Enter Target/Comparator/Outcome Statements Directly"]
+  C0 --> C1["Confirm or Edit Derived Study Intent"]
   C --> D["Target Statement"]
   C --> E["Comparator Statement"]
   C --> F["Outcome Statement(s)"]
+  C1 --> D
+  C1 --> E
+  C1 --> F
 
   D --> G["Target Recommendations or Cache Reuse"]
   G --> H["Select Target Cohort"]
@@ -69,6 +75,8 @@ flowchart TD
   AU --> AV["Write Outputs + Generate Scripts 02-07"]
   AV --> AW["End"]
 ```
+
+Build-mode note: interactive users can type `h` at the major design prompts to see step-specific help, `/back` at supported boundaries to revisit the prior step, and `/ohdsi <question>` for contextual guidance.
 
 ## Strategus Execution Context
 
