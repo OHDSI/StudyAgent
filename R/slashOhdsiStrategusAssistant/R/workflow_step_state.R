@@ -196,7 +196,7 @@
   override_paths <- character(0)
   workflow_type <- as.character(project_state$workflow_type %||% "")
   legacy_path <- .studyAgentSlashStepLegacyStatePath(base_dir, workflow_type, step_id)
-  if (!is.null(legacy_path) && nzchar(legacy_path)) {
+  if (!is.null(legacy_path) && nzchar(legacy_path) && file.exists(legacy_path)) {
     override_paths <- c(override_paths, .studyAgentSlashRelativizeProjectPath(legacy_path, base_dir))
   }
   if (identical(step_id, "keeper_case_review")) {
