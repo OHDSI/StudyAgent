@@ -2,6 +2,7 @@ from _repo_paths import repo_path
 
 
 RUNNER_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workflow_script_runner.R")
+PLAN_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workflow_execution_plan.R")
 STATE_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workflow_project_state.R")
 STEP_STATE_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workflow_step_state.R")
 COHORT_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_cohort_methods_shell.R")
@@ -18,6 +19,8 @@ def test_dependency_check_treats_skipped_steps_as_satisfied() -> None:
 def test_runner_marks_build_only_steps_as_non_runnable() -> None:
     source = RUNNER_SOURCE.read_text(encoding="utf-8")
     assert '.studyAgentSlashWorkflowBuildOnlyStepIds <- function() {' in source
+    assert '.studyAgentSlashWorkflowSkippableStepIds <- function() {' in source
+    assert '.studyAgentSlashWorkflowStepIsSkippable <- function(step) {' in source
     assert 'build-only; use revise' in source
     assert "completed interactively during build mode and cannot be rerun from the execution menu" in source
 
@@ -28,6 +31,19 @@ def test_runner_reconciles_derived_state_and_persists_step_state() -> None:
     assert '.studyAgentSlashWriteStepState(' in source
     assert 'status = "running"' in source
     assert 'status = result$status' in source
+    assert '.studyAgentSlashSkipWorkflowStep <- function(base_dir,' in source
+    assert 'status = "skipped"' in source
+    assert 'skip_reason = as.character(reason %||% "user_skipped")' in source
+
+
+def test_execution_plan_allows_optional_review_steps_to_be_skipped_before_specs() -> None:
+    source = PLAN_SOURCE.read_text(encoding="utf-8")
+    assert 'step_id = "generate_cohorts"' in source
+    assert 'depends_on = "recommend_and_select"' in source
+    assert 'step_id = "diagnostics"' in source
+    assert 'depends_on = "generate_cohorts"' in source
+    assert 'step_id = "incidence_spec"' in source
+    assert 'step_id = "cm_spec"' in source
 
 
 def test_project_state_supports_build_phase_status_finalization() -> None:
@@ -120,6 +136,7 @@ def test_cohort_method_shell_exposes_backup_reset_restore_menu_surface() -> None
     assert 'backup' in source
     assert 'backups' in source
     assert 'reset <step>' in source
+    assert 'skip <step>' in source
     assert 'restore <snapshot-id>' in source
     assert '.studyAgentSlashBackupWorkflowState(base_dir, label = "manual")' in source
     assert '.studyAgentSlashListWorkflowBackups(base_dir)' in source
@@ -137,6 +154,8 @@ def test_project_state_builds_enriched_execution_dialogue_context() -> None:
     assert 'selected_outcome_ids = selected_outcome_ids' in source
     assert 'analysis_settings_path = study_context$cm_analysis_json_path %||% study_context$analysis_settings_path %||% study_context$time_at_risk_settings_path %||% NULL' in source
     assert 'artifact_summary <- .studyAgentSlashCompactExecutionArtifactSummary(' in source
+    assert 'skipped_steps = skipped_step_summaries' in source
+    assert 'skip_reason = summary$skip_reason %||% NULL' in source
     assert 'requestable_artifact_ids = requestable_artifact_ids' in source
     assert 'artifact_request_policy = compact_workflow_dialogue_context(list(' in source
 
@@ -155,6 +174,7 @@ def _assert_exploration_menu_surface(source: str) -> None:
     assert 'inspect' in source
     assert 'Execution command [Enter=finish, x=explore[_v], s=status, h=help/show commands, /ohdsi=AI assistance]:' in source
     assert 'Choose h, s, art, x[_v],' in source
+    assert 'skip <step>' in source
     assert 'number: run the numbered exploration command shown by x' in source
     assert 'x <command-id> or explore <command-id>: run an approved exploration command' in source
     assert 'x_v <command-id> or explore_v <command-id>: run an approved exploration command and try to open tabular output in a viewer' in source
@@ -174,6 +194,13 @@ def test_cohort_method_shell_exposes_exploration_menu_surface() -> None:
 
 def test_incidence_shell_exposes_exploration_menu_surface() -> None:
     _assert_exploration_menu_surface(INCIDENCE_SOURCE.read_text(encoding="utf-8"))
+
+
+def test_incidence_shell_reconciles_execution_state_before_explore_lookup() -> None:
+    source = INCIDENCE_SOURCE.read_text(encoding="utf-8")
+    assert 'refresh_execution_dialogue_context <- function(step_id = NULL) {' in source
+    assert 'available_exploration_commands <- function() {' in source
+    assert source.count('.studyAgentSlashReconcileProjectState(base_dir, write = TRUE)$project_state') >= 3
 
 
 def test_cohort_method_shell_revision_mode_can_force_stage_reselection() -> None:
@@ -234,4 +261,5 @@ def test_execution_dialogue_context_includes_exploration_fields() -> None:
     assert 'diagnostics_summary <- if (exists(".studyAgentSlashCompactDiagnosticsDialogueSummary", mode = "function")) {' in source
     assert 'diagnostics_summary = diagnostics_summary' in source
     assert 'artifact_summary = artifact_summary' in source
+    assert 'skipped_steps = skipped_step_summaries' in source
     assert 'available_exploration_commands = available_exploration_commands' in source

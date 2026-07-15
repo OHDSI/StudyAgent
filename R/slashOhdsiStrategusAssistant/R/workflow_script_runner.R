@@ -40,6 +40,15 @@
   c("recommend_and_select")
 }
 
+.studyAgentSlashWorkflowSkippableStepIds <- function() {
+  c("apply_improvements", "keeper_concept_sets", "keeper_case_review", "diagnostics")
+}
+
+.studyAgentSlashWorkflowStepIsSkippable <- function(step) {
+  step_id <- as.character(step$step_id %||% "")
+  nzchar(step_id) && step_id %in% .studyAgentSlashWorkflowSkippableStepIds()
+}
+
 .studyAgentSlashWorkflowStepRunAvailability <- function(base_dir, step) {
   step_id <- as.character(step$step_id %||% "")
   script_rel_path <- as.character(step$script_path %||% "")
@@ -230,6 +239,69 @@
     return(.studyAgentSlashRunWorkflowPlanStep(base_dir = base_dir, step_id = step$step_id, env = env))
   }
   list(status = "completed", step_id = NULL, message = "No remaining runnable workflow steps.")
+}
+
+.studyAgentSlashSkipWorkflowStep <- function(base_dir,
+                                             step_id,
+                                             reason = "user_skipped") {
+  reconciled <- .studyAgentSlashReconcileProjectState(base_dir, write = TRUE)
+  project_state <- reconciled$project_state
+  runtime_state <- reconciled$runtime_state
+  step <- .studyAgentSlashFindPlanStep(project_state, step_id)
+  if (is.null(step)) stop(sprintf("Unknown workflow step: %s", step_id))
+  if (!isTRUE(.studyAgentSlashWorkflowStepIsSkippable(step))) {
+    stop(sprintf("Step %s cannot be skipped.", step_id))
+  }
+  if (!.studyAgentSlashStepDependenciesSatisfied(project_state, step)) {
+    stop(sprintf("Dependencies are not satisfied for step: %s", step_id))
+  }
+
+  current_status <- as.character(step$status %||% "not_started")
+  if (current_status %in% c("completed", "skipped")) {
+    return(list(
+      status = current_status,
+      step_id = as.character(step_id),
+      skipped = identical(current_status, "skipped"),
+      message = if (identical(current_status, "skipped")) {
+        sprintf("Step %s is already skipped.", step_id)
+      } else {
+        sprintf("Step %s is already completed.", step_id)
+      }
+    ))
+  }
+
+  skipped_at <- .studyAgentSlashNowTimestamp()
+  project_state <- .studyAgentSlashSetProjectStepStatus(project_state, step_id, "skipped")
+  project_state <- .studyAgentSlashAdvanceResumePointer(project_state)
+
+  runtime_state$last_run_finished_at <- skipped_at
+  runtime_state$last_error <- NULL
+  runtime_state <- .studyAgentSlashRecordRuntimeStepStatus(runtime_state, step_id, "skipped")
+  runtime_state$current_step <- project_state$resume$current_step_id %||% NULL
+  runtime_state <- .studyAgentSlashUpdateArtifactDetection(runtime_state, project_state, base_dir)
+
+  .studyAgentSlashWriteStepState(
+    base_dir = base_dir,
+    step_id = step_id,
+    status = "skipped",
+    finished_at = skipped_at,
+    summary = list(
+      skipped = TRUE,
+      skip_reason = as.character(reason %||% "user_skipped")
+    ),
+    artifacts = list(required = as.list(.studyAgentSlashStepRequiredArtifacts(project_state, base_dir, step_id))),
+    error = NULL
+  )
+  .studyAgentSlashWriteProjectState(project_state, base_dir)
+  .studyAgentSlashWriteRuntimeState(runtime_state, base_dir)
+
+  list(
+    status = "skipped",
+    step_id = as.character(step_id),
+    skipped = TRUE,
+    skipped_at = skipped_at,
+    reason = as.character(reason %||% "user_skipped")
+  )
 }
 
 .studyAgentSlashInspectWorkflowStepOutputs <- function(base_dir, step_id) {

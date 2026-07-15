@@ -482,6 +482,19 @@
   if (!is.list(selected_outcome_ids)) selected_outcome_ids <- as.list(selected_outcome_ids)
 
   current_step_id <- step$step_id %||% project_state$resume$current_step_id %||% NULL
+  skipped_steps <- Filter(function(plan_step) {
+    identical(as.character(plan_step$status %||% ""), "skipped")
+  }, project_state$execution_plan %||% list())
+  skipped_step_summaries <- lapply(skipped_steps, function(plan_step) {
+    step_id <- as.character(plan_step$step_id %||% "")
+    step_state <- .studyAgentSlashReadStepState(base_dir, step_id) %||% list()
+    summary <- step_state$summary %||% list()
+    compact_workflow_dialogue_context(list(
+      step_id = step_id,
+      label = as.character(plan_step$label %||% step_id),
+      skip_reason = summary$skip_reason %||% NULL
+    ))
+  })
   artifact_registry <- .studyAgentSlashBuildArtifactRegistry(base_dir)
   artifact_summary <- .studyAgentSlashCompactExecutionArtifactSummary(
     artifact_registry = artifact_registry,
@@ -526,6 +539,7 @@
     execution_label = step$label %||% NULL,
     execution_status = step$status %||% NULL,
     execution_plan_summary = as.list(.studyAgentSlashSummarizeWorkflowStatus(base_dir)),
+    skipped_steps = skipped_step_summaries,
     available_exploration_commands = available_exploration_commands,
     diagnostics_summary = diagnostics_summary,
     cm_spec_summary = cm_spec_summary,
