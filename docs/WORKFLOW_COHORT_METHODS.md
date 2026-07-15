@@ -113,7 +113,6 @@ flowchart TD
   S --> U
   T --> U
   F --> U
-  P --> U
 
   U --> V["analysis-settings/analysisSpecification.json"]
   V --> W["Shared Cohort Resource"]
@@ -123,6 +122,8 @@ flowchart TD
   V --> AA["Strategus::execute"]
   AA --> AB["CohortMethod Results + Strategus Execute Result"]
 ```
+
+Execution note: `07_cm_spec.R` depends on the cohort-selection and analytic-settings outputs, not on Keeper or diagnostics completion. Keeper and diagnostics remain optional review/enrichment steps that can be run before or after the main CohortMethod specification, or explicitly skipped in the execution menu when that is the intentional workflow choice.
 
 ## Current Explicit Limitations
 

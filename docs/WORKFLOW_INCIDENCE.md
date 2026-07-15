@@ -86,9 +86,10 @@ flowchart TD
   C --> R[07_incidence_spec.R]
   Q --> R
   E --> R
-  P --> R
 
   R --> S[CohortIncidence Spec JSON]
   S --> T[Strategus Execution]
   T --> U[Incidence Rate Results]
 ```
+
+Execution note: `07_incidence_spec.R` depends on the cohort-selection outputs and time-at-risk settings, not on Keeper or diagnostics completion. Keeper and diagnostics remain optional review/enrichment steps that can be run before or after the main incidence specification, or explicitly skipped in the execution menu when that is the intentional workflow choice.
