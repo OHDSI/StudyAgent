@@ -4241,6 +4241,7 @@ Execution commands
 ")
     cat("  - i or inspect[_v] <step>: inspect outputs for a step
   - reset <step>: reset a step and downstream workflow state
+  - skip <step>: mark an optional step skipped and advance resume state
   - restore <snapshot-id>: restore a saved workflow state snapshot
 ")
     cat("  - run <step>: run a specific step by number or step id
@@ -4523,6 +4524,23 @@ Available exploration commands
         }
         next
       }
+      if (startsWith(lowered, "skip ")) {
+        step_id <- resolve_execution_step_id(sub("^skip\\s+", "", lowered))
+        if (is.null(step_id)) next
+        if (!isTRUE(prompt_yesno(sprintf("Mark step %s as skipped?", step_id), default = FALSE))) {
+          next
+        }
+        result <- tryCatch(
+          .studyAgentSlashSkipWorkflowStep(base_dir, step_id = step_id, reason = "user_skipped"),
+          error = function(e) list(status = "error", error = conditionMessage(e))
+        )
+        if (identical(result$status %||% "", "skipped")) {
+          cat(sprintf("Step %s marked skipped.\n", step_id))
+        } else {
+          cat(sprintf("Step %s could not be skipped: %s\n", step_id, result$error %||% result$message %||% "unknown error"))
+        }
+        next
+      }
       if (lowered %in% c("rev", "revise") || startsWith(lowered, "rev ") || startsWith(lowered, "revise ")) {
         revise_scope <- normalize_revise_scope(lowered)
         if (is.null(revise_scope)) {
@@ -4603,7 +4621,7 @@ Available exploration commands
         inspect_execution_outputs(step_id, viewer = viewer)
         next
       }
-      cat("Choose h, s, art, x[_v], b, bk, reset <step>, restore <snapshot-id>, rev, n, a, i[_v], run <step>, /ohdsi <question>, q, or Enter. Type h for valid steps and explore for approved commands.\n")
+      cat("Choose h, s, art, x[_v], b, bk, reset <step>, skip <step>, restore <snapshot-id>, rev, n, a, i[_v], run <step>, /ohdsi <question>, q, or Enter. Type h for valid steps and explore for approved commands.\n")
     }
   }
   cached_inputs <- NULL

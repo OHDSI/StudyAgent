@@ -148,6 +148,7 @@ Current execution-menu capabilities:
 - `n` / `run next`: run the next runnable generated step
 - `a` / `run all`: keep running until blocked, failed, or complete
 - `run <step>`: run a specific runnable step by step number or step id
+- `skip <step>`: mark an optional generated step as skipped so resume state and `/ohdsi` context reflect that decision explicitly
 - `i` / `inspect <step>`: inspect registered outputs for a workflow step in the console
 - `art` / `artifacts`: list known workflow artifacts
 - `x` / `explore[_v]`: list approved exploration commands for the current workflow state
@@ -160,7 +161,8 @@ Current behavior notes:
 
 - For target, comparator, and outcome roles, the shell can now acquire cohort definitions from phenotype-index recommendation, an existing database cohort definition, a local cohort JSON file, or a directory of local cohort JSON files. Imported definitions are validated, cached under `imported-cohort-definitions/`, and then treated like local working artifacts for downstream steps.
 - When a database cohort-definition source is used, the shell reads `strategus-cohort-source-db-details.json` instead of the execution-oriented `strategus-db-details.json`, allowing the cohort-definition source DB to differ from the patient-level execution DB.
-
+- Optional review/enrichment steps can be skipped explicitly in execution mode. The current skippable set is `apply_improvements`, `keeper_concept_sets`, `keeper_case_review`, and `diagnostics`.
+- Skipped steps are persisted in workflow step state, are treated as satisfied dependencies for downstream steps, and remain visible in resumed sessions and `/ohdsi` execution context.
 - Exiting the execution menu asks for confirmation unless the workflow is already complete.
 - Invalid step or exploration input no longer exits the shell; the menu stays active and prints valid choices.
 - `inspect_v <step>` and `explore_v <command-id>` try to open tabular results with `utils::View(...)` when an interactive viewer is available.
@@ -241,6 +243,7 @@ Current Keeper specifics:
 - `scripts/04_keeper_concept_sets.R` uses `runKeeperConceptSetWorkflow(...)` and writes `outputs/keeper_concept_set_state.json`.
 - `scripts/05_keeper_case_review.R` uses `runKeeperCaseReviewWorkflow(...)` and writes `outputs/keeper_case_review_state.json`.
 - `scripts/08_launch_diagnostics_explorer.R` creates `MergedCohortDiagnosticsData.sqlite` with `CohortDiagnostics::createMergedResultsFile()` when needed, then launches `CohortDiagnostics::launchDiagnosticsExplorer()` against that merged diagnostics database. Run it in a second R session if you want the shell and `/ohdsi` to remain available.
+- `scripts/07_cm_spec.R` depends on the cohort-selection and analytic-settings outputs produced during build mode and does not require Keeper or diagnostics artifacts to have been run first. Those steps remain useful optional context for review, `/ohdsi`, and result interpretation.
 - Inline Keeper review now exposes bounded stage gates before and after each requested concept-set domain and before and after case review.
 - The generated Keeper scripts expose `ACP_TIMEOUT`, concept-set reuse/overwrite, row reuse/resume, and explicit row selection controls such as `1-3,5`.
 - Manual editing of `keeper-case-review/concept-sets-approved/*.json` is consumable, but the concept-set approve/edit/rerun UX is still incomplete.
@@ -266,4 +269,5 @@ Current Keeper specifics:
 - This stage is designed as a bridge: it combines ACP/MCP-assisted intent split, phenotype recommendation/improvement, analytic-settings recommendation, and ACP-based Keeper review with reproducible Strategus script generation.
 - Interactive runs support `/back` at major stage boundaries for study intent, target selection, comparator selection, outcome selection, study configuration, and Keeper-review entry while keeping `/ohdsi` available for contextual guidance. Build-mode `h` / `help` is also available at the major design prompts, and the execution menu help reminds users that `/ohdsi` is available during run/resume mode.
 - When direct acquisition begins from a blank study-intent prompt, the shell still requires a persisted study intent before downstream configuration continues; it derives that default from the confirmed target/comparator/outcome statements and lets the user edit it before saving.
+- `resume = TRUE` uses the persisted workflow step-state and project manifest, so previously skipped optional steps remain skipped unless the user explicitly resets them.
 - If no Keeper artifacts exist yet, the shell suppresses the inline Keeper reuse/resume prompts instead of asking about caches unconditionally.

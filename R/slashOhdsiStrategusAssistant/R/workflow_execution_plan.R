@@ -42,7 +42,7 @@
       label = "Generate cohort artifacts",
       script_name = "03_generate_cohorts.R",
       stage_context_step = "incidence_design_setup",
-      depends_on = "apply_improvements",
+      depends_on = "recommend_and_select",
       produces_artifacts = c("selected-cohorts", "outputs/cohort_id_map.json")
     ),
     .studyAgentSlashNewPlanStep(
@@ -68,7 +68,7 @@
       label = "Run diagnostics",
       script_name = "06_diagnostics.R",
       stage_context_step = "diagnostics_review",
-      depends_on = "keeper_case_review",
+      depends_on = "generate_cohorts",
       produces_artifacts = character(0),
       review_required = TRUE
     ),
@@ -77,7 +77,7 @@
       label = "Run incidence specification",
       script_name = "07_incidence_spec.R",
       stage_context_step = "strategus_spec_execution",
-      depends_on = "diagnostics",
+      depends_on = "recommend_and_select",
       produces_artifacts = character(0),
       review_required = TRUE
     )
@@ -106,7 +106,7 @@
       label = "Generate cohort artifacts",
       script_name = "03_generate_cohorts.R",
       stage_context_step = "cohort_method_spec_confirmation",
-      depends_on = "apply_improvements",
+      depends_on = "recommend_and_select",
       produces_artifacts = c("selected-cohorts", "outputs/cohort_id_map.json")
     ),
     .studyAgentSlashNewPlanStep(
@@ -132,7 +132,7 @@
       label = "Run diagnostics",
       script_name = "06_diagnostics.R",
       stage_context_step = "diagnostics_review",
-      depends_on = "keeper_case_review",
+      depends_on = "generate_cohorts",
       produces_artifacts = character(0),
       review_required = TRUE
     ),
@@ -141,7 +141,7 @@
       label = "Run cohort method specification",
       script_name = "07_cm_spec.R",
       stage_context_step = "strategus_spec_execution",
-      depends_on = "diagnostics",
+      depends_on = "recommend_and_select",
       produces_artifacts = character(0),
       review_required = TRUE
     )

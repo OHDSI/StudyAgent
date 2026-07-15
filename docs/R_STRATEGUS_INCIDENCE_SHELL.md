@@ -61,6 +61,7 @@ Current execution-menu capabilities:
 - `n` / `run next`: run the next runnable generated step
 - `a` / `run all`: keep running until blocked, failed, or complete
 - `run <step>`: run a specific runnable step by step number or step id
+- `skip <step>`: mark an optional generated step as skipped so resume state and `/ohdsi` context reflect that decision explicitly
 - `i` / `inspect <step>`: inspect registered outputs for a workflow step in the console
 - `art` / `artifacts`: list known workflow artifacts
 - `x` / `explore[_v]`: list approved exploration commands for the current workflow state
@@ -72,6 +73,8 @@ Current execution-menu capabilities:
 Current behavior notes:
 
 - `showBanner = FALSE` suppresses the startup ASCII art without changing the shell prompts or workflow behavior.
+- Optional review/enrichment steps can be skipped explicitly in execution mode. The current skippable set is `apply_improvements`, `keeper_concept_sets`, `keeper_case_review`, and `diagnostics`.
+- Skipped steps are persisted in workflow step state, are treated as satisfied dependencies for downstream steps, and remain visible in resumed sessions and `/ohdsi` execution context.
 - Exiting the execution menu asks for confirmation unless the workflow is already complete.
 - Invalid step or exploration input no longer exits the shell; the menu stays active and prints valid choices.
 - `inspect_v <step>` and `explore_v <command-id>` try to open tabular results with `utils::View(...)` when an interactive viewer is available.
@@ -81,6 +84,7 @@ Current behavior notes:
 Current runtime expectations:
 
 - `03_generate_cohorts.R`, `06_diagnostics.R`, and `07_incidence_spec.R` expect site-specific Strategus connection/execution settings files under `outputDir`.
+- `07_incidence_spec.R` depends on the cohort-selection outputs produced during build mode and does not require Keeper or diagnostics artifacts to have been run first. Those steps remain useful optional context for review, `/ohdsi`, and result interpretation.
 - `08_launch_diagnostics_explorer.R` creates `MergedCohortDiagnosticsData.sqlite` with `CohortDiagnostics::createMergedResultsFile()` when needed, then launches `CohortDiagnostics::launchDiagnosticsExplorer()` against that merged diagnostics database. It is intended to be run outside the shell runner.
 - `04_keeper_concept_sets.R` uses the ACP-based Keeper concept-set helper and writes `outputs/keeper_concept_set_state.json`.
 - `05_keeper_case_review.R` uses the ACP-based Keeper case-review helper and writes `outputs/keeper_case_review_state.json`.
@@ -161,6 +165,7 @@ The format matches `strategus-db-details.json`. Example for a postgres-backed co
 - If improvements were applied during the shell session, the scripts are a portable record and do not need to re-apply the same changes.
 - The shell exposes `/ohdsi` guidance throughout the workflow and supports `/back` at the major stage boundaries for study intent, target selection, outcome selection, TAR confirmation, and Keeper-review entry. Build-mode `h` / `help` is also available at the major design prompts, and the execution menu help reminds users that `/ohdsi` remains available during run/resume mode.
 - When direct acquisition begins from a blank study-intent prompt, the shell still requires a persisted study intent before downstream configuration continues; it derives that default from the confirmed target and outcome statements and lets the user edit it before saving.
+- `resume = TRUE` uses the persisted workflow step-state and project manifest, so previously skipped optional steps remain skipped unless the user explicitly resets them.
 - Inline Keeper review uses bounded stage gates rather than a fully generic rewind. Users can skip or rerun domains, inspect generated artifacts, adjust review settings, and inspect saved reviewed rows.
 - If no Keeper artifacts exist yet, the shell now suppresses the reuse/resume prompts instead of asking about caches unconditionally.
 - If the initial phenotype recommendations are not acceptable, the shell can request a second window of candidates and then fall back to advisory guidance.

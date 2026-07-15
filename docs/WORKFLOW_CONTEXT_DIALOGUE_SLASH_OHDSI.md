@@ -449,6 +449,8 @@ If you need the shortest possible map of the `/ohdsi` architecture, start here:
 
 The most important design choice is that `/ohdsi` is not driven by raw transcripts alone. It is driven by a structured, step-aware context object built by the shells and flattened into a stable ACP request shape.
 
+For execution-mode requests, that structured context now includes not only the current step, summarized artifacts, and approved exploration commands, but also any optional workflow steps the user intentionally skipped. This lets ACP distinguish between missing context caused by a skipped review/enrichment step and missing context caused by an execution failure or an unfinished workflow.
+
 That separation gives the project three advantages:
 
 - shells control what context is exposed
