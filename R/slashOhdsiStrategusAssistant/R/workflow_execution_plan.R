@@ -27,7 +27,7 @@
       label = "Recommend and select cohorts",
       script_name = "01_recommend_and_select.R",
       stage_context_step = "target_selection",
-      produces_artifacts = c("outputs/intent_split.json", "outputs/cohort_id_map.json")
+      produces_artifacts = c("outputs/cohort_roles.json", "outputs/cohort_id_map.json")
     ),
     .studyAgentSlashNewPlanStep(
       step_id = "apply_improvements",
@@ -91,7 +91,7 @@
       label = "Recommend and select cohorts",
       script_name = "01_recommend_and_select.R",
       stage_context_step = "target_selection",
-      produces_artifacts = c("outputs/cohort_methods_intent_split.json", "outputs/cohort_id_map.json")
+      produces_artifacts = c("outputs/cohort_roles.json", "outputs/cohort_id_map.json")
     ),
     .studyAgentSlashNewPlanStep(
       step_id = "apply_improvements",

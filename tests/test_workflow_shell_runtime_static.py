@@ -44,6 +44,7 @@ def test_execution_plan_allows_optional_review_steps_to_be_skipped_before_specs(
     assert 'depends_on = "generate_cohorts"' in source
     assert 'step_id = "incidence_spec"' in source
     assert 'step_id = "cm_spec"' in source
+    assert 'produces_artifacts = c("outputs/cohort_roles.json", "outputs/cohort_id_map.json")' in source
 
 
 def test_project_state_supports_build_phase_status_finalization() -> None:
@@ -66,6 +67,7 @@ def test_step_state_module_defines_backup_restore_reset_primitives() -> None:
     assert '.studyAgentSlashResolveDerivedWorkflowStatuses <- function(' in source
     assert '.studyAgentSlashReconcileProjectState <- function(' in source
     assert '.studyAgentSlashResetWorkflowStepState <- function(' in source
+    assert 'file.exists(legacy_path)' in source
     assert '"stale"' in source
     assert '"blocked"' in source
 
