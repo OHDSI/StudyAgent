@@ -46,6 +46,29 @@ def test_time_at_risk_configuration_context_and_state_are_persisted() -> None:
     assert 'incidence_time_at_risk = incidence_time_at_risk' in source
 
 
+def test_time_at_risk_configuration_accepts_back_navigation_and_dialogue_commands() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+
+    assert 'entered <- readline_with_navigation(sprintf("%s [%s]: ", prompt, current))' in source
+    assert 'analysis_ids_text <- readline_with_navigation(sprintf("Analysis TAR ids (comma-separated) [%s]: ", default_analysis_ids))' in source
+    assert 'by_year <- prompt_yesno_navigation("Stratify incidence by calendar year?", default = isTRUE(strata_settings$byYear))' in source
+    assert 'by_gender <- prompt_yesno_navigation("Stratify incidence by gender?", default = isTRUE(strata_settings$byGender))' in source
+    assert 'by_age <- prompt_yesno_navigation("Stratify incidence by age?", default = isTRUE(strata_settings$byAge))' in source
+    assert 'if (is_back_signal(age_breaks_text)) return(age_breaks_text)' in source
+
+
+def test_incidence_shell_remap_and_keeper_setup_support_navigation() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+
+    assert 'use_mapping <- prompt_yesno_navigation("Map cohort IDs to a new range (avoid collisions)?", default = TRUE)' in source
+    assert 'inp <- readline_with_navigation(msg)' in source
+    assert 'keeper_config_confirmed <- FALSE' in source
+    assert 'entered_roles <- readline_with_navigation("Keeper review roles [outcome]: ")' in source
+    assert 'keeper_reuse_generated_artifacts <- prompt_yesno_navigation("Reuse existing Keeper generated artifacts?", default = TRUE)' in source
+    assert 'entered_row_selection <- readline_with_navigation("Keeper row selection [default first N or e.g. 1-3,5]: ")' in source
+    assert 'if (!isTRUE(keeper_config_confirmed)) next' in source
+
+
 def test_generated_incidence_script_uses_persisted_time_at_risk_settings() -> None:
     source = SOURCE.read_text(encoding="utf-8")
 
@@ -108,6 +131,10 @@ def test_shell_seeds_runtime_templates_and_generated_scripts_use_them() -> None:
     assert "execution_settings_path <- file.path(base_dir, 'strategus-execution-settings.json')" in script06
     assert "createStrategusConnectionDetails(path = db_details_path)" in script06
     assert "createStrategusExecutionSettings(path = execution_settings_path)" in script06
+    assert "validate_execution_root <- function(label, root_path) {" in script06
+    assert "Configured %s points to another Study Agent project" in script06
+    assert "message('Strategus execution roots:')" in script06
+    assert "strategus_execute_summary.json" in script06
     assert "<FILL IN>" not in script06
 
 

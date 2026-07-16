@@ -298,7 +298,7 @@
   for (step in plan) {
     status <- as.character(step$status %||% "not_started")
     step_id <- as.character(step$step_id %||% "")
-    if (identical(status, "completed")) {
+    if (status %in% c("completed", "completed_with_failures")) {
       last_completed_step_id <- step_id
       next
     }
@@ -455,6 +455,12 @@
   )))
 }
 
+.studyAgentSlashReadStrategusExecuteSummaryCompact <- function(base_dir) {
+  summary_path <- file.path(base_dir, "analysis-settings", "strategus_execute_summary.json")
+  if (!file.exists(summary_path)) return(NULL)
+  tryCatch(.studyAgentSlashReadProjectJson(summary_path), error = function(e) NULL)
+}
+
 .studyAgentSlashCompactExplorationCommandSummary <- function(commands, max_items = 6L) {
   commands <- commands %||% list()
   if (length(commands) == 0) return(list())
@@ -522,6 +528,12 @@
   } else {
     list()
   }
+  strategus_summary <- .studyAgentSlashReadStrategusExecuteSummaryCompact(base_dir)
+  failed_module_names <- as.list(vapply(Filter(function(item) {
+    as.character(item$status %||% "") %in% c("FAILED", "ERROR")
+  }, strategus_summary$modules %||% list()), function(item) {
+    as.character(item$module_name %||% "")
+  }, character(1)))
 
   compact_workflow_dialogue_context(list(
     study_intent = study_context$study_intent %||% NULL,
@@ -538,8 +550,12 @@
     execution_step_id = current_step_id,
     execution_label = step$label %||% NULL,
     execution_status = step$status %||% NULL,
+    execution_status_detail = strategus_summary$overall_status %||% NULL,
     execution_plan_summary = as.list(.studyAgentSlashSummarizeWorkflowStatus(base_dir)),
     skipped_steps = skipped_step_summaries,
+    failed_module_names = failed_module_names,
+    module_failure_count = length(failed_module_names),
+    strategus_overall_status = strategus_summary$overall_status %||% NULL,
     available_exploration_commands = available_exploration_commands,
     diagnostics_summary = diagnostics_summary,
     cm_spec_summary = cm_spec_summary,

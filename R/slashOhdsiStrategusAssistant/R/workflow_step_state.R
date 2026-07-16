@@ -267,7 +267,7 @@
   if (length(deps) == 0) return(TRUE)
   for (dep in deps) {
     dep_status <- as.character(statuses[[dep]] %||% "not_started")
-    if (!(dep_status %in% c("completed", "skipped"))) return(FALSE)
+    if (!(dep_status %in% c("completed", "completed_with_failures", "skipped"))) return(FALSE)
   }
   TRUE
 }
@@ -300,8 +300,9 @@
     }, logical(1)))
 
     derived_status <- status
-    if (derived_status %in% c("completed", "ok")) {
-      derived_status <- if (isTRUE(deps_ok) && isTRUE(required_exists)) "completed" else "stale"
+    if (derived_status %in% c("completed", "ok", "completed_with_failures")) {
+      target_status <- if (identical(derived_status, "completed_with_failures")) "completed_with_failures" else "completed"
+      derived_status <- if (isTRUE(deps_ok) && isTRUE(required_exists)) target_status else "stale"
     } else if (derived_status %in% c("failed", "error")) {
       derived_status <- "failed"
     } else if (identical(derived_status, "running")) {

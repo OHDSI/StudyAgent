@@ -8,12 +8,15 @@ STEP_STATE_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workflo
 COHORT_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_cohort_methods_shell.R")
 INCIDENCE_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_incidence_shell.R")
 DIALOGUE_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workflow_dialogue.R")
+MAPPING_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workflow_dialogue_mapping.R")
 EXPLORATION_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workflow_exploration_registry.R")
 
 
 def test_dependency_check_treats_skipped_steps_as_satisfied() -> None:
     source = RUNNER_SOURCE.read_text(encoding="utf-8")
-    assert 'dep_status %in% c("completed", "skipped")' in source
+    assert '.studyAgentSlashWorkflowTerminalStatuses <- function() {' in source
+    assert 'dep_status %in% .studyAgentSlashWorkflowTerminalStatuses()' in source
+    assert '"completed_with_failures"' in source
 
 
 def test_runner_marks_build_only_steps_as_non_runnable() -> None:
@@ -34,6 +37,17 @@ def test_runner_reconciles_derived_state_and_persists_step_state() -> None:
     assert '.studyAgentSlashSkipWorkflowStep <- function(base_dir,' in source
     assert 'status = "skipped"' in source
     assert 'skip_reason = as.character(reason %||% "user_skipped")' in source
+    assert '.studyAgentSlashResolvePostRunStepResult <- function(base_dir, step_id, default_status, default_error = NULL) {' in source
+    assert 'status = "completed_with_failures"' in source
+
+
+def test_runner_uses_safe_condition_message_fallback() -> None:
+    source = RUNNER_SOURCE.read_text(encoding="utf-8")
+    assert '.studyAgentSlashSafeConditionMessage <- function(condition) {' in source
+    assert 'conditionMessage(condition)' in source
+    assert 'condition$message %||% ""' in source
+    assert 'original condition message could not be rendered cleanly' in source
+    assert 'error = .studyAgentSlashSafeConditionMessage(e)' in source
 
 
 def test_execution_plan_allows_optional_review_steps_to_be_skipped_before_specs() -> None:
@@ -56,6 +70,9 @@ def test_project_state_supports_build_phase_status_finalization() -> None:
     assert 'skipped_steps = character(0)' in source
     assert 'failed_steps = character(0)' in source
     assert 'runtime_state$current_step <- project_state$resume$current_step_id %||% NULL' in source
+    assert 'execution_status_detail = strategus_summary$overall_status %||% NULL' in source
+    assert 'failed_module_names = failed_module_names' in source
+    assert 'module_failure_count = length(failed_module_names)' in source
 
 
 def test_step_state_module_defines_backup_restore_reset_primitives() -> None:
@@ -70,6 +87,7 @@ def test_step_state_module_defines_backup_restore_reset_primitives() -> None:
     assert 'file.exists(legacy_path)' in source
     assert '"stale"' in source
     assert '"blocked"' in source
+    assert 'derived_status %in% c("completed", "ok", "completed_with_failures")' in source
 
 
 def _assert_shell_finalizes_build_phase_steps(source: str) -> None:
@@ -170,6 +188,15 @@ def test_shells_use_shared_enriched_execution_dialogue_context() -> None:
     assert expected in incidence_source
 
 
+def test_dialogue_mapping_builds_nonblank_user_goal_fallbacks() -> None:
+    source = MAPPING_SOURCE.read_text(encoding="utf-8")
+    assert '.studyAgentSlashResolveDialogueUserGoal <- function(' in source
+    assert '.studyAgentSlashCollapseDialogueText <- function(value) {' in source
+    assert 'user_goal = .studyAgentSlashResolveDialogueUserGoal(' in source
+    assert 'time_at_risk_configuration = "Configure time-at-risk definitions and strata settings for the incidence study."' in source
+    assert 'analytic_settings_collection = "Configure analytic settings for the cohort-method study."' in source
+
+
 def _assert_exploration_menu_surface(source: str) -> None:
     assert 'artifacts' in source
     assert 'x=explore[_v]' in source
@@ -196,6 +223,30 @@ def test_cohort_method_shell_exposes_exploration_menu_surface() -> None:
 
 def test_incidence_shell_exposes_exploration_menu_surface() -> None:
     _assert_exploration_menu_surface(INCIDENCE_SOURCE.read_text(encoding="utf-8"))
+
+
+def test_cohort_method_step_by_step_analytic_settings_supports_back_navigation() -> None:
+    source = COHORT_SOURCE.read_text(encoding="utf-8")
+    assert 'navigation_back_error <- function() {' in source
+    assert 'abort_if_back_signal <- function(value) {' in source
+    assert 'study_agent_navigation_back = function(e) {' in source
+    assert 'new_workflow_navigation_signal("back")' in source
+    assert 'prompt_yesno_navigation(prompt, default = default)' in source
+    assert 'if (is_back_signal(step_by_step_result)) next' in source
+    assert 'analytic_settings_back_requested <- FALSE' in source
+    assert 'if (isTRUE(analytic_settings_back_requested)) next' in source
+
+
+def test_cohort_method_shell_remap_and_keeper_setup_support_navigation() -> None:
+    source = COHORT_SOURCE.read_text(encoding="utf-8")
+    assert 'use_mapping <- prompt_yesno_navigation("Map cohort IDs to a new range (avoid collisions)?", default = isTRUE(remapCohortIds))' in source
+    assert 'entered <- readline_with_navigation(sprintf("Cohort ID base [%s]: ", cohortIdBase))' in source
+    assert 'run_keeper_review_now <- prompt_yesno_navigation("Run ACP-based Keeper review now?", default = FALSE)' in source
+    assert 'keeper_config_confirmed <- FALSE' in source
+    assert 'entered_roles <- readline_with_navigation("Keeper review roles [outcome]: ")' in source
+    assert 'keeper_reuse_generated_artifacts <- prompt_yesno_navigation("Reuse existing Keeper generated artifacts?", default = TRUE)' in source
+    assert 'entered_row_selection <- readline_with_navigation("Keeper row selection [default first N or e.g. 1-3,5]: ")' in source
+    assert 'if (isTRUE(keeper_config_confirmed)) {' in source
 
 
 def test_incidence_shell_reconciles_execution_state_before_explore_lookup() -> None:
@@ -238,6 +289,15 @@ def test_exploration_registry_defines_first_slice_commands() -> None:
     assert '.studyAgentSlashRunExplorationCommand <- function(base_dir, command_id) {' in source
     assert '.studyAgentSlashSupportsDataViewer <- function() {' in source
     assert '.studyAgentSlashOpenTableViewer <- function(data, title = "Study Agent") {' in source
+    assert 'cm_spec_overall_status = execute_summary$overall_status %||% NULL' in source
+    assert 'cm_spec_execute_summary_path = file.path(base_dir, "analysis-settings", "strategus_execute_summary.json")' in source
+    assert 'summary_path <- file.path(context$base_dir, "analysis-settings", "strategus_execute_summary.json")' in source
+
+
+def test_exploration_registry_keeps_completed_and_skipped_steps_eligible_when_current_step_is_supplied() -> None:
+    source = EXPLORATION_SOURCE.read_text(encoding="utf-8")
+    assert 'requested_step_id,' in source
+    assert 'statuses %in% c("completed", "failed", "stale", "running", "skipped")' in source
     assert '.studyAgentSlashPrepareViewerTable <- function(data, preferred_order = NULL) {' in source
     assert '.studyAgentSlashRenderExplorationResult <- function(result, viewer = FALSE, display = NULL) {' in source
     assert 'command_id = "artifact_inventory"' in source
@@ -253,6 +313,7 @@ def test_exploration_registry_defines_first_slice_commands() -> None:
     assert 'command_id = "incidence_summary_preview"' in source
     assert 'artifact_requirements = c("incidence_summary_csv")' in source
     assert 'command_id = "incidence_analysis_settings_summary"' in source
+    assert 'step_ids = c("generate_cohorts", "keeper_concept_sets", "keeper_case_review", "diagnostics", "incidence_spec", "cm_spec")' in source
 
 
 def test_execution_dialogue_context_includes_exploration_fields() -> None:

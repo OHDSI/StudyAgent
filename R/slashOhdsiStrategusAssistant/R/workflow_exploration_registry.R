@@ -651,17 +651,25 @@
 .studyAgentSlashCompactCmSpecDialogueSummary <- function(base_dir, project_state = NULL, max_items = 6L) {
   state <- .studyAgentSlashCmSpecAnalysisState(base_dir)
   exec_roots <- .studyAgentSlashDiscoverStrategusExecutionRoots(base_dir, project_state = project_state)
+  execute_summary <- .studyAgentSlashReadJsonSafe(file.path(base_dir, "analysis-settings", "strategus_execute_summary.json"), simplifyVector = FALSE)
   if (is.null(state) && !dir.exists(as.character(exec_roots$results_root %||% "")) && !dir.exists(as.character(exec_roots$work_root %||% ""))) {
     return(list())
   }
   modules <- as.list(utils::head(as.character(unlist(state$modules %||% character(0), use.names = FALSE)), n = max_items))
+  failed_modules <- Filter(function(item) {
+    as.character(item$status %||% "") %in% c("FAILED", "ERROR")
+  }, execute_summary$modules %||% list())
   compact_workflow_dialogue_context(list(
     cm_spec_results_root = as.character(exec_roots$results_root %||% NULL),
     cm_spec_work_root = as.character(exec_roots$work_root %||% NULL),
     cm_spec_modules = modules,
+    cm_spec_overall_status = execute_summary$overall_status %||% NULL,
+    cm_spec_failed_modules = as.list(utils::head(vapply(failed_modules, function(item) as.character(item$module_name %||% ""), character(1)), n = max_items)),
     cm_spec_ps_adjustment_strategy = state$ps_adjustment_strategy %||% NULL,
     cm_spec_ps_trimming_strategy = state$ps_trimming_strategy %||% NULL,
     cm_spec_analysis_specification_path = state$analysis_specification_path %||% NULL,
+    cm_spec_execute_summary_path = file.path(base_dir, "analysis-settings", "strategus_execute_summary.json"),
+    cm_spec_execute_summary_exists = file.exists(file.path(base_dir, "analysis-settings", "strategus_execute_summary.json")),
     cm_spec_execute_result_path = file.path(base_dir, "analysis-settings", "strategus_execute_result.rds"),
     cm_spec_execute_result_exists = file.exists(file.path(base_dir, "analysis-settings", "strategus_execute_result.rds"))
   ))
@@ -1166,7 +1174,7 @@
       label = "Preview incidence summary results",
       purpose = "Summarize CohortIncidence output with target, outcome, TAR, strata, and incidence measures.",
       workflow_types = c("strategus_incidence", "strategus_cohort_methods"),
-      step_ids = c("incidence_spec", "cm_spec"),
+      step_ids = c("generate_cohorts", "keeper_concept_sets", "keeper_case_review", "diagnostics", "incidence_spec", "cm_spec"),
       required_packages = character(0),
       artifact_requirements = c("incidence_summary_csv"),
       input_parameters = list(),
@@ -1195,7 +1203,7 @@
       label = "Summarize incidence analysis settings",
       purpose = "Show selected targets/outcomes, TAR definitions, strata settings, and analysis/result roots for the incidence run.",
       workflow_types = c("strategus_incidence", "strategus_cohort_methods"),
-      step_ids = c("incidence_spec", "cm_spec"),
+      step_ids = c("generate_cohorts", "keeper_concept_sets", "keeper_case_review", "diagnostics", "incidence_spec", "cm_spec"),
       required_packages = character(0),
       artifact_requirements = c("analysis_specification_json"),
       input_parameters = list(),
@@ -1551,11 +1559,23 @@
       executor = function(context) {
         result_path <- file.path(context$base_dir, "analysis-settings", "strategus_execute_result.rds")
         result <- .studyAgentSlashReadRdsSafe(result_path)
-        if (is.null(result)) stop("strategus_execute_result.rds is not available yet.")
+        summary_path <- file.path(context$base_dir, "analysis-settings", "strategus_execute_summary.json")
+        execute_summary <- .studyAgentSlashReadJsonSafe(summary_path, simplifyVector = FALSE)
+        if (is.null(result) && is.null(execute_summary)) stop("strategus_execute_result.rds is not available yet.")
         info <- file.info(result_path)
         state <- .studyAgentSlashCmSpecAnalysisState(context$base_dir)
         exec_roots <- .studyAgentSlashDiscoverStrategusExecutionRoots(context$base_dir, project_state = context$project_state)
-        module_rows <- if (is.list(result) && length(result) > 0) {
+        module_rows <- if (!is.null(execute_summary$modules) && length(execute_summary$modules) > 0) {
+          do.call(rbind, lapply(execute_summary$modules, function(item) {
+            data.frame(
+              module_name = as.character(item$module_name %||% item$moduleName %||% ""),
+              status = as.character(item$status %||% ""),
+              execution_time = as.character(item$execution_time %||% item$executionTime %||% ""),
+              error_message = as.character(item$error_message %||% item$errorMessage %||% ""),
+              stringsAsFactors = FALSE
+            )
+          }))
+        } else if (is.list(result) && length(result) > 0) {
           do.call(rbind, lapply(result, function(item) {
             data.frame(
               module_name = as.character(item$moduleName %||% ""),
@@ -1569,7 +1589,9 @@
           data.frame(module_name = character(0), status = character(0), execution_time = character(0), error_message = character(0), stringsAsFactors = FALSE)
         }
         failed_rows <- if (nrow(module_rows) > 0) module_rows[module_rows$status %in% c("FAILED", "ERROR"), , drop = FALSE] else module_rows
-        overall_status <- if (nrow(module_rows) == 0) {
+        overall_status <- if (!is.null(execute_summary$overall_status) && nzchar(as.character(execute_summary$overall_status))) {
+          as.character(execute_summary$overall_status)
+        } else if (nrow(module_rows) == 0) {
           "unknown"
         } else if (nrow(failed_rows) > 0) {
           "partial_failure"
@@ -1593,6 +1615,7 @@
             "ps_trimming_strategy",
             "results_root",
             "work_root",
+            "summary_path",
             "result_path",
             "size_bytes",
             "modified_at"
@@ -1611,6 +1634,7 @@
             .studyAgentSlashCollapseValue(state$ps_trimming_strategy %||% ""),
             .studyAgentSlashCollapseValue(exec_roots$results_root %||% ""),
             .studyAgentSlashCollapseValue(exec_roots$work_root %||% ""),
+            summary_path,
             result_path,
             as.character(as.numeric(info$size)),
             as.character(info$mtime)
@@ -1727,12 +1751,18 @@
   commands <- .studyAgentSlashExplorationCommands()
   requested_step_id <- as.character(step_id %||% "")
   eligible_step_ids <- if (nzchar(trimws(requested_step_id))) {
-    requested_step_id
+    plan_steps <- project_state$execution_plan %||% list()
+    statuses <- vapply(plan_steps, function(step) as.character(step$status %||% ""), character(1))
+    step_ids <- vapply(plan_steps, function(step) as.character(step$step_id %||% ""), character(1))
+    unique(c(
+      requested_step_id,
+      step_ids[statuses %in% c("completed", "failed", "stale", "running", "skipped")]
+    ))
   } else {
     plan_steps <- project_state$execution_plan %||% list()
     statuses <- vapply(plan_steps, function(step) as.character(step$status %||% ""), character(1))
     step_ids <- vapply(plan_steps, function(step) as.character(step$step_id %||% ""), character(1))
-    unique(step_ids[statuses %in% c("completed", "failed", "stale", "running")])
+    unique(step_ids[statuses %in% c("completed", "failed", "stale", "running", "skipped")])
   }
   Filter(function(cmd) {
     workflow_ok <- as.character(workflow_type %||% "") %in% as.character(cmd$workflow_types %||% character(0))

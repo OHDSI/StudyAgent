@@ -293,7 +293,7 @@
       "match_on_ps.caliperScale" = c("propensity score" = "Propensity score", "standardized" = "Standardized", "standardized logit" = "Standardized logit")[[value]],
       "fit_outcome_model.modelType" = c("cox" = "Cox proportional hazards", "poisson" = "Poisson regression", "logistic" = "Logistic regression")[[value]],
       "create_study_population.removeDuplicateSubjects" = c("keep all" = "Keep All", "keep first" = "Keep First", "remove all" = "Remove All")[[value]],
-      "get_db_cohort_method_data.removeDuplicateSubjects" = c("keep all" = "Keep All", "keep first" = "Keep First", "remove all" = "Remove All", "keep first, truncate to second" = "Keep First, Truncate to Second")[[value]],
+      "get_db_cohort_method_data.removeDuplicateSubjects" = c("keep all" = "Keep All", "keep first" = "Keep First", "remove all" = "Remove All")[[value]],
       "stratify_by_ps.baseSelection" = c("all" = "Entire study population", "target" = "Target", "comparator" = "Comparator")[[value]],
       NULL
     )
@@ -305,6 +305,17 @@
   }
   if (is.numeric(value) && length(value) == 1) return(as.character(value))
   paste(as.character(value), collapse = ", ")
+}
+
+.studyAgentNormalizeGetDbRemoveDuplicateSubjects <- function(value) {
+  normalized <- as.character(value %||% "keep first")
+  if (length(normalized) == 0 || is.na(normalized[[1]]) || !nzchar(trimws(normalized[[1]]))) {
+    return("keep first")
+  }
+  if (identical(normalized[[1]], "keep first, truncate to second")) {
+    return("keep first")
+  }
+  normalized[[1]]
 }
 
 .studyAgentOutcomeModelDefaults <- function(ps_strategy = "match_on_ps",
@@ -807,7 +818,7 @@
       firstExposureOnly = TRUE,
       washoutPeriod = 365L,
       restrictToCommonPeriod = TRUE,
-      removeDuplicateSubjects = "keep first, truncate to second"
+      removeDuplicateSubjects = "keep first"
     ),
     create_study_population = list(
       maxCohortSize = 0L,
@@ -1103,6 +1114,18 @@
                                                          io = NULL) {
   `%||%` <- function(x, y) if (is.null(x)) y else x
 
+  navigation_back_error <- function() {
+    structure(
+      list(message = "workflow navigation requested"),
+      class = c("study_agent_navigation_back", "error", "condition")
+    )
+  }
+
+  abort_if_back_signal <- function(value) {
+    if (inherits(value, "workflow_navigation_signal")) stop(navigation_back_error())
+    value
+  }
+
   normalize_seed <- function(settings) {
     settings <- settings %||% list()
     if (is.null(settings$ps_adjustment)) {
@@ -1119,7 +1142,7 @@
 
   ask_text <- function(prompt, default = "", allow_blank = FALSE) {
     if (!isTRUE(interactive)) return(default)
-    value <- io$text(prompt = prompt, default = default, allow_blank = allow_blank)
+    value <- abort_if_back_signal(io$text(prompt = prompt, default = default, allow_blank = allow_blank))
     trimmed <- trimws(as.character(value %||% ""))
     if (!nzchar(trimmed) && !isTRUE(allow_blank)) {
       stop(sprintf("A non-empty value is required for: %s", prompt))
@@ -1129,86 +1152,87 @@
 
   ask_yesno <- function(prompt, default = TRUE) {
     if (!isTRUE(interactive)) return(default)
-    io$yesno(prompt = prompt, default = default)
+    abort_if_back_signal(io$yesno(prompt = prompt, default = default))
   }
 
   ask_choice <- function(prompt, choices, default, labels = choices) {
     if (!isTRUE(interactive)) return(default)
-    io$choice(prompt = prompt, choices = choices, default = default, labels = labels)
+    abort_if_back_signal(io$choice(prompt = prompt, choices = choices, default = default, labels = labels))
   }
 
   ask_integer <- function(prompt, default, min_value = NULL, allow_negative = TRUE) {
     if (!isTRUE(interactive)) return(as.integer(default))
-    io$integer(
+    abort_if_back_signal(io$integer(
       prompt = prompt,
       default = default,
       min_value = min_value,
       allow_negative = allow_negative
-    )
+    ))
   }
 
   ask_numeric <- function(prompt, default, min_value = NULL) {
     if (!isTRUE(interactive)) return(as.numeric(default))
-    io$numeric(prompt = prompt, default = default, min_value = min_value)
+    abort_if_back_signal(io$numeric(prompt = prompt, default = default, min_value = min_value))
   }
 
-  section_paths <- .studyAgentAnalyticSettingsSectionPaths()
-  working <- .studyAgentDeepMerge(default_settings, normalize_seed(seed_settings))
-  working <- .studyAgentSetNestedValue(
-    working,
-    "get_db_cohort_method_data.removeDuplicateSubjects",
-    .studyAgentGetNestedValue(default_settings, "get_db_cohort_method_data.removeDuplicateSubjects")
-  )
-  working <- .studyAgentSetNestedValue(
-    working,
-    "create_ps.estimator",
-    .studyAgentGetNestedValue(default_settings, "create_ps.estimator")
-  )
-  working <- .studyAgentSetNestedValue(
-    working,
-    "create_ps.errorOnHighCorrelation",
-    isTRUE(.studyAgentGetNestedValue(default_settings, "create_ps.errorOnHighCorrelation"))
-  )
-  working <- .studyAgentSetNestedValue(
-    working,
-    "create_ps.useRegularization",
-    isTRUE(.studyAgentGetNestedValue(default_settings, "create_ps.useRegularization"))
-  )
-  working <- .studyAgentSetNestedValue(
-    working,
-    "stratify_by_ps.baseSelection",
-    .studyAgentGetNestedValue(default_settings, "stratify_by_ps.baseSelection")
-  )
-  working$source <- "manual_shell"
-  working$customized_sections <- character(0)
+  tryCatch({
+    section_paths <- .studyAgentAnalyticSettingsSectionPaths()
+    working <- .studyAgentDeepMerge(default_settings, normalize_seed(seed_settings))
+    working <- .studyAgentSetNestedValue(
+      working,
+      "get_db_cohort_method_data.removeDuplicateSubjects",
+      .studyAgentGetNestedValue(default_settings, "get_db_cohort_method_data.removeDuplicateSubjects")
+    )
+    working <- .studyAgentSetNestedValue(
+      working,
+      "create_ps.estimator",
+      .studyAgentGetNestedValue(default_settings, "create_ps.estimator")
+    )
+    working <- .studyAgentSetNestedValue(
+      working,
+      "create_ps.errorOnHighCorrelation",
+      isTRUE(.studyAgentGetNestedValue(default_settings, "create_ps.errorOnHighCorrelation"))
+    )
+    working <- .studyAgentSetNestedValue(
+      working,
+      "create_ps.useRegularization",
+      isTRUE(.studyAgentGetNestedValue(default_settings, "create_ps.useRegularization"))
+    )
+    working <- .studyAgentSetNestedValue(
+      working,
+      "stratify_by_ps.baseSelection",
+      .studyAgentGetNestedValue(default_settings, "stratify_by_ps.baseSelection")
+    )
+    working$source <- "manual_shell"
+    working$customized_sections <- character(0)
 
-  show_section <- function(label) {
-    if (isTRUE(interactive) && !is.null(io$section_header)) {
-      io$section_header(label)
+    show_section <- function(label) {
+      if (isTRUE(interactive) && !is.null(io$section_header)) {
+        io$section_header(label)
+      }
     }
-  }
 
-  show_section("Study Population")
-  study_start <- ask_text(
-    "Study start date (YYYYMMDD, leave blank for no restriction)",
-    default = .studyAgentFormatDateForPrompt(.studyAgentGetNestedValue(working, "get_db_cohort_method_data.studyStartDate")),
-    allow_blank = TRUE
-  )
-  study_end <- ask_text(
-    "Study end date (YYYYMMDD, leave blank for no restriction)",
-    default = .studyAgentFormatDateForPrompt(.studyAgentGetNestedValue(working, "get_db_cohort_method_data.studyEndDate")),
-    allow_blank = TRUE
-  )
-  working <- .studyAgentSetNestedValue(
-    working,
-    "get_db_cohort_method_data.studyStartDate",
-    .studyAgentDateStringOrEmpty(study_start, "Study start date")
-  )
-  working <- .studyAgentSetNestedValue(
-    working,
-    "get_db_cohort_method_data.studyEndDate",
-    .studyAgentDateStringOrEmpty(study_end, "Study end date")
-  )
+    show_section("Study Population")
+    study_start <- ask_text(
+      "Study start date (YYYYMMDD, leave blank for no restriction)",
+      default = .studyAgentFormatDateForPrompt(.studyAgentGetNestedValue(working, "get_db_cohort_method_data.studyStartDate")),
+      allow_blank = TRUE
+    )
+    study_end <- ask_text(
+      "Study end date (YYYYMMDD, leave blank for no restriction)",
+      default = .studyAgentFormatDateForPrompt(.studyAgentGetNestedValue(working, "get_db_cohort_method_data.studyEndDate")),
+      allow_blank = TRUE
+    )
+    working <- .studyAgentSetNestedValue(
+      working,
+      "get_db_cohort_method_data.studyStartDate",
+      .studyAgentDateStringOrEmpty(study_start, "Study start date")
+    )
+    working <- .studyAgentSetNestedValue(
+      working,
+      "get_db_cohort_method_data.studyEndDate",
+      .studyAgentDateStringOrEmpty(study_end, "Study end date")
+    )
   study_population_non_core <- setdiff(
     section_paths$study_population,
     c(
@@ -1532,22 +1556,25 @@
     )
   }
 
-  customized_sections <- names(section_paths)[vapply(names(section_paths), function(section_name) {
-    paths <- section_paths[[section_name]]
-    any(vapply(paths, function(path) {
-      !identical(
-        .studyAgentGetNestedValue(working, path),
-        .studyAgentGetNestedValue(default_settings, path)
-      )
-    }, logical(1)))
-  }, logical(1))]
-  working$customized_sections <- customized_sections
+    customized_sections <- names(section_paths)[vapply(names(section_paths), function(section_name) {
+      paths <- section_paths[[section_name]]
+      any(vapply(paths, function(path) {
+        !identical(
+          .studyAgentGetNestedValue(working, path),
+          .studyAgentGetNestedValue(default_settings, path)
+        )
+      }, logical(1)))
+    }, logical(1))]
+    working$customized_sections <- customized_sections
 
-  list(
-    settings = working,
-    section_flow = names(section_paths),
-    customized_sections = customized_sections
-  )
+    list(
+      settings = working,
+      section_flow = names(section_paths),
+      customized_sections = customized_sections
+    )
+  }, study_agent_navigation_back = function(e) {
+    new_workflow_navigation_signal("back")
+  })
 }
 
 #' Interactive shell to generate Strategus CohortMethod scripts
@@ -2039,7 +2066,9 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     if (!isTRUE(interactive)) return(default)
     repeat {
       default_value <- if (is.null(default)) "" else as.character(default)
-      entered <- trimws(readline_with_dialogue(sprintf("%s [%s]: ", prompt, default_value)))
+      entered <- readline_with_navigation(sprintf("%s [%s]: ", prompt, default_value))
+      if (is_back_signal(entered)) return(entered)
+      entered <- trimws(as.character(entered %||% ""))
       if (entered == "" && !is.null(default)) return(default)
       if (entered == "") {
         cat("A value is required.\n")
@@ -3375,8 +3404,8 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
       "analytic_settings.get_db_cohort_method_data.restrictToCommonPeriod"
     )
     settings$get_db_cohort_method_data$removeDuplicateSubjects <- validate_choice(
-      settings$get_db_cohort_method_data$removeDuplicateSubjects,
-      c("keep all", "keep first", "remove all", "keep first, truncate to second"),
+      .studyAgentNormalizeGetDbRemoveDuplicateSubjects(settings$get_db_cohort_method_data$removeDuplicateSubjects),
+      c("keep all", "keep first", "remove all"),
       "analytic_settings.get_db_cohort_method_data.removeDuplicateSubjects"
     )
     settings$create_study_population$removeDuplicateSubjects <- validate_choice(
@@ -5295,13 +5324,16 @@ Available exploration commands
   }
   use_mapping <- isTRUE(remapCohortIds)
   if (isTRUE(interactive)) {
-    use_mapping <- prompt_yesno("Map cohort IDs to a new range (avoid collisions)?", default = isTRUE(remapCohortIds))
+    use_mapping <- prompt_yesno_navigation("Map cohort IDs to a new range (avoid collisions)?", default = isTRUE(remapCohortIds))
+    if (is_back_signal(use_mapping)) next
   }
   if (use_mapping) {
     cohortIdBase <- cohortIdBase %||% cached_inputs$cohort_id_base %||% default_cohort_id_base
     cohortIdBase <- suppressWarnings(as.integer(cohortIdBase))
     if (isTRUE(interactive)) {
-      entered <- trimws(readline_with_dialogue(sprintf("Cohort ID base [%s]: ", cohortIdBase)))
+      entered <- readline_with_navigation(sprintf("Cohort ID base [%s]: ", cohortIdBase))
+      if (is_back_signal(entered)) next
+      entered <- trimws(as.character(entered %||% ""))
       if (nzchar(entered)) cohortIdBase <- suppressWarnings(as.integer(entered))
     }
     cohortIdBase <- validate_positive_integer(cohortIdBase, "cohortIdBase")
@@ -5858,10 +5890,10 @@ Available exploration commands
         cached_get_db$washoutPeriod
       )),
       restrictToCommonPeriod = isTRUE(cached_get_db$restrictToCommonPeriod %||% default_analytic_settings$get_db_cohort_method_data$restrictToCommonPeriod),
-      removeDuplicateSubjects = merge_or_default(
+      removeDuplicateSubjects = .studyAgentNormalizeGetDbRemoveDuplicateSubjects(merge_or_default(
         default_analytic_settings$get_db_cohort_method_data$removeDuplicateSubjects,
         cached_get_db$removeDuplicateSubjects
-      )
+      ))
     ),
     create_study_population = list(
       maxCohortSize = as.integer(merge_or_default(
@@ -5979,6 +6011,7 @@ Available exploration commands
 
   has_function_argument_description <- !is.null(analyticSettingsDescription) || !is.null(analytic_settings_description_path_resolved)
   cached_mode <- as.character(cached_inputs$analytic_settings_mode %||% if (has_function_argument_description) "free_text" else "step_by_step")
+  analytic_settings_back_requested <- FALSE
   analytic_settings_mode <- if (isTRUE(interactive)) {
     mode_default <- if (has_function_argument_description || identical(cached_mode, "free_text")) "free-text" else "step-by-step"
     cat("\nHow would you like to configure analytic settings?\n")
@@ -5988,13 +6021,27 @@ Available exploration commands
     cat("  2. Free-text\n")
     cat("     Describe the analytic settings you want in natural language.\n")
     cat("     The shell will create a dummy recommendation JSON, show the proposed key/value pairs, and ask you to confirm.\n")
-    mode_choice <- collect_choice_value(
-      value = mode_default,
-      label = "Analytic settings configuration mode",
-      choices = c("step-by-step", "free-text"),
-      prompt = "Choose analytic settings mode by number.",
-      default = mode_default
-    )
+    mode_choices <- c("step-by-step", "free-text")
+    mode_choice <- mode_default
+    repeat {
+      entered <- readline_with_navigation(sprintf("Select option [%s]: ", match(mode_choice, mode_choices)))
+      if (is_back_signal(entered)) {
+        analytic_settings_back_requested <- TRUE
+        break
+      }
+      entered <- trimws(as.character(entered %||% ""))
+      if (!nzchar(entered)) break
+      option_idx <- suppressWarnings(as.integer(entered))
+      if (!is.na(option_idx) && option_idx >= 1 && option_idx <= length(mode_choices)) {
+        mode_choice <- mode_choices[[option_idx]]
+        break
+      }
+      if (entered %in% mode_choices) {
+        mode_choice <- entered
+        break
+      }
+      cat(sprintf("Please enter one of: %s\n", paste(seq_along(mode_choices), collapse = ", ")))
+    }
     if (identical(mode_choice, "free-text")) "free_text" else "step_by_step"
   } else if (has_function_argument_description ||
              (identical(cached_mode, "free_text") &&
@@ -6021,6 +6068,8 @@ Available exploration commands
 
   effective_analytic_settings$covariate_concept_sets$include_all_concepts <- isTRUE(!isTRUE(covariate_enabled)) ||
     isTRUE(include_all_covariates)
+
+  if (isTRUE(analytic_settings_back_requested)) next
 
   if (identical(analytic_settings_mode, "step_by_step")) {
     if (isTRUE(interactive)) {
@@ -6057,7 +6106,9 @@ Available exploration commands
         cat(sprintf("\n[%s]\n", label))
       },
       text = function(prompt, default = "", allow_blank = FALSE) {
-        entered <- trimws(readline_with_dialogue(sprintf("%s [%s]: ", prompt, default)))
+        entered <- readline_with_navigation(sprintf("%s [%s]: ", prompt, default))
+        if (is_back_signal(entered)) return(entered)
+        entered <- trimws(as.character(entered %||% ""))
         if (!nzchar(entered)) {
           if (isTRUE(allow_blank)) return(default)
           return(default)
@@ -6065,29 +6116,52 @@ Available exploration commands
         entered
       },
       yesno = function(prompt, default = TRUE) {
-        prompt_yesno_strict(prompt, default = default)
+        prompt_yesno_navigation(prompt, default = default)
       },
       choice = function(prompt, choices, default, labels = choices) {
         default_index <- match(default, choices)
         if (is.na(default_index)) default_index <- 1L
-        selected_label <- collect_choice_value(
-          value = labels[[default_index]],
-          label = prompt,
-          choices = labels,
-          prompt = prompt,
-          default = labels[[default_index]]
-        )
-        choices[[match(selected_label, labels)]]
+        current_label <- labels[[default_index]]
+        repeat {
+          cat(sprintf("%s\n", prompt))
+          for (i in seq_along(labels)) {
+            marker <- if (identical(labels[[i]], current_label)) " [default]" else ""
+            cat(sprintf("  %s. %s%s\n", i, labels[[i]], marker))
+          }
+          entered <- readline_with_navigation(sprintf("Select option [%s]: ", match(current_label, labels)))
+          if (is_back_signal(entered)) return(entered)
+          entered <- trimws(as.character(entered %||% ""))
+          if (!nzchar(entered)) return(choices[[match(current_label, labels)]])
+          option_idx <- suppressWarnings(as.integer(entered))
+          if (!is.na(option_idx) && option_idx >= 1 && option_idx <= length(labels)) {
+            return(choices[[option_idx]])
+          }
+          if (entered %in% labels) return(choices[[match(entered, labels)]])
+          if (entered %in% choices) return(entered)
+          cat(sprintf("Please enter one of: %s\n", paste(seq_along(labels), collapse = ", ")))
+        }
       },
       integer = function(prompt, default, min_value = NULL, allow_negative = TRUE) {
         repeat {
-          value <- prompt_integer(
-            prompt = prompt,
-            default = default,
-            allow_null = FALSE,
-            must_be_positive = FALSE,
-            allow_negative = allow_negative
-          )
+          prompt_suffix <- if (is.null(default)) "" else sprintf(" [%s]", default)
+          prompt_text <- trimws(as.character(prompt %||% ""))
+          rendered_prompt <- if (nzchar(prompt_text)) sprintf("%s%s: ", prompt_text, prompt_suffix) else sprintf("%s: ", prompt_suffix)
+          value <- readline_with_navigation(rendered_prompt)
+          if (is_back_signal(value)) return(value)
+          value <- trimws(as.character(value %||% ""))
+          if (value == "") {
+            value <- as.integer(default)
+          } else {
+            value <- suppressWarnings(as.integer(value))
+          }
+          if (is.na(value) || !is.finite(value)) {
+            cat("Please enter a valid integer.\n")
+            next
+          }
+          if (!allow_negative && value < 0) {
+            cat("Please enter a non-negative integer.\n")
+            next
+          }
           if (!is.null(min_value) && value < min_value) {
             cat(sprintf("Please enter an integer >= %s.\n", min_value))
             next
@@ -6097,11 +6171,21 @@ Available exploration commands
       },
       numeric = function(prompt, default, min_value = NULL) {
         repeat {
-          value <- prompt_numeric(
-            prompt = prompt,
-            default = default,
-            must_be_positive = FALSE
-          )
+          prompt_suffix <- if (is.null(default)) "" else sprintf(" [%s]", default)
+          prompt_text <- trimws(as.character(prompt %||% ""))
+          rendered_prompt <- if (nzchar(prompt_text)) sprintf("%s%s: ", prompt_text, prompt_suffix) else sprintf("%s: ", prompt_suffix)
+          value <- readline_with_navigation(rendered_prompt)
+          if (is_back_signal(value)) return(value)
+          value <- trimws(as.character(value %||% ""))
+          if (value == "") {
+            value <- as.numeric(default)
+          } else {
+            value <- suppressWarnings(as.numeric(value))
+          }
+          if (is.na(value) || !is.finite(value)) {
+            cat("Please enter a valid number.\n")
+            next
+          }
           if (!is.null(min_value) && value < min_value) {
             cat(sprintf("Please enter a number >= %s.\n", min_value))
             next
@@ -6116,6 +6200,7 @@ Available exploration commands
       interactive = interactive,
       io = step_by_step_io
     )
+    if (is_back_signal(step_by_step_result)) next
     effective_analytic_settings <- step_by_step_result$settings
     analytic_settings_section_flow <- step_by_step_result$section_flow
 
@@ -6163,6 +6248,10 @@ Available exploration commands
           "Study description for analytic settings",
           default = analytic_settings_description
         )
+        if (is_back_signal(analytic_settings_description)) {
+          analytic_settings_back_requested <- TRUE
+          break
+        }
         analytic_settings_input_method <- "typed_text"
         analytic_settings_description_path <- NULL
       } else {
@@ -6273,6 +6362,8 @@ Available exploration commands
       break
     }
   }
+
+  if (isTRUE(analytic_settings_back_requested)) next
 
   if (isTRUE(interactive)) {
     repeat {
@@ -6620,7 +6711,9 @@ Available exploration commands
   )
   cm_defaults$covariate_concept_sets$enabled <- isTRUE(effective_analytic_settings$covariate_concept_sets$enabled)
   cm_defaults$covariate_concept_sets$note <- "Placeholder only. Dummy concept set IDs are captured for future concept set materialization."
-  cm_defaults$get_db_cohort_method_data$removeDuplicateSubjects <- as.character(cm_defaults$get_db_cohort_method_data$removeDuplicateSubjects)
+  cm_defaults$get_db_cohort_method_data$removeDuplicateSubjects <- .studyAgentNormalizeGetDbRemoveDuplicateSubjects(
+    cm_defaults$get_db_cohort_method_data$removeDuplicateSubjects
+  )
   cm_defaults$create_study_population$removeDuplicateSubjects <- as.character(cm_defaults$create_study_population$removeDuplicateSubjects)
   cm_defaults$cm_analysis_json_path <- cm_analysis_json_path
   write_json(cm_defaults, cm_defaults_path)
@@ -6816,36 +6909,49 @@ Available exploration commands
   keeper_case_review_result <- NULL
 
   if (isTRUE(interactive)) {
-    run_keeper_review_now <- prompt_yesno("Run ACP-based Keeper review now?", default = FALSE)
+    run_keeper_review_now <- prompt_yesno_navigation("Run ACP-based Keeper review now?", default = FALSE)
     if (isTRUE(run_keeper_review_now)) {
-      entered_roles <- trimws(readline_with_dialogue("Keeper review roles [outcome]: "))
-      keeper_review_roles <- if (!nzchar(entered_roles)) "outcome" else trimws(strsplit(entered_roles, ",", fixed = TRUE)[[1]])
-      keeper_review_roles <- keeper_review_roles[nzchar(keeper_review_roles)]
-      keeper_review_roles <- intersect(keeper_review_roles, c("outcome", "target", "comparator"))
-      if (!length(keeper_review_roles)) keeper_review_roles <- "outcome"
-      keeper_generated_dir <- file.path(base_dir, "keeper-case-review", "concept-sets-generated")
-      keeper_approved_dir <- file.path(base_dir, "keeper-case-review", "concept-sets-approved")
-      keeper_rows_dir <- file.path(base_dir, "keeper-case-review", "rows")
-      keeper_reviews_dir <- file.path(base_dir, "keeper-case-review", "reviews")
-      has_keeper_generated_artifacts <- dir.exists(keeper_generated_dir) &&
-        length(list.files(keeper_generated_dir, pattern = "\\.json$", recursive = TRUE, full.names = TRUE)) > 0
-      has_keeper_approved_artifacts <- dir.exists(keeper_approved_dir) &&
-        length(list.files(keeper_approved_dir, pattern = "\\.json$", recursive = TRUE, full.names = TRUE)) > 0
-      has_keeper_rows_artifacts <- dir.exists(keeper_rows_dir) &&
-        length(list.files(keeper_rows_dir, pattern = "\\.json$", recursive = TRUE, full.names = TRUE)) > 0
-      has_keeper_review_artifacts <- dir.exists(keeper_reviews_dir) &&
-        length(list.files(keeper_reviews_dir, pattern = "\\.json$", recursive = TRUE, full.names = TRUE)) > 0
-      if (has_keeper_generated_artifacts || has_keeper_rows_artifacts) {
-        keeper_reuse_generated_artifacts <- prompt_yesno("Reuse existing Keeper generated artifacts?", default = TRUE)
+      keeper_config_confirmed <- FALSE
+      repeat {
+        entered_roles <- readline_with_navigation("Keeper review roles [outcome]: ")
+        if (is_back_signal(entered_roles)) break
+        entered_roles <- trimws(as.character(entered_roles %||% ""))
+        keeper_review_roles <- if (!nzchar(entered_roles)) "outcome" else trimws(strsplit(entered_roles, ",", fixed = TRUE)[[1]])
+        keeper_review_roles <- keeper_review_roles[nzchar(keeper_review_roles)]
+        keeper_review_roles <- intersect(keeper_review_roles, c("outcome", "target", "comparator"))
+        if (!length(keeper_review_roles)) keeper_review_roles <- "outcome"
+        keeper_generated_dir <- file.path(base_dir, "keeper-case-review", "concept-sets-generated")
+        keeper_approved_dir <- file.path(base_dir, "keeper-case-review", "concept-sets-approved")
+        keeper_rows_dir <- file.path(base_dir, "keeper-case-review", "rows")
+        keeper_reviews_dir <- file.path(base_dir, "keeper-case-review", "reviews")
+        has_keeper_generated_artifacts <- dir.exists(keeper_generated_dir) &&
+          length(list.files(keeper_generated_dir, pattern = "\\.json$", recursive = TRUE, full.names = TRUE)) > 0
+        has_keeper_approved_artifacts <- dir.exists(keeper_approved_dir) &&
+          length(list.files(keeper_approved_dir, pattern = "\\.json$", recursive = TRUE, full.names = TRUE)) > 0
+        has_keeper_rows_artifacts <- dir.exists(keeper_rows_dir) &&
+          length(list.files(keeper_rows_dir, pattern = "\\.json$", recursive = TRUE, full.names = TRUE)) > 0
+        has_keeper_review_artifacts <- dir.exists(keeper_reviews_dir) &&
+          length(list.files(keeper_reviews_dir, pattern = "\\.json$", recursive = TRUE, full.names = TRUE)) > 0
+        if (has_keeper_generated_artifacts || has_keeper_rows_artifacts) {
+          keeper_reuse_generated_artifacts <- prompt_yesno_navigation("Reuse existing Keeper generated artifacts?", default = TRUE)
+          if (is_back_signal(keeper_reuse_generated_artifacts)) next
+        }
+        if (has_keeper_generated_artifacts || has_keeper_approved_artifacts) {
+          keeper_overwrite_approved_concept_sets <- prompt_yesno_navigation("Replace approved concept sets with current generated output?", default = FALSE)
+          if (is_back_signal(keeper_overwrite_approved_concept_sets)) next
+        }
+        if (has_keeper_review_artifacts) {
+          keeper_resume_reviews <- prompt_yesno_navigation("Resume existing Keeper row reviews?", default = TRUE)
+          if (is_back_signal(keeper_resume_reviews)) next
+        }
+        entered_row_selection <- readline_with_navigation("Keeper row selection [default first N or e.g. 1-3,5]: ")
+        if (is_back_signal(entered_row_selection)) next
+        entered_row_selection <- trimws(as.character(entered_row_selection %||% ""))
+        keeper_review_row_selection <- if (!nzchar(entered_row_selection)) NULL else entered_row_selection
+        keeper_config_confirmed <- TRUE
+        break
       }
-      if (has_keeper_generated_artifacts || has_keeper_approved_artifacts) {
-        keeper_overwrite_approved_concept_sets <- prompt_yesno("Replace approved concept sets with current generated output?", default = FALSE)
-      }
-      if (has_keeper_review_artifacts) {
-        keeper_resume_reviews <- prompt_yesno("Resume existing Keeper row reviews?", default = TRUE)
-      }
-      entered_row_selection <- trimws(readline_with_dialogue("Keeper row selection [default first N or e.g. 1-3,5]: "))
-      keeper_review_row_selection <- if (!nzchar(entered_row_selection)) NULL else entered_row_selection
+      if (isTRUE(keeper_config_confirmed)) {
 
       stage_callback <- function(step, role = "", context = list()) {
         safe_context <- c(
@@ -7094,6 +7200,7 @@ Keeper review saved: %s reviewed row(s)
 ", keeper_case_review_state_path))
           }
         }
+      }
       }
       set_dialogue_context("workflow_summary", context = list(
         study_intent = studyIntent,
@@ -7896,6 +8003,62 @@ Keeper review saved: %s reviewed row(s)
     "execution_settings_path <- file.path(base_dir, 'strategus-execution-settings.json')",
     "connectionDetails <- slashOhdsiStrategusAssistant::createStrategusConnectionDetails(path = db_details_path)",
     "exec <- slashOhdsiStrategusAssistant::createStrategusExecutionSettings(path = execution_settings_path)",
+    "resolve_path <- function(path) {",
+    "  if (!nzchar(path)) return(path)",
+    "  if (grepl('^(/|[A-Za-z]:[\\\\/]|~)', path)) return(normalizePath(path, winslash = '/', mustWork = FALSE))",
+    "  candidates <- unique(c(",
+    "    file.path(base_dir, path),",
+    "    file.path(dirname(base_dir), path),",
+    "    file.path(dirname(dirname(base_dir)), path),",
+    "    file.path(getwd(), path)",
+    "  ))",
+    "  for (candidate in candidates) {",
+    "    normalized <- normalizePath(candidate, winslash = '/', mustWork = FALSE)",
+    "    if (file.exists(normalized) || dir.exists(normalized)) return(normalized)",
+    "  }",
+    "  normalizePath(candidates[[1]], winslash = '/', mustWork = FALSE)",
+    "}",
+    "validate_execution_root <- function(label, root_path) {",
+    "  normalized_root <- normalizePath(resolve_path(as.character(root_path %||% '')), winslash = '/', mustWork = FALSE)",
+    "  normalized_base <- normalizePath(base_dir, winslash = '/', mustWork = FALSE)",
+    "  if (startsWith(normalized_root, paste0(normalized_base, '/')) || identical(normalized_root, normalized_base)) {",
+    "    return(normalized_root)",
+    "  }",
+    "  parent_dir <- dirname(normalized_root)",
+    "  marker_path <- file.path(parent_dir, 'study-agent-project.json')",
+    "  if (file.exists(marker_path) && !identical(normalizePath(parent_dir, winslash = '/', mustWork = FALSE), normalized_base)) {",
+    "    stop(sprintf('Configured %s points to another Study Agent project: %s (current project: %s)', label, normalized_root, normalized_base))",
+    "  }",
+    "  warning(sprintf('Configured %s is outside the current project root: %s', label, normalized_root), call. = FALSE)",
+    "  normalized_root",
+    "}",
+    "summarize_execute_result <- function(result) {",
+    "  modules <- if (is.list(result)) lapply(result, function(item) {",
+    "    status <- as.character(item$status %||% '')",
+    "    module_name <- as.character(item$moduleName %||% '')",
+    "    error_message <- trimws(as.character(item$errorMessage %||% ''))",
+    "    if (identical(status, 'FAILED') && !nzchar(error_message)) {",
+    "      error_message <- sprintf('%s failed with empty errorMessage; inspect work/results roots and exported tables.', if (nzchar(module_name)) module_name else 'Strategus module')",
+    "    }",
+    "    list(module_name = module_name, status = status, execution_time = as.character(item$executionTime %||% ''), error_message = error_message)",
+    "  }) else list()",
+    "  statuses <- vapply(modules, function(item) as.character(item$status %||% ''), character(1))",
+    "  overall_status <- if (length(statuses) == 0) {",
+    "    'unknown'",
+    "  } else if (any(statuses %in% c('FAILED', 'ERROR'))) {",
+    "    'partial_failure'",
+    "  } else if (all(statuses %in% c('SUCCESS', 'COMPLETED'))) {",
+    "    'success'",
+    "  } else {",
+    "    'mixed'",
+    "  }",
+    "  list(overall_status = overall_status, results_root = resolved_results_root, work_root = resolved_work_root, modules = modules)",
+    "}",
+    "resolved_results_root <- validate_execution_root('resultsFolder', exec$resultsFolder %||% '')",
+    "resolved_work_root <- validate_execution_root('workFolder', exec$workFolder %||% '')",
+    "message('Strategus execution roots:')",
+    "message('  resultsFolder: ', resolved_results_root)",
+    "message('  workFolder: ', resolved_work_root)",
     "",
     "result <- Strategus::execute(",
     "  connectionDetails = connectionDetails,",
@@ -7905,7 +8068,10 @@ Keeper review saved: %s reviewed row(s)
     "",
     "result_path <- file.path(analysis_settings_dir, 'strategus_execute_result.rds')",
     "saveRDS(result, result_path)",
+    "summary_path <- file.path(analysis_settings_dir, 'strategus_execute_summary.json')",
+    "jsonlite::write_json(summarize_execute_result(result), summary_path, pretty = TRUE, auto_unbox = TRUE, null = 'null')",
     "message('Strategus execution result saved to: ', result_path)",
+    "message('Strategus execution summary saved to: ', summary_path)",
     ""
   )
   write_lines(file.path(scripts_dir, "07_cm_spec.R"), script_07)
