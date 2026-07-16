@@ -42,6 +42,83 @@ incidence_dialogue_step_label <- function(step, role = "") {
   )
 }
 
+.studyAgentSlashCollapseDialogueText <- function(value) {
+  if (is.null(value) || length(value) == 0) return("")
+  if (is.list(value)) {
+    parts <- unlist(lapply(value, .studyAgentSlashCollapseDialogueText), use.names = FALSE)
+    parts <- trimws(as.character(parts %||% character(0)))
+    parts <- parts[nzchar(parts)]
+    return(paste(parts, collapse = "; "))
+  }
+  text <- trimws(as.character(value))
+  text <- text[nzchar(text)]
+  paste(text, collapse = "; ")
+}
+
+.studyAgentSlashResolveDialogueUserGoal <- function(study_intent,
+                                                    workflow_type,
+                                                    current_step,
+                                                    current_role = "",
+                                                    current_context = list()) {
+  current_context <- compact_workflow_dialogue_context(current_context %||% list())
+  current_step <- as.character(current_step %||% "")
+  current_role <- as.character(current_role %||% "")
+
+  study_goal <- trimws(as.character(study_intent %||% ""))
+  if (nzchar(study_goal)) return(study_goal)
+
+  role_statement <- .studyAgentSlashCollapseDialogueText(
+    current_context$role_statement %||% current_context$statement %||% NULL
+  )
+  if (!nzchar(role_statement) && identical(current_role, "target")) {
+    role_statement <- .studyAgentSlashCollapseDialogueText(current_context$target_statement %||% NULL)
+  }
+  if (!nzchar(role_statement) && identical(current_role, "comparator")) {
+    role_statement <- .studyAgentSlashCollapseDialogueText(current_context$comparator_statement %||% NULL)
+  }
+  if (!nzchar(role_statement) && identical(current_role, "outcome")) {
+    role_statement <- .studyAgentSlashCollapseDialogueText(
+      current_context$outcome_statement %||% current_context$outcome_statements %||% NULL
+    )
+  }
+  if (nzchar(role_statement)) {
+    role_label <- if (nzchar(current_role)) current_role else "active"
+    return(sprintf("Define the %s cohort using this statement: %s", role_label, role_statement))
+  }
+
+  step_goal <- if (identical(workflow_type, "strategus_incidence")) {
+    switch(
+      current_step,
+      study_intent_capture = "Define the study intent or proceed with direct cohort acquisition for the incidence study.",
+      intent_split = "Enter concise cohort statements for the current incidence-study role.",
+      target_selection = "Define or select the target cohort for the incidence study.",
+      outcome_selection = "Define or select the outcome cohort for the incidence study.",
+      phenotype_review = "Review phenotype improvements for the current incidence-study cohort.",
+      incidence_design_setup = "Configure incidence-study execution inputs and generated artifacts.",
+      time_at_risk_configuration = "Configure time-at-risk definitions and strata settings for the incidence study.",
+      workflow_summary = "Review the saved incidence-study build summary before execution mode.",
+      "Continue the incidence-study workflow using the current prompt."
+    )
+  } else {
+    switch(
+      current_step,
+      study_intent_capture = "Define the study intent or proceed with direct cohort acquisition for the cohort-method study.",
+      intent_split = "Enter concise cohort statements for the current cohort-method role.",
+      target_selection = "Define or select the target cohort for the cohort-method study.",
+      comparator_selection = "Define or select the comparator cohort for the cohort-method study.",
+      outcome_selection = "Define or select the outcome cohort for the cohort-method study.",
+      phenotype_review = "Review phenotype improvements for the current cohort-method cohort.",
+      analytic_settings_collection = "Configure analytic settings for the cohort-method study.",
+      cohort_method_spec_recommendation = "Review the cohort-method specification inputs before confirmation.",
+      cohort_method_spec_confirmation = "Confirm the cohort-method specification inputs before writing artifacts.",
+      workflow_summary = "Review the saved cohort-method build summary before execution mode.",
+      "Continue the cohort-method workflow using the current prompt."
+    )
+  }
+
+  as.character(step_goal %||% "Continue the current workflow using the active prompt.")
+}
+
 build_incidence_workflow_stage_context <- function(study_intent,
                                                    dialogue_state,
                                                    interactive = TRUE) {
@@ -53,7 +130,13 @@ build_incidence_workflow_stage_context <- function(study_intent,
     workflow_type = "strategus_incidence",
     current_step = current_step,
     step_label = incidence_dialogue_step_label(current_step, current_role),
-    user_goal = as.character(study_intent %||% ""),
+    user_goal = .studyAgentSlashResolveDialogueUserGoal(
+      study_intent = study_intent,
+      workflow_type = "strategus_incidence",
+      current_step = current_step,
+      current_role = current_role,
+      current_context = current_context
+    ),
     entities = compact_workflow_dialogue_context(list(
       active_role = current_role,
       role_statement = current_context$role_statement %||% current_context$statement,
@@ -135,7 +218,13 @@ build_cohort_methods_workflow_stage_context <- function(study_intent,
     workflow_type = "strategus_cohort_methods",
     current_step = current_step,
     step_label = cohort_methods_dialogue_step_label(current_step, current_role),
-    user_goal = as.character(study_intent %||% ""),
+    user_goal = .studyAgentSlashResolveDialogueUserGoal(
+      study_intent = study_intent,
+      workflow_type = "strategus_cohort_methods",
+      current_step = current_step,
+      current_role = current_role,
+      current_context = current_context
+    ),
     entities = compact_workflow_dialogue_context(list(
       active_role = current_role,
       role_statement = current_context$role_statement %||% current_context$statement,

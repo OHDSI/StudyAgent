@@ -8,6 +8,7 @@ STEP_STATE_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workflo
 COHORT_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_cohort_methods_shell.R")
 INCIDENCE_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_incidence_shell.R")
 DIALOGUE_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workflow_dialogue.R")
+MAPPING_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workflow_dialogue_mapping.R")
 EXPLORATION_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workflow_exploration_registry.R")
 
 
@@ -187,6 +188,15 @@ def test_shells_use_shared_enriched_execution_dialogue_context() -> None:
     assert expected in incidence_source
 
 
+def test_dialogue_mapping_builds_nonblank_user_goal_fallbacks() -> None:
+    source = MAPPING_SOURCE.read_text(encoding="utf-8")
+    assert '.studyAgentSlashResolveDialogueUserGoal <- function(' in source
+    assert '.studyAgentSlashCollapseDialogueText <- function(value) {' in source
+    assert 'user_goal = .studyAgentSlashResolveDialogueUserGoal(' in source
+    assert 'time_at_risk_configuration = "Configure time-at-risk definitions and strata settings for the incidence study."' in source
+    assert 'analytic_settings_collection = "Configure analytic settings for the cohort-method study."' in source
+
+
 def _assert_exploration_menu_surface(source: str) -> None:
     assert 'artifacts' in source
     assert 'x=explore[_v]' in source
@@ -213,6 +223,30 @@ def test_cohort_method_shell_exposes_exploration_menu_surface() -> None:
 
 def test_incidence_shell_exposes_exploration_menu_surface() -> None:
     _assert_exploration_menu_surface(INCIDENCE_SOURCE.read_text(encoding="utf-8"))
+
+
+def test_cohort_method_step_by_step_analytic_settings_supports_back_navigation() -> None:
+    source = COHORT_SOURCE.read_text(encoding="utf-8")
+    assert 'navigation_back_error <- function() {' in source
+    assert 'abort_if_back_signal <- function(value) {' in source
+    assert 'study_agent_navigation_back = function(e) {' in source
+    assert 'new_workflow_navigation_signal("back")' in source
+    assert 'prompt_yesno_navigation(prompt, default = default)' in source
+    assert 'if (is_back_signal(step_by_step_result)) next' in source
+    assert 'analytic_settings_back_requested <- FALSE' in source
+    assert 'if (isTRUE(analytic_settings_back_requested)) next' in source
+
+
+def test_cohort_method_shell_remap_and_keeper_setup_support_navigation() -> None:
+    source = COHORT_SOURCE.read_text(encoding="utf-8")
+    assert 'use_mapping <- prompt_yesno_navigation("Map cohort IDs to a new range (avoid collisions)?", default = isTRUE(remapCohortIds))' in source
+    assert 'entered <- readline_with_navigation(sprintf("Cohort ID base [%s]: ", cohortIdBase))' in source
+    assert 'run_keeper_review_now <- prompt_yesno_navigation("Run ACP-based Keeper review now?", default = FALSE)' in source
+    assert 'keeper_config_confirmed <- FALSE' in source
+    assert 'entered_roles <- readline_with_navigation("Keeper review roles [outcome]: ")' in source
+    assert 'keeper_reuse_generated_artifacts <- prompt_yesno_navigation("Reuse existing Keeper generated artifacts?", default = TRUE)' in source
+    assert 'entered_row_selection <- readline_with_navigation("Keeper row selection [default first N or e.g. 1-3,5]: ")' in source
+    assert 'if (isTRUE(keeper_config_confirmed)) {' in source
 
 
 def test_incidence_shell_reconciles_execution_state_before_explore_lookup() -> None:

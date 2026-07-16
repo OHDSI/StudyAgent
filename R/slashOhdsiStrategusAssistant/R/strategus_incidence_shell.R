@@ -334,7 +334,9 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
 
     prompt_integer_value <- function(prompt, current, min_value = NULL) {
       repeat {
-        entered <- trimws(readline_with_dialogue(sprintf("%s [%s]: ", prompt, current)))
+        entered <- readline_with_navigation(sprintf("%s [%s]: ", prompt, current))
+        if (is_back_signal(entered)) return(entered)
+        entered <- trimws(as.character(entered %||% ""))
         if (!nzchar(entered)) return(as.integer(current))
         parsed <- suppressWarnings(as.integer(entered))
         if (!is.na(parsed) && (is.null(min_value) || parsed >= min_value)) return(as.integer(parsed))
@@ -344,7 +346,9 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
 
     prompt_choice_value <- function(prompt, current, choices) {
       repeat {
-        entered <- tolower(trimws(readline_with_dialogue(sprintf("%s [%s]: ", prompt, current))))
+        entered <- readline_with_navigation(sprintf("%s [%s]: ", prompt, current))
+        if (is_back_signal(entered)) return(entered)
+        entered <- tolower(trimws(as.character(entered %||% "")))
         if (!nzchar(entered)) return(current)
         if (entered %in% choices) return(entered)
         cat(sprintf("Please enter one of: %s\n", paste(choices, collapse = ", ")))
@@ -352,11 +356,13 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     }
 
     prompt_text_value <- function(prompt, current) {
-      entered <- readline_with_dialogue(sprintf("%s [%s]: ", prompt, current))
+      entered <- readline_with_navigation(sprintf("%s [%s]: ", prompt, current))
+      if (is_back_signal(entered)) return(entered)
       if (!nzchar(trimws(entered))) current else trimws(entered)
     }
 
     tar_count <- prompt_integer_value("Number of time-at-risk definitions", length(settings$time_at_risk_defs), min_value = 1L)
+    if (is_back_signal(tar_count)) return(tar_count)
     defs <- vector("list", tar_count)
     for (i in seq_len(tar_count)) {
       current <- settings$time_at_risk_defs[[min(i, length(settings$time_at_risk_defs))]] %||% list(
@@ -368,18 +374,32 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
         endOffset = 0L
       )
       cat(sprintf("\nTAR %s\n", i))
+      tar_id <- prompt_integer_value("  TAR id", current$id, min_value = 1L)
+      if (is_back_signal(tar_id)) return(tar_id)
+      tar_name <- prompt_text_value("  TAR label", current$name %||% sprintf("TAR %s", i))
+      if (is_back_signal(tar_name)) return(tar_name)
+      start_with <- prompt_choice_value("  startWith (start/end)", current$startWith %||% "start", c("start", "end"))
+      if (is_back_signal(start_with)) return(start_with)
+      start_offset <- prompt_integer_value("  startOffset (days)", current$startOffset %||% 0L)
+      if (is_back_signal(start_offset)) return(start_offset)
+      end_with <- prompt_choice_value("  endWith (start/end)", current$endWith %||% "end", c("start", "end"))
+      if (is_back_signal(end_with)) return(end_with)
+      end_offset <- prompt_integer_value("  endOffset (days)", current$endOffset %||% 0L)
+      if (is_back_signal(end_offset)) return(end_offset)
       defs[[i]] <- list(
-        id = prompt_integer_value("  TAR id", current$id, min_value = 1L),
-        name = prompt_text_value("  TAR label", current$name %||% sprintf("TAR %s", i)),
-        startWith = prompt_choice_value("  startWith (start/end)", current$startWith %||% "start", c("start", "end")),
-        startOffset = prompt_integer_value("  startOffset (days)", current$startOffset %||% 0L),
-        endWith = prompt_choice_value("  endWith (start/end)", current$endWith %||% "end", c("start", "end")),
-        endOffset = prompt_integer_value("  endOffset (days)", current$endOffset %||% 0L)
+        id = tar_id,
+        name = tar_name,
+        startWith = start_with,
+        startOffset = start_offset,
+        endWith = end_with,
+        endOffset = end_offset
       )
     }
 
     default_analysis_ids <- paste(vapply(defs, function(item) as.integer(item$id), integer(1)), collapse = ",")
-    analysis_ids_text <- trimws(readline_with_dialogue(sprintf("Analysis TAR ids (comma-separated) [%s]: ", default_analysis_ids)))
+    analysis_ids_text <- readline_with_navigation(sprintf("Analysis TAR ids (comma-separated) [%s]: ", default_analysis_ids))
+    if (is_back_signal(analysis_ids_text)) return(analysis_ids_text)
+    analysis_ids_text <- trimws(as.character(analysis_ids_text %||% ""))
     analysis_ids <- if (!nzchar(analysis_ids_text)) {
       suppressWarnings(as.integer(strsplit(default_analysis_ids, ",", fixed = TRUE)[[1]]))
     } else {
@@ -387,13 +407,18 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     }
 
     strata_settings <- settings$strata_settings
-    by_year <- prompt_yesno("Stratify incidence by calendar year?", default = isTRUE(strata_settings$byYear))
-    by_gender <- prompt_yesno("Stratify incidence by gender?", default = isTRUE(strata_settings$byGender))
-    by_age <- prompt_yesno("Stratify incidence by age?", default = isTRUE(strata_settings$byAge))
+    by_year <- prompt_yesno_navigation("Stratify incidence by calendar year?", default = isTRUE(strata_settings$byYear))
+    if (is_back_signal(by_year)) return(by_year)
+    by_gender <- prompt_yesno_navigation("Stratify incidence by gender?", default = isTRUE(strata_settings$byGender))
+    if (is_back_signal(by_gender)) return(by_gender)
+    by_age <- prompt_yesno_navigation("Stratify incidence by age?", default = isTRUE(strata_settings$byAge))
+    if (is_back_signal(by_age)) return(by_age)
     age_breaks_default <- paste(strata_settings$ageBreaks %||% c(18L, 45L, 65L), collapse = ",")
     age_breaks <- strata_settings$ageBreaks %||% c(18L, 45L, 65L)
     if (isTRUE(by_age)) {
-      age_breaks_text <- trimws(readline_with_dialogue(sprintf("Age breaks (comma-separated integers) [%s]: ", age_breaks_default)))
+      age_breaks_text <- readline_with_navigation(sprintf("Age breaks (comma-separated integers) [%s]: ", age_breaks_default))
+      if (is_back_signal(age_breaks_text)) return(age_breaks_text)
+      age_breaks_text <- trimws(as.character(age_breaks_text %||% ""))
       if (nzchar(age_breaks_text)) {
         age_breaks <- suppressWarnings(as.integer(trimws(strsplit(age_breaks_text, ",", fixed = TRUE)[[1]])))
       }
@@ -1650,7 +1675,8 @@ Available exploration commands
     use_mapping <- FALSE
     if (interactive) {
       set_dialogue_context("incidence_design_setup", context = list(study_intent = studyIntent, target_statement = target_statement, outcome_statement = outcome_statement, selected_target_ids = as.list(selected_ids_target %||% list()), selected_outcome_ids = as.list(selected_ids_outcome %||% list())))
-      use_mapping <- prompt_yesno("Map cohort IDs to a new range (avoid collisions)?", default = TRUE)
+      use_mapping <- prompt_yesno_navigation("Map cohort IDs to a new range (avoid collisions)?", default = TRUE)
+      if (is_back_signal(use_mapping)) next
     }
     cohort_id_base <- NA_integer_
     next_id <- NA_integer_
@@ -1659,7 +1685,9 @@ Available exploration commands
       if (interactive) {
         msg <- sprintf("Enter cohort ID base (10000-50000) or press Enter to use %s: ", cohort_id_base)
         set_dialogue_context("incidence_design_setup", context = list(study_intent = studyIntent, target_statement = target_statement, outcome_statement = outcome_statement, selected_target_ids = as.list(selected_ids_target %||% list()), selected_outcome_ids = as.list(selected_ids_outcome %||% list()), suggested_cohort_id_base = cohort_id_base))
-        inp <- trimws(readline_with_dialogue(msg))
+        inp <- readline_with_navigation(msg)
+        if (is_back_signal(inp)) next
+        inp <- trimws(as.character(inp %||% ""))
         if (nzchar(inp)) cohort_id_base <- as.integer(inp)
       }
       next_id <- cohort_id_base
@@ -2238,34 +2266,48 @@ Keeper review uses the local DB and execution settings files:
         next
       }
       if (isTRUE(run_keeper_review_now)) {
-        entered_roles <- trimws(readline_with_dialogue("Keeper review roles [outcome]: "))
-        keeper_review_roles <- if (!nzchar(entered_roles)) "outcome" else trimws(strsplit(entered_roles, ",", fixed = TRUE)[[1]])
-        keeper_review_roles <- keeper_review_roles[nzchar(keeper_review_roles)]
-        keeper_review_roles <- intersect(keeper_review_roles, c("outcome", "target"))
-        if (!length(keeper_review_roles)) keeper_review_roles <- "outcome"
-        keeper_generated_dir <- file.path(base_dir, "keeper-case-review", "concept-sets-generated")
-        keeper_approved_dir <- file.path(base_dir, "keeper-case-review", "concept-sets-approved")
-        keeper_rows_dir <- file.path(base_dir, "keeper-case-review", "rows")
-        keeper_reviews_dir <- file.path(base_dir, "keeper-case-review", "reviews")
-        has_keeper_generated_artifacts <- dir.exists(keeper_generated_dir) &&
-          length(list.files(keeper_generated_dir, pattern = "\\.json$", recursive = TRUE, full.names = TRUE)) > 0
-        has_keeper_approved_artifacts <- dir.exists(keeper_approved_dir) &&
-          length(list.files(keeper_approved_dir, pattern = "\\.json$", recursive = TRUE, full.names = TRUE)) > 0
-        has_keeper_rows_artifacts <- dir.exists(keeper_rows_dir) &&
-          length(list.files(keeper_rows_dir, pattern = "\\.json$", recursive = TRUE, full.names = TRUE)) > 0
-        has_keeper_review_artifacts <- dir.exists(keeper_reviews_dir) &&
-          length(list.files(keeper_reviews_dir, pattern = "\\.json$", recursive = TRUE, full.names = TRUE)) > 0
-        if (has_keeper_generated_artifacts || has_keeper_rows_artifacts) {
-          keeper_reuse_generated_artifacts <- prompt_yesno("Reuse existing Keeper generated artifacts?", default = TRUE)
+        keeper_config_confirmed <- FALSE
+        repeat {
+          entered_roles <- readline_with_navigation("Keeper review roles [outcome]: ")
+          if (is_back_signal(entered_roles)) next
+          entered_roles <- trimws(as.character(entered_roles %||% ""))
+          keeper_review_roles <- if (!nzchar(entered_roles)) "outcome" else trimws(strsplit(entered_roles, ",", fixed = TRUE)[[1]])
+          keeper_review_roles <- keeper_review_roles[nzchar(keeper_review_roles)]
+          keeper_review_roles <- intersect(keeper_review_roles, c("outcome", "target"))
+          if (!length(keeper_review_roles)) keeper_review_roles <- "outcome"
+          keeper_generated_dir <- file.path(base_dir, "keeper-case-review", "concept-sets-generated")
+          keeper_approved_dir <- file.path(base_dir, "keeper-case-review", "concept-sets-approved")
+          keeper_rows_dir <- file.path(base_dir, "keeper-case-review", "rows")
+          keeper_reviews_dir <- file.path(base_dir, "keeper-case-review", "reviews")
+          has_keeper_generated_artifacts <- dir.exists(keeper_generated_dir) &&
+            length(list.files(keeper_generated_dir, pattern = "\\.json$", recursive = TRUE, full.names = TRUE)) > 0
+          has_keeper_approved_artifacts <- dir.exists(keeper_approved_dir) &&
+            length(list.files(keeper_approved_dir, pattern = "\\.json$", recursive = TRUE, full.names = TRUE)) > 0
+          has_keeper_rows_artifacts <- dir.exists(keeper_rows_dir) &&
+            length(list.files(keeper_rows_dir, pattern = "\\.json$", recursive = TRUE, full.names = TRUE)) > 0
+          has_keeper_review_artifacts <- dir.exists(keeper_reviews_dir) &&
+            length(list.files(keeper_reviews_dir, pattern = "\\.json$", recursive = TRUE, full.names = TRUE)) > 0
+          if (has_keeper_generated_artifacts || has_keeper_rows_artifacts) {
+            keeper_reuse_generated_artifacts <- prompt_yesno_navigation("Reuse existing Keeper generated artifacts?", default = TRUE)
+            if (is_back_signal(keeper_reuse_generated_artifacts)) next
+          }
+          if (has_keeper_generated_artifacts || has_keeper_approved_artifacts) {
+            keeper_overwrite_approved_concept_sets <- prompt_yesno_navigation("Replace approved concept sets with current generated output?", default = FALSE)
+            if (is_back_signal(keeper_overwrite_approved_concept_sets)) next
+          }
+          if (has_keeper_review_artifacts) {
+            keeper_resume_reviews <- prompt_yesno_navigation("Resume existing Keeper row reviews?", default = TRUE)
+            if (is_back_signal(keeper_resume_reviews)) next
+          }
+          entered_row_selection <- readline_with_navigation("Keeper row selection [default first N or e.g. 1-3,5]: ")
+          if (is_back_signal(entered_row_selection)) next
+          entered_row_selection <- trimws(as.character(entered_row_selection %||% ""))
+          keeper_review_row_selection <- if (!nzchar(entered_row_selection)) NULL else entered_row_selection
+          keeper_config_confirmed <- TRUE
+          break
         }
-        if (has_keeper_generated_artifacts || has_keeper_approved_artifacts) {
-          keeper_overwrite_approved_concept_sets <- prompt_yesno("Replace approved concept sets with current generated output?", default = FALSE)
-        }
-        if (has_keeper_review_artifacts) {
-          keeper_resume_reviews <- prompt_yesno("Resume existing Keeper row reviews?", default = TRUE)
-        }
-        entered_row_selection <- trimws(readline_with_dialogue("Keeper row selection [default first N or e.g. 1-3,5]: "))
-        keeper_review_row_selection <- if (!nzchar(entered_row_selection)) NULL else entered_row_selection
+
+        if (!isTRUE(keeper_config_confirmed)) next
 
         stage_callback <- function(step, role = "", context = list()) {
           safe_context <- c(

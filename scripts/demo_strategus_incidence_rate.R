@@ -10,13 +10,15 @@
 ##   /ohdsi what happens if I accept the phenotype improvement recommendations?
 ##   /ohdsi how should I specify TAR so that denominators are coherent across strata?
 
-script_dir = "OHDSI-Study-Agent/scripts/"
+acp_url = "http://127.0.0.1:8765"
+script_dir = "OHDSI-Study-Agent/scripts"
 
 source(file.path(script_dir, "demo_setup.R"))
 repo_root <- set_study_agent_repo_root(start = dirname(script_dir))
 load_study_agent_r_packages(include_strategus = TRUE)
 
 Sys.setenv(ACP_TIMEOUT = "1800")
+Sys.setenv(ACP_URL = acp_url)
 Sys.setenv(PHENOTYPE_INDEX_DIR = repo_file("data", "phenotype_index_cipher_omop"))
 invisible(connect_study_agent_acp())
 
@@ -29,7 +31,7 @@ invisible(connect_study_agent_acp())
 ## Run a shell-based workflow to specify and execute an incidence-rate analysis
 slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
   outputDir = "demo-strategus-cohort-incidence",
-  acpUrl = "http://127.0.0.1:8765",
+  acpUrl = acp_url,
   studyAgentBaseDir = repo_root,
   indexDir = "data/phenotype_index_cipher_omop",
   showBanner = FALSE,
@@ -40,7 +42,7 @@ slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
 ## Use this to resume from cached artifacts and regenerate output scripts.
 slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
   outputDir = "demo-strategus-cohort-incidence",
-  acpUrl = "http://127.0.0.1:8765",
+  acpUrl = acp_url,
   studyAgentBaseDir = repo_root,
   resume = TRUE,
   allowCache = TRUE,
@@ -53,7 +55,7 @@ slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
 ## Use this to resume from cached artifacts and regenerate output scripts without prompts.
 ## slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
 ##   outputDir = "demo-strategus-cohort-incidence",
-##   acpUrl = "http://127.0.0.1:8765",
+##   acpUrl = acp_url,
 ##   studyAgentBaseDir = repo_root,
 ##   resume = TRUE,
 ##   allowCache = TRUE,
@@ -66,8 +68,7 @@ slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
 ## "What is the risk of GI bleed in new users of Celecoxib compared to new users of Diclofenac?"
 # slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
 #   outputDir = "demo-strategus-cohort-incidence",
-#   acpUrl = "http://127.0.0.1:8765",
+#   acpUrl = acp_url,
 #   studyAgentBaseDir = repo_root,
 #   indexDir = "data/phenotype_index_cipher_omop"
 # )
-
