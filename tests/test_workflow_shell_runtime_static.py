@@ -13,7 +13,9 @@ EXPLORATION_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workfl
 
 def test_dependency_check_treats_skipped_steps_as_satisfied() -> None:
     source = RUNNER_SOURCE.read_text(encoding="utf-8")
-    assert 'dep_status %in% c("completed", "skipped")' in source
+    assert '.studyAgentSlashWorkflowTerminalStatuses <- function() {' in source
+    assert 'dep_status %in% .studyAgentSlashWorkflowTerminalStatuses()' in source
+    assert '"completed_with_failures"' in source
 
 
 def test_runner_marks_build_only_steps_as_non_runnable() -> None:
@@ -34,6 +36,17 @@ def test_runner_reconciles_derived_state_and_persists_step_state() -> None:
     assert '.studyAgentSlashSkipWorkflowStep <- function(base_dir,' in source
     assert 'status = "skipped"' in source
     assert 'skip_reason = as.character(reason %||% "user_skipped")' in source
+    assert '.studyAgentSlashResolvePostRunStepResult <- function(base_dir, step_id, default_status, default_error = NULL) {' in source
+    assert 'status = "completed_with_failures"' in source
+
+
+def test_runner_uses_safe_condition_message_fallback() -> None:
+    source = RUNNER_SOURCE.read_text(encoding="utf-8")
+    assert '.studyAgentSlashSafeConditionMessage <- function(condition) {' in source
+    assert 'conditionMessage(condition)' in source
+    assert 'condition$message %||% ""' in source
+    assert 'original condition message could not be rendered cleanly' in source
+    assert 'error = .studyAgentSlashSafeConditionMessage(e)' in source
 
 
 def test_execution_plan_allows_optional_review_steps_to_be_skipped_before_specs() -> None:
@@ -56,6 +69,9 @@ def test_project_state_supports_build_phase_status_finalization() -> None:
     assert 'skipped_steps = character(0)' in source
     assert 'failed_steps = character(0)' in source
     assert 'runtime_state$current_step <- project_state$resume$current_step_id %||% NULL' in source
+    assert 'execution_status_detail = strategus_summary$overall_status %||% NULL' in source
+    assert 'failed_module_names = failed_module_names' in source
+    assert 'module_failure_count = length(failed_module_names)' in source
 
 
 def test_step_state_module_defines_backup_restore_reset_primitives() -> None:
@@ -70,6 +86,7 @@ def test_step_state_module_defines_backup_restore_reset_primitives() -> None:
     assert 'file.exists(legacy_path)' in source
     assert '"stale"' in source
     assert '"blocked"' in source
+    assert 'derived_status %in% c("completed", "ok", "completed_with_failures")' in source
 
 
 def _assert_shell_finalizes_build_phase_steps(source: str) -> None:
@@ -238,6 +255,15 @@ def test_exploration_registry_defines_first_slice_commands() -> None:
     assert '.studyAgentSlashRunExplorationCommand <- function(base_dir, command_id) {' in source
     assert '.studyAgentSlashSupportsDataViewer <- function() {' in source
     assert '.studyAgentSlashOpenTableViewer <- function(data, title = "Study Agent") {' in source
+    assert 'cm_spec_overall_status = execute_summary$overall_status %||% NULL' in source
+    assert 'cm_spec_execute_summary_path = file.path(base_dir, "analysis-settings", "strategus_execute_summary.json")' in source
+    assert 'summary_path <- file.path(context$base_dir, "analysis-settings", "strategus_execute_summary.json")' in source
+
+
+def test_exploration_registry_keeps_completed_and_skipped_steps_eligible_when_current_step_is_supplied() -> None:
+    source = EXPLORATION_SOURCE.read_text(encoding="utf-8")
+    assert 'requested_step_id,' in source
+    assert 'statuses %in% c("completed", "failed", "stale", "running", "skipped")' in source
     assert '.studyAgentSlashPrepareViewerTable <- function(data, preferred_order = NULL) {' in source
     assert '.studyAgentSlashRenderExplorationResult <- function(result, viewer = FALSE, display = NULL) {' in source
     assert 'command_id = "artifact_inventory"' in source
@@ -253,6 +279,7 @@ def test_exploration_registry_defines_first_slice_commands() -> None:
     assert 'command_id = "incidence_summary_preview"' in source
     assert 'artifact_requirements = c("incidence_summary_csv")' in source
     assert 'command_id = "incidence_analysis_settings_summary"' in source
+    assert 'step_ids = c("generate_cohorts", "keeper_concept_sets", "keeper_case_review", "diagnostics", "incidence_spec", "cm_spec")' in source
 
 
 def test_execution_dialogue_context_includes_exploration_fields() -> None:

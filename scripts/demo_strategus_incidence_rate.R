@@ -38,17 +38,17 @@ slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
 
 ############
 ## Use this to resume from cached artifacts and regenerate output scripts.
-## slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
-##   outputDir = "demo-strategus-cohort-incidence",
-##   acpUrl = "http://127.0.0.1:8765",
-##   studyAgentBaseDir = repo_root,
-##   resume = TRUE,
-##   allowCache = TRUE,
-##   promptOnCache = TRUE,
-##   showBanner = FALSE,
-##   interactive = TRUE,
-##   indexDir = "data/phenotype_index_cipher_omop"
-## )
+slashOhdsiStrategusAssistant::runStrategusIncidenceShell(
+  outputDir = "demo-strategus-cohort-incidence",
+  acpUrl = "http://127.0.0.1:8765",
+  studyAgentBaseDir = repo_root,
+  resume = TRUE,
+  allowCache = TRUE,
+  promptOnCache = TRUE,
+  showBanner = FALSE,
+  interactive = TRUE,
+  indexDir = "data/phenotype_index_cipher_omop"
+)
 
 ## Use this to resume from cached artifacts and regenerate output scripts without prompts.
 ## slashOhdsiStrategusAssistant::runStrategusIncidenceShell(

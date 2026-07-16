@@ -108,6 +108,10 @@ def test_shell_seeds_runtime_templates_and_generated_scripts_use_them() -> None:
     assert "execution_settings_path <- file.path(base_dir, 'strategus-execution-settings.json')" in script06
     assert "createStrategusConnectionDetails(path = db_details_path)" in script06
     assert "createStrategusExecutionSettings(path = execution_settings_path)" in script06
+    assert "validate_execution_root <- function(label, root_path) {" in script06
+    assert "Configured %s points to another Study Agent project" in script06
+    assert "message('Strategus execution roots:')" in script06
+    assert "strategus_execute_summary.json" in script06
     assert "<FILL IN>" not in script06
 
 

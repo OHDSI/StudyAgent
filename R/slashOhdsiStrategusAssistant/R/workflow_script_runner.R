@@ -5,6 +5,10 @@
   NULL
 }
 
+.studyAgentSlashWorkflowTerminalStatuses <- function() {
+  c("completed", "completed_with_failures", "skipped")
+}
+
 .studyAgentSlashWorkflowPlanSteps <- function(base_dir) {
   reconciled <- .studyAgentSlashReconcileProjectState(base_dir, write = TRUE)
   reconciled$project_state$execution_plan %||% list()
@@ -14,7 +18,7 @@
   steps <- .studyAgentSlashWorkflowPlanSteps(base_dir)
   if (length(steps) == 0) return(FALSE)
   all(vapply(steps, function(step) {
-    as.character(step$status %||% "not_started") %in% c("completed", "skipped")
+    as.character(step$status %||% "not_started") %in% .studyAgentSlashWorkflowTerminalStatuses()
   }, logical(1)))
 }
 
@@ -47,6 +51,24 @@
 .studyAgentSlashWorkflowStepIsSkippable <- function(step) {
   step_id <- as.character(step$step_id %||% "")
   nzchar(step_id) && step_id %in% .studyAgentSlashWorkflowSkippableStepIds()
+}
+
+.studyAgentSlashSafeConditionMessage <- function(condition) {
+  message_text <- tryCatch(
+    conditionMessage(condition),
+    error = function(message_error) {
+      raw <- tryCatch(as.character(condition$message %||% ""), error = function(...) "")
+      raw <- trimws(raw)
+      if (nzchar(raw)) return(raw)
+      fallback <- tryCatch(as.character(message_error$message %||% ""), error = function(...) "")
+      fallback <- trimws(fallback)
+      if (nzchar(fallback)) {
+        return(sprintf("Workflow step failed; original condition message could not be rendered cleanly: %s", fallback))
+      }
+      "Workflow step failed; original condition message could not be rendered cleanly."
+    }
+  )
+  trimws(as.character(message_text %||% ""))
 }
 
 .studyAgentSlashWorkflowStepRunAvailability <- function(base_dir, step) {
@@ -109,11 +131,50 @@
   for (dep in deps) {
     dep_step <- .studyAgentSlashFindPlanStep(project_state, dep)
     dep_status <- as.character(dep_step$status %||% "not_started")
-    if (is.null(dep_step) || !(dep_status %in% c("completed", "skipped"))) {
+    if (is.null(dep_step) || !(dep_status %in% .studyAgentSlashWorkflowTerminalStatuses())) {
       return(FALSE)
     }
   }
   TRUE
+}
+
+.studyAgentSlashReadStrategusExecuteSummary <- function(base_dir, step_id) {
+  step_id <- as.character(step_id %||% "")
+  if (!(step_id %in% c("cm_spec", "incidence_spec"))) return(NULL)
+  summary_path <- file.path(base_dir, "analysis-settings", "strategus_execute_summary.json")
+  if (!file.exists(summary_path)) return(NULL)
+  tryCatch(
+    jsonlite::fromJSON(summary_path, simplifyVector = FALSE),
+    error = function(e) NULL
+  )
+}
+
+.studyAgentSlashResolvePostRunStepResult <- function(base_dir, step_id, default_status, default_error = NULL) {
+  summary <- .studyAgentSlashReadStrategusExecuteSummary(base_dir, step_id)
+  if (is.null(summary)) {
+    return(list(status = default_status, error = default_error, summary = NULL))
+  }
+  overall_status <- as.character(summary$overall_status %||% "")
+  modules <- summary$modules %||% list()
+  failed_modules <- Filter(function(item) {
+    as.character(item$status %||% "") %in% c("FAILED", "ERROR")
+  }, modules)
+  failed_names <- vapply(failed_modules, function(item) as.character(item$module_name %||% ""), character(1))
+  failed_names <- failed_names[nzchar(failed_names)]
+  error_message <- trimws(as.character(summary$error_message %||% default_error %||% ""))
+  if (!nzchar(error_message) && length(failed_names) > 0) {
+    error_message <- sprintf(
+      "One or more Strategus modules failed: %s",
+      paste(failed_names, collapse = ", ")
+    )
+  }
+  if (identical(overall_status, "partial_failure")) {
+    return(list(status = "completed_with_failures", error = error_message %||% NULL, summary = summary))
+  }
+  if (identical(overall_status, "failure")) {
+    return(list(status = "failed", error = error_message %||% default_error, summary = summary))
+  }
+  list(status = default_status, error = default_error, summary = summary)
 }
 
 .studyAgentSlashUpdateArtifactDetection <- function(runtime_state, project_state, base_dir) {
@@ -186,8 +247,14 @@
     sys.source(script_path, envir = exec_env, keep.source = FALSE)
     list(status = "completed", error = NULL)
   }, error = function(e) {
-    list(status = "failed", error = conditionMessage(e))
+    list(status = "failed", error = .studyAgentSlashSafeConditionMessage(e))
   })
+  result <- .studyAgentSlashResolvePostRunStepResult(
+    base_dir = base_dir,
+    step_id = step_id,
+    default_status = result$status,
+    default_error = result$error
+  )
 
   finished_at <- .studyAgentSlashNowTimestamp()
   project_state <- .studyAgentSlashSetProjectStepStatus(project_state, step_id, result$status, error = result$error)
@@ -234,7 +301,7 @@
   project_state <- .studyAgentSlashReconcileProjectState(base_dir, write = TRUE)$project_state
   for (step in project_state$execution_plan %||% list()) {
     status <- as.character(step$status %||% "not_started")
-    if (status %in% c("completed", "skipped")) next
+    if (status %in% .studyAgentSlashWorkflowTerminalStatuses()) next
     if (!.studyAgentSlashStepDependenciesSatisfied(project_state, step)) next
     return(.studyAgentSlashRunWorkflowPlanStep(base_dir = base_dir, step_id = step$step_id, env = env))
   }
@@ -257,7 +324,7 @@
   }
 
   current_status <- as.character(step$status %||% "not_started")
-  if (current_status %in% c("completed", "skipped")) {
+  if (current_status %in% .studyAgentSlashWorkflowTerminalStatuses()) {
     return(list(
       status = current_status,
       step_id = as.character(step_id),

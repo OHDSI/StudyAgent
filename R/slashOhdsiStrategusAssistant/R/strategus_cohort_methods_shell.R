@@ -293,7 +293,7 @@
       "match_on_ps.caliperScale" = c("propensity score" = "Propensity score", "standardized" = "Standardized", "standardized logit" = "Standardized logit")[[value]],
       "fit_outcome_model.modelType" = c("cox" = "Cox proportional hazards", "poisson" = "Poisson regression", "logistic" = "Logistic regression")[[value]],
       "create_study_population.removeDuplicateSubjects" = c("keep all" = "Keep All", "keep first" = "Keep First", "remove all" = "Remove All")[[value]],
-      "get_db_cohort_method_data.removeDuplicateSubjects" = c("keep all" = "Keep All", "keep first" = "Keep First", "remove all" = "Remove All", "keep first, truncate to second" = "Keep First, Truncate to Second")[[value]],
+      "get_db_cohort_method_data.removeDuplicateSubjects" = c("keep all" = "Keep All", "keep first" = "Keep First", "remove all" = "Remove All")[[value]],
       "stratify_by_ps.baseSelection" = c("all" = "Entire study population", "target" = "Target", "comparator" = "Comparator")[[value]],
       NULL
     )
@@ -305,6 +305,17 @@
   }
   if (is.numeric(value) && length(value) == 1) return(as.character(value))
   paste(as.character(value), collapse = ", ")
+}
+
+.studyAgentNormalizeGetDbRemoveDuplicateSubjects <- function(value) {
+  normalized <- as.character(value %||% "keep first")
+  if (length(normalized) == 0 || is.na(normalized[[1]]) || !nzchar(trimws(normalized[[1]]))) {
+    return("keep first")
+  }
+  if (identical(normalized[[1]], "keep first, truncate to second")) {
+    return("keep first")
+  }
+  normalized[[1]]
 }
 
 .studyAgentOutcomeModelDefaults <- function(ps_strategy = "match_on_ps",
@@ -807,7 +818,7 @@
       firstExposureOnly = TRUE,
       washoutPeriod = 365L,
       restrictToCommonPeriod = TRUE,
-      removeDuplicateSubjects = "keep first, truncate to second"
+      removeDuplicateSubjects = "keep first"
     ),
     create_study_population = list(
       maxCohortSize = 0L,
@@ -3375,8 +3386,8 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
       "analytic_settings.get_db_cohort_method_data.restrictToCommonPeriod"
     )
     settings$get_db_cohort_method_data$removeDuplicateSubjects <- validate_choice(
-      settings$get_db_cohort_method_data$removeDuplicateSubjects,
-      c("keep all", "keep first", "remove all", "keep first, truncate to second"),
+      .studyAgentNormalizeGetDbRemoveDuplicateSubjects(settings$get_db_cohort_method_data$removeDuplicateSubjects),
+      c("keep all", "keep first", "remove all"),
       "analytic_settings.get_db_cohort_method_data.removeDuplicateSubjects"
     )
     settings$create_study_population$removeDuplicateSubjects <- validate_choice(
@@ -5858,10 +5869,10 @@ Available exploration commands
         cached_get_db$washoutPeriod
       )),
       restrictToCommonPeriod = isTRUE(cached_get_db$restrictToCommonPeriod %||% default_analytic_settings$get_db_cohort_method_data$restrictToCommonPeriod),
-      removeDuplicateSubjects = merge_or_default(
+      removeDuplicateSubjects = .studyAgentNormalizeGetDbRemoveDuplicateSubjects(merge_or_default(
         default_analytic_settings$get_db_cohort_method_data$removeDuplicateSubjects,
         cached_get_db$removeDuplicateSubjects
-      )
+      ))
     ),
     create_study_population = list(
       maxCohortSize = as.integer(merge_or_default(
@@ -6620,7 +6631,9 @@ Available exploration commands
   )
   cm_defaults$covariate_concept_sets$enabled <- isTRUE(effective_analytic_settings$covariate_concept_sets$enabled)
   cm_defaults$covariate_concept_sets$note <- "Placeholder only. Dummy concept set IDs are captured for future concept set materialization."
-  cm_defaults$get_db_cohort_method_data$removeDuplicateSubjects <- as.character(cm_defaults$get_db_cohort_method_data$removeDuplicateSubjects)
+  cm_defaults$get_db_cohort_method_data$removeDuplicateSubjects <- .studyAgentNormalizeGetDbRemoveDuplicateSubjects(
+    cm_defaults$get_db_cohort_method_data$removeDuplicateSubjects
+  )
   cm_defaults$create_study_population$removeDuplicateSubjects <- as.character(cm_defaults$create_study_population$removeDuplicateSubjects)
   cm_defaults$cm_analysis_json_path <- cm_analysis_json_path
   write_json(cm_defaults, cm_defaults_path)
@@ -7896,6 +7909,62 @@ Keeper review saved: %s reviewed row(s)
     "execution_settings_path <- file.path(base_dir, 'strategus-execution-settings.json')",
     "connectionDetails <- slashOhdsiStrategusAssistant::createStrategusConnectionDetails(path = db_details_path)",
     "exec <- slashOhdsiStrategusAssistant::createStrategusExecutionSettings(path = execution_settings_path)",
+    "resolve_path <- function(path) {",
+    "  if (!nzchar(path)) return(path)",
+    "  if (grepl('^(/|[A-Za-z]:[\\\\/]|~)', path)) return(normalizePath(path, winslash = '/', mustWork = FALSE))",
+    "  candidates <- unique(c(",
+    "    file.path(base_dir, path),",
+    "    file.path(dirname(base_dir), path),",
+    "    file.path(dirname(dirname(base_dir)), path),",
+    "    file.path(getwd(), path)",
+    "  ))",
+    "  for (candidate in candidates) {",
+    "    normalized <- normalizePath(candidate, winslash = '/', mustWork = FALSE)",
+    "    if (file.exists(normalized) || dir.exists(normalized)) return(normalized)",
+    "  }",
+    "  normalizePath(candidates[[1]], winslash = '/', mustWork = FALSE)",
+    "}",
+    "validate_execution_root <- function(label, root_path) {",
+    "  normalized_root <- normalizePath(resolve_path(as.character(root_path %||% '')), winslash = '/', mustWork = FALSE)",
+    "  normalized_base <- normalizePath(base_dir, winslash = '/', mustWork = FALSE)",
+    "  if (startsWith(normalized_root, paste0(normalized_base, '/')) || identical(normalized_root, normalized_base)) {",
+    "    return(normalized_root)",
+    "  }",
+    "  parent_dir <- dirname(normalized_root)",
+    "  marker_path <- file.path(parent_dir, 'study-agent-project.json')",
+    "  if (file.exists(marker_path) && !identical(normalizePath(parent_dir, winslash = '/', mustWork = FALSE), normalized_base)) {",
+    "    stop(sprintf('Configured %s points to another Study Agent project: %s (current project: %s)', label, normalized_root, normalized_base))",
+    "  }",
+    "  warning(sprintf('Configured %s is outside the current project root: %s', label, normalized_root), call. = FALSE)",
+    "  normalized_root",
+    "}",
+    "summarize_execute_result <- function(result) {",
+    "  modules <- if (is.list(result)) lapply(result, function(item) {",
+    "    status <- as.character(item$status %||% '')",
+    "    module_name <- as.character(item$moduleName %||% '')",
+    "    error_message <- trimws(as.character(item$errorMessage %||% ''))",
+    "    if (identical(status, 'FAILED') && !nzchar(error_message)) {",
+    "      error_message <- sprintf('%s failed with empty errorMessage; inspect work/results roots and exported tables.', if (nzchar(module_name)) module_name else 'Strategus module')",
+    "    }",
+    "    list(module_name = module_name, status = status, execution_time = as.character(item$executionTime %||% ''), error_message = error_message)",
+    "  }) else list()",
+    "  statuses <- vapply(modules, function(item) as.character(item$status %||% ''), character(1))",
+    "  overall_status <- if (length(statuses) == 0) {",
+    "    'unknown'",
+    "  } else if (any(statuses %in% c('FAILED', 'ERROR'))) {",
+    "    'partial_failure'",
+    "  } else if (all(statuses %in% c('SUCCESS', 'COMPLETED'))) {",
+    "    'success'",
+    "  } else {",
+    "    'mixed'",
+    "  }",
+    "  list(overall_status = overall_status, results_root = resolved_results_root, work_root = resolved_work_root, modules = modules)",
+    "}",
+    "resolved_results_root <- validate_execution_root('resultsFolder', exec$resultsFolder %||% '')",
+    "resolved_work_root <- validate_execution_root('workFolder', exec$workFolder %||% '')",
+    "message('Strategus execution roots:')",
+    "message('  resultsFolder: ', resolved_results_root)",
+    "message('  workFolder: ', resolved_work_root)",
     "",
     "result <- Strategus::execute(",
     "  connectionDetails = connectionDetails,",
@@ -7905,7 +7974,10 @@ Keeper review saved: %s reviewed row(s)
     "",
     "result_path <- file.path(analysis_settings_dir, 'strategus_execute_result.rds')",
     "saveRDS(result, result_path)",
+    "summary_path <- file.path(analysis_settings_dir, 'strategus_execute_summary.json')",
+    "jsonlite::write_json(summarize_execute_result(result), summary_path, pretty = TRUE, auto_unbox = TRUE, null = 'null')",
     "message('Strategus execution result saved to: ', result_path)",
+    "message('Strategus execution summary saved to: ', summary_path)",
     ""
   )
   write_lines(file.path(scripts_dir, "07_cm_spec.R"), script_07)

@@ -49,6 +49,7 @@ def test_generated_cm_spec_builds_and_executes_strategus_analysis_specification(
     assert "outcomeIds = as.numeric(outcome_ids)" in block
     assert "outcomeWashoutDays = as.numeric(" in block
     assert "maxCohortSize = studyPopulationDefaults$maxCohortSize" in block
+    assert "keep first, truncate to second" not in block
     assert "call_with_supported_args <- function(" in block
     assert "characterizationFormals <- names(formals(characterizationModule$createModuleSpecifications))" in block
     assert "createStudyPopulationArgs <- CohortMethod::createCreateStudyPopulationArgs(" in block
@@ -65,6 +66,11 @@ def test_generated_cm_spec_builds_and_executes_strategus_analysis_specification(
     assert "result <- Strategus::execute(" in block
     assert "connectionDetails <- slashOhdsiStrategusAssistant::createStrategusConnectionDetails(path = db_details_path)" in block
     assert "exec <- slashOhdsiStrategusAssistant::createStrategusExecutionSettings(path = execution_settings_path)" in block
+    assert "validate_execution_root <- function(label, root_path) {" in block
+    assert "Configured %s points to another Study Agent project" in block
+    assert "message('Strategus execution roots:')" in block
+    assert "strategus_execute_summary.json" in block
+    assert "failed with empty errorMessage; inspect work/results roots and exported tables." in block
     assert "CohortMethod::runCmAnalyses(" not in block
     assert "CohortMethod::loadCmAnalysisList(" not in block
     assert "CohortMethod::loadTargetComparatorOutcomesList(" not in block
@@ -182,7 +188,7 @@ def test_cohort_method_spec_accepts_generated_argument_shape() -> None:
           )
         )
         getDbArgs <- CohortMethod::createGetDbCohortMethodDataArgs(
-          removeDuplicateSubjects = 'keep first, truncate to second',
+          removeDuplicateSubjects = 'keep first',
           firstExposureOnly = TRUE,
           washoutPeriod = 365,
           restrictToCommonPeriod = TRUE,
