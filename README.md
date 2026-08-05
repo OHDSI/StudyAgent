@@ -143,6 +143,16 @@ scripts/demo_strategus_cohort_method.R
 pip install -e ".[dev]"
 ```
 
+### Create a local environment file
+
+After installation, run the interactive setup helper from the project directory:
+
+```bash
+study-agent-setup
+```
+
+It asks only about the services and optional capabilities you want to use, writes a private `.env` file, and hides entered API keys and database URLs. It does not overwrite an existing `.env` without confirmation. Docker Compose reads the generated file automatically. For direct Python service launches, this first additive version does not yet load `.env` automatically; see [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) for shell-specific setup.
+
 ## Dependency Management
 
 The project currently uses a simple split:

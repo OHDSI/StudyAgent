@@ -32,6 +32,7 @@ dev = [
 study-agent-mcp = "study_agent_mcp.server:main"
 study-agent-acp = "study_agent_acp.server:main"
 study-agent-demo-shell = "study_agent_acp.demo_shell:main"
+study-agent-setup = "study_agent_core.env_wizard:main"
 
 [tool.setuptools]
 packages = ["study_agent_core", "study_agent_mcp", "study_agent_acp"]

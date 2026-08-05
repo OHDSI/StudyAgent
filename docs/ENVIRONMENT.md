@@ -9,6 +9,14 @@ Not every deployment needs every variable. Most local setups only need:
 - phenotype retrieval settings if you use phenotype search
 - Keeper / vocabulary / PHOEBE / OMOP settings if you use Keeper flows
 
+## Interactive Setup Helper
+
+After installing the project, run `study-agent-setup` from the repository directory to create a minimal profile-specific `.env` file. The helper uses hidden terminal input for API keys and database URLs, refuses to overwrite an existing file without confirmation, and creates a private file where the operating system supports POSIX permissions.
+
+The helper is additive: it does not change ACP or MCP service startup behavior. Docker Compose already reads `.env` through `compose.yaml`. For direct `study-agent-mcp` and `study-agent-acp` launches, configure the generated variables in the shell until automatic `.env` loading is introduced in a future change. Existing shell variables remain the source of truth for direct launches.
+
+Use `study-agent-setup --output path/to/file` to choose a different destination or `study-agent-setup --force` only when intentionally replacing an existing file. Never commit a generated `.env` file.
+
 Use full filesystem paths where practical, especially for index paths, generated-output roots, and Windows deployments.
 
 ## ACP Runtime
