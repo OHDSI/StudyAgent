@@ -425,7 +425,7 @@ def main(argv: list[str] | None = None) -> None:
         f"Wrote {args.config_output}. No secret values were placed in YAML or displayed."
     )
     if secrets:
-        print(f"Wrote {args.secrets_output} with hidden secret values.")
+        print("Wrote secrets environment file with hidden secret values.")
     print(
         "Next: Docker Compose reads config.yaml and secrets.env. Native services use --config config.yaml."
     )
