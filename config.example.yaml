@@ -1,0 +1,44 @@
+# Copy to config.yaml and adjust non-secret deployment settings.
+# Secrets stay in secrets.env (Docker Compose) or process environment variables.
+version: 1
+profile: native
+
+paths:
+  phenotype_index: data/phenotype_index
+  logs: study-agent-logs
+
+acp:
+  bind: {host: 127.0.0.1, port: 8765}
+  public_url: http://127.0.0.1:8765
+  mcp:
+    mode: http
+    url: http://127.0.0.1:8790/mcp
+    timeout_seconds: 240
+
+mcp:
+  transport: http
+  bind: {host: 127.0.0.1, port: 8790}
+  path: /mcp
+
+llm:
+  api_url: http://localhost:3000/api/chat/completions
+  model: agentstudyassistant
+  timeout_seconds: 300
+  use_responses_api: false
+
+retrieval:
+  embedding_url: http://localhost:3000/ollama/api/embed
+  embedding_model: qwen3-embedding:4b
+  timeout_seconds: 120
+
+profiles:
+  docker:
+    acp:
+      bind: {host: 0.0.0.0, port: 8765}
+      mcp:
+        mode: http
+        url: http://mcp-server:8790/mcp
+    mcp:
+      bind: {host: 0.0.0.0, port: 8790}
+    paths:
+      phenotype_index: /data/phenotype_index
