@@ -21,3 +21,14 @@ def test_example_config_has_docker_profile_and_no_secret_keys() -> None:
 
 def test_dockerfile_copies_example_configuration() -> None:
     assert "config.example.yaml" in Path("Dockerfile").read_text(encoding="utf-8")
+
+
+def test_declared_runtime_dependencies_match_service_imports() -> None:
+    pyproject = Path("pyproject.toml").read_text(encoding="utf-8")
+    environment = Path("environment.yml").read_text(encoding="utf-8")
+    dockerfile = Path("Dockerfile").read_text(encoding="utf-8")
+    assert '"mcp>=1.10,<2"' in pyproject
+    assert '"httpx>=0.27.1,<1"' in pyproject
+    assert "mcp>=1.10,<2" in environment
+    assert "httpx>=0.27.1,<1" in environment
+    assert "from mcp.server.fastmcp import FastMCP" in dockerfile
