@@ -14,7 +14,8 @@ dependencies = [
   "flask>=3.1",
   "mcp>=1.0.0",
   "numpy>=2.4",
-  "omop-alchemy>=0.6",
+  "omop-alchemy==0.6.0",
+  "orm-loader==0.3.25"
   "pydantic>=2.0.0",
   "PyYAML>=6.0",
   "requests>=2.33",
