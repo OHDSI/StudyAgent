@@ -345,7 +345,7 @@ doit calibrate_timeouts
 
 What it does:
 
-- starts MCP and ACP if they are not already running
+- starts and owns temporary MCP and ACP processes; stop services already using the same ports before running it
 - warms up and samples `phenotype_intent_split`, `phenotype_recommendation_advice`, and `phenotype_recommendation`
 - tests multiple recommendation prompt sizes using `TIMEOUT_CALIBRATION_CANDIDATE_LIMITS` (default `3,5,8`)
 - uses ACP diagnostics plus MCP embedding debug logs to recommend timeouts with safety margins
@@ -1082,11 +1082,15 @@ curl -s -X POST http://127.0.0.1:8765/flows/keeper_concept_sets_generate \
 
 ## Phenotype flow smoke test (ACP + MCP)
 
-Run the Python smoke test via `doit`:
+Smoke tasks own their temporary ACP and MCP processes. Stop any long-lived Study Agent services using the configured ACP/MCP ports before running a smoke task; otherwise the task can attach to those existing services while its own child processes fail to bind, producing misleading results.
+
+Run the recommendation smoke test after the required LLM, embedding endpoint, credentials, and phenotype index are configured:
 
 ```bash
-doit smoke_phenotype_flow
+doit smoke_phenotype_recommend_flow
 ```
+
+Do not start ACP or MCP manually for this command. Once it succeeds, start long-lived services separately if you need to make interactive requests.
 
 If you want `doit` to spin up MCP over HTTP automatically, set:
 

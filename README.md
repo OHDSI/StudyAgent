@@ -153,9 +153,20 @@ Always launch project commands through `uv run`; do not use bare `python`, `pyte
 
 ```powershell
 uv run study-agent-setup
+```
+
+After configuring the required secrets and phenotype index, run the smoke task **before** starting long-lived ACP or MCP services. The task starts and stops its own MCP and ACP on ports 8790 and 8765:
+
+```powershell
+# Ensure no study-agent ACP or MCP process is already listening on ports 8765 or 8790.
+uv run --extra dev doit smoke_phenotype_recommend_flow
+```
+
+Only after that smoke test succeeds, start the long-lived services for interactive use in separate terminals:
+
+```powershell
 uv run study-agent-mcp --config .\config.yaml --profile native
 uv run study-agent-acp --config .\config.yaml --profile native
-uv run --extra dev doit smoke_phenotype_recommend_flow
 ```
 
 Conda or Micromamba remains supported. It supplies Python and `pip`; `conda run -n study-agent python -m pip install -e ".[dev]"` reads the application dependency definition from `pyproject.toml`.
