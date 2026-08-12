@@ -140,7 +140,14 @@ scripts/demo_strategus_cohort_method.R
 ### Install this package in development mode
 
 ```bash
-pip install -e ".[dev]"
+python -m pip install -e ".[dev]"
+```
+
+`pip` reads `pyproject.toml`, so this installs the same Study Agent runtime and development dependencies as every other supported Python environment. Without activating the environment, use:
+
+```bash
+conda run -n study-agent python -m pip install -e ".[dev]"
+conda run -n study-agent study-agent-mcp --config config.yaml
 ```
 
 ### Configure a deployment
@@ -165,7 +172,7 @@ Existing environment-only deployments remain supported during this migration. Se
 The project currently uses a simple split:
 
 - `pyproject.toml` defines the Python package, runtime dependencies, console scripts, and optional dev tools.
-- `environment.yml` bootstraps a Conda or Micromamba environment with the Python tooling commonly used in this repo.
+- `environment.yml` bootstraps only a Python 3.12 and `pip` Conda or Micromamba environment. It deliberately does not duplicate application dependencies.
 - `uv.lock` is not tracked as a repo source of truth. If you use `uv` locally, generate your own lockfile after cloning.
 
 Official local workflow:
@@ -173,7 +180,7 @@ Official local workflow:
 ```bash
 conda env create -f environment.yml
 conda activate study-agent
-pip install -e ".[dev]"
+python -m pip install -e ".[dev]"
 ```
 
 Optional `uv` workflow for users who prefer it:
@@ -183,7 +190,7 @@ uv lock
 uv run pytest
 ```
 
-The repo does not currently require `uv`. Docker builds the runtime in two layers: `environment.yml` provides the Micromamba/Conda base environment, and then `pyproject.toml` is used by `pip install -e .` to install the Python package and console entrypoints inside that environment.
+The repo does not currently require `uv`. Docker builds the runtime in two layers: `environment.yml` provides the Micromamba/Conda Python base environment, and then `pyproject.toml` is used by `python -m pip install -e .` to install the Python package and console entrypoints inside that environment.
 
 ### Start MCP over HTTP
 

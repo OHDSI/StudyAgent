@@ -4,19 +4,26 @@ This repo uses lightweight CLI smoke tests for the ACP and MCP layers. Keep thes
 
 ## Install (required before tests)
 
-Install the repo in editable mode so the CLI entrypoints are on your PATH and changes take effect immediately:
+Install the repo in editable mode so the CLI entrypoints are available in the selected Python environment and changes take effect immediately:
 
 ```bash
-pip install -e ".[dev]"
+python -m pip install -e ".[dev]"
 ```
 
-Editable mode means Python imports the local source tree directly. You do not need to reinstall after edits; just re-run the commands. Manage this per environment (venv/conda) and remove with `pip uninstall study-agent` if needed.
+Editable mode means Python imports the local source tree directly. You do not need to reinstall after edits; just re-run the commands. Manage this per environment (venv/conda) and remove with `python -m pip uninstall study-agent` if needed.
 
 Dependency notes:
 
 - `pyproject.toml` is the source of truth for the Python package and the optional `dev` extras.
-- `environment.yml` bootstraps the Conda or Micromamba environment used by Docker and many local setups.
+- `environment.yml` only bootstraps Python 3.12 and `pip` for Conda or Micromamba. Install Study Agent into that environment with `python -m pip install -e ".[dev]"`; do not add application dependencies to `environment.yml`.
 - `uv.lock` is intentionally not tracked. If you prefer `uv`, generate a local lockfile after cloning with `uv lock`.
+
+For Conda without shell activation:
+
+```bash
+conda run -n study-agent python -m pip install -e ".[dev]"
+conda run -n study-agent python -m pytest -q
+```
 
 ## Test output verbosity
 

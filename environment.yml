@@ -4,20 +4,4 @@ channels:
 dependencies:
   - python=3.12
   - pip
-  - pip:
-      - anyio
-      - doit
-      - faiss-cpu
-      - flask
-      - mcp>=1.10,<2
-      - httpx>=0.27.1,<1
-      - numpy
-      - omop_alchemy==0.6.0
-      - orm-loader==0.3.25
-      - pydantic
-      - pyyaml      
-      - pytest
-      - sqlalchemy
-      - ruff
-      - requests
 
