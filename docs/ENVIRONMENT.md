@@ -30,7 +30,7 @@ The configuration precedence is: explicit CLI options, `config.yaml`, secret env
 
 Within a container, `localhost` is the container itself. For an LLM or embedding service running on the Docker host, configure `http://host.docker.internal:<port>/...`. Compose maps that name to Docker's `host-gateway` on Linux, macOS, and Windows. You can verify the mapping after startup with `docker compose exec acp-agent getent hosts host.docker.internal`; to inspect the current bridge gateway directly, use `docker compose exec acp-agent sh -c "ip route show default"`. Do not copy a bridge IP such as `172.17.0.1` into `config.yaml`, because it can change between hosts and networks.
 
-Use full filesystem paths where practical, especially for index paths, generated-output roots, and Windows deployments.
+Use full filesystem paths where practical, especially for index paths, generated-output roots, and Windows deployments. `paths.runtime` is the configuration-relative directory used by `doit` tasks and timeout calibration for logs and generated recommendations; it defaults to `.study-agent-runtime` instead of a Linux-only `/tmp` location.
 
 ## ACP Runtime
 

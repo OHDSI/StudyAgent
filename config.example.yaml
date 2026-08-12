@@ -6,6 +6,7 @@ profile: native
 paths:
   phenotype_index: data/phenotype_index
   logs: study-agent-logs
+  runtime: .study-agent-runtime
 
 acp:
   bind: {host: 127.0.0.1, port: 8765}

@@ -34,3 +34,22 @@ def test_declared_runtime_dependencies_match_service_imports() -> None:
     assert "mcp>=1.10,<2" in environment
     assert "httpx>=0.27.1,<1" in environment
     assert "from mcp.server.fastmcp import FastMCP" in dockerfile
+
+
+def test_dodo_and_calibration_use_configured_cross_platform_paths() -> None:
+    dodo = Path("dodo.py").read_text(encoding="utf-8")
+    calibration = Path("scripts/calibrate_timeouts.py").read_text(encoding="utf-8")
+    assert "load_config(cwd=REPO_ROOT)" in dodo
+    assert "STUDY_AGENT_RUNTIME_DIR" in dodo
+    assert "/tmp/study_agent" not in dodo
+    assert '[sys.executable, "tests/' in dodo
+    assert "load_config(cwd=REPO_ROOT)" in calibration
+    assert "/tmp/study_agent" not in calibration
+
+
+def test_dodo_runtime_environment_is_loadable() -> None:
+    import dodo
+
+    environment = dodo._runtime_env()
+    assert environment["STUDY_AGENT_PORT"]
+    assert dodo._runtime_dir(environment).is_dir()

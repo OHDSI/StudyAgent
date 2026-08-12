@@ -45,6 +45,7 @@ class BindConfig(StrictModel):
 class PathsConfig(StrictModel):
     phenotype_index: Path = Path("data/phenotype_index")
     logs: Path | None = None
+    runtime: Path = Path(".study-agent-runtime")
 
 
 class ACPMCPConfig(StrictModel):
@@ -239,6 +240,7 @@ def _resolve_paths(config: StudyAgentConfig, source: Path) -> StudyAgentConfig:
             update={
                 "phenotype_index": resolve(config.paths.phenotype_index),
                 "logs": resolve(config.paths.logs),
+                "runtime": resolve(config.paths.runtime),
             }
         ),
         "acp": config.acp.model_copy(
@@ -327,6 +329,7 @@ def project_to_environment(config: StudyAgentConfig) -> dict[str, str]:
     values: dict[str, str | int | float | bool | Path | None] = {
         "PHENOTYPE_INDEX_DIR": config.paths.phenotype_index,
         "STUDY_AGENT_LOG_DIR": config.paths.logs,
+        "STUDY_AGENT_RUNTIME_DIR": config.paths.runtime,
         "STUDY_AGENT_HOST": config.acp.bind.host,
         "STUDY_AGENT_PORT": config.acp.bind.port,
         "ACP_TIMEOUT": config.acp.request_timeout_seconds,

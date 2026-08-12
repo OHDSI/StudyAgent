@@ -45,6 +45,8 @@ PYTEST_OPTS="-vv -rA -s" doit run_all_tests
 
 ## Task runner (doit)
 
+`dodo.py` loads `config.yaml` from the repository root when present. Its service subprocesses receive the YAML-derived non-secret settings, while secrets remain environment variables. Runtime logs and timeout-calibration artifacts go to `paths.runtime` (default `.study-agent-runtime`), which works on Windows and Linux.
+
 List tasks:
 
 ```bash
