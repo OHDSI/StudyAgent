@@ -7,6 +7,8 @@ import pytest
 
 from study_agent_core.env_wizard import (
     collect_configuration,
+    migrate_env,
+    render_config_file,
     render_env_file,
     write_env_file,
 )
@@ -17,14 +19,12 @@ def _answers(values: list[str]):
     return lambda _prompt: next(iterator)
 
 
-def test_collect_direct_llm_and_retrieval_configuration_hides_secret_from_output() -> (
-    None
-):
+def test_collect_configuration_separates_secret_values_from_yaml() -> None:
     output: list[str] = []
-    values, comments, run_style = collect_configuration(
+    values, secrets, run_style = collect_configuration(
         input_fn=_answers(
             [
-                "direct",
+                "native",
                 "",
                 "",
                 "http",
@@ -46,37 +46,34 @@ def test_collect_direct_llm_and_retrieval_configuration_hides_secret_from_output
         output_fn=output.append,
         secret_input=lambda _prompt: "llm-secret-value",
     )
-
-    assert run_style == "direct"
-    assert comments == []
-    assert values["STUDY_AGENT_MCP_URL"] == "http://127.0.0.1:8790/mcp"
-    assert values["LLM_API_KEY"] == "llm-secret-value"
+    content = render_config_file(values, run_style)
+    assert run_style == "native"
+    assert secrets == {"LLM_API_KEY": "llm-secret-value"}
+    assert "llm-secret-value" not in content
+    assert "LLM_API_KEY" not in content
     assert "llm-secret-value" not in "\n".join(output)
 
 
-def test_collect_docker_hecate_profile_uses_container_index_path() -> None:
-    values, comments, run_style = collect_configuration(
-        input_fn=_answers(["docker", "", "", "no", "yes", "", "", "no", "hecate"]),
-        output_fn=lambda _message: None,
-        secret_input=lambda _prompt: pytest.fail("no secret should be requested"),
+def test_migrate_env_classifies_known_secret_values_without_echoing(tmp_path) -> None:
+    source = tmp_path / ".env"
+    source.write_text(
+        "LLM_API_KEY=hidden\nOMOP_DB_ENGINE=db-secret\nMCP_PORT=9000\n",
+        encoding="utf-8",
     )
+    values, secrets, profile = migrate_env(source)
+    assert values == {"MCP_PORT": "9000"}
+    assert secrets == {"LLM_API_KEY": "hidden", "OMOP_DB_ENGINE": "db-secret"}
+    assert profile == "native"
 
-    assert run_style == "docker"
-    assert values["PHENOTYPE_INDEX_DIR"] == "/data/phenotype_index"
-    assert values["VOCAB_SEARCH_PROVIDER"] == "hecate_api"
-    assert any("mounts" in comment for comment in comments)
 
-
-def test_render_escapes_sensitive_value_without_printing_it() -> None:
+def test_render_secret_file_escapes_values() -> None:
     content = render_env_file({"LLM_API_KEY": "contains $ and ' quotes"})
-
     assert "LLM_API_KEY='contains $ and \\' quotes'" in content
 
 
-def test_write_env_file_refuses_existing_file_and_uses_private_mode(tmp_path) -> None:
-    output = tmp_path / ".env"
+def test_write_file_refuses_existing_file_and_uses_private_mode(tmp_path) -> None:
+    output = tmp_path / "secrets.env"
     write_env_file(output, "LLM_API_KEY=secret\n")
-
     assert output.read_text(encoding="utf-8") == "LLM_API_KEY=secret\n"
     if os.name != "nt":
         assert stat.S_IMODE(output.stat().st_mode) == 0o600

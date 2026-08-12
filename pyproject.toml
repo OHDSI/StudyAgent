@@ -15,7 +15,7 @@ dependencies = [
   "mcp>=1.0.0",
   "numpy>=2.4",
   "omop-alchemy==0.6.0",
-  "orm-loader==0.3.25"
+  "orm-loader==0.3.25",
   "pydantic>=2.0.0",
   "PyYAML>=6.0",
   "requests>=2.33",
@@ -30,8 +30,8 @@ dev = [
 ]
 
 [project.scripts]
-study-agent-mcp = "study_agent_mcp.server:main"
-study-agent-acp = "study_agent_acp.server:main"
+study-agent-mcp = "study_agent_core.config_cli:mcp_main"
+study-agent-acp = "study_agent_core.config_cli:acp_main"
 study-agent-demo-shell = "study_agent_acp.demo_shell:main"
 study-agent-setup = "study_agent_core.env_wizard:main"
 

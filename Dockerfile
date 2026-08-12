@@ -13,7 +13,7 @@ COPY --chown=$MAMBA_USER:$MAMBA_USER core/ ./core/
 COPY --chown=$MAMBA_USER:$MAMBA_USER mcp_server/ ./mcp_server/
 COPY --chown=$MAMBA_USER:$MAMBA_USER acp_agent/ ./acp_agent/
 COPY --chown=$MAMBA_USER:$MAMBA_USER docs/ ./docs/
-COPY --chown=$MAMBA_USER:$MAMBA_USER README.md ./
+COPY --chown=$MAMBA_USER:$MAMBA_USER README.md config.example.yaml ./
 COPY --chown=$MAMBA_USER:$MAMBA_USER pyproject.toml ./
 
 RUN micromamba run -n base pip install --no-cache-dir -e .

@@ -6,16 +6,16 @@ services:
       context: .
     image: study-agent
     env_file:
-      - .env
-    environment:
-      STUDY_AGENT_HOST_GATEWAY: host.docker.internal
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - path: secrets.env
+        required: false
+      - path: .env
+        required: false  # legacy secret-only compatibility
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./data/phenotype_index:/data/phenotype_index
     ports:
       - "8790:8790"
-    volumes:
-      - ./data/phenotype_index:/data/phenotype_index
-    command: ["micromamba", "run", "-n", "base", "study-agent-mcp"]
+    command: ["micromamba", "run", "-n", "base", "study-agent-mcp", "--config", "/app/config.yaml", "--profile", "docker"]
     restart: unless-stopped
 
   acp-agent:
@@ -23,15 +23,15 @@ services:
       context: .
     image: study-agent
     env_file:
-      - .env
-    environment:
-      STUDY_AGENT_HOST_GATEWAY: host.docker.internal
-      STUDY_AGENT_MCP_URL: http://mcp-server:8790/mcp
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - path: secrets.env
+        required: false
+      - path: .env
+        required: false  # legacy secret-only compatibility
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
     ports:
       - "8765:8765"
     depends_on:
       - mcp-server
-    command: ["micromamba", "run", "-n", "base", "study-agent-acp"]
+    command: ["micromamba", "run", "-n", "base", "study-agent-acp", "--config", "/app/config.yaml", "--profile", "docker"]
     restart: unless-stopped

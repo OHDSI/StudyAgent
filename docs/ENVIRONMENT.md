@@ -9,13 +9,22 @@ Not every deployment needs every variable. Most local setups only need:
 - phenotype retrieval settings if you use phenotype search
 - Keeper / vocabulary / PHOEBE / OMOP settings if you use Keeper flows
 
-## Interactive Setup Helper
+## Deployment Configuration
 
-After installing the project, run `study-agent-setup` from the repository directory to create a minimal profile-specific `.env` file. The helper uses hidden terminal input for API keys and database URLs, refuses to overwrite an existing file without confirmation, and creates a private file where the operating system supports POSIX permissions.
+`config.yaml` is the primary home for all non-secret Python service configuration. It is versioned, validated, supports profiles, and resolves relative filesystem paths from its own directory, which avoids shell- and platform-specific path expansion. Copy [`config.example.yaml`](../config.example.yaml) to `config.yaml`, or use `study-agent-setup` to create it interactively.
 
-The helper is additive: it does not change ACP or MCP service startup behavior. Docker Compose already reads `.env` through `compose.yaml`. For direct `study-agent-mcp` and `study-agent-acp` launches, configure the generated variables in the shell until automatic `.env` loading is introduced in a future change. Existing shell variables remain the source of truth for direct launches.
+Secrets must remain outside YAML. Use process environment variables for native services and `secrets.env` for Docker Compose. The supported secret variables include `LLM_API_KEY`, `EMBED_API_KEY`, `OMOP_DB_ENGINE` (or legacy `ENGINE`), `STUDY_AGENT_MCP_TOKEN`, and PV Copilot token variables. The loader rejects any YAML key that looks like a token, API key, password, connection string, or database URL.
 
-Use `study-agent-setup --output path/to/file` to choose a different destination or `study-agent-setup --force` only when intentionally replacing an existing file. Never commit a generated `.env` file.
+Start native services with an explicit file (preferred) or set the bootstrap-only `STUDY_AGENT_CONFIG` path:
+
+```bash
+study-agent-mcp --config config.yaml
+study-agent-acp --config config.yaml
+```
+
+The configuration precedence is: explicit CLI options, `config.yaml`, secret environment variables, legacy non-secret environment variables, then built-in defaults. When YAML is loaded, its non-secret values override stale legacy shell settings. Environment-only deployments continue to work during the compatibility period.
+
+`config.yaml` and `secrets.env` are ignored by Git. Use `study-agent-setup --migrate-env .env` to split an existing environment file without displaying its values. Docker Compose mounts `config.yaml` read-only and loads `secrets.env`; its `docker` profile sets container bind addresses and ACP's internal MCP URL. This Python-service configuration does not configure the separately deployed R packages; their remote-client configuration remains independent.
 
 Use full filesystem paths where practical, especially for index paths, generated-output roots, and Windows deployments.
 
