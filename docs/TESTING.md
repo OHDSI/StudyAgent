@@ -18,12 +18,49 @@ Dependency notes:
 - `environment.yml` only bootstraps Python 3.12 and `pip` for Conda or Micromamba. Install Study Agent into that environment with `python -m pip install -e ".[dev]"`; do not add application dependencies to `environment.yml`.
 - `uv.lock` is intentionally not tracked. If you prefer `uv`, generate a local lockfile after cloning with `uv lock`.
 
+For uv, include the optional development tools for test commands and run every project command through uv so a managed system Python cannot be selected from `PATH`:
+
+```powershell
+uv run --extra dev python -m pytest -q
+uv run --extra dev doit test_all
+uv run study-agent-mcp --config .\config.yaml --profile native
+uv run study-agent-acp --config .\config.yaml --profile native
+```
+
 For Conda without shell activation:
 
 ```bash
 conda run -n study-agent python -m pip install -e ".[dev]"
 conda run -n study-agent python -m pytest -q
 ```
+
+## Verify the selected Python runtime
+
+Run these diagnostics before a native deployment or when a command appears to use the wrong Python environment. They identify what the shell would select and what uv actually uses for the project. Do not include secret values in the output you share.
+
+PowerShell:
+
+```powershell
+Get-Command python -All
+Get-Command pytest -All
+Get-Command study-agent-mcp -All
+Get-Command study-agent-acp -All
+uv run python -c "import sys, study_agent_core; print(sys.executable); print(sys.prefix); print(study_agent_core.__file__)"
+uv run python -m pip show mcp
+```
+
+Bash:
+
+```bash
+type -a python
+type -a pytest
+type -a study-agent-mcp
+type -a study-agent-acp
+uv run python -c 'import sys, study_agent_core; print(sys.executable); print(sys.prefix); print(study_agent_core.__file__)'
+uv run python -m pip show mcp
+```
+
+The `uv run` output is the authoritative project runtime. If a bare command resolves elsewhere, continue to invoke Study Agent and its test tools through `uv run` rather than changing the system Python installation. For Conda, replace `uv run` with `conda run -n study-agent`.
 
 ## Test output verbosity
 
@@ -97,6 +134,7 @@ curl -s -X POST http://127.0.0.1:8765/tools/call \
 Notes:
 - PowerShell aliases `curl` to `Invoke-WebRequest`. Use `curl.exe` for real curl, or use `Invoke-RestMethod` below.
 - Use here-strings to keep JSON readable.
+- When using uv, prefix every executable in the PowerShell examples with `uv run` (for example, `uv run study-agent-acp --config .\config.yaml --profile native`). Do not use bare project executables on managed Windows hosts.
 
 Start ACP with verbose logging (server + LLM):
 
@@ -104,7 +142,7 @@ Start ACP with verbose logging (server + LLM):
 $env:STUDY_AGENT_ALLOW_CORE_FALLBACK = "1"
 $env:STUDY_AGENT_DEBUG = "1"
 $env:LLM_LOG = "1"
-study-agent-acp
+uv run study-agent-acp --config .\config.yaml --profile native
 ```
 
 If you launch from outside the repo root, set `STUDY_AGENT_BASE_DIR` so relative paths (index, banner, outputs) resolve correctly:
@@ -196,14 +234,14 @@ $env:MCP_TRANSPORT = "http"
 $env:MCP_HOST = "127.0.0.1"
 $env:MCP_PORT = "8790"
 $env:MCP_PATH = "/mcp"
-study-agent-mcp
+uv run study-agent-mcp --config .\config.yaml --profile native
 ```
 
 Then in a second PowerShell:
 
 ```powershell
 $env:STUDY_AGENT_MCP_URL = "http://127.0.0.1:8790/mcp"
-study-agent-acp
+uv run study-agent-acp --config .\config.yaml --profile native
 ```
 
 Health check (PowerShell):
@@ -227,15 +265,15 @@ Rotation is controlled by `STUDY_AGENT_LOG_MAX_BYTES` and `STUDY_AGENT_LOG_BACKU
 Windows logging via shell redirection still works if desired:
 
 ```powershell
-study-agent-mcp 1> mcp.out.log 2> mcp.err.log
-study-agent-acp 1> acp.out.log 2> acp.err.log
+uv run study-agent-mcp --config .\config.yaml --profile native 1> mcp.out.log 2> mcp.err.log
+uv run study-agent-acp --config .\config.yaml --profile native 1> acp.out.log 2> acp.err.log
 ```
 
 Or using `Start-Process`:
 
 ```powershell
-Start-Process study-agent-mcp -RedirectStandardOutput mcp.out.log -RedirectStandardError mcp.err.log
-Start-Process study-agent-acp -RedirectStandardOutput acp.out.log -RedirectStandardError acp.err.log
+Start-Process uv -ArgumentList @("run", "study-agent-mcp", "--config", ".\config.yaml", "--profile", "native") -RedirectStandardOutput mcp.out.log -RedirectStandardError mcp.err.log
+Start-Process uv -ArgumentList @("run", "study-agent-acp", "--config", ".\config.yaml", "--profile", "native") -RedirectStandardOutput acp.out.log -RedirectStandardError acp.err.log
 ```
 
 Recommended MCP environment (use absolute paths for stability):

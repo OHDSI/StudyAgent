@@ -137,6 +137,27 @@ scripts/demo_strategus_cohort_method.R
 
 ## Quickstart
 
+### Native Python environments
+
+For Windows and other managed-machine deployments, use a project environment rather than installing Study Agent into the system Python. `uv` is the recommended native path:
+
+```powershell
+uv python install 3.12
+uv lock
+uv run --extra dev python -m pytest -q
+```
+
+Always launch project commands through `uv run`; do not use bare `python`, `pytest`, `doit`, `study-agent-mcp`, or `study-agent-acp`, because PowerShell may resolve a managed system installation instead of the project environment:
+
+```powershell
+uv run study-agent-setup
+uv run study-agent-mcp --config .\config.yaml --profile native
+uv run study-agent-acp --config .\config.yaml --profile native
+uv run --extra dev doit smoke_phenotype_recommend_flow
+```
+
+Conda or Micromamba remains supported. It supplies Python and `pip`; `conda run -n study-agent python -m pip install -e ".[dev]"` reads the application dependency definition from `pyproject.toml`.
+
 ### Install this package in development mode
 
 ```bash
@@ -148,21 +169,26 @@ python -m pip install -e ".[dev]"
 ```bash
 conda run -n study-agent python -m pip install -e ".[dev]"
 conda run -n study-agent study-agent-mcp --config config.yaml
+conda run -n study-agent study-agent-acp --config config.yaml
 ```
 
 ### Configure a deployment
 
 After installation, run the interactive setup helper from the project directory:
 
-```bash
-study-agent-setup
+```powershell
+# uv-managed project environment
+uv run study-agent-setup
+
+# Or after installing into an activated Conda/virtual environment:
+# study-agent-setup
 ```
 
 The helper writes non-secret, cross-platform settings to `config.yaml` and, only when needed, writes hidden API keys or database URLs to private `secrets.env`. Do not place secrets in `config.yaml`. Docker Compose reads both files automatically. For native services, pass the YAML file explicitly:
 
 ```bash
-study-agent-mcp --config config.yaml
-study-agent-acp --config config.yaml
+study-agent-mcp --config config.yaml --profile native
+study-agent-acp --config config.yaml --profile native
 ```
 
 Existing environment-only deployments remain supported during this migration. See [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) for the precedence and migration details.
@@ -187,12 +213,34 @@ Optional `uv` workflow for users who prefer it:
 
 ```bash
 uv lock
-uv run pytest
+uv run --extra dev python -m pytest
 ```
 
-The repo does not currently require `uv`. Docker builds the runtime in two layers: `environment.yml` provides the Micromamba/Conda Python base environment, and then `pyproject.toml` is used by `python -m pip install -e .` to install the Python package and console entrypoints inside that environment.
+The repo does not require `uv`; it is the recommended native deployment path because every command can be explicitly tied to its project environment. `uv.lock` is currently a local artifact, so run `uv lock` after cloning and whenever dependency constraints change. Docker builds the runtime in two layers: `environment.yml` provides the Micromamba/Conda Python base environment, and then `pyproject.toml` is used by `python -m pip install -e .` to install the Python package and console entrypoints inside that environment.
 
-### Start MCP over HTTP
+### Docker Compose deployment
+
+Docker Compose starts both services with the `docker` profile, mounts `config.yaml` read-only, and reads secrets from `secrets.env` (or the legacy secret-only `.env`). Prepare those files before starting Compose:
+
+```bash
+cp config.example.yaml config.yaml
+# Edit config.yaml with non-secret deployment settings.
+# Put only API keys, tokens, and database URLs in secrets.env.
+docker compose up --build
+```
+
+On Linux, the container's non-root service user must be able to read the bind-mounted configuration. If startup reports `PermissionError: '/app/config.yaml'`, correct the host file mode and restart:
+
+```bash
+chmod 644 config.yaml
+docker compose up --build
+```
+
+Check both services with `docker compose ps`, follow logs with `docker compose logs -f acp-agent mcp-server`, and call ACP at `http://127.0.0.1:8765`. The MCP endpoint is exposed at `http://127.0.0.1:8790/mcp` for diagnostics.
+
+For an LLM or embedding service running on the Docker host, keep the `docker` profile URLs as `http://host.docker.internal:<port>/...`; Compose maps that name to the host gateway on Linux, macOS, and Windows. If the host service is reached through an SSH tunnel, the tunnel must listen on an address reachable from the Docker bridge, not only `127.0.0.1`; restrict the host firewall accordingly. See [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) for verification commands and security details.
+
+### Start MCP over HTTP (environment-only compatibility)
 
 ```bash
 export MCP_TRANSPORT=http

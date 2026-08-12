@@ -18,8 +18,39 @@ Secrets must remain outside YAML. Use process environment variables for native s
 Start native services with an explicit file (preferred) or set the bootstrap-only `STUDY_AGENT_CONFIG` path:
 
 ```bash
-study-agent-mcp --config config.yaml
-study-agent-acp --config config.yaml
+study-agent-mcp --config config.yaml --profile native
+study-agent-acp --config config.yaml --profile native
+```
+
+### Native installation and Windows PowerShell
+
+`pyproject.toml` is the single source of truth for Study Agent Python dependencies. `environment.yml` only creates a Python 3.12 plus `pip` Conda/Micromamba environment; install the project into it with `python -m pip install -e ".[dev]"`.
+
+For a native PowerShell deployment, prefer uv's project environment and prefix every project command with `uv run`. This prevents a managed system Python or globally installed console script from being selected from `PATH`:
+
+```powershell
+uv python install 3.12
+uv lock
+uv run study-agent-setup
+
+# In separate PowerShell windows after setting required secret variables:
+uv run study-agent-mcp --config .\config.yaml --profile native
+uv run study-agent-acp --config .\config.yaml --profile native
+```
+
+Native services do not automatically load `secrets.env`. Export required secrets in the service's environment, or supply them through the host's approved secret-management mechanism. Verify which interpreter and package are being used before troubleshooting a managed Windows host:
+
+```powershell
+Get-Command python -All
+Get-Command study-agent-acp -All
+uv run python -c "import sys, study_agent_core; print(sys.executable); print(study_agent_core.__file__)"
+```
+
+For Conda without activating the environment:
+
+```powershell
+conda run -n study-agent python -m pip install -e ".[dev]"
+conda run -n study-agent study-agent-mcp --config .\config.yaml --profile native
 ```
 
 The configuration precedence is: explicit CLI options, `config.yaml`, secret environment variables, legacy non-secret environment variables, then built-in defaults. When YAML is loaded, its non-secret values override stale legacy shell settings. Environment-only deployments continue to work during the compatibility period.
@@ -29,6 +60,10 @@ The configuration precedence is: explicit CLI options, `config.yaml`, secret env
 ### Docker host services
 
 Within a container, `localhost` is the container itself. The Docker profile enables localhost-to-host rewriting; the native profile explicitly disables it, even if native commands happen to run inside a nested containerized development environment. For an LLM or embedding service running on the Docker host, configure `http://host.docker.internal:<port>/...`. Compose maps that name to Docker's `host-gateway` on Linux, macOS, and Windows. You can verify the mapping after startup with `docker compose exec acp-agent getent hosts host.docker.internal`; to inspect the current bridge gateway directly, use `docker compose exec acp-agent sh -c "ip route show default"`. Do not copy a bridge IP such as `172.17.0.1` into `config.yaml`, because it can change between hosts and networks.
+
+An SSH local-forward bound only to `127.0.0.1` is not reachable through the Docker bridge. When a tunnel must be consumed by containers, bind it to a suitable non-loopback host interface (for example, `ssh -L 0.0.0.0:4000:localhost:3000 user@remote-host`) and restrict inbound access with the host firewall. This exposes the listener beyond the local loopback interface; do not use it without that network control.
+
+Compose requires `config.yaml` to exist and mounts it at `/app/config.yaml:ro`. On Linux, it must be readable by the container's `mambauser`; `chmod 644 config.yaml` is a suitable mode for a non-secret configuration file. Keep private values in `secrets.env`, not in `config.yaml`.
 
 Use full filesystem paths where practical, especially for index paths, generated-output roots, and Windows deployments. `paths.runtime` is the configuration-relative directory used by `doit` tasks and timeout calibration for logs and generated recommendations; it defaults to `.study-agent-runtime` instead of a Linux-only `/tmp` location.
 
@@ -169,7 +204,7 @@ These are implemented through the shared logging utilities in `core/study_agent_
 | `ACP_URL` | R Keeper and Strategus flows | ACP base URL used by generated R scripts and shell-side helpers. Default `http://127.0.0.1:8765`. |
 | `STUDY_AGENT_BASE_DIR` | R Strategus shells | Base directory override when launching shells from outside the repo root. |
 
-## Recommended Minimal Local Setup
+## Environment-only compatibility setup
 
 MCP over HTTP:
 
