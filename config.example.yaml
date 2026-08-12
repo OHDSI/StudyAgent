@@ -33,6 +33,11 @@ retrieval:
 
 profiles:
   docker:
+    # Use host.docker.internal for LLM/embedding services running on the Docker host.
+    llm:
+      api_url: http://host.docker.internal:3000/api/chat/completions
+    retrieval:
+      embedding_url: http://host.docker.internal:3000/ollama/api/embed
     acp:
       bind: {host: 0.0.0.0, port: 8765}
       mcp:

@@ -26,6 +26,10 @@ The configuration precedence is: explicit CLI options, `config.yaml`, secret env
 
 `config.yaml` and `secrets.env` are ignored by Git. `config.yaml` contains no secrets and must be readable by the container service user; the wizard writes it with ordinary read permissions. `secrets.env` remains private. Use `study-agent-setup --migrate-env .env` to split an existing environment file without displaying its values. Docker Compose mounts `config.yaml` read-only and loads `secrets.env`; its `docker` profile sets container bind addresses and ACP's internal MCP URL. This Python-service configuration does not configure the separately deployed R packages; their remote-client configuration remains independent.
 
+### Docker host services
+
+Within a container, `localhost` is the container itself. For an LLM or embedding service running on the Docker host, configure `http://host.docker.internal:<port>/...`. Compose maps that name to Docker's `host-gateway` on Linux, macOS, and Windows. You can verify the mapping after startup with `docker compose exec acp-agent getent hosts host.docker.internal`; to inspect the current bridge gateway directly, use `docker compose exec acp-agent sh -c "ip route show default"`. Do not copy a bridge IP such as `172.17.0.1` into `config.yaml`, because it can change between hosts and networks.
+
 Use full filesystem paths where practical, especially for index paths, generated-output roots, and Windows deployments.
 
 ## ACP Runtime

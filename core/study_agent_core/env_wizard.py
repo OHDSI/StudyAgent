@@ -213,7 +213,11 @@ def collect_configuration(
     ):
         values["LLM_API_URL"] = _prompt_text(
             "OpenAI-compatible LLM API URL",
-            default="http://localhost:3000/api/chat/completions",
+            default=(
+                "http://host.docker.internal:3000/api/chat/completions"
+                if run_style == "docker"
+                else "http://localhost:3000/api/chat/completions"
+            ),
             input_fn=input_fn,
         )
         values["LLM_MODEL"] = _prompt_text(
@@ -255,7 +259,11 @@ def collect_configuration(
         )
         values["EMBED_URL"] = _prompt_text(
             "Embedding API URL",
-            default="http://localhost:3000/ollama/api/embed",
+            default=(
+                "http://host.docker.internal:3000/ollama/api/embed"
+                if run_style == "docker"
+                else "http://localhost:3000/ollama/api/embed"
+            ),
             input_fn=input_fn,
         )
         values["EMBED_MODEL"] = _prompt_text(

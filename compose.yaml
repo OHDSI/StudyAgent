@@ -10,6 +10,8 @@ services:
         required: false
       - path: .env
         required: false  # legacy secret-only compatibility
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./config.yaml:/app/config.yaml:ro
       - ./data/phenotype_index:/data/phenotype_index
@@ -27,6 +29,8 @@ services:
         required: false
       - path: .env
         required: false  # legacy secret-only compatibility
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./config.yaml:/app/config.yaml:ro
     ports:

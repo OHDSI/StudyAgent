@@ -8,6 +8,7 @@ def test_compose_uses_read_only_config_and_secret_only_env_file() -> None:
     assert "./config.yaml:/app/config.yaml:ro" in source
     assert "secrets.env" in source
     assert '"--profile", "docker"' in source
+    assert source.count("host.docker.internal:host-gateway") == 2
     assert "STUDY_AGENT_MCP_URL:" not in source
 
 
@@ -15,6 +16,7 @@ def test_example_config_has_docker_profile_and_no_secret_keys() -> None:
     source = Path("config.example.yaml").read_text(encoding="utf-8").lower()
     assert "profiles:" in source
     assert "docker:" in source
+    assert "host.docker.internal" in source
     for forbidden in ("api_key", "token", "password", "omop_db_engine"):
         assert forbidden not in source
 
