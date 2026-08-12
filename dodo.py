@@ -57,6 +57,21 @@ DEFAULT_ENV = {
 }
 
 
+LOCAL_SMOKE_TASKS = [
+    "smoke_phenotype_recommend_flow",
+    "smoke_phenotype_intent_split_flow",
+    "smoke_phenotype_recommendation_advice_flow",
+    "smoke_phenotype_improvements_flow",
+    "smoke_concept_sets_review_flow",
+    "smoke_cohort_critique_flow",
+    "smoke_case_causal_review_flow",
+    "smoke_cohort_methods_intent_split_flow",
+    "smoke_cohort_methods_specs_recommend_flow",
+    "smoke_phenotype_validation_review_flow",
+    "smoke_keeper_concept_sets_generate_flow",
+]
+
+
 def _runtime_env() -> dict[str, str]:
     env = _secret_environment()
     # Explicit shell/service-manager values override secrets.env.
@@ -66,6 +81,14 @@ def _runtime_env() -> dict[str, str]:
     env.update(CONFIG_ENV)
     return env
 
+
+
+def _require_llm_api_key(env: dict[str, str]) -> None:
+    if not env.get("LLM_API_KEY"):
+        raise RuntimeError(
+            "LLM_API_KEY is required for this smoke task. Set it in the process "
+            "environment or repository-local secrets.env before running the task."
+        )
 
 def _runtime_dir(env: dict[str, str]) -> Path:
     path = Path(env.get("STUDY_AGENT_RUNTIME_DIR", REPO_ROOT / ".study-agent-runtime"))
@@ -201,27 +224,30 @@ def task_test_all():
 def task_run_all():
     return {
         "actions": None,
-        "task_dep": [
-            "test_all",
-            "smoke_phenotype_recommend_flow",
-            "smoke_phenotype_intent_split_flow",
-            "smoke_phenotype_recommendation_advice_flow",
-            "smoke_phenotype_improvements_flow",
-            "smoke_concept_sets_review_flow",
-            "smoke_cohort_critique_flow",
-            "smoke_case_causal_review_flow",
-        ],
+        "task_dep": ["test_all"],
+    }
+
+
+def task_run_smoke_suite():
+    """Run all configured local ACP/MCP smoke flows."""
+    return {
+        "actions": None,
+        "task_dep": LOCAL_SMOKE_TASKS,
+    }
+
+
+def task_run_external_smoke_suite():
+    """Run the local smoke suite plus opt-in external integrations."""
+    return {
+        "actions": None,
+        "task_dep": ["run_smoke_suite", "smoke_hecate_phoebe_bulk_endpoint"],
     }
 
 
 def task_calibrate_timeouts():
     def _run_calibration() -> None:
         env = _runtime_env()
-        if not env.get("LLM_API_KEY"):
-            print(
-                "Missing LLM_API_KEY in environment. Set it before running this task."
-            )
-            return
+        _require_llm_api_key(env)
         if not env.get("STUDY_AGENT_MCP_URL"):
             env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
             env.setdefault("STUDY_AGENT_MCP_ARGS", "")
@@ -297,11 +323,7 @@ def task_calibrate_timeouts():
 def task_check_llm_connectivity():
     def _run_check() -> None:
         env = _runtime_env()
-        if not env.get("LLM_API_KEY"):
-            print(
-                "Missing LLM_API_KEY in environment. Set it before running this task."
-            )
-            return
+        _require_llm_api_key(env)
 
         url = env["LLM_API_URL"]
         model = env["LLM_MODEL"]
@@ -413,11 +435,7 @@ def task_list_services():
 def task_smoke_phenotype_recommend_flow():
     def _run_smoke() -> None:
         env = _runtime_env()
-        if not env.get("LLM_API_KEY"):
-            print(
-                "Missing LLM_API_KEY in environment. Set it before running this task."
-            )
-            return
+        _require_llm_api_key(env)
         if not env.get("STUDY_AGENT_MCP_URL"):
             env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
             env.setdefault("STUDY_AGENT_MCP_ARGS", "")
@@ -472,11 +490,7 @@ def task_smoke_phenotype_recommend_flow():
 def task_smoke_cohort_methods_specs_recommend_flow():
     def _run_smoke() -> None:
         env = _runtime_env()
-        if not env.get("LLM_API_KEY"):
-            print(
-                "Missing LLM_API_KEY in environment. Set it before running this task."
-            )
-            return
+        _require_llm_api_key(env)
         if not env.get("STUDY_AGENT_MCP_URL"):
             env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
             env.setdefault("STUDY_AGENT_MCP_ARGS", "")
@@ -533,11 +547,7 @@ def task_smoke_cohort_methods_specs_recommend_flow():
 def task_smoke_phenotype_intent_split_flow():
     def _run_smoke() -> None:
         env = _runtime_env()
-        if not env.get("LLM_API_KEY"):
-            print(
-                "Missing LLM_API_KEY in environment. Set it before running this task."
-            )
-            return
+        _require_llm_api_key(env)
         if not env.get("STUDY_AGENT_MCP_URL"):
             env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
             env.setdefault("STUDY_AGENT_MCP_ARGS", "")
@@ -594,11 +604,7 @@ def task_smoke_phenotype_intent_split_flow():
 def task_smoke_cohort_methods_intent_split_flow():
     def _run_smoke() -> None:
         env = _runtime_env()
-        if not env.get("LLM_API_KEY"):
-            print(
-                "Missing LLM_API_KEY in environment. Set it before running this task."
-            )
-            return
+        _require_llm_api_key(env)
         if not env.get("STUDY_AGENT_MCP_URL"):
             env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
             env.setdefault("STUDY_AGENT_MCP_ARGS", "")
@@ -655,11 +661,7 @@ def task_smoke_cohort_methods_intent_split_flow():
 def task_smoke_phenotype_improvements_flow():
     def _run_smoke() -> None:
         env = _runtime_env()
-        if not env.get("LLM_API_KEY"):
-            print(
-                "Missing LLM_API_KEY in environment. Set it before running this task."
-            )
-            return
+        _require_llm_api_key(env)
         if not env.get("STUDY_AGENT_MCP_URL"):
             env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
             env.setdefault("STUDY_AGENT_MCP_ARGS", "")
@@ -728,11 +730,7 @@ def task_smoke_phenotype_improvements_flow():
 def task_smoke_phenotype_recommendation_advice_flow():
     def _run_smoke() -> None:
         env = _runtime_env()
-        if not env.get("LLM_API_KEY"):
-            print(
-                "Missing LLM_API_KEY in environment. Set it before running this task."
-            )
-            return
+        _require_llm_api_key(env)
         if not env.get("STUDY_AGENT_MCP_URL"):
             env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
             env.setdefault("STUDY_AGENT_MCP_ARGS", "")
@@ -785,11 +783,7 @@ def task_smoke_phenotype_recommendation_advice_flow():
 def task_smoke_concept_sets_review_flow():
     def _run_smoke() -> None:
         env = _runtime_env()
-        if not env.get("LLM_API_KEY"):
-            print(
-                "Missing LLM_API_KEY in environment. Set it before running this task."
-            )
-            return
+        _require_llm_api_key(env)
         if not env.get("STUDY_AGENT_MCP_URL"):
             env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
             env.setdefault("STUDY_AGENT_MCP_ARGS", "")
@@ -859,11 +853,7 @@ def task_smoke_concept_sets_review_flow():
 def task_smoke_cohort_critique_flow():
     def _run_smoke() -> None:
         env = _runtime_env()
-        if not env.get("LLM_API_KEY"):
-            print(
-                "Missing LLM_API_KEY in environment. Set it before running this task."
-            )
-            return
+        _require_llm_api_key(env)
         if not env.get("STUDY_AGENT_MCP_URL"):
             env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
             env.setdefault("STUDY_AGENT_MCP_ARGS", "")
@@ -936,11 +926,7 @@ def task_smoke_cohort_critique_flow():
 def task_smoke_phenotype_validation_review_flow():
     def _run_smoke() -> None:
         env = _runtime_env()
-        if not env.get("LLM_API_KEY"):
-            print(
-                "Missing LLM_API_KEY in environment. Set it before running this task."
-            )
-            return
+        _require_llm_api_key(env)
         if not env.get("STUDY_AGENT_MCP_URL"):
             env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
             env.setdefault("STUDY_AGENT_MCP_ARGS", "")
@@ -1022,11 +1008,7 @@ def task_smoke_phenotype_validation_review_flow():
 def task_smoke_keeper_concept_sets_generate_flow():
     def _run_smoke() -> None:
         env = _runtime_env()
-        if not env.get("LLM_API_KEY"):
-            print(
-                "Missing LLM_API_KEY in environment. Set it before running this task."
-            )
-            return
+        _require_llm_api_key(env)
         if not env.get("STUDY_AGENT_MCP_URL"):
             env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
             env.setdefault("STUDY_AGENT_MCP_ARGS", "")

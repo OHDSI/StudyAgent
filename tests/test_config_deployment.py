@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 
 def test_compose_uses_read_only_config_and_secret_only_env_file() -> None:
     source = Path("compose.yaml").read_text(encoding="utf-8")
@@ -44,6 +46,22 @@ def test_dodo_and_calibration_use_configured_cross_platform_paths() -> None:
     assert '[sys.executable, "tests/' in dodo
     assert "load_config(cwd=REPO_ROOT)" in calibration
     assert "/tmp/study_agent" not in calibration
+
+
+def test_dodo_suite_membership_and_smoke_credentials() -> None:
+    import dodo
+
+    assert dodo.task_run_all()["task_dep"] == ["test_all"]
+    assert set(dodo.task_run_smoke_suite()["task_dep"]) == set(dodo.LOCAL_SMOKE_TASKS)
+    assert "smoke_cohort_methods_intent_split_flow" in dodo.LOCAL_SMOKE_TASKS
+    assert "smoke_phenotype_validation_review_flow" in dodo.LOCAL_SMOKE_TASKS
+    assert "smoke_keeper_concept_sets_generate_flow" in dodo.LOCAL_SMOKE_TASKS
+    assert dodo.task_run_external_smoke_suite()["task_dep"] == [
+        "run_smoke_suite",
+        "smoke_hecate_phoebe_bulk_endpoint",
+    ]
+    with pytest.raises(RuntimeError, match="LLM_API_KEY"):
+        dodo._require_llm_api_key({})
 
 
 def test_dodo_runtime_environment_is_loadable() -> None:
