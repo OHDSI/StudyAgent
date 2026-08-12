@@ -144,8 +144,10 @@ For Windows and other managed-machine deployments, use a project environment rat
 ```powershell
 uv python install 3.12
 uv lock
-uv run --extra dev python -m pytest -q
+uv run --extra dev python -m pytest -q tests/test_config_deployment.py
 ```
+
+This quick verification does not require the optional phenotype source corpus, a built phenotype index, an LLM, or an embedding service.
 
 Always launch project commands through `uv run`; do not use bare `python`, `pytest`, `doit`, `study-agent-mcp`, or `study-agent-acp`, because PowerShell may resolve a managed system installation instead of the project environment:
 

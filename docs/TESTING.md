@@ -21,7 +21,7 @@ Dependency notes:
 For uv, include the optional development tools for test commands and run every project command through uv so a managed system Python cannot be selected from `PATH`:
 
 ```powershell
-uv run --extra dev python -m pytest -q
+uv run --extra dev python -m pytest -q tests/test_config_deployment.py
 uv run --extra dev doit test_all
 uv run study-agent-mcp --config .\config.yaml --profile native
 uv run study-agent-acp --config .\config.yaml --profile native
@@ -61,6 +61,8 @@ uv run python -m pip show mcp
 ```
 
 The `uv run` output is the authoritative project runtime. If a bare command resolves elsewhere, continue to invoke Study Agent and its test tools through `uv run` rather than changing the system Python installation. For Conda, replace `uv run` with `conda run -n study-agent`.
+
+The full suite includes developer tests that may require optional phenotype source data under `data/` and separately maintained R workflow assertions. Use the quick verification above for a fresh clone before adding those optional resources.
 
 ## Test output verbosity
 

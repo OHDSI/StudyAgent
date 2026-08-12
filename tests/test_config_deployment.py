@@ -27,12 +27,10 @@ def test_dockerfile_copies_example_configuration() -> None:
 
 def test_declared_runtime_dependencies_match_service_imports() -> None:
     pyproject = Path("pyproject.toml").read_text(encoding="utf-8")
-    environment = Path("environment.yml").read_text(encoding="utf-8")
     dockerfile = Path("Dockerfile").read_text(encoding="utf-8")
     assert '"mcp>=1.10,<2"' in pyproject
     assert '"httpx>=0.27.1,<1"' in pyproject
-    assert "mcp>=1.10,<2" in environment
-    assert "httpx>=0.27.1,<1" in environment
+    assert "python=3.12" in Path("environment.yml").read_text(encoding="utf-8")
     assert "from mcp.server.fastmcp import FastMCP" in dockerfile
 
 

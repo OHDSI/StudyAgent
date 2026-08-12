@@ -11,8 +11,18 @@ SPEC.loader.exec_module(builder)
 
 
 def test_build_ohdsi_row_adds_concept_evidence_and_retrieval_fields() -> None:
-    definition_path = Path("data/cohorts/2.json")
-    definition = json.loads(definition_path.read_text(encoding="utf-8"))
+    definition = {
+        "ConceptSets": [
+            {
+                "name": "COVID-19 condition",
+                "expression": {"items": [{"concept": {"CONCEPT_ID": 37311061, "CONCEPT_CODE": "840539006", "CONCEPT_NAME": "Disease caused by SARS-CoV-2", "VOCABULARY_ID": "SNOMED", "DOMAIN_ID": "Condition"}}]},
+            },
+            {
+                "name": "SARS-CoV-2 test",
+                "expression": {"items": [{"concept": {"CONCEPT_ID": 756055, "CONCEPT_CODE": "U0003", "CONCEPT_NAME": "SARS-CoV-2 test", "VOCABULARY_ID": "HCPCS", "DOMAIN_ID": "Measurement"}}]},
+            },
+        ]
+    }
     meta = {
         "cohortId": "2",
         "cohortName": "COVID-19 positive test or diagnosis",
@@ -35,7 +45,7 @@ def test_build_ohdsi_row_adds_concept_evidence_and_retrieval_fields() -> None:
 
     assert row["raw_keywords"] == []
     assert "native OHDSI cohort" in row["retrieval_keywords"]
-    assert "COVID-19" in row["retrieval_concept_labels"]
+    assert "SARS-CoV-2 test" in row["retrieval_concept_labels"]
     assert "HCPCS" in row["retrieval_concept_labels"]
     assert row["methodology_summary"] == "Native OHDSI cohort with 2 concept sets and 0 inclusion rules."
     assert row["concept_evidence"]["coverage_summary"] == {
@@ -48,14 +58,26 @@ def test_build_ohdsi_row_adds_concept_evidence_and_retrieval_fields() -> None:
     assert "HCPCS" in vocab_names
     assert "HCPCS" in row["retrieval_text"]
 
-
 def test_build_cipher_row_preserves_raw_keywords_and_derived_labels() -> None:
-    cipher_path = Path("data/cipher-phenotypes/Abdominal aortic aneurysm (MAP).json")
-    enum_path = Path("data/cipher-phenotypes/enumType 1.json")
-    record = json.loads(cipher_path.read_text(encoding="utf-8"))
-    enum_map = builder._load_cipher_enum_map(str(enum_path))
+    enum_map = {
+        1: {"fieldName": "ICD-9 Diagnostic Codes", "vaSpecific": False},
+        2: {"fieldName": "ICD-10 Diagnostic Codes", "vaSpecific": False},
+    }
+    record = {
+        "id": 42,
+        "fullName": "Abdominal aortic aneurysm (MAP)",
+        "phenotypeCategory": "General",
+        "description": "MAP is an unsupervised clustering algorithm for abdominal aortic aneurysm.",
+        "algorithm": {
+            "algorithmDesc": "Uses ICD code evidence.",
+            "assocCodes": [
+                {"codeType": 1, "codes": [{"code": "441.4"}], "description": "ICD-9 Diagnostic Codes"},
+                {"codeType": 2, "codes": [{"code": "I71.4"}], "description": "ICD-10 Diagnostic Codes"},
+            ],
+        },
+    }
 
-    row = builder._build_cipher_row(str(cipher_path), record, enum_map)
+    row = builder._build_cipher_row("fixture.json", record, enum_map)
 
     assert row["tags"] == ["General"]
     assert row["raw_keywords"] == []
@@ -65,7 +87,6 @@ def test_build_cipher_row_preserves_raw_keywords_and_derived_labels() -> None:
     assert row["concept_evidence"]["coverage_summary"]["has_codes"] is True
     assert row["concept_evidence"]["coverage_summary"]["has_labels"] is True
     assert any(item["system_name"] == "ICD-10 Diagnostic Codes" for item in row["code_systems"])
-
 
 def _sample_row() -> dict:
     return {
