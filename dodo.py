@@ -22,6 +22,13 @@ def _yaml_environment() -> dict[str, str]:
     return project_to_environment(config) if config is not None else {}
 
 
+def _secret_environment() -> dict[str, str]:
+    """Load wizard-generated secrets.env without exposing its values."""
+    from study_agent_core.config import load_secret_environment
+
+    return load_secret_environment(cwd=REPO_ROOT)
+
+
 # Environment-only setups remain supported; config.yaml values take precedence.
 CONFIG_ENV = _yaml_environment()
 DEFAULT_ENV = {
@@ -51,7 +58,9 @@ DEFAULT_ENV = {
 
 
 def _runtime_env() -> dict[str, str]:
-    env = os.environ.copy()
+    env = _secret_environment()
+    # Explicit shell/service-manager values override secrets.env.
+    env.update(os.environ)
     for key, value in DEFAULT_ENV.items():
         env.setdefault(key, value)
     env.update(CONFIG_ENV)

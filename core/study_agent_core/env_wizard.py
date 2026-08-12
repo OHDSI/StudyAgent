@@ -79,6 +79,7 @@ def _config_document(values: Mapping[str, str], run_style: str) -> dict[str, obj
         "paths": {
             "phenotype_index": values.get("PHENOTYPE_INDEX_DIR", "data/phenotype_index")
         },
+        "network": {"rewrite_container_hosts": run_style == "docker"},
         "acp": {
             "bind": {
                 "host": values["STUDY_AGENT_HOST"],

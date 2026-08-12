@@ -41,6 +41,7 @@ def test_dodo_and_calibration_use_configured_cross_platform_paths() -> None:
     calibration = Path("scripts/calibrate_timeouts.py").read_text(encoding="utf-8")
     assert "load_config(cwd=REPO_ROOT)" in dodo
     assert "STUDY_AGENT_RUNTIME_DIR" in dodo
+    assert "load_secret_environment(cwd=REPO_ROOT)" in dodo
     assert "/tmp/study_agent" not in dodo
     assert '[sys.executable, "tests/' in dodo
     assert "load_config(cwd=REPO_ROOT)" in calibration

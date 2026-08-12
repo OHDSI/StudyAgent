@@ -9,6 +9,7 @@ from study_agent_core.config import (
     ConfigError,
     apply_config,
     load_config,
+    load_secret_environment,
     project_to_environment,
 )
 from study_agent_core import config_cli
@@ -129,3 +130,37 @@ def test_unreadable_config_has_clear_error(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(Path, "read_text", deny_read_text)
     with pytest.raises(ConfigError, match="must be readable by the service user"):
         load_config(path)
+
+
+def test_secret_environment_loads_only_secrets_and_preserves_special_characters(
+    tmp_path,
+) -> None:
+    path = tmp_path / "secrets.env"
+    path.write_text(
+        "LLM_API_KEY='secret with spaces'\nOMOP_DB_ENGINE='postgresql://user:pass@example/db'\n",
+        encoding="utf-8",
+    )
+    assert load_secret_environment(path) == {
+        "LLM_API_KEY": "secret with spaces",
+        "OMOP_DB_ENGINE": "postgresql://user:pass@example/db",
+    }
+    path.write_text("MCP_PORT=8790\n", encoding="utf-8")
+    with pytest.raises(ConfigError, match="Only secret settings"):
+        load_secret_environment(path)
+
+
+def test_native_config_disables_container_localhost_rewriting(tmp_path) -> None:
+    path = write_config(tmp_path / "config.yaml", "version: 1\nprofile: native\n")
+    config = load_config(path)
+    assert config is not None
+    assert project_to_environment(config)["STUDY_AGENT_REWRITE_CONTAINER_HOSTS"] == "0"
+
+
+def test_docker_profile_enables_container_localhost_rewriting(tmp_path) -> None:
+    path = write_config(
+        tmp_path / "config.yaml",
+        "version: 1\nprofile: native\nprofiles:\n  docker:\n    network:\n      rewrite_container_hosts: true\n",
+    )
+    config = load_config(path, profile="docker")
+    assert config is not None
+    assert project_to_environment(config)["STUDY_AGENT_REWRITE_CONTAINER_HOSTS"] == "1"

@@ -13,7 +13,7 @@ Not every deployment needs every variable. Most local setups only need:
 
 `config.yaml` is the primary home for all non-secret Python service configuration. It is versioned, validated, supports profiles, and resolves relative filesystem paths from its own directory, which avoids shell- and platform-specific path expansion. Copy [`config.example.yaml`](../config.example.yaml) to `config.yaml`, or use `study-agent-setup` to create it interactively.
 
-Secrets must remain outside YAML. Use process environment variables for native services and `secrets.env` for Docker Compose. The supported secret variables include `LLM_API_KEY`, `EMBED_API_KEY`, `OMOP_DB_ENGINE` (or legacy `ENGINE`), `STUDY_AGENT_MCP_TOKEN`, and PV Copilot token variables. The loader rejects any YAML key that looks like a token, API key, password, connection string, or database URL.
+Secrets must remain outside YAML. Use process environment variables for native services and `secrets.env` for Docker Compose. `doit` also loads a repository-local `secrets.env` into its task subprocesses, so wizard-generated credentials work without manual shell exports; explicitly exported shell values take precedence. The supported secret variables include `LLM_API_KEY`, `EMBED_API_KEY`, `OMOP_DB_ENGINE` (or legacy `ENGINE`), `STUDY_AGENT_MCP_TOKEN`, and PV Copilot token variables. The loader rejects any YAML key that looks like a token, API key, password, connection string, or database URL.
 
 Start native services with an explicit file (preferred) or set the bootstrap-only `STUDY_AGENT_CONFIG` path:
 
@@ -28,7 +28,7 @@ The configuration precedence is: explicit CLI options, `config.yaml`, secret env
 
 ### Docker host services
 
-Within a container, `localhost` is the container itself. For an LLM or embedding service running on the Docker host, configure `http://host.docker.internal:<port>/...`. Compose maps that name to Docker's `host-gateway` on Linux, macOS, and Windows. You can verify the mapping after startup with `docker compose exec acp-agent getent hosts host.docker.internal`; to inspect the current bridge gateway directly, use `docker compose exec acp-agent sh -c "ip route show default"`. Do not copy a bridge IP such as `172.17.0.1` into `config.yaml`, because it can change between hosts and networks.
+Within a container, `localhost` is the container itself. The Docker profile enables localhost-to-host rewriting; the native profile explicitly disables it, even if native commands happen to run inside a nested containerized development environment. For an LLM or embedding service running on the Docker host, configure `http://host.docker.internal:<port>/...`. Compose maps that name to Docker's `host-gateway` on Linux, macOS, and Windows. You can verify the mapping after startup with `docker compose exec acp-agent getent hosts host.docker.internal`; to inspect the current bridge gateway directly, use `docker compose exec acp-agent sh -c "ip route show default"`. Do not copy a bridge IP such as `172.17.0.1` into `config.yaml`, because it can change between hosts and networks.
 
 Use full filesystem paths where practical, especially for index paths, generated-output roots, and Windows deployments. `paths.runtime` is the configuration-relative directory used by `doit` tasks and timeout calibration for logs and generated recommendations; it defaults to `.study-agent-runtime` instead of a Linux-only `/tmp` location.
 

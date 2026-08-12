@@ -48,6 +48,7 @@ def test_collect_configuration_separates_secret_values_from_yaml() -> None:
     )
     content = render_config_file(values, run_style)
     assert run_style == "native"
+    assert "rewrite_container_hosts: false" in content
     assert secrets == {"LLM_API_KEY": "llm-secret-value"}
     assert "llm-secret-value" not in content
     assert "LLM_API_KEY" not in content

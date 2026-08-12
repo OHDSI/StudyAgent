@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import os
 import re
+import shlex
 from pathlib import Path
 from typing import Any, Literal
 
@@ -12,7 +13,9 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 CONFIG_ENV_VAR = "STUDY_AGENT_CONFIG"
+SECRETS_ENV_VAR = "STUDY_AGENT_SECRETS_FILE"
 DEFAULT_CONFIG_NAME = "config.yaml"
+DEFAULT_SECRETS_NAME = "secrets.env"
 _SECRET_NAME_RE = re.compile(
     r"(?:api[_-]?key|token|secret|password|passwd|pwd|dsn|connection[_-]?string|database[_-]?url)",
     re.I,
@@ -27,6 +30,64 @@ _SECRET_VALUE_RE = re.compile(
 def is_secret_name(name: str) -> bool:
     """Return whether a setting name may contain a credential or connection secret."""
     return name.upper() in _SECRET_ENV_NAMES or bool(_SECRET_NAME_RE.search(name))
+
+
+def load_secret_environment(
+    path: str | Path | None = None, *, cwd: Path | None = None
+) -> dict[str, str]:
+    """Read a local secret-only env file without changing process environment.
+
+    Explicit shell environment values can be layered over this result by callers.
+    Ordinary configuration entries are rejected so the file cannot bypass
+    config.yaml validation or precedence.
+    """
+    explicit = path is not None or bool(os.getenv(SECRETS_ENV_VAR, "").strip())
+    source = (
+        Path(path).expanduser()
+        if path is not None
+        else Path(
+            os.getenv(SECRETS_ENV_VAR, "").strip()
+            or (cwd or Path.cwd()) / DEFAULT_SECRETS_NAME
+        )
+    )
+    source = source.resolve()
+    if not source.exists():
+        if explicit:
+            raise ConfigError(f"Secret environment file does not exist: {source}")
+        return {}
+    if not source.is_file():
+        raise ConfigError(f"Secret environment path is not a file: {source}")
+    values: dict[str, str] = {}
+    try:
+        lines = source.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        raise ConfigError(
+            f"Unable to read secret environment file {source}: {exc}"
+        ) from exc
+    for line_number, line in enumerate(lines, start=1):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if "=" not in stripped:
+            raise ConfigError(
+                f"Invalid secrets.env assignment at {source}:{line_number}"
+            )
+        name, raw_value = stripped.split("=", 1)
+        name = name.strip()
+        if not name or not is_secret_name(name):
+            raise ConfigError(
+                f"Only secret settings are allowed in secrets.env ({source}:{line_number})."
+            )
+        try:
+            parsed = shlex.split(raw_value, posix=True)
+        except ValueError as exc:
+            raise ConfigError(
+                f"Invalid secret value at {source}:{line_number}: {exc}"
+            ) from exc
+        if len(parsed) != 1:
+            raise ConfigError(f"Invalid secret value at {source}:{line_number}")
+        values[name] = parsed[0]
+    return values
 
 
 class ConfigError(ValueError):
@@ -116,7 +177,9 @@ class LoggingConfig(StrictModel):
 
 
 class NetworkConfig(StrictModel):
-    rewrite_container_hosts: bool = True
+    # Native config must keep localhost local even when launched from a nested
+    # containerized development environment. Docker profiles opt in explicitly.
+    rewrite_container_hosts: bool = False
     host_gateway: str = "host.docker.internal"
 
 

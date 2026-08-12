@@ -34,6 +34,8 @@ retrieval:
 
 profiles:
   docker:
+    network:
+      rewrite_container_hosts: true
     # Use host.docker.internal for LLM/embedding services running on the Docker host.
     llm:
       api_url: http://host.docker.internal:3000/api/chat/completions
