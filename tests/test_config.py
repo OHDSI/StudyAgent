@@ -118,3 +118,14 @@ def test_explicit_base_profile_is_accepted_without_an_overlay(tmp_path) -> None:
     config = load_config(path, profile="native")
     assert config is not None
     assert config.profile == "native"
+
+
+def test_unreadable_config_has_clear_error(tmp_path, monkeypatch) -> None:
+    path = write_config(tmp_path / "config.yaml", "version: 1\n")
+
+    def deny_read_text(*_args, **_kwargs):
+        raise PermissionError("permission denied")
+
+    monkeypatch.setattr(Path, "read_text", deny_read_text)
+    with pytest.raises(ConfigError, match="must be readable by the service user"):
+        load_config(path)

@@ -71,11 +71,15 @@ def test_render_secret_file_escapes_values() -> None:
     assert "LLM_API_KEY='contains $ and \\' quotes'" in content
 
 
-def test_write_file_refuses_existing_file_and_uses_private_mode(tmp_path) -> None:
+def test_write_file_refuses_existing_file_and_honors_mode(tmp_path) -> None:
     output = tmp_path / "secrets.env"
     write_env_file(output, "LLM_API_KEY=secret\n")
     assert output.read_text(encoding="utf-8") == "LLM_API_KEY=secret\n"
     if os.name != "nt":
         assert stat.S_IMODE(output.stat().st_mode) == 0o600
+    config = tmp_path / "config.yaml"
+    write_env_file(config, "version: 1\n", mode=0o644)
+    if os.name != "nt":
+        assert stat.S_IMODE(config.stat().st_mode) == 0o644
     with pytest.raises(FileExistsError):
         write_env_file(output, "LLM_API_KEY=replaced\n")

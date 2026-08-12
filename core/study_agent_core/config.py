@@ -287,6 +287,11 @@ def load_config(
         raise ConfigError(f"Configuration file does not exist: {source}")
     try:
         raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+    except OSError as exc:
+        raise ConfigError(
+            f"Unable to read configuration file {source}: {exc}. "
+            "config.yaml contains no secrets and must be readable by the service user."
+        ) from exc
     except yaml.YAMLError as exc:
         raise ConfigError(f"Invalid YAML in {source}: {exc}") from exc
     if not isinstance(raw, dict):

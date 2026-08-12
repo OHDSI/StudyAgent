@@ -309,8 +309,14 @@ def collect_configuration(
     return values, secrets, run_style
 
 
-def write_env_file(path: Path, content: str, *, overwrite: bool = False) -> None:
-    """Atomically create a private file without printing its contents."""
+def write_env_file(
+    path: Path,
+    content: str,
+    *,
+    overwrite: bool = False,
+    mode: int = 0o600,
+) -> None:
+    """Atomically create a file without printing its contents."""
     path = path.expanduser()
     if path.exists() and not overwrite:
         raise FileExistsError(f"Refusing to overwrite existing file: {path}")
@@ -320,10 +326,14 @@ def write_env_file(path: Path, content: str, *, overwrite: bool = False) -> None
     )
     try:
         if hasattr(os, "fchmod"):
-            os.fchmod(descriptor, 0o600)
+            os.fchmod(descriptor, mode)
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
             handle.write(content)
         os.replace(temporary_name, path)
+        try:
+            os.chmod(path, mode)
+        except OSError:
+            pass  # Windows does not implement POSIX file modes in the same way.
     except Exception:
         try:
             os.unlink(temporary_name)
@@ -394,6 +404,7 @@ def main(argv: list[str] | None = None) -> None:
         args.config_output,
         render_config_file(values, run_style),
         overwrite=args.force or args.config_output.exists(),
+        mode=0o644,
     )
     if secrets:
         write_env_file(
