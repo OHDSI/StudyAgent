@@ -1,6 +1,6 @@
-# OHDSI Study Design Assistant
+# OHDSI Study Agent
 
-This repository is building an agent-style interface for common OHDSI study design tasks. The fundamental use case for this project is to enable AI-assisted, but human led, observational study designs leveraging existing deterministic OHDSI tools. Initially, this is with HADES and Atlas but there no restriction on the use of study agent flows in other tooling environments (e.g., DARWIN tools).
+Stud Agent is an agent-style interface for common OHDSI study design tasks. The fundamental use case for this project is to enable AI-assisted, but human led, observational study designs leveraging existing deterministic OHDSI tools. Initially, this is with HADES and Atlas but there no restriction on the use of study agent flows in other tooling environments (e.g., DARWIN tools).
 
 The current implementation provides:
 
@@ -9,7 +9,11 @@ The current implementation provides:
 - R-based interactive shells to specify and run real-world evidence generation using HADES incidence rate analysis and CohortMethod methods
 - Support for `/ohdsi` AI interactive run and inspection features and contextualized question answering. 
 
-This project is in beta testing. The videos below provide an overview of the current state for R-Hades support.
+This project is in beta testing. The videos below provide an overview of the project and the current state for R-Hades support.
+
+Read [What about agent skills (e.g., SKILL.md)?](https://github.com/OHDSI/StudyAgent/blob/main/docs/WHAT-ABOUT-AGENT-SKILLS.md) to understand how this project will likely eventually be used with coding agents like Codex and Claude.
+
+[VIDEO: Installation on Windows with Powershell and UV](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=0878dcf9-5752-42ef-b8a7-b4a50113c579) (*Docker and conda options are described below*)
 
 [VIDEO: Overview of Study Agent for AI-Assisted Real-world evidence generation](https://www.youtube.com/watch?v=rMxnmEGWoO4)
 
