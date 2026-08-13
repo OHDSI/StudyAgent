@@ -1,0 +1,804 @@
+cohortName,ruleSequence,ruleName,cohortId
+1009,0,No prior mania,1009
+1009,1,No prior dementia,1009
+1009,2,No prior psychosis,1009
+1021,0,Age >= 18 years ,1021
+1032,0,no Type 1 diabetes mellitus diagnosis on or prior to T2DM,1032
+1032,1,no secondary diabetes diagnosis on or prior to T2DM,1032
+1032,2,has at least one diagnosis of T2DM on or within 365d of index date,1032
+1034,0,30 day clean window,1034
+1046,0,nested in essential hypertension,1046
+1047,0,nested in essential hypertension,1047
+1049,0,nested in essential hypertension,1049
+1050,0,nested in Left Heart Failure,1050
+1051,0,nested in Left Heart Failure,1051
+1052,0,nested in Acute myocardial infarction,1052
+1053,0,nested in type 2 diabetes mellitus,1053
+1054,0,nested in Type 2 diabetes mellitus,1054
+1055,0,nested in type 2 diabetes mellitus,1055
+1056,0,nested in obesity,1056
+1057,0,nested in Plaque psoriasis,1057
+1058,0,nested in Plaque psoriasis,1058
+1059,0,nested in Psoriatic Arthritis,1059
+1060,0,nested in Urinary Tract Infection,1060
+1061,0,nested in Urinary Tract Infection,1061
+1062,0,nested in Urinary Tract Infection,1062
+1063,0,nested in Acute Typical Pneumonia,1063
+1064,0,nested in Acute Typical Pneumonia,1064
+1065,0,nested in Acute Typical Pneumonia,1065
+1066,0,nested in Rheumatoid arthritis,1066
+1067,0,nested in Ulcerative colitis,1067
+1068,0,nested in Ulcerative colitis,1068
+1069,0,nested in Crohns disease,1069
+1070,0,nested in Rheumatoid arthritis,1070
+1072,0,Evidence of cytomegalovirus infection in the eye,1072
+1072,1,no retinitis [conditions],1072
+1072,2,no syphilis [measurements],1072
+1072,3,"no sarcoidosis [conditions, observations]",1072
+1072,4,no HSV AC PCR [measurements],1072
+1072,5,no VZV AC PCR [measurements],1072
+1075,0,has no events in prior 'clean window' - 365 days,1075
+1076,0,has no events in prior 'clean window' - 30 days,1076
+1077,0,has no events in prior 'clean window' - 30 days,1077
+1078,0,has no events in prior 'clean window' 183 days,1078
+1079,0,has no events in prior 'clean window' 183 days,1079
+1080,0,has no events in prior 'clean window',1080
+1081,0,has no events in prior 'clean window' - 365 days,1081
+1082,0,has no events in prior 'clean window' - 365 days,1082
+1083,0,has no events in prior 'clean window' - 365 days,1083
+1084,0,has no events in prior 'clean window' - 365 days,1084
+1085,0,has no events in prior 'clean window' - 365 days,1085
+1086,0,has no events in prior 'clean window' - 365 days,1086
+1087,0,has no events in prior 'clean window' - 365 days,1087
+1088,0,has no events in prior 'clean window' - 365 days,1088
+1089,0,has no events in prior 'clean window' - 365 days,1089
+1090,0,has no events in prior 'clean window' - 365 days,1090
+1091,0,Thrombocytopenia within 7 days of thrombosis with no such event in the past 90 days (clean window) ,1091
+1091,1,Thrombosis clean window period (-365 days),1091
+1093,0,Age above 18 years,1093
+1093,1,Inpatient visit on day of surgery without ER visit immediately on or prior,1093
+1093,2,Atrial fibrillation (any) within 14d of surgery,1093
+1093,3,No prior atrial fibrillation ,1093
+1094,0,Age above 18 years,1094
+1094,1,Inpatient visit on day of surgery without ER visit immediately on or prior,1094
+1094,2,Atrial fibrillation (any) within 14d of surgery,1094
+1094,3,No prior atrial fibrillation ,1094
+1095,0,Age above 18 years,1095
+1095,1,Inpatient visit on day of surgery without ER visit immediately on or prior,1095
+1095,2,Atrial fibrillation (any) within 14d of surgery,1095
+1095,3,No prior atrial fibrillation ,1095
+1097,0,Age above 18 years,1097
+1097,1,Inpatient visit on day of surgery without ER visit immediately on or prior,1097
+1097,2,Atrial fibrillation (any) within 14d of surgery,1097
+1097,3,No prior atrial fibrillation ,1097
+1098,0,Age above 18 years,1098
+1098,1,Inpatient visit on day of surgery without ER visit immediately on or prior,1098
+1098,2,Atrial fibrillation (any) within 14d of surgery,1098
+1098,3,No prior atrial fibrillation ,1098
+1099,0,Age above 18 years,1099
+1099,1,Inpatient visit on day of surgery without ER visit immediately on or prior,1099
+1099,2,Atrial fibrillation (any) within 14d of surgery,1099
+1099,3,No prior atrial fibrillation ,1099
+1100,0,Age above 18 years,1100
+1100,1,Inpatient visit on day of surgery without ER visit immediately on or prior,1100
+1100,2,Atrial fibrillation (any) within 14d of surgery,1100
+1100,3,No prior atrial fibrillation ,1100
+1101,0,Age above 18 years,1101
+1101,1,Inpatient visit on day of surgery without ER visit immediately on or prior,1101
+1101,2,Atrial fibrillation (any) within 14d of surgery,1101
+1101,3,No prior atrial fibrillation ,1101
+1102,0,Age above 18 years,1102
+1102,1,Inpatient visit on day of surgery without ER visit immediately on or prior,1102
+1102,2,Atrial fibrillation (any) within 14d of surgery,1102
+1102,3,No prior atrial fibrillation ,1102
+1103,0,Age above 18 years,1103
+1103,1,Inpatient visit on day of surgery without ER visit immediately on or prior,1103
+1103,2,Atrial fibrillation (any) within 14d of surgery,1103
+1103,3,No prior atrial fibrillation ,1103
+1104,0,No prior transfusion in last 30d,1104
+1105,0,No c diff (condition) in history,1105
+1105,1,No c diff (by measurement) in history,1105
+1106,0,Age above 18 years,1106
+1106,1,Inpatient visit on day of surgery without ER visit immediately on or prior,1106
+1106,2,"No prior opioid in last year, up to 30d prior to Sgx",1106
+1152,0,has no events in prior 'clean window' - 365 days,1152
+1153,0,has no events in prior 'clean window' - 42 days,1153
+1155,0,has no events in prior 'clean window' - 365 days,1155
+1156,0,has no events in prior 'clean window' - 365 days,1156
+1159,0,no Angina in prior 30 days,1159
+1163,0,Washout period with no AKI codes,1163
+1163,1,No ESKD at baseline,1163
+1163,2,No chronic dialysis at baseline (-365 to 8 days) ,1163
+1163,3,No Kidney Transplant any time prior ,1163
+1168,0,365 washout period,1168
+1176,0,180 day washout,1176
+1177,0,365 washout period,1177
+1186,0,30 day washout,1186
+1188,0,No normal Hemoglobin measurement in blood on index date,1188
+1188,1,No normal Hematocrit measurement in blood on index date,1188
+1188,2,No Polycythemia on index date,1188
+1193,0,no Type 2 diabetes mellitus specific diagnosis on or prior to T1DM,1193
+1193,1,no secondary diabetes diagnosis on or prior to T1DM,1193
+1194,0,no Type 1 diabetes mellitus diagnosis on or prior to T2DM,1194
+1194,1,no secondary diabetes diagnosis on or prior to T2DM,1194
+1195,0,No prior Dyspnea in 30 days,1195
+1196,0,30 day washout,1196
+1197,0,45 day washout period ,1197
+1199,0,180 day washout period,1199
+1223,0,"no syphilis [condition,measurements]",1223
+1223,1,"no sarcoidosis [conditions, observations]",1223
+1223,2,no ocular lymphoma[condition],1223
+1224,0,Evidence of cytomegalovirus infection in the eye,1224
+1224,1,no retinitis [conditions],1224
+1224,2,no syphilis [measurements],1224
+1224,3,"no sarcoidosis [conditions, observations]",1224
+1224,4,no HSV AC PCR [measurements],1224
+1224,5,no VZV AC PCR [measurements],1224
+1225,0,Evidence of varicella zoster virus infection in the eye,1225
+1225,1,no retinitis [conditions],1225
+1225,2,no syphilis [measurements],1225
+1225,3,"no sarcoidosis [conditions, observations]",1225
+1225,4,no HSV AC PCR [measurements],1225
+1225,5,no CMV AC PCR [measurements],1225
+1225,6,"no bilateral uveitis except with VZV PCR+ [conditions, measurements]",1225
+1226,0,Evidence of varicella zoster virus infection in the eye,1226
+1226,1,no retinitis [conditions],1226
+1226,2,no syphilis [measurements],1226
+1226,3,"no sarcoidosis [conditions, observations]",1226
+1226,4,no HSV AC PCR [measurements],1226
+1226,5,no CMV AC PCR [measurements],1226
+1226,6,"no bilateral uveitis except with VZV PCR+ [conditions, measurements]",1226
+1227,0,Evidence of herpes simplex infection in the eye,1227
+1227,1,no retinitis [conditions],1227
+1227,2,no syphilis [measurements],1227
+1227,3,"no sarcoidosis [conditions, observations]",1227
+1227,4,no CMV AC PCR [measurements],1227
+1227,5,no VZV AC PCR [measurements],1227
+1227,6,"no bilateral uveitis except with HSV PCR+ [conditions, measurements]",1227
+1227,7,no concomitant dermatomal/cutaneous varicella zoster virus [conditions],1227
+1228,0,Evidence of herpes simplex infection in the eye,1228
+1228,1,no retinitis [conditions],1228
+1228,2,no syphilis [measurements],1228
+1228,3,"no sarcoidosis [conditions, observations]",1228
+1228,4,no CMV AC PCR [measurements],1228
+1228,5,no VZV AC PCR [measurements],1228
+1228,6,"no bilateral uveitis except with HSV PCR+ [conditions, measurements]",1228
+1228,7,no concomitant dermatomal/cutaneous varicella zoster virus [conditions],1228
+1229,0,Behcet oral or genital aphthous ulcer/aphthosis [conditions],1229
+1229,1,"Behcet ICBD other systemic finding [conditions, observations, measurements]",1229
+1229,2,no syphilis [measurements],1229
+1229,3,"no sarcoidosis [conditions, observations]",1229
+1229,4,no choroiditis [conditions],1229
+1261,0,Exclude if concomitant non acute pneumonia,1261
+1263,0,No prior asthma,1263
+1265,0,Must have Chronic Lung Disease ,1265
+1265,1,Echocardiography or RHC,1265
+1268,0,Age above 18 years,1268
+1268,1,Inpatient visit on day of surgery without ER visit immediately on or prior,1268
+1268,2,Atrial fibrillation (any) within 14d of surgery,1268
+1268,3,No prior atrial fibrillation ,1268
+1274,0,Soiltary Lung Nodule,1274
+1275,0,Multiple Lung Nodule,1275
+1278,0,Second Primary Lung Cancer Date,1278
+1278,1,No Small Cell Lung Cancer,1278
+1278,2,NSCLC drugs or condition or observation or biomarker 365 days after index,1278
+1278,3,No Malignant neoplasm of upper respiratory tract,1278
+1278,4,No metastasis to bone,1278
+1278,5,No metastasis,1278
+1278,6,Not TNM T1,1278
+1278,7,Not TNM T2,1278
+1278,8,Not TNM M1,1278
+1278,9,Not Stage 1,1278
+1278,10,Not Stage 2,1278
+1278,11,Is Stage 3,1278
+1278,12,Is stage 3 365,1278
+1278,13,Is Stage 3 180,1278
+1278,14,Not Stage 4,1278
+1279,0,Second Primary Lung Cancer Date,1279
+1279,1,No Small Cell Lung Cancer,1279
+1279,2,NSCLC drugs or condition or observation or biomarker 365 days after index,1279
+1279,3,No Malignant neoplasm of upper respiratory tract,1279
+1281,0,Second Primary Lung Cancer Date,1281
+1285,0,no acute bronchitis in prior 30d,1285
+1286,0,No Small Cell Lung Cancer,1286
+1286,1,NSCLC drugs or condition or observation or biomarker 365 days after index,1286
+1286,2,No Malignant neoplasm of upper respiratory tract,1286
+1286,3,No metastasis to bone,1286
+1286,4,No metastasis,1286
+1286,5,Not TNM T1,1286
+1286,6,Not TNM T2,1286
+1286,7,Not TNM M1,1286
+1286,8,Not Stage 1,1286
+1286,9,Not Stage 2,1286
+1286,10,Is Stage 3,1286
+1286,11,Is stage 3 365,1286
+1286,12,Is Stage 3 180,1286
+1286,13,Not Stage 4,1286
+1289,0,Age above 18 years,1289
+1290,0,Age above 18 years,1290
+1291,0,Age above 18 years,1291
+1292,0,Age above 18 years,1292
+1293,0,Age above 18 years,1293
+1294,0,Age above 18 years,1294
+1295,0,Age above 18 years,1295
+1296,0,Age above 18 years,1296
+1297,0,Age above 18 years,1297
+1298,0,Age above 18 years,1298
+1299,0,Age above 18 years,1299
+13,0,"Exclude persons with muscle pain that may be explained by injury, ischemia or chronic systemic inflammation",13
+1300,0,Age above 18 years,1300
+1304,0,Age above 18 years,1304
+1304,1,Atrial fibrillation (any) within 14d of surgery,1304
+1304,2,No prior Atrial fibrillation,1304
+1305,0,Age above 18 years,1305
+1305,1,Atrial fibrillation (any) within 14d of surgery,1305
+1305,2,No prior atrial fibrillation ,1305
+1306,0,Age above 18 years,1306
+1306,1,Atrial fibrillation (any) within 14d of surgery,1306
+1306,2,No prior atrial fibrillation ,1306
+1307,0,Age above 18 years,1307
+1307,1,Atrial fibrillation (any) within 14d of surgery,1307
+1307,2,No prior atrial fibrillation ,1307
+1308,0,Age above 18 years,1308
+1308,1,Atrial fibrillation (any) within 14d of surgery,1308
+1308,2,No prior atrial fibrillation ,1308
+1309,0,Age above 18 years,1309
+1309,1,Atrial fibrillation (any) within 14d of surgery,1309
+1309,2,No prior atrial fibrillation ,1309
+1310,0,Age above 18 years,1310
+1310,1,Atrial fibrillation (any) within 14d of surgery,1310
+1310,2,No prior atrial fibrillation ,1310
+1311,0,Age above 18 years,1311
+1311,1,Atrial fibrillation (any) within 14d of surgery,1311
+1311,2,No prior atrial fibrillation ,1311
+1312,0,Age above 18 years,1312
+1312,1,Atrial fibrillation (any) within 14d of surgery,1312
+1312,2,No prior atrial fibrillation ,1312
+1313,0,Age above 18 years,1313
+1313,1,Atrial fibrillation (any) within 14d of surgery,1313
+1313,2,No prior atrial fibrillation ,1313
+1314,0,Age above 18 years,1314
+1314,1,Atrial fibrillation (any) within 14d of surgery,1314
+1314,2,No prior atrial fibrillation ,1314
+1315,0,Age above 18 years,1315
+1315,1,Atrial fibrillation (any) within 14d of surgery,1315
+1315,2,No prior atrial fibrillation ,1315
+1316,0,Chronic Hepatic Failure ,1316
+1316,1,History of Liver Cirrhosis,1316
+1316,2,History of Liver Transplant,1316
+1318,0,(personal history of primary lung cancer) no personal history of primary lung cancer,1318
+1318,1,(secondary) lung cancer (before),1318
+1318,2,(secondary) lung cancer (on or before),1318
+1318,3,(curative intent) no history of palliative (on or before),1318
+1318,4,(curative intent) no history of death (on or before),1318
+1318,5,no evidence of being SCLC (anytime),1318
+1318,6,(Solitary) no urothelial carcinoma (on or before),1318
+1318,7,(Solitary) no biliary tract or gall bladder cancer (on or before),1318
+1318,8,(Solitary) no hepatocellular cancer (on or before),1318
+1318,9,(Solitary) no malignant tumor of kidney (on or before),1318
+1318,10,(Solitary) no malignant melanoma (on or before),1318
+1318,11,(Solitary) no malignant tumor of prostate (on or before),1318
+1318,12,(Solitary) no malignant tumor of breast (on or before),1318
+1318,13,"(Solitary) no multiple myeloma, plasma cell leukemia or plasmacytoma (on or before)",1318
+1318,14,(Solitary) no malignant tumor of trachea (on or before),1318
+1318,15,(Solitary) all excluded tumors (on or before),1318
+1318,16,(solitary) other malignancy that may spread to lung (on or before),1318
+1318,17,(RxNaive) no radiation therapy (before),1318
+1318,18,(RxNaive) no radiation therapy (on or before),1318
+1318,19,(RxNaive) no radiation therapy or planning (before),1318
+1318,20,(RxNaive) no radiation therapy or planning (on or before),1318
+1318,21,(RxNaive) no platinum based chemotherapy (before),1318
+1318,22,(RxNaive) no platinum based chemotherapy (on or before),1318
+1318,23,(RxNaive) no selected non platinum based chemotherapy (before),1318
+1318,24,(RxNaive) no selected non platinum based chemotherapy (on or before),1318
+1318,25,"(RxNaive) no selected chemotherapy drugs or hormonal agents, that are not commonly used in primary lung cancer (before)",1318
+1318,26,"(RxNaive) no selected chemotherapy drugs or hormonal agents, that are not commonly used in primary lung cancer (on or before)",1318
+1318,27,"(RxNaive) no selected chemotherapy drugs, that are occasionally used in primary lung cancer (before)",1318
+1318,28,"(RxNaive) no selected chemotherapy drugs, that are occasionally used in primary lung cancer (on or before)",1318
+1318,29,(RxNaive) no selected check point inhibitors (before),1318
+1318,30,(RxNaive) no selected check point inhibitors (on or before),1318
+1318,31,(RxNaive) no immunotherapeutic (before),1318
+1318,32,(RxNaive) no immunotherapeutic (on or before),1318
+1318,33,(RxNaive) no monoclonal antibodies (before),1318
+1318,34,(RxNaive) no monoclonal antibodies (on or before),1318
+1318,35,(RxNaive) no epidermal growth factor receptor (EGFR) tyrosine kinase inhibitors (before),1318
+1318,36,(RxNaive) no epidermal growth factor receptor (EGFR) tyrosine kinase inhibitors (on or before),1318
+1318,37,(RxNaive) no protein kinase inhibitors (including ALK inhibitors) (before),1318
+1318,38,(RxNaive) no protein kinase inhibitors (including ALK inhibitors) (on or before),1318
+1318,39,(SxNaive) no lung resection excision in prior 1 year (365 days before to 1 days before),1318
+1318,40,(SxNaive) no lung resection excision in prior 1 year (365 days before to 0 days before),1318
+1318,41,(SxNaive) no lung resection excision (before),1318
+1318,42,(SxNaive) no lung resection excision (on or before),1318
+1329,0,Overdose,1329
+134,0,has at least one condition record of ADHD,134
+1431,0,Outcome between 42d-84d from entry event,1431
+1431,1,No outcome between 0d-41d from entry event,1431
+1431,2,No outcome in the 14d before entry event,1431
+1431,3,Has a second pregnancy marker,1431
+1431,4,"Female, aged 12-55 on outcome date",1431
+1431,5,"No post outcome event in 42d (AGP, PCONF)",1431
+1431,6,No live birth/stillbirth around outcome date,1431
+1431,7,OBSERVATION PERIOD: End marker in observation period,1431
+1431,8,ECT procedure within 14d of ECT condition,1431
+1432,0,Outcome between 140d-301d from entry event,1432
+1432,1,No outcome between 0d-139d from entry event,1432
+1432,2,No outcome in 28d before entry event,1432
+1432,3,Has a second pregnancy marker,1432
+1432,4,"Female, aged 12-55 on outcome date",1432
+1432,5,"No post outcome event in 42d (AGP, PCONF)",1432
+1432,6, No live birth around outcome date,1432
+1432,7,Outcome marker in observation period,1432
+1433,0,Outcome between 161d-301d from entry event,1433
+1433,1,No outcome between 0d-160d from entry event,1433
+1433,2,No outcome in the 28d before entry event,1433
+1433,3,Has a second pregnancy marker,1433
+1433,4,"Female, aged 12-55 on outcome date",1433
+1433,5,"If only a delivery code, no other pregnancy outcome",1433
+1433,6,Outcome marker in observation period,1433
+1434,0,Outcome between 28d-139d from entry event,1434
+1434,1,No outcome between 0d-27d from entry event  ,1434
+1434,2,No outcome in the 14d before entry event,1434
+1434,3,Has a second pregnancy marker,1434
+1434,4,"Female, aged 12-55 on outcome date",1434
+1434,5,"No post outcome event in 42d (AGP, PCONF) ",1434
+1434,6,No live birth/stillbirth/ectopic pregnancy around outcome date,1434
+1434,7,Outcome marker in observation period,1434
+207,0,No congenital or genetic anemia,207
+207,1,No Constitutional Pure Red Cell Aplasia,207
+207,2,No normal Hemoglobin measurement in blood on index date,207
+207,3,No normal Hematocrit measurement in blood on index date,207
+207,4,No Polycythemia on index date,207
+207,5,No Bone marrow transplant,207
+208,0,Inpatient Visit,208
+208,1,No Normal Neutrophil count (ANC ),208
+209,0,Washout period - 365 days,209
+209,1,No normal low Hemoglobin measurement in blood on index date,209
+209,2,No Polycythemia on index date,209
+209,3,No Hereditary hemoglobinopathy,209
+209,4,No Erythrocyte membrane defect,209
+209,5,No Hereditary hemolytic anemia,209
+209,6,No Glucose-6-phosphate dehydrogenase deficiency anemia,209
+209,7,No Inherited disorder of porphyrin metabolism,209
+209,8,No Paroxysmal nocturnal hemoglobinuria,209
+210,0,No normal low Hemoglobin measurement in blood on index date,210
+210,1,No Polycythemia on index date,210
+210,2,No Hereditary hemoglobinopathy,210
+210,3,No Erythrocyte membrane defect,210
+210,4,No Hereditary hemolytic anemia,210
+210,5,No Inherited disorder of porphyrin metabolism,210
+210,6,No Paroxysmal nocturnal hemoglobinuria,210
+211,0,"No Congenital or Genetic Neutropenia, Leukopenia or Agranulocytosis",211
+211,1,No Congenital or Genetic anemia,211
+211,2,No Congenital or Genetic Thrombocytopenia,211
+213,0,"No congenital or genetic neutropenia, leukopenia or agranulocytosis",213
+213,1,No Normal Neutrophil count on index date,213
+213,2,No Neutrophilia on index date,213
+214,0,"No congenital or genetic neutropenia, leukopenia or agranulocytosis",214
+214,1,No Normal Neutrophil count on index date,214
+214,2,No Neutrophilia on index date,214
+214,3,No Pancytopenia or bone marrow disorder within 7 days,214
+214,4,No Anemia diagnosis within 7 days,214
+214,5,No low Hemoglobin measurement in blood within 7 days,214
+214,6,No low Hematocrit measurement in blood within 7 days,214
+214,7,No thrombocytopenia within 7 days,214
+214,8,No low Platelet measurement in blood within 7 days,214
+215,0,No congenital or genetic thrombocytopenia,215
+215,1,No Platelet count > 100 on index date,215
+215,2,No thrombocytosis on index date,215
+215,3,No Pancytopenia or bone marrow disorder diagnosis within 7 days,215
+215,4,"No Neutropenia, Agranulocytosis diagnosis within 7 days",215
+215,5,No low neutrophil count within 7 days,215
+215,6,No Anemia diagnosis within 7 days,215
+215,7,No low Hemoglobin measurement in blood within 7 days,215
+216,0,365 days  washout period ,216
+216,1,No congenital or genetic thrombocytopenia,216
+216,2,No Platelet count > 100 on index date,216
+216,3,No thrombocytosis on index date,216
+216,4,No Hypersplenism,216
+216,5,No Antiphospholipid syndrome,216
+216,6,No Paroxysmal nocturnal hemoglobinuria,216
+216,7,No Hemolytic uremic syndrome,216
+216,8,No Thrombotic microangiopathy,216
+216,9,"No major autoimmune disorders (RA, MS, Psoriasis, SLE, CD, UC, Addisons, Graves, Sjogren, Myasthenia Gravis, Vasculitis, Celiac)",216
+216,10,No Chronic Liver Disease,216
+216,11,No Pregnancy related HELLP syndrome (in past 3 months),216
+216,12,"No tumors of hematopoietic cells including lymphoma, leukemia, myeloma and related",216
+216,13,No Nutritional deficiency,216
+216,14,No Pancytopenia or bone marrow disorder diagnosis within 7 days,216
+216,15,"No Neutropenia, Agranulocytosis diagnosis within 7 days",216
+216,16,No low neutrophil count within 7 days,216
+216,17,No Anemia diagnosis within 7 days,216
+216,18,No low Hemoglobin measurement in blood within 7 days,216
+216,19,No low Hematocrit measurement in blood within 7 days,216
+217,0,No congenital or genetic thrombocytopenia,217
+217,1,No Platelet count > 150 on index date,217
+218,0,Washout period - 180 days,218
+218,1,Requires hospitalization,218
+218,2,No major trauma in last 14 days,218
+218,3,No major burn in last 14 days,218
+218,4,No major drowning in last 14 days,218
+218,5,No major hypothermia in last 14 days,218
+218,6,No major hyperthermia or hyperpyrexia in last 14 days,218
+218,7,No Sepsis inpatient in last 14 days,218
+218,8,No Sepsis in last 14 days,218
+218,9,No Crush Syndrome in last 14 days,218
+218,10,No March myoglobinuria in last 14 days,218
+218,11,Not due to exertional reasons in last 14 days,218
+218,12,No alcohol intoxication in the last 14 days ,218
+219,0,Has Inpatient or ER visit ,219
+220,0,Angioedema within 3 days  ,220
+220,1,No Cardiac Edema,220
+220,2,No Cellulitis,220
+220,3,No Erysipelas,220
+220,4,No Dermatitis or Eczema,220
+220,5,No Lymphedema ,220
+220,6,No insect bites,220
+221,0,No Food anaphylaxis on index date,221
+221,1,No anaphylaxis due to substances other than food or drug on index date,221
+221,2,No anaphylaxis due insect bite on index date,221
+221,3,No insect bite or sting,221
+221,4,No Toxic effect of venom,221
+221,5,Accidental poisoning,221
+222,0,Visit is Inpatient or Emergency Room,222
+223,0,Does NOT have hypertensive encephalopathy at baseline ,223
+223,1,Does NOT have Eclampsia at baseline ,223
+224,0,Washout period - 180 days,224
+224,1,Has No Congenital QT Syndrome,224
+225,0,No Systemic Lupus Erythematosus,225
+230,0,has no certain chronic liver disease events in prior 0 - 365 days,230
+230,1,has no Systemic Lupus Erythematosus events in prior 0 - 365 days,230
+233,0,has no events in prior 'clean window' - 180 days,233
+239,0,No hypersomnia in 365 days prior to index and including index,239
+251,0,Should have Acute Pancreatitis within 1 day,251
+251,1,Should NOT have Chronic Pancreatitis on or before Acute Pancreatitis,251
+251,2,Should NOT have Hereditary Pancreatitis any time,251
+253,0,Should have Acute Pancreatitis within 1 day,253
+253,1,Should NOT have Chronic Pancreatitis on or before Acute Pancreatitis,253
+253,2,Should NOT have Hereditary Pancreatitis any time,253
+253,3,Should NOT have Alcoholic Pancreatitis on or before Acute Pancreatitis,253
+253,4,Should NOT have evidence Alcoholism or Severe Alcohol related disorders in past 1 year,253
+253,5,Should NOT have evidence Alcohol intoxication in past 30 days,253
+253,6,Should NOT have evidence Cholangitis or Cholecystitis in past 1 year,253
+253,7,Should NOT have evidence Biliary Tract Disease in past in past 1 year,253
+253,8,Should NOT have evidence of recent Endoscopic retrograde cholangiopancreatography,253
+253,9,Should NOT have evidence of Intestinal ischemia including acute mesenteric ischemia,253
+253,10,Should NOT have evidence of Gastrointestinal perforation,253
+253,11,Should NOT have evidence of Intestinal Obstruction,253
+254,0,Adult Age,254
+254,1,Additional Criteria,254
+255,0,"No occurrence of any other specific dementia diagnosis (e.g., VD, Pick’s disease, or Lewy body dementia [LBD]) after the Alzheimer's disease diagnosis date",255
+255,1,No occurrence of Stroke diagnosis within 2 years prior to the Alzheimer's disease diagnosis date,255
+255,2,>= 18 years old,255
+256,0,has no events in prior 'clean window' 183 days,256
+256,1,Remove congenital Facial Palsy,256
+256,2,Not Upper Motor Neuron,256
+264,0,Prior Liver Disease,264
+265,0,Chronic Hepatic Failure,265
+265,1,Viral Hepatitis,265
+265,2,Liver Cirrhosis,265
+265,3,Liver Fibrosis,265
+265,4,Toxic Liver Disease (7d),265
+265,5,Hepatic Necrosis (7d),265
+265,6,Alcohol use disorder,265
+265,7,Alcoholic Hepatitis,265
+265,8,Alcoholic Fatty Liver,265
+265,9,"Malignancies that spread to liver (breast, esophageal, stomach, pancreatic, lung, kidney, melanoma)",265
+265,10,Chronic Hepatic Failure,265
+265,11,Other Chronic Liver Disease,265
+265,12,Ascites (7d),265
+265,13,Portal Hypertension (7d),265
+265,14,History of Liver Transplant,265
+265,15,Cholestasis (7d),265
+265,16,Non-Alcoholic Fatty Liver Disease,265
+265,17,Autoimmune Hepatitis,265
+265,18,Primary Biliary Cholangitis,265
+265,19,Hemochromatosis,265
+265,20,Wilsons Disease,265
+265,21,Neoplasm of liver,265
+265,22,Other liver problems entry event criteria,265
+267,0,Has prior chronic kidney disease,267
+267,1,No ESKD at baseline,267
+267,2,No chronic dialysis at baseline (-365 to 8 days) ,267
+267,3,No Kidney Transplant any time prior ,267
+268,0,Has no prior chronic kidney disease,268
+268,1,No ESKD at baseline,268
+268,2,No chronic dialysis at baseline (-365 to 8 days) ,268
+268,3,No Kidney Transplant any time prior ,268
+269,0,Washout period with no AKI codes,269
+269,1,No ESKD at baseline,269
+269,2,No chronic dialysis at baseline (-365 to 8 days) ,269
+269,3,No Kidney Transplant any time prior ,269
+27,0,No Chronic Obstructive Lung Disease (COPD) prior,27
+270,0,No normal low Hemoglobin measurement in blood on index date,270
+270,1,No Polycythemia on index date,270
+273,0,Has Inpatient or ER visit ,273
+274,0,Has Inpatient or ER visit ,274
+276,0,Washout - no prior vision loss in 365 days prior,276
+276,1,No eye pathology,276
+277,0,Not a congenital anomaly of hearing,277
+277,1,Has no middle ear related disease,277
+277,2,Has no inner ear related disease,277
+277,3,Has not had audiometry in past 365 days,277
+278,0,Non Chronic Pain,278
+283,0,No Prior Chronic Prostatitis,283
+283,1,No history of Prostatitis prior to first prostatitis,283
+283,2,No testicular lesions,283
+283,3,No bladder neoplasm,283
+283,4,No abdominal or inguinal hernia,283
+285,0,Remove subjects with Infectious Myocarditis or Pericarditis,285
+288,0,no Type 1 diabetes mellitus diagnosis on or prior to T2DM,288
+288,1,no secondary diabetes diagnosis on or prior to T2DM,288
+288,2,has at least one diagnosis of T2DM on or within 365d of index date,288
+290,0,Thyroiditis including hypothyroidism and hyperthyroidism,290
+290,1,Excluding alternative causes of hypothyroidism,290
+291,0,Require Gynecomastia diagnosis ,291
+292,0,have no chronic hepatic failure,292
+294,0,Chronic Hepatic Failure,294
+294,1,Viral Hepatitis,294
+294,2,Liver Cirrhosis,294
+294,3,Liver Fibrosis,294
+294,4,Toxic Liver Disease (7d),294
+294,5,Hepatic Necrosis (7d),294
+294,6,Alcohol use disorder,294
+294,7,Alcoholic Hepatitis,294
+294,8,Alcoholic Fatty Liver,294
+294,9,"Malignancies that spread to liver (breast, esophageal, stomach, pancreatic, lung, kidney, melanoma)",294
+294,10,Chronic Hepatic Failure,294
+294,11,Other Chronic Liver Disease,294
+294,12,Ascites (7d),294
+294,13,Portal Hypertension (7d),294
+294,14,History of Liver Transplant,294
+294,15,Cholestasis (7d),294
+294,16,Non-Alcoholic Fatty Liver Disease,294
+294,17,Autoimmune Hepatitis,294
+294,18,Primary Biliary Cholangitis,294
+294,19,Hemochromatosis,294
+294,20,Wilsons Disease,294
+294,21,Neoplasm of liver,294
+294,22,Other liver problems entry event criteria,294
+295,0,Chronic Hepatic Failure,295
+295,1,Viral Hepatitis,295
+295,2,Liver Cirrhosis,295
+295,3,Liver Fibrosis,295
+295,4,Toxic Liver Disease (7d),295
+295,5,Hepatic Necrosis (7d),295
+295,6,Alcohol use disorder,295
+295,7,Alcoholic Hepatitis,295
+295,8,Alcoholic Fatty Liver,295
+295,9,"Malignancies that spread to liver (breast, esophageal, stomach, pancreatic, lung, kidney, melanoma)",295
+295,10,Chronic Hepatic Failure,295
+295,11,Other Chronic Liver Disease,295
+295,12,Ascites (7d),295
+295,13,Portal Hypertension (7d),295
+295,14,History of Liver Transplant,295
+295,15,Cholestasis (7d),295
+295,16,Non-Alcoholic Fatty Liver Disease,295
+295,17,Autoimmune Hepatitis,295
+295,18,Primary Biliary Cholangitis,295
+295,19,Hemochromatosis,295
+295,20,Wilsons Disease,295
+295,21,Neoplasm of liver,295
+295,22,Other liver problems entry event criteria,295
+298,0,Exclude any event preceded by kidney biopsy in -7 to -1 days,298
+298,1,Exclude chronic kidney disease or dialysis,298
+298,2,Exclude any event that is preceded by renal or glomerular disease -365 to 0,298
+30,0,At least 3 distinct drug eras of TB drugs,30
+300,0,Gender = Female,300
+300,1,Not eligible during a pregnancy,300
+300,2,Not eligible after menopause,300
+305,0,No NF2,305
+305,1,No vestibular schwannoma,305
+305,2,No hearing loss,305
+306,0,Neurofibromatosis,306
+307,0,Neurofibromatosis,307
+308,0,>=3 Ophthalmology Visits,308
+308,1,MRI of Brain,308
+318,0,have no chronic hepatic failure on the day of diagnosis ,318
+324,0,No evidence of no pain,324
+332,0,Chronic Pain,332
+344,0,Should not be overlapping with an Inpatient site of care,344
+344,1,Should not be overlapping with an Inpatient Care as defined by procedure or observation codes,344
+344,2,Should not be overlapping with Emergency room site of care,344
+344,3,Should not be overlapping with Urgent Care as defined by procedure or observation codes,344
+346,0,Should not be overlapping with an Inpatient site of care,346
+346,1,Should not be overlapping with an Inpatient Care as defined by procedure or observation codes,346
+346,2,Should not be overlapping with Emergency room site of care,346
+346,3,Should not be overlapping with Urgent Care as defined by procedure or observation codes,346
+358,0,No Chronic Respiratory Failure in past 365 days,358
+362,0,Washout period with no AKI codes,362
+362,1,No ESKD at baseline,362
+362,2,No chronic dialysis at baseline (-365 to 8 days) ,362
+362,3,No Kidney Transplant any time prior ,362
+373,0,No normal low Hemoglobin measurement in blood on index date,373
+373,1,No Polycythemia on index date,373
+403,0,Inpatient or Emergency room visit,403
+404,0,Has Inpatient or ER visit ,404
+412,0,has no events in prior 'clean window' - 365 days,412
+45,0,Has a lab test for SARS-Cov-2 test within 3 days,45
+53,0,Have atleast 1 positive,53
+54,0,Has febrile seizure diagnosis ,54
+59,0,No SARS-Cov-2 test,59
+60,0,Positive test result,60
+60,1,Negative test result,60
+63,0,has no events in prior 'clean window' - 365 days,63
+693,0,"No congenital or genetic neutropenia, leukopenia or agranulocytosis",693
+693,1,No Normal Neutrophil count on index date,693
+693,2,No Neutrophilia on index date,693
+719,0,have no chronic hepatic failure on the day of diagnosis ,719
+719,1,no cooccurring viral hepatitis around index date,719
+719,2,no cooccurring Alcoholic hepatitis or alcoholic liver failure around index date,719
+720,0,"No Bone Marrow Hyperplasia, Infiltration including Lymphoma, Leukemia",720
+720,1,Not pure red cell aplasia,720
+721,0,Washout - no prior vision loss in 365 days prior,721
+721,1,No eye pathology,721
+722,0,has 2 or more endometriosis diagnoses,722
+722,1,is female,722
+722,2,is aged 15-49,722
+723,0,Chronic Hepatic Failure ,723
+723,1,History of Liver Cirrhosis,723
+723,2,History of Liver Transplant,723
+724,0,Chronic Hepatic Failure ,724
+724,1,Liver Cirrhosis,724
+724,2,History of Liver Transplant,724
+724,3,coccurring viral hepatitis around the same time ,724
+724,4,cooccurring Alcoholic hepatitis or alcoholic liver failure ,724
+724,5,cooccurring hepatorenal disorder indicating a probable chronic liver disease  ,724
+725,0,Washout period with no AKI codes,725
+725,1,No ESKD at baseline,725
+725,2,No chronic dialysis at baseline (-365 to 8 days) ,725
+725,3,No Kidney Transplant any time prior ,725
+726,0,Washout period 30 days - applied only to outpatient visit,726
+726,1,No Food anaphylaxis on index date,726
+726,2,No anaphylaxis due to substances other than food or drug on index date,726
+726,3,No anaphylaxis due insect bite on index date,726
+726,4,No insect bite or sting,726
+726,5,No Toxic effect of venom,726
+726,6,Accidental poisoning,726
+727,0,Angioedema within 3 days  ,727
+727,1,Washout period 180 days,727
+727,2,No Cardiac Edema,727
+727,3,No Cellulitis,727
+727,4,No Erysipelas,727
+727,5,No Dermatitis or Eczema,727
+727,6,No Lymphedema ,727
+727,7,No insect bites,727
+729,0,has no autoimmune hepatitis events in prior 'clean window' - 365 days,729
+729,1,has no certain chronic liver disease events in prior 0 - 365 days,729
+729,2,has no Systemic Lupus Erythematosus events in prior 0 - 365 days,729
+730,0,Washout period of 365 days,730
+730,1,Should have Acute Pancreatitis within 1 day,730
+730,2,Should NOT have Chronic Pancreatitis on or before Acute Pancreatitis,730
+730,3,Should NOT have Hereditary Pancreatitis any time,730
+731,0,Washout - no prior hearing loss in 365 days prior,731
+731,1,Not a congenital anomaly of hearing,731
+731,2,Has no middle ear related disease,731
+731,3,Has no inner ear related disease,731
+731,4,Has not had audiometry in past 365 days,731
+732,0,has no events in prior 'clean window' - 365 days,732
+733,0,has no events in prior 'clean window' - 365 days,733
+735,0,have no chronic hepatic failure on the day of diagnosis ,735
+736,0,have no chronic hepatic failure on the day of diagnosis ,736
+736,1,cooccurring Hepatitis due to infection around the same time ,736
+736,2,cooccurring Alcoholic hepatitis or alcoholic liver failure ,736
+736,3,steatohepatitis ,736
+736,4,have no alcohol abuse around the same time ,736
+737,0,Inpatient Visit,737
+737,1,No Normal Neutrophil count (ANC ),737
+739,0,washout period of 365 days  ,739
+739,1,No congenital or genetic thrombocytopenia,739
+739,2,No Platelet count > 100 on index date,739
+739,3,No thrombocytosis on index date,739
+739,4,No Pancytopenia or bone marrow disorder diagnosis within 7 days,739
+739,5,"No Neutropenia, Agranulocytosis diagnosis within 7 days",739
+739,6,No low neutrophil count within 7 days,739
+739,7,No Anemia diagnosis within 7 days,739
+739,8,No low Hemoglobin measurement in blood within 7 days,739
+741,0,No congenital or genetic thrombocytopenia,741
+741,1,No Platelet count > 150 on index date,741
+750,0,Must have Left heart disease ,750
+750,1,Must have undegone Echocardiography or RHC,750
+752,0,with an ER or IP visit on index,752
+753,0,with an ER or IP visit ,753
+754,0,2nd down syndrome code within 365 days after index,754
+756,0,2nd code 365 days after index,756
+771,0,Minimum observation period of 365 days,771
+771,1,Must have Left heart disease ,771
+771,2,Must have undegone Echocardiography or RHC,771
+772,0,Minimum observation period of 365 days,772
+772,1,Must have Chronic Lung Disease ,772
+772,2,Echocardiography or RHC,772
+78,0,Limit to inpatient visit,78
+785,0,burn treatment in 180 days after index,785
+792,0,Male,792
+792,1,age 18+,792
+792,2,Dx of PCa,792
+792,3,No other primary,792
+793,0,Male,793
+793,1,age 18+,793
+793,2,dx of PCa,793
+793,3,No other primary,793
+793,4,No Orchiectomy,793
+793,5,No ADT,793
+793,6,Surgery or RT,793
+812,0,No exposure to medical oncological treatment for colorectal cancer,812
+812,1,No exposure to radiation oncological treatment for colorectal cancer,812
+812,2,No potential curative colectomy or rectal resection,812
+813,0,Previous colorectal cancer,813
+814,0,"Colon or rectal cancer, with no potential curative resection",814
+817,0,No exposure to medical oncological treatment for colorectal cancer,817
+817,1,No exposure to radiation oncological treatment for colorectal cancer,817
+817,2,No potential curative colectomy or rectal resection,817
+819,0,Previous colorectal cancer,819
+820,0,"Colon or rectal cancer, with no potential curative resection",820
+821,0,No exposure to medical oncological treatment for colorectal cancer,821
+821,1,No exposure to radiation oncological treatment for colorectal cancer,821
+821,2,No potential curative colectomy or rectal resection,821
+822,0,Previous colorectal cancer,822
+823,0,"Colon or rectal cancer, with no potential curative resection",823
+826,0,No exposure to medical oncological treatment for colorectal cancer,826
+826,1,No exposure to radiation oncological treatment for colorectal cancer,826
+826,2,No potential curative colectomy,826
+827,0,Previous colon cancer,827
+828,0,"Colon cancer, with no potential curative resection",828
+830,0,NO MSI-H or dMMR,830
+830,1,"MSI-L, MSI-indeterminate, MSS or pMMR",830
+830,2,Colon cancer,830
+831,0,"Colon cancer, with no potential curative resection, pMMR",831
+832,0,No exposure to medical oncological treatment for colorectal cancer,832
+832,1,No exposure to radiation oncological treatment for colorectal cancer,832
+832,2,No potential curative colectomy,832
+834,0,"Previous colon cancer, dMMR",834
+835,0,"Colon cancer, with no potential curative resection, dMMR",835
+836,0,No exposure to medical oncological treatment for colorectal cancer,836
+836,1,No exposure to radiation oncological treatment for colorectal cancer,836
+836,2,No potential curative colectomy,836
+839,0,"Previous colon cancer, pMMR",839
+840,0,"Rectal cancer, with no potential curative resection, dMMR",840
+841,0,Previous rectal cancer,841
+843,0,"rectal cancer cancer, with no potential curative resection",843
+844,0,No exposure to medical oncological treatment for colorectal cancer,844
+844,1,No exposure to radiation oncological treatment for colorectal cancer,844
+844,2,No potential curative rectal resection,844
+845,0,Previous rectal cancer,845
+846,0,"Rectal cancer, with no potential curative resection",846
+847,0,Previous rectal cancer,847
+848,0,No exposure to medical oncological treatment for colorectal cancer,848
+848,1,No exposure to radiation oncological treatment for colorectal cancer,848
+848,2,No potential curative rectal resection,848
+856,0,Migraine ,856
+864,0,age >= 18 years old,864
+865,0,Age above 18 years,865
+865,1,Inpatient visit on day of surgery without ER visit immediately on or prior,865
+866,0,Age above 18 years,866
+866,1,Inpatient visit on day of surgery without ER visit immediately on or prior,866
+866,2,Atrial fibrillation (any) within 14d of surgery,866
+866,3,No prior atrial fibrillation ,866
+867,0,Age above 18 years,867
+867,1,Inpatient visit on day of surgery without ER visit immediately on or prior,867
+868,0,Age above 18 years,868
+868,1,Inpatient visit on day of surgery without ER visit immediately on or prior,868
+869,0,Age above 18 years,869
+869,1,Inpatient visit on day of surgery without ER visit immediately on or prior,869
+870,0,Age above 18 years,870
+870,1,Inpatient visit on day of surgery without ER visit immediately on or prior,870
+871,0,Age above 18 years,871
+871,1,Inpatient visit on day of surgery without ER visit immediately on or prior,871
+872,0,Age above 18 years,872
+872,1,Inpatient visit on day of surgery without ER visit immediately on or prior,872
+873,0,Age above 18 years,873
+873,1,Inpatient visit on day of surgery without ER visit immediately on or prior,873
+874,0,Age above 18 years,874
+874,1,Inpatient visit on day of surgery without ER visit immediately on or prior,874
+875,0,Age above 18 years,875
+875,1,Inpatient visit on day of surgery without ER visit immediately on or prior,875
+876,0,Age above 18 years,876
+876,1,Inpatient visit on day of surgery without ER visit immediately on or prior,876
+877,0,Age above 18 years,877
+877,1,Inpatient visit on day of surgery without ER visit immediately on or prior,877
+877,2,Atrial fibrillation (paroxysmal) within 14d of surgery,877
+877,3,No prior atrial fibrillation ,877
+878,0,Age above 18 years,878
+878,1,Inpatient visit on day of surgery without ER visit immediately on or prior,878
+878,2,Atrial fibrillation (any) within 14d of surgery,878
+878,3,No prior Atrial fibrillation,878
+980,0,Hospitalization,980
