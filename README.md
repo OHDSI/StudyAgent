@@ -159,6 +159,11 @@ After configuring the required secrets and phenotype index, run the smoke task *
 
 ```powershell
 # Ensure no study-agent ACP or MCP process is already listening on ports 8765 or 8790.
+uv run --extra dev doit smoke_phenotype_intent_split_flow
+```
+
+If that runs with no error and you have successfully indexed phenotypes (see docs/PHENOTYPE_INDEXING.md) you can run:
+```powershell
 uv run --extra dev doit smoke_phenotype_recommend_flow
 ```
 
