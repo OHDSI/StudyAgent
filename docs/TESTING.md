@@ -116,7 +116,7 @@ Task dependencies:
 - `run_smoke_suite` runs every configured local ACP/MCP smoke flow, including the cohort-method, phenotype-validation, and Keeper flows. It requires the LLM, embedding, phenotype-index, and any configured Keeper dependencies.
 - `run_external_smoke_suite` runs `run_smoke_suite` plus the real Hecate/PHOEBE endpoint smoke test.
 
-Smoke tasks own temporary ACP and MCP processes. Stop any long-lived Study Agent services using ports 8765 or 8790 before running either smoke suite. Missing `LLM_API_KEY` now fails an LLM-backed smoke task rather than reporting a successful no-op.
+Smoke tasks own temporary ACP and MCP processes. Stop any long-lived Study Agent services using ports 8765 or 8790 before running either smoke suite. Missing `LLM_API_KEY` fails an LLM-backed smoke task when `llm.authentication` is `required` (the default); keyless shims should set `llm.authentication: none` in `config.yaml`.
 
 Run the suites explicitly:
 
@@ -291,7 +291,7 @@ curl -s http://127.0.0.1:8765/health
 
 ## ACP phenotype flow (MCP + LLM)
 
-Ensure MCP is running. Configure the non-secret LLM endpoint, model, API mode, timeouts, and recommendation limits in `config.yaml`; export only the secret API key and any temporary diagnostic override:
+Ensure MCP is running. Configure the non-secret LLM endpoint, model, authentication mode, API mode, timeouts, and recommendation limits in `config.yaml`. With the default `llm.authentication: required`, export the secret API key; a trusted keyless shim can instead use `llm.authentication: none`, which omits the Authorization header:
 
 ```bash
 export LLM_API_KEY="..."

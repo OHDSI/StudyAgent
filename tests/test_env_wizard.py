@@ -34,6 +34,7 @@ def test_collect_configuration_separates_secret_values_from_yaml() -> None:
                 "yes",
                 "",
                 "",
+                "yes",
                 "no",
                 "yes",
                 "",
@@ -53,6 +54,22 @@ def test_collect_configuration_separates_secret_values_from_yaml() -> None:
     assert "llm-secret-value" not in content
     assert "LLM_API_KEY" not in content
     assert "llm-secret-value" not in "\n".join(output)
+
+
+def test_collect_configuration_supports_keyless_llm(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    values, secrets, run_style = collect_configuration(
+        input_fn=_answers(
+            [
+                "native", "", "", "http", "", "", "", "yes", "", "", "no", "no",
+                "no", "none",
+            ]
+        ),
+        secret_input=lambda _prompt: pytest.fail("a keyless LLM must not prompt for a secret"),
+    )
+    content = render_config_file(values, run_style)
+    assert secrets == {}
+    assert "authentication: none" in content
 
 
 def test_migrate_env_classifies_known_secret_values_without_echoing(tmp_path) -> None:

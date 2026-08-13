@@ -111,6 +111,7 @@ def _config_document(values: Mapping[str, str], run_style: str) -> dict[str, obj
         document["llm"] = {
             "api_url": values["LLM_API_URL"],
             "model": values["LLM_MODEL"],
+            "authentication": values.get("LLM_AUTHENTICATION", "required"),
             "use_responses_api": values.get("LLM_USE_RESPONSES", "0") == "1",
         }
     if "EMBED_URL" in values:
@@ -224,9 +225,20 @@ def collect_configuration(
         values["LLM_MODEL"] = _prompt_text(
             "LLM model", default="agentstudyassistant", input_fn=input_fn
         )
-        secrets["LLM_API_KEY"] = _prompt_required_secret(
-            "LLM API key", secret_input=secret_input, output_fn=output_fn
+        values["LLM_AUTHENTICATION"] = _prompt_choice(
+            "Does the LLM API require a key?",
+            {"yes": "yes", "no": "no"},
+            default="yes",
+            input_fn=input_fn,
+            output_fn=output_fn,
         )
+        if values["LLM_AUTHENTICATION"] == "yes":
+            values["LLM_AUTHENTICATION"] = "required"
+            secrets["LLM_API_KEY"] = _prompt_required_secret(
+                "LLM API key", secret_input=secret_input, output_fn=output_fn
+            )
+        else:
+            values["LLM_AUTHENTICATION"] = "none"
         values["LLM_USE_RESPONSES"] = (
             "1"
             if _prompt_choice(

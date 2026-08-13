@@ -596,6 +596,7 @@ def call_llm(prompt: str, required_keys: Optional[Sequence[str]] = None) -> LLMC
     api_url = rewrite_container_host_url(api_url)
 
     api_key = os.getenv("LLM_API_KEY")
+    authentication = os.getenv("LLM_AUTHENTICATION", "required").strip().lower()
     model = os.getenv("LLM_MODEL", "agentstudyassistant")
     timeout = int(os.getenv("LLM_TIMEOUT", "300"))
     log_enabled = os.getenv("LLM_LOG", "0") == "1"
@@ -622,7 +623,17 @@ def call_llm(prompt: str, required_keys: Optional[Sequence[str]] = None) -> LLMC
             request_mode=request_mode,
         )
 
-    if not api_key:
+    if authentication not in {"required", "none"}:
+        if log_enabled:
+            _log_llm(f"ERROR > invalid LLM_AUTHENTICATION={authentication!r}")
+        return LLMCallResult(
+            status="disabled",
+            error="invalid_authentication_mode",
+            parse_stage="request_skipped",
+            request_mode=request_mode,
+        )
+
+    if authentication == "required" and not api_key:
         if log_enabled:
             _log_llm("ERROR > missing LLM_API_KEY")
         return LLMCallResult(
@@ -648,7 +659,8 @@ def call_llm(prompt: str, required_keys: Optional[Sequence[str]] = None) -> LLMC
     body = json.dumps(payload).encode("utf-8")
     request = urllib.request.Request(api_url, data=body, method="POST")
     request.add_header("Content-Type", "application/json")
-    request.add_header("Authorization", f"Bearer {api_key}")
+    if authentication == "required":
+        request.add_header("Authorization", f"Bearer {api_key}")
 
     if log_enabled or log_prompt:
         _log_llm(f"OUTGOING PROMPT > {prompt}")

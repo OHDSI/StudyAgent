@@ -21,6 +21,24 @@ class _FakeResponse:
 
 
 @pytest.mark.acp
+def test_call_llm_keyless_mode_omits_authorization_header(monkeypatch):
+    payload = {"choices": [{"message": {"content": "{\"advice\":\"ok\"}"}}]}
+    observed = {}
+
+    def fake_urlopen(request, timeout=0):
+        observed["authorization"] = request.get_header("Authorization")
+        return _FakeResponse(json.dumps(payload))
+
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.setenv("LLM_AUTHENTICATION", "none")
+    monkeypatch.setattr(llm_client.urllib.request, "urlopen", fake_urlopen)
+
+    result = llm_client.call_llm("prompt", required_keys=["advice"])
+    assert result.status == "ok"
+    assert observed["authorization"] is None
+
+
+@pytest.mark.acp
 def test_call_llm_chat_completions_success(monkeypatch):
     payload = {
         "choices": [
