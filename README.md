@@ -162,12 +162,12 @@ After configuring the required secrets and phenotype index, run the smoke task *
 uv run --extra dev doit smoke_phenotype_intent_split_flow
 ```
 
-If that runs with no error and you have successfully indexed phenotypes (see docs/PHENOTYPE_INDEXING.md) you can run:
+If that runs with no error **and you have successfully indexed phenotypes** (see docs/PHENOTYPE_INDEXING.md) you can run:
 ```powershell
 uv run --extra dev doit smoke_phenotype_recommend_flow
 ```
 
-Only after that smoke test succeeds, start the long-lived services for interactive use in separate terminals:
+**Only after those smoke test succeed**, start the long-lived services for interactive use in separate terminals:
 
 ```powershell
 uv run study-agent-mcp --config .\config.yaml --profile native
@@ -175,6 +175,28 @@ uv run study-agent-acp --config .\config.yaml --profile native
 ```
 
 Conda or Micromamba remains supported. It supplies Python and `pip`; `conda run -n study-agent python -m pip install -e ".[dev]"` reads the application dependency definition from `pyproject.toml`.
+
+Simple test of the ACP/MCP/LLM set up: 
+
+```bash
+curl -s -X POST http://127.0.0.1:8765/flows/phenotype_intent_split \
+  -H 'Content-Type: application/json' \
+  -d '{"study_intent":"Identify clinical risk factors for older adult patients who experience an adverse event of acute gastro-intenstinal (GI) bleeding"}'
+```
+
+```powershell
+$body = @{
+  study_intent = "Identify clinical risk factors for older adult patients who experience an adverse event of acute gastro-intenstinal (GI) bleeding"
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8765/flows/phenotype_intent_split `
+  -Headers @{ "Content-Type" = "application/json" } `
+  -Body $body `
+  -TimeoutSec 180
+```
+
 
 ### Install this package in development mode
 
