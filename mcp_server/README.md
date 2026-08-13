@@ -66,7 +66,7 @@ export MCP_TRANSPORT=http
 export MCP_HOST=127.0.0.1
 export MCP_PORT=8790
 export MCP_PATH=/mcp
-study-agent-mcp
+study-agent-mcp --config config.yaml --profile native
 ```
 
 ACP connects via:
@@ -74,3 +74,5 @@ ACP connects via:
 ```bash
 export STUDY_AGENT_MCP_URL="http://127.0.0.1:8790/mcp"
 ```
+
+For a uv-managed native installation, invoke MCP as `uv run study-agent-mcp --config .\config.yaml --profile native`. On managed Windows hosts, do not rely on bare project executables resolving to the intended Python environment. Docker Compose starts MCP with the `docker` profile; see [`README.md`](../README.md) and [`docs/ENVIRONMENT.md`](../docs/ENVIRONMENT.md) for deployment details.

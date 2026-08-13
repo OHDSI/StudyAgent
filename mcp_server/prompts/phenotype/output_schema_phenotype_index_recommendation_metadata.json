@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "phenotype_index_recommendation_metadata_output",
+  "type": "object",
+  "properties": {
+    "primary_clinical_topic": {"type": "string"},
+    "secondary_topics": {"type": "array", "items": {"type": "string"}},
+    "phenotype_role": {"type": "string"},
+    "care_setting_scope": {"type": "string"},
+    "population_scope": {"type": "string"},
+    "topic_mentions": {"type": "object"},
+    "target_vs_context_conditions": {"type": "object"},
+    "exclude_from_primary_topic_match": {"type": "array", "items": {"type": "string"}},
+    "recommendation_summary": {"type": "string"}
+  },
+  "required": ["primary_clinical_topic", "secondary_topics", "phenotype_role", "care_setting_scope", "population_scope", "topic_mentions", "target_vs_context_conditions", "exclude_from_primary_topic_match", "recommendation_summary"],
+  "additionalProperties": false
+}

@@ -1,7 +1,11 @@
 import pytest
 
 from study_agent_acp import server as acp_server
-from study_agent_acp.mcp_client import StdioMCPClient
+from study_agent_acp.mcp_client import (
+    HttpMCPClient,
+    HttpMCPClientConfig,
+    StdioMCPClient,
+)
 from study_agent_acp.agent import StudyAgent
 from study_agent_acp.llm_client import LLMCallResult
 
@@ -119,17 +123,41 @@ class StubMCPClient:
         if name == "phenotype_improvements":
             return {"plan": "ok", "phenotype_improvements": []}
         if name == "phenotype_prompt_bundle":
-            return {"overview": "overview", "spec": "spec", "output_schema": {"type": "object"}}
+            return {
+                "overview": "overview",
+                "spec": "spec",
+                "output_schema": {"type": "object"},
+            }
         if name == "phenotype_recommendation_advice":
-            return {"overview": "overview", "spec": "spec", "output_schema": {"type": "object"}}
+            return {
+                "overview": "overview",
+                "spec": "spec",
+                "output_schema": {"type": "object"},
+            }
         if name == "phenotype_intent_split":
-            return {"overview": "overview", "spec": "spec", "output_schema": {"type": "object"}}
+            return {
+                "overview": "overview",
+                "spec": "spec",
+                "output_schema": {"type": "object"},
+            }
         if name == "cohort_methods_intent_split":
-            return {"overview": "overview", "spec": "spec", "output_schema": {"type": "object"}}
+            return {
+                "overview": "overview",
+                "spec": "spec",
+                "output_schema": {"type": "object"},
+            }
         if name == "workflow_context_dialogue":
-            return {"overview": "overview", "spec": "spec", "output_schema": {"type": "object"}}
+            return {
+                "overview": "overview",
+                "spec": "spec",
+                "output_schema": {"type": "object"},
+            }
         if name == "lint_prompt_bundle":
-            return {"overview": "overview", "spec": "spec", "output_schema": {"type": "object"}}
+            return {
+                "overview": "overview",
+                "spec": "spec",
+                "output_schema": {"type": "object"},
+            }
         if name == "keeper_sanitize_row":
             return {"sanitized_row": {"age_bucket": "40-44", "gender": "Male"}}
         if name == "keeper_prompt_bundle":
@@ -153,7 +181,10 @@ class StubMCPClient:
                         "label": "GI bleed",
                         "source_record_id": "reaction-1",
                         "subrole": "index_event",
-                        "annotations": {"adverse_event_concept_id": 321, "adverse_event_meddra_id": "789"},
+                        "annotations": {
+                            "adverse_event_concept_id": 321,
+                            "adverse_event_meddra_id": "789",
+                        },
                     },
                     "candidate_items": [
                         {
@@ -162,7 +193,12 @@ class StubMCPClient:
                             "source_record_id": "drug-1",
                             "source_kind": "reported_drug",
                             "subrole": "primary_suspect",
-                            "annotations": {"has_disproportional_signal": True, "label_mentions_event": True, "ingredient_concept_id": 123, "ingred_rxcui": "456"},
+                            "annotations": {
+                                "has_disproportional_signal": True,
+                                "label_mentions_event": True,
+                                "ingredient_concept_id": 123,
+                                "ingred_rxcui": "456",
+                            },
                         }
                     ],
                     "candidate_items_by_domain": {
@@ -173,7 +209,12 @@ class StubMCPClient:
                                 "source_record_id": "drug-1",
                                 "source_kind": "reported_drug",
                                 "subrole": "primary_suspect",
-                                "annotations": {"has_disproportional_signal": True, "label_mentions_event": True, "ingredient_concept_id": 123, "ingred_rxcui": "456"},
+                                "annotations": {
+                                    "has_disproportional_signal": True,
+                                    "label_mentions_event": True,
+                                    "ingredient_concept_id": 123,
+                                    "ingred_rxcui": "456",
+                                },
                             }
                         ]
                     },
@@ -186,10 +227,36 @@ class StubMCPClient:
                             "annotations": {},
                         }
                     ],
-                    "context_items_by_domain": {"labs": [{"domain": "labs", "label": "INR 4.2", "source_record_id": "lab-1", "subrole": "proximate_marker", "annotations": {}}]},
-                    "case_metadata": {"literature_reference_present": True, "lookup_key": {"primaryid": None, "isr": "6526923"}},
-                    "annotations": {"concept_set_id": "uuid", "concept_set_version": 1, "concept_set_available_domains": ["drug_exposures"]},
-                    "tool_hints": dict(arguments.get("case_row", {}).get("tool_hints") or {"available_expansions": ["get_case_review_drug_signal_details", "get_case_review_report_literature_stub"], "prefetch_expansions": []}),
+                    "context_items_by_domain": {
+                        "labs": [
+                            {
+                                "domain": "labs",
+                                "label": "INR 4.2",
+                                "source_record_id": "lab-1",
+                                "subrole": "proximate_marker",
+                                "annotations": {},
+                            }
+                        ]
+                    },
+                    "case_metadata": {
+                        "literature_reference_present": True,
+                        "lookup_key": {"primaryid": None, "isr": "6526923"},
+                    },
+                    "annotations": {
+                        "concept_set_id": "uuid",
+                        "concept_set_version": 1,
+                        "concept_set_available_domains": ["drug_exposures"],
+                    },
+                    "tool_hints": dict(
+                        arguments.get("case_row", {}).get("tool_hints")
+                        or {
+                            "available_expansions": [
+                                "get_case_review_drug_signal_details",
+                                "get_case_review_report_literature_stub",
+                            ],
+                            "prefetch_expansions": [],
+                        }
+                    ),
                 },
                 "diagnostics": {"sanitization_status": "ok"},
             }
@@ -201,7 +268,11 @@ class StubMCPClient:
                 "system_prompt": "system",
             }
         if name == "get_case_review_concept_set_domain":
-            return {"status": "ok", "domain_name": arguments.get("domain_name"), "items": []}
+            return {
+                "status": "ok",
+                "domain_name": arguments.get("domain_name"),
+                "items": [],
+            }
         if name == "get_case_review_drug_signal_details":
             return {
                 "status": "ok",
@@ -217,7 +288,11 @@ class StubMCPClient:
                 "label_mentions_event": True,
             }
         if name == "get_case_review_report_literature_stub":
-            return {"status": "ok", "case_id": arguments.get("case_id"), "literature_reference_present": True}
+            return {
+                "status": "ok",
+                "case_id": arguments.get("case_id"),
+                "literature_reference_present": True,
+            }
         if name == "case_causal_review_build_prompt":
             return {
                 "prompt": "main",
@@ -354,25 +429,55 @@ class StubMCPClient:
                 }
             return {"concepts": [], "count": 0}
         if name == "vocab_filter_standard_concepts":
-            return {"concepts": arguments.get("concepts", []), "count": len(arguments.get("concepts", []))}
+            return {
+                "concepts": arguments.get("concepts", []),
+                "count": len(arguments.get("concepts", [])),
+            }
         if name == "vocab_fetch_concepts":
             concepts = arguments.get("concepts", [])
             selected = set(arguments.get("concept_ids", []))
             return {
-                "concepts": [concept for concept in concepts if concept.get("conceptId") in selected],
-                "count": len([concept for concept in concepts if concept.get("conceptId") in selected]),
+                "concepts": [
+                    concept
+                    for concept in concepts
+                    if concept.get("conceptId") in selected
+                ],
+                "count": len(
+                    [
+                        concept
+                        for concept in concepts
+                        if concept.get("conceptId") in selected
+                    ]
+                ),
             }
         if name == "vocab_remove_descendants":
-            return {"concepts": arguments.get("concepts", []), "count": len(arguments.get("concepts", []))}
+            return {
+                "concepts": arguments.get("concepts", []),
+                "count": len(arguments.get("concepts", [])),
+            }
         if name == "phoebe_related_concepts":
             return {"error": "phoebe_provider_unconfigured", "concepts": [], "count": 0}
         if name == "vocab_add_nonchildren":
-            concepts = list(arguments.get("concepts", [])) + list(arguments.get("new_concepts", []))
+            concepts = list(arguments.get("concepts", [])) + list(
+                arguments.get("new_concepts", [])
+            )
             return {"concepts": concepts, "count": len(concepts)}
         if name == "propose_concept_set_diff":
-            return {"plan": "ok", "findings": [], "patches": [], "actions": [], "risk_notes": []}
+            return {
+                "plan": "ok",
+                "findings": [],
+                "patches": [],
+                "actions": [],
+                "risk_notes": [],
+            }
         if name == "cohort_lint":
-            return {"plan": "ok", "findings": [], "patches": [], "actions": [], "risk_notes": []}
+            return {
+                "plan": "ok",
+                "findings": [],
+                "patches": [],
+                "actions": [],
+                "risk_notes": [],
+            }
         raise ValueError("unexpected tool")
 
 
@@ -421,7 +526,9 @@ def test_flow_cohort_critique_calls_tool(monkeypatch):
 
     monkeypatch.setattr(agent_module, "call_llm", fake_llm)
     agent = StudyAgent(mcp_client=StubMCPClient())
-    result = agent.run_cohort_critique_general_design_flow(cohort={"PrimaryCriteria": {}})
+    result = agent.run_cohort_critique_general_design_flow(
+        cohort={"PrimaryCriteria": {}}
+    )
     assert result["status"] == "ok"
     assert result["tool"] == "cohort_lint"
 
@@ -482,8 +589,13 @@ def test_flow_keeper_concept_sets_generate(monkeypatch):
     assert result["status"] == "ok"
     assert result["phenotype"] == "Gastrointestinal bleeding"
     assert len(result["concept_sets"]) == 2
-    assert {item["conceptSetName"] for item in result["concept_sets"]} == {"doi", "symptoms"}
-    assert any(domain["domain_key"] == "alternativeDiagnosis" for domain in result["domains"])
+    assert {item["conceptSetName"] for item in result["concept_sets"]} == {
+        "doi",
+        "symptoms",
+    }
+    assert any(
+        domain["domain_key"] == "alternativeDiagnosis" for domain in result["domains"]
+    )
     assert result["diagnostics"]["domain_runs"][0]["domain_key"] == "doi"
 
 
@@ -534,7 +646,15 @@ def test_flow_keeper_profiles_generate():
         cohort_table="cohort",
         cohort_definition_id=123,
         cdm_database_schema="cdm",
-        keeper_concept_sets=[{"conceptId": 100, "conceptName": "GI bleed", "vocabularyId": "SNOMED", "conceptSetName": "doi", "target": "Disease of interest"}],
+        keeper_concept_sets=[
+            {
+                "conceptId": 100,
+                "conceptName": "GI bleed",
+                "vocabularyId": "SNOMED",
+                "conceptSetName": "doi",
+                "target": "Disease of interest",
+            }
+        ],
         sample_size=2,
         phenotype_name="GI bleed",
         remove_pii=True,
@@ -705,7 +825,10 @@ def test_flow_phenotype_intent_split_schema_mismatch(monkeypatch):
     assert result["status"] == "error"
     assert result["error"] == "llm_unavailable"
     assert result["diagnostics"]["llm_status"] == "schema_mismatch"
-    assert result["diagnostics"]["llm_missing_keys"] == ["outcome_statement", "rationale"]
+    assert result["diagnostics"]["llm_missing_keys"] == [
+        "outcome_statement",
+        "rationale",
+    ]
 
 
 @pytest.mark.acp
@@ -826,7 +949,6 @@ def test_flow_cohort_methods_intent_split_prompt_bundle_error():
     assert result["error"] == "cohort_methods_intent_split_prompt_failed"
 
 
-
 @pytest.mark.acp
 def test_flow_case_causal_review(monkeypatch):
     import study_agent_acp.agent as agent_module
@@ -857,14 +979,23 @@ def test_flow_case_causal_review(monkeypatch):
         case_row={
             "case_id": "case-1",
             "case_summary": "GI bleed after anticoagulation.",
-            "index_event": {"domain": "index_event", "label": "GI bleed", "source_record_id": "reaction-1"},
+            "index_event": {
+                "domain": "index_event",
+                "label": "GI bleed",
+                "source_record_id": "reaction-1",
+            },
             "candidate_items": [
-                {"domain": "drug_exposures", "label": "Warfarin", "source_record_id": "drug-1", "subrole": "primary_suspect"}
+                {
+                    "domain": "drug_exposures",
+                    "label": "Warfarin",
+                    "source_record_id": "drug-1",
+                    "subrole": "primary_suspect",
+                }
             ],
             "context_items": [],
             "case_metadata": {},
             "annotations": {},
-            "tool_hints": {"available_expansions": [], "prefetch_expansions": []}
+            "tool_hints": {"available_expansions": [], "prefetch_expansions": []},
         },
         source_type="signal_validation",
         allowed_domains=["drug_exposures"],
@@ -885,7 +1016,9 @@ def test_route_case_causal_review_wiring(monkeypatch):
     captured = {}
 
     class FakeAgent:
-        def run_case_causal_review_flow(self, adverse_event_name, case_row, source_type, allowed_domains):
+        def run_case_causal_review_flow(
+            self, adverse_event_name, case_row, source_type, allowed_domains
+        ):
             captured["call"] = {
                 "adverse_event_name": adverse_event_name,
                 "case_row": case_row,
@@ -906,7 +1039,26 @@ def test_route_case_causal_review_wiring(monkeypatch):
 
     body = {
         "adverse_event_name": "GI bleed",
-        "case_row": {"case_id": "case-1", "case_summary": "summary", "index_event": {"domain": "index_event", "label": "GI bleed", "source_record_id": "reaction-1"}, "candidate_items": [{"domain": "drug_exposures", "label": "Warfarin", "source_record_id": "drug-1"}], "context_items": [], "case_metadata": {}, "annotations": {}, "tool_hints": {"available_expansions": [], "prefetch_expansions": []}},
+        "case_row": {
+            "case_id": "case-1",
+            "case_summary": "summary",
+            "index_event": {
+                "domain": "index_event",
+                "label": "GI bleed",
+                "source_record_id": "reaction-1",
+            },
+            "candidate_items": [
+                {
+                    "domain": "drug_exposures",
+                    "label": "Warfarin",
+                    "source_record_id": "drug-1",
+                }
+            ],
+            "context_items": [],
+            "case_metadata": {},
+            "annotations": {},
+            "tool_hints": {"available_expansions": [], "prefetch_expansions": []},
+        },
         "source_type": "signal_validation",
         "allowed_domains": ["drug_exposures"],
     }
@@ -932,7 +1084,6 @@ def test_route_case_causal_review_wiring(monkeypatch):
     assert captured["status"] == 200
     assert captured["call"]["source_type"] == "signal_validation"
     assert captured["payload"]["flow_name"] == "case_causal_review"
-
 
 
 @pytest.mark.acp
@@ -965,17 +1116,35 @@ def test_flow_case_causal_review_prefetches_optional_enrichment(monkeypatch):
                 return {
                     "sanitized_row": {
                         "case_id": arguments.get("case_row", {}).get("case_id") or "",
-                        "case_summary": arguments.get("case_row", {}).get("case_summary") or "",
-                        "index_event": arguments.get("case_row", {}).get("index_event") or {},
-                        "candidate_items": arguments.get("case_row", {}).get("candidate_items") or [],
+                        "case_summary": arguments.get("case_row", {}).get(
+                            "case_summary"
+                        )
+                        or "",
+                        "index_event": arguments.get("case_row", {}).get("index_event")
+                        or {},
+                        "candidate_items": arguments.get("case_row", {}).get(
+                            "candidate_items"
+                        )
+                        or [],
                         "candidate_items_by_domain": {
-                            "drug_exposures": list(arguments.get("case_row", {}).get("candidate_items") or [])
+                            "drug_exposures": list(
+                                arguments.get("case_row", {}).get("candidate_items")
+                                or []
+                            )
                         },
-                        "context_items": arguments.get("case_row", {}).get("context_items") or [],
+                        "context_items": arguments.get("case_row", {}).get(
+                            "context_items"
+                        )
+                        or [],
                         "context_items_by_domain": {},
-                        "case_metadata": arguments.get("case_row", {}).get("case_metadata") or {},
-                        "annotations": arguments.get("case_row", {}).get("annotations") or {},
-                        "tool_hints": arguments.get("case_row", {}).get("tool_hints") or {},
+                        "case_metadata": arguments.get("case_row", {}).get(
+                            "case_metadata"
+                        )
+                        or {},
+                        "annotations": arguments.get("case_row", {}).get("annotations")
+                        or {},
+                        "tool_hints": arguments.get("case_row", {}).get("tool_hints")
+                        or {},
                     },
                     "diagnostics": {"sanitization_status": "ok"},
                 }
@@ -993,7 +1162,10 @@ def test_flow_case_causal_review_prefetches_optional_enrichment(monkeypatch):
                 "domain": "index_event",
                 "label": "GI bleed",
                 "source_record_id": "reaction-1",
-                "annotations": {"adverse_event_concept_id": 321, "adverse_event_meddra_id": "789"},
+                "annotations": {
+                    "adverse_event_concept_id": 321,
+                    "adverse_event_meddra_id": "789",
+                },
             },
             "candidate_items": [
                 {
@@ -1001,15 +1173,27 @@ def test_flow_case_causal_review_prefetches_optional_enrichment(monkeypatch):
                     "label": "Warfarin",
                     "source_record_id": "drug-1",
                     "subrole": "primary_suspect",
-                    "annotations": {"ingredient_concept_id": 123, "ingred_rxcui": "456"},
+                    "annotations": {
+                        "ingredient_concept_id": 123,
+                        "ingred_rxcui": "456",
+                    },
                 }
             ],
             "context_items": [],
-            "case_metadata": {"literature_reference_present": True, "lookup_key": {"primaryid": None, "isr": "6526923"}},
+            "case_metadata": {
+                "literature_reference_present": True,
+                "lookup_key": {"primaryid": None, "isr": "6526923"},
+            },
             "annotations": {"concept_set_available_domains": ["drug_exposures"]},
             "tool_hints": {
-                "available_expansions": ["get_case_review_drug_signal_details", "get_case_review_report_literature_stub"],
-                "prefetch_expansions": ["get_case_review_drug_signal_details", "get_case_review_report_literature_stub"],
+                "available_expansions": [
+                    "get_case_review_drug_signal_details",
+                    "get_case_review_report_literature_stub",
+                ],
+                "prefetch_expansions": [
+                    "get_case_review_drug_signal_details",
+                    "get_case_review_report_literature_stub",
+                ],
             },
         },
         source_type="signal_validation",
@@ -1020,8 +1204,16 @@ def test_flow_case_causal_review_prefetches_optional_enrichment(monkeypatch):
         "get_case_review_drug_signal_details",
         "get_case_review_report_literature_stub",
     ]
-    signal_call = next(arguments for name, arguments in client.calls if name == "get_case_review_drug_signal_details")
-    literature_call = next(arguments for name, arguments in client.calls if name == "get_case_review_report_literature_stub")
+    signal_call = next(
+        arguments
+        for name, arguments in client.calls
+        if name == "get_case_review_drug_signal_details"
+    )
+    literature_call = next(
+        arguments
+        for name, arguments in client.calls
+        if name == "get_case_review_report_literature_stub"
+    )
     assert signal_call["source_record_id"] == "drug-1"
     assert signal_call["adverse_event_concept_id"] == 321
     assert signal_call["ingredient_concept_id"] == 123
@@ -1032,7 +1224,9 @@ def test_flow_case_causal_review_prefetches_optional_enrichment(monkeypatch):
 
 
 @pytest.mark.acp
-def test_flow_case_causal_review_prefetches_drug_label_details_with_event_identifiers(monkeypatch):
+def test_flow_case_causal_review_prefetches_drug_label_details_with_event_identifiers(
+    monkeypatch,
+):
     import study_agent_acp.agent as agent_module
 
     def fake_llm(prompt, required_keys=None):
@@ -1063,10 +1257,14 @@ def test_flow_case_causal_review_prefetches_drug_label_details_with_event_identi
                 context_items = list(case_row.get("context_items") or [])
                 candidate_items_by_domain = {}
                 for item in candidate_items:
-                    candidate_items_by_domain.setdefault(item.get("domain") or "", []).append(item)
+                    candidate_items_by_domain.setdefault(
+                        item.get("domain") or "", []
+                    ).append(item)
                 context_items_by_domain = {}
                 for item in context_items:
-                    context_items_by_domain.setdefault(item.get("domain") or "", []).append(item)
+                    context_items_by_domain.setdefault(
+                        item.get("domain") or "", []
+                    ).append(item)
                 return {
                     "sanitized_row": {
                         "case_id": case_row.get("case_id") or "",
@@ -1096,7 +1294,10 @@ def test_flow_case_causal_review_prefetches_drug_label_details_with_event_identi
                 "domain": "index_event",
                 "label": "Cystitis",
                 "source_record_id": "reaction-1",
-                "annotations": {"adverse_event_concept_id": 36110716, "adverse_event_meddra_id": "10011781"},
+                "annotations": {
+                    "adverse_event_concept_id": 36110716,
+                    "adverse_event_meddra_id": "10011781",
+                },
             },
             "candidate_items": [
                 {
@@ -1104,11 +1305,17 @@ def test_flow_case_causal_review_prefetches_drug_label_details_with_event_identi
                     "label": "Nitrofurantoin",
                     "source_record_id": "drug-1",
                     "subrole": "primary_suspect",
-                    "annotations": {"ingredient_concept_id": 785649, "ingred_rxcui": "6130"},
+                    "annotations": {
+                        "ingredient_concept_id": 785649,
+                        "ingred_rxcui": "6130",
+                    },
                 }
             ],
             "context_items": [],
-            "case_metadata": {"literature_reference_present": True, "lookup_key": {"primaryid": None, "isr": "6526923"}},
+            "case_metadata": {
+                "literature_reference_present": True,
+                "lookup_key": {"primaryid": None, "isr": "6526923"},
+            },
             "annotations": {},
             "tool_hints": {
                 "available_expansions": ["get_case_review_drug_label_details"],
@@ -1119,7 +1326,11 @@ def test_flow_case_causal_review_prefetches_drug_label_details_with_event_identi
         allowed_domains=["drug_exposures"],
     )
     assert result["status"] == "ok"
-    label_call = next(arguments for name, arguments in client.calls if name == "get_case_review_drug_label_details")
+    label_call = next(
+        arguments
+        for name, arguments in client.calls
+        if name == "get_case_review_drug_label_details"
+    )
     assert label_call["source_type"] == "signal_validation"
     assert label_call["case_id"] == "6526923-5"
     assert label_call["source_record_id"] == "drug-1"
@@ -1132,7 +1343,9 @@ def test_flow_case_causal_review_prefetches_drug_label_details_with_event_identi
 
 
 @pytest.mark.acp
-def test_flow_case_causal_review_succeeds_when_optional_enrichment_is_unavailable(monkeypatch):
+def test_flow_case_causal_review_succeeds_when_optional_enrichment_is_unavailable(
+    monkeypatch,
+):
     import study_agent_acp.agent as agent_module
 
     class UnavailableEnrichmentClient(StubMCPClient):
@@ -1176,7 +1389,10 @@ def test_flow_case_causal_review_succeeds_when_optional_enrichment_is_unavailabl
                 "domain": "index_event",
                 "label": "GI bleed",
                 "source_record_id": "reaction-1",
-                "annotations": {"adverse_event_concept_id": 321, "adverse_event_meddra_id": "789"},
+                "annotations": {
+                    "adverse_event_concept_id": 321,
+                    "adverse_event_meddra_id": "789",
+                },
             },
             "candidate_items": [
                 {
@@ -1184,15 +1400,27 @@ def test_flow_case_causal_review_succeeds_when_optional_enrichment_is_unavailabl
                     "label": "Warfarin",
                     "source_record_id": "drug-1",
                     "subrole": "primary_suspect",
-                    "annotations": {"ingredient_concept_id": 123, "ingred_rxcui": "456"},
+                    "annotations": {
+                        "ingredient_concept_id": 123,
+                        "ingred_rxcui": "456",
+                    },
                 }
             ],
             "context_items": [],
-            "case_metadata": {"literature_reference_present": True, "lookup_key": {"primaryid": None, "isr": "6526923"}},
+            "case_metadata": {
+                "literature_reference_present": True,
+                "lookup_key": {"primaryid": None, "isr": "6526923"},
+            },
             "annotations": {},
             "tool_hints": {
-                "available_expansions": ["get_case_review_drug_signal_details", "get_case_review_report_literature_stub"],
-                "prefetch_expansions": ["get_case_review_drug_signal_details", "get_case_review_report_literature_stub"],
+                "available_expansions": [
+                    "get_case_review_drug_signal_details",
+                    "get_case_review_report_literature_stub",
+                ],
+                "prefetch_expansions": [
+                    "get_case_review_drug_signal_details",
+                    "get_case_review_report_literature_stub",
+                ],
             },
         },
         source_type="signal_validation",
@@ -1200,9 +1428,23 @@ def test_flow_case_causal_review_succeeds_when_optional_enrichment_is_unavailabl
     )
     assert result["status"] == "ok"
     assert result["candidates_by_domain"]["drug_exposures"][0]["label"] == "Warfarin"
-    assert result["diagnostics"]["optional_enrichment"]["results"]["get_case_review_drug_signal_details"][0]["status"] == "unavailable"
-    assert result["diagnostics"]["optional_enrichment"]["results"]["get_case_review_report_literature_stub"]["status"] == "unavailable"
-    signal_call = next(arguments for name, arguments in client.calls if name == "get_case_review_drug_signal_details")
+    assert (
+        result["diagnostics"]["optional_enrichment"]["results"][
+            "get_case_review_drug_signal_details"
+        ][0]["status"]
+        == "unavailable"
+    )
+    assert (
+        result["diagnostics"]["optional_enrichment"]["results"][
+            "get_case_review_report_literature_stub"
+        ]["status"]
+        == "unavailable"
+    )
+    signal_call = next(
+        arguments
+        for name, arguments in client.calls
+        if name == "get_case_review_drug_signal_details"
+    )
     assert signal_call["source_record_id"] == "drug-1"
     assert signal_call["adverse_event_concept_id"] == 321
     assert signal_call["ingredient_concept_id"] == 123
@@ -1222,11 +1464,21 @@ def test_flow_workflow_context_dialogue(monkeypatch):
             parsed_content={
                 "plan": "answer in context",
                 "answer": "Washout reduces prevalent-user bias.",
-                "current_step_guidance": ["Keep the existing comparator step open while you decide."],
+                "current_step_guidance": [
+                    "Keep the existing comparator step open while you decide."
+                ],
                 "cautions": ["Do not change cohort IDs yet."],
-                "suggested_next_actions": ["Confirm whether the design is new-user or prevalent-user."],
+                "suggested_next_actions": [
+                    "Confirm whether the design is new-user or prevalent-user."
+                ],
                 "follow_up_plan": ["Inspect the compact execution context first."],
-                "artifact_requests": [{"artifact_id": "cg_cohort_count_csv", "reason": "Need the comparator count file for confirmation.", "permission_required": False}],
+                "artifact_requests": [
+                    {
+                        "artifact_id": "cg_cohort_count_csv",
+                        "reason": "Need the comparator count file for confirmation.",
+                        "permission_required": False,
+                    }
+                ],
             },
             content_text="{}",
             parse_stage="chat_completions_content",
@@ -1246,9 +1498,16 @@ def test_flow_workflow_context_dialogue(monkeypatch):
 
     assert result["status"] == "ok"
     assert result["dialogue"]["answer"] == "Washout reduces prevalent-user bias."
-    assert result["dialogue"]["current_step_guidance"] == ["Keep the existing comparator step open while you decide."]
-    assert result["dialogue"]["follow_up_plan"] == ["Inspect the compact execution context first."]
-    assert result["dialogue"]["artifact_requests"][0]["artifact_id"] == "cg_cohort_count_csv"
+    assert result["dialogue"]["current_step_guidance"] == [
+        "Keep the existing comparator step open while you decide."
+    ]
+    assert result["dialogue"]["follow_up_plan"] == [
+        "Inspect the compact execution context first."
+    ]
+    assert (
+        result["dialogue"]["artifact_requests"][0]["artifact_id"]
+        == "cg_cohort_count_csv"
+    )
 
 
 @pytest.mark.acp
@@ -1291,7 +1550,10 @@ def _run_post(path: str, body: dict):
 
 @pytest.mark.acp
 def test_post_rejects_path_only_cohort_requests():
-    captured = _run_post("/flows/cohort_critique_general_design", {"cohort_path": "scripts/cohort_definition.json"})
+    captured = _run_post(
+        "/flows/cohort_critique_general_design",
+        {"cohort_path": "scripts/cohort_definition.json"},
+    )
 
     assert captured["status"] == 400
     assert captured["payload"]["error"] == "local_path_inputs_not_supported:cohort_path"
@@ -1301,11 +1563,18 @@ def test_post_rejects_path_only_cohort_requests():
 def test_post_rejects_path_only_keeper_row_requests():
     captured = _run_post(
         "/flows/phenotype_validation_review",
-        {"disease_name": "COPD", "keeper_row_path": "keeper-case-review/rows/outcome_1271_rows.json", "row_index": 1},
+        {
+            "disease_name": "COPD",
+            "keeper_row_path": "keeper-case-review/rows/outcome_1271_rows.json",
+            "row_index": 1,
+        },
     )
 
     assert captured["status"] == 400
-    assert captured["payload"]["error"] == "local_path_inputs_not_supported:keeper_row_path"
+    assert (
+        captured["payload"]["error"]
+        == "local_path_inputs_not_supported:keeper_row_path"
+    )
 
 
 @pytest.mark.acp
@@ -1320,3 +1589,23 @@ def test_post_ignores_path_hint_when_inline_payload_is_present():
 
     assert captured["status"] == 200
     assert captured["payload"]["status"] == "ok"
+
+
+def test_http_mcp_client_uses_one_shot_sessions(monkeypatch):
+    client = HttpMCPClient(HttpMCPClientConfig(url="http://mcp.test:8790/mcp"))
+
+    async def fake_list_tools():
+        return [{"name": "phenotype_search"}]
+
+    async def fake_call_tool(name, arguments):
+        return {"name": name, "arguments": arguments}
+
+    monkeypatch.setattr(client, "_list_tools_oneshot", fake_list_tools)
+    monkeypatch.setattr(client, "_call_tool_oneshot", fake_call_tool)
+
+    assert client.list_tools() == [{"name": "phenotype_search"}]
+    assert client.call_tool("phenotype_search", {"query": "bleed"}) == {
+        "name": "phenotype_search",
+        "arguments": {"query": "bleed"},
+    }
+    assert client.close() is None

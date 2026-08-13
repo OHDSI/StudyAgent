@@ -137,18 +137,81 @@ scripts/demo_strategus_cohort_method.R
 
 ## Quickstart
 
+### Native Python environments
+
+For Windows and other managed-machine deployments, use a project environment rather than installing Study Agent into the system Python. `uv` is the recommended native path:
+
+```powershell
+uv python install 3.12
+uv lock
+uv run --extra dev python -m pytest -q tests/test_config_deployment.py
+```
+
+This quick verification does not require the optional phenotype source corpus, a built phenotype index, an LLM, or an embedding service.
+
+Always launch project commands through `uv run`; do not use bare `python`, `pytest`, `doit`, `study-agent-mcp`, or `study-agent-acp`, because PowerShell may resolve a managed system installation instead of the project environment:
+
+```powershell
+uv run study-agent-setup
+```
+
+After configuring the required secrets and phenotype index, run the smoke task **before** starting long-lived ACP or MCP services. The task starts and stops its own MCP and ACP on ports 8790 and 8765:
+
+```powershell
+# Ensure no study-agent ACP or MCP process is already listening on ports 8765 or 8790.
+uv run --extra dev doit smoke_phenotype_recommend_flow
+```
+
+Only after that smoke test succeeds, start the long-lived services for interactive use in separate terminals:
+
+```powershell
+uv run study-agent-mcp --config .\config.yaml --profile native
+uv run study-agent-acp --config .\config.yaml --profile native
+```
+
+Conda or Micromamba remains supported. It supplies Python and `pip`; `conda run -n study-agent python -m pip install -e ".[dev]"` reads the application dependency definition from `pyproject.toml`.
+
 ### Install this package in development mode
 
 ```bash
-pip install -e ".[dev]"
+python -m pip install -e ".[dev]"
 ```
+
+`pip` reads `pyproject.toml`, so this installs the same Study Agent runtime and development dependencies as every other supported Python environment. Without activating the environment, use:
+
+```bash
+conda run -n study-agent python -m pip install -e ".[dev]"
+conda run -n study-agent study-agent-mcp --config config.yaml
+conda run -n study-agent study-agent-acp --config config.yaml
+```
+
+### Configure a deployment
+
+After installation, run the interactive setup helper from the project directory:
+
+```powershell
+# uv-managed project environment
+uv run study-agent-setup
+
+# Or after installing into an activated Conda/virtual environment:
+# study-agent-setup
+```
+
+The helper writes non-secret, cross-platform settings to `config.yaml` and, only when needed, writes hidden API keys or database URLs to private `secrets.env`. Do not place secrets in `config.yaml`. Docker Compose reads both files automatically. For native services, pass the YAML file explicitly:
+
+```bash
+study-agent-mcp --config config.yaml --profile native
+study-agent-acp --config config.yaml --profile native
+```
+
+Existing environment-only deployments remain supported during this migration. See [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) for the precedence and migration details.
 
 ## Dependency Management
 
 The project currently uses a simple split:
 
 - `pyproject.toml` defines the Python package, runtime dependencies, console scripts, and optional dev tools.
-- `environment.yml` bootstraps a Conda or Micromamba environment with the Python tooling commonly used in this repo.
+- `environment.yml` bootstraps only a Python 3.12 and `pip` Conda or Micromamba environment. It deliberately does not duplicate application dependencies.
 - `uv.lock` is not tracked as a repo source of truth. If you use `uv` locally, generate your own lockfile after cloning.
 
 Official local workflow:
@@ -156,19 +219,41 @@ Official local workflow:
 ```bash
 conda env create -f environment.yml
 conda activate study-agent
-pip install -e ".[dev]"
+python -m pip install -e ".[dev]"
 ```
 
 Optional `uv` workflow for users who prefer it:
 
 ```bash
 uv lock
-uv run pytest
+uv run --extra dev python -m pytest
 ```
 
-The repo does not currently require `uv`. Docker builds the runtime in two layers: `environment.yml` provides the Micromamba/Conda base environment, and then `pyproject.toml` is used by `pip install -e .` to install the Python package and console entrypoints inside that environment.
+The repo does not require `uv`; it is the recommended native deployment path because every command can be explicitly tied to its project environment. `uv.lock` is currently a local artifact, so run `uv lock` after cloning and whenever dependency constraints change. Docker builds the runtime in two layers: `environment.yml` provides the Micromamba/Conda Python base environment, and then `pyproject.toml` is used by `python -m pip install -e .` to install the Python package and console entrypoints inside that environment.
 
-### Start MCP over HTTP
+### Docker Compose deployment
+
+Docker Compose starts both services with the `docker` profile, mounts `config.yaml` read-only, and reads secrets from `secrets.env` (or the legacy secret-only `.env`). Prepare those files before starting Compose:
+
+```bash
+cp config.example.yaml config.yaml
+# Edit config.yaml with non-secret deployment settings.
+# Put only API keys, tokens, and database URLs in secrets.env.
+docker compose up --build
+```
+
+On Linux, the container's non-root service user must be able to read the bind-mounted configuration. If startup reports `PermissionError: '/app/config.yaml'`, correct the host file mode and restart:
+
+```bash
+chmod 644 config.yaml
+docker compose up --build
+```
+
+Check both services with `docker compose ps`, follow logs with `docker compose logs -f acp-agent mcp-server`, and call ACP at `http://127.0.0.1:8765`. The MCP endpoint is exposed at `http://127.0.0.1:8790/mcp` for diagnostics.
+
+For an LLM or embedding service running on the Docker host, keep the `docker` profile URLs as `http://host.docker.internal:<port>/...`; Compose maps that name to the host gateway on Linux, macOS, and Windows. If the host service is reached through an SSH tunnel, the tunnel must listen on an address reachable from the Docker bridge, not only `127.0.0.1`; restrict the host firewall accordingly. See [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) for verification commands and security details.
+
+### Start MCP over HTTP (environment-only compatibility)
 
 ```bash
 export MCP_TRANSPORT=http

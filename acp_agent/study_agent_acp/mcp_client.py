@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from contextlib import AsyncExitStack
+from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass
 import os
 import socket
@@ -113,7 +113,9 @@ class StdioMCPClient:
                 result = await session.list_tools()
                 return [tool.model_dump() for tool in result.tools]
 
-    async def _call_tool_oneshot(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+    async def _call_tool_oneshot(
+        self, name: str, arguments: Dict[str, Any]
+    ) -> Dict[str, Any]:
         server = StdioServerParameters(
             command=self._config.command,
             args=self._config.args,
@@ -150,7 +152,9 @@ class StdioMCPClient:
             cwd=self._config.cwd,
         )
         self._exit_stack = AsyncExitStack()
-        read_stream, write_stream = await self._exit_stack.enter_async_context(stdio_client(server))
+        read_stream, write_stream = await self._exit_stack.enter_async_context(
+            stdio_client(server)
+        )
         session = ClientSession(read_stream, write_stream)
         await self._exit_stack.enter_async_context(session)
         await session.initialize()
@@ -174,7 +178,7 @@ class StdioMCPClient:
             self._portal = None
             self._session = None
             self._exit_stack = None
-        
+
         if self._portal is None:
             return
         try:
@@ -219,6 +223,13 @@ class HttpMCPClientConfig:
 
 
 class HttpMCPClient:
+    """Streamable-HTTP MCP client safe for ACP's threaded request server.
+
+    A streamable HTTP client owns AnyIO cancellation scopes. Keeping one open
+    across calls made through a blocking portal can close it from a different
+    task, so each operation owns its complete async context instead.
+    """
+
     def __init__(self, config: HttpMCPClientConfig) -> None:
         if "://" not in config.url:
             config.url = f"http://{config.url}"
@@ -226,23 +237,12 @@ class HttpMCPClient:
         parsed = urlparse(config.url)
         self._host = parsed.hostname
         self._port = parsed.port
-        self._lock = Lock()
-        self._portal = None
-        self._portal_cm = None
-        self._session: ClientSession | None = None
-        self._exit_stack: AsyncExitStack | None = None
 
     def list_tools(self) -> List[Dict[str, Any]]:
-        self._ensure_session()
-        with self._lock:
-            assert self._portal is not None
-            return self._portal.call(self._list_tools)
+        return anyio.run(self._list_tools_oneshot)
 
     def call_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        self._ensure_session()
-        with self._lock:
-            assert self._portal is not None
-            return self._portal.call(self._call_tool, name, arguments)
+        return anyio.run(self._call_tool_oneshot, name, arguments)
 
     def health_check(self) -> Dict[str, Any]:
         if self._host and self._port:
@@ -252,79 +252,45 @@ class HttpMCPClient:
             except OSError as exc:
                 return {"ok": False, "error": str(exc)}
         try:
-            self._ensure_session()
-            with self._lock:
-                assert self._portal is not None
-                return self._portal.call(self._ping)
+            return anyio.run(self._ping_oneshot)
         except Exception as exc:
             return {"ok": False, "error": str(exc)}
 
-    async def _list_tools(self) -> List[Dict[str, Any]]:
-        assert self._session is not None
-        result = await self._session.list_tools()
-        return [tool.model_dump() for tool in result.tools]
-
-    async def _call_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        assert self._session is not None
-        result = await self._session.call_tool(name=name, arguments=arguments)
-        if result.structuredContent is not None:
-            return result.structuredContent
-        return {"content": [c.model_dump() for c in result.content or []]}
-
-    async def _ping(self) -> Dict[str, Any]:
-        assert self._session is not None
-        await self._session.send_ping()
-        return {"ok": True, "mode": "http"}
-
-    def _ensure_session(self) -> None:
-        if self._session is not None:
-            return
-        with self._lock:
-            if self._session is not None:
-                return
-            self._session = None
-            self._exit_stack = None
-            self._portal_cm = start_blocking_portal()
-            self._portal = self._portal_cm.__enter__()
-            assert self._portal is not None
-            self._portal.call(self._async_init)
-
-    async def _async_init(self) -> None:
+    @asynccontextmanager
+    async def _session_context(self):
         headers = {}
         if self._config.token:
             headers["Authorization"] = f"Bearer {self._config.token}"
         timeout = httpx.Timeout(self._config.timeout)
-        client = create_mcp_http_client(headers=headers, timeout=timeout)
-        self._exit_stack = AsyncExitStack()
-        await self._exit_stack.enter_async_context(client)
-        read_stream, write_stream, _ = await self._exit_stack.enter_async_context(
-            streamable_http_client(self._config.url, http_client=client)
-        )
-        session = ClientSession(read_stream, write_stream)
-        await self._exit_stack.enter_async_context(session)
-        await session.initialize()
-        self._session = session
-    def close(self) -> None:
-        portal = self._portal
-        try:
-            if portal is not None:
-                try:
-                    portal.call(self._async_close)
-                except Exception:
-                    pass
-        finally:
-            if self._portal_cm is not None:
-                try:
-                    self._portal_cm.__exit__(None, None, None)
-                except Exception:
-                    pass
-                self._portal_cm = None
-            self._portal = None
-            self._session = None
-            self._exit_stack = None
+        async with AsyncExitStack() as exit_stack:
+            client = create_mcp_http_client(headers=headers, timeout=timeout)
+            await exit_stack.enter_async_context(client)
+            read_stream, write_stream, _ = await exit_stack.enter_async_context(
+                streamable_http_client(self._config.url, http_client=client)
+            )
+            session = ClientSession(read_stream, write_stream)
+            await exit_stack.enter_async_context(session)
+            await session.initialize()
+            yield session
 
-    async def _async_close(self) -> None:
-        if self._exit_stack is not None:
-            await self._exit_stack.aclose()
-        self._exit_stack = None
-        self._session = None
+    async def _list_tools_oneshot(self) -> List[Dict[str, Any]]:
+        async with self._session_context() as session:
+            result = await session.list_tools()
+            return [tool.model_dump() for tool in result.tools]
+
+    async def _call_tool_oneshot(
+        self, name: str, arguments: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        async with self._session_context() as session:
+            result = await session.call_tool(name=name, arguments=arguments)
+            if result.structuredContent is not None:
+                return result.structuredContent
+            return {"content": [c.model_dump() for c in result.content or []]}
+
+    async def _ping_oneshot(self) -> Dict[str, Any]:
+        async with self._session_context() as session:
+            await session.send_ping()
+            return {"ok": True, "mode": "http"}
+
+    def close(self) -> None:
+        """No-op: every HTTP operation closes its own session before returning."""

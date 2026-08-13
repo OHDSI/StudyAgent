@@ -53,15 +53,17 @@ export MCP_TRANSPORT=http
 export MCP_HOST=127.0.0.1
 export MCP_PORT=8790
 export MCP_PATH=/mcp
-study-agent-mcp
+study-agent-mcp --config config.yaml --profile native
 ```
 
 ```bash
 export STUDY_AGENT_MCP_URL="http://127.0.0.1:8790/mcp"
 export STUDY_AGENT_HOST=127.0.0.1
 export STUDY_AGENT_PORT=8765
-study-agent-acp
+study-agent-acp --config config.yaml --profile native
 ```
+
+For a uv-managed native installation, prefix both commands with `uv run`. On managed Windows hosts, do not invoke bare project executables because PowerShell can select a globally installed Python environment. Docker Compose supplies the `docker` profile itself; see [`README.md`](../README.md) and [`docs/ENVIRONMENT.md`](../docs/ENVIRONMENT.md) for deployment steps.
 
 ## Where To Look
 

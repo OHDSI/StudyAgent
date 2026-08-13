@@ -6,6 +6,9 @@ conda-pip-env-github-workflow.yml
 *sandbox*
 *.doit.db*
 *data*
+!mcp_server/prompts/phenotype/overview_phenotype_index_recommendation_metadata.md
+!mcp_server/prompts/phenotype/spec_phenotype_index_recommendation_metadata.md
+!mcp_server/prompts/phenotype/output_schema_phenotype_index_recommendation_metadata.json
 *~
 *.agent-shell*
 docs/study-agent-development-phenotype-suggestion-tool-architecture-plan.pdf
@@ -156,6 +159,8 @@ celerybeat.pid
 
 # Environments
 .env
+secrets.env
+config.yaml
 .envrc
 .venv
 env/

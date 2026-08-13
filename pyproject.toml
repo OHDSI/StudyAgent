@@ -12,9 +12,11 @@ dependencies = [
   "anyio>=4.12",
   "faiss-cpu>=1.13",
   "flask>=3.1",
-  "mcp>=1.0.0",
+  "mcp>=1.10,<2",
+  "httpx>=0.27.1,<1",
   "numpy>=2.4",
-  "omop-alchemy>=0.6",
+  "omop-alchemy==0.6.0",
+  "orm-loader==0.3.25",
   "pydantic>=2.0.0",
   "PyYAML>=6.0",
   "requests>=2.33",
@@ -26,12 +28,14 @@ dependencies = [
 dev = [
   "pytest>=9.0.0",
   "ruff>=0.11.0",
+  "doit"
 ]
 
 [project.scripts]
-study-agent-mcp = "study_agent_mcp.server:main"
-study-agent-acp = "study_agent_acp.server:main"
+study-agent-mcp = "study_agent_core.config_cli:mcp_main"
+study-agent-acp = "study_agent_core.config_cli:acp_main"
 study-agent-demo-shell = "study_agent_acp.demo_shell:main"
+study-agent-setup = "study_agent_core.env_wizard:main"
 
 [tool.setuptools]
 packages = ["study_agent_core", "study_agent_mcp", "study_agent_acp"]

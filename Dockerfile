@@ -13,10 +13,11 @@ COPY --chown=$MAMBA_USER:$MAMBA_USER core/ ./core/
 COPY --chown=$MAMBA_USER:$MAMBA_USER mcp_server/ ./mcp_server/
 COPY --chown=$MAMBA_USER:$MAMBA_USER acp_agent/ ./acp_agent/
 COPY --chown=$MAMBA_USER:$MAMBA_USER docs/ ./docs/
-COPY --chown=$MAMBA_USER:$MAMBA_USER README.md ./
+COPY --chown=$MAMBA_USER:$MAMBA_USER README.md config.example.yaml ./
 COPY --chown=$MAMBA_USER:$MAMBA_USER pyproject.toml ./
 
-RUN micromamba run -n base pip install --no-cache-dir -e .
+RUN micromamba run -n base pip install --no-cache-dir -e . && \
+    micromamba run -n base python -c "import httpx; from mcp.client.streamable_http import streamable_http_client; from mcp.server.fastmcp import FastMCP"
 
 RUN mkdir -p /data/phenotype_index && chown -R $MAMBA_USER:$MAMBA_USER /data
 

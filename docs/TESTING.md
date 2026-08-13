@@ -4,19 +4,65 @@ This repo uses lightweight CLI smoke tests for the ACP and MCP layers. Keep thes
 
 ## Install (required before tests)
 
-Install the repo in editable mode so the CLI entrypoints are on your PATH and changes take effect immediately:
+Install the repo in editable mode so the CLI entrypoints are available in the selected Python environment and changes take effect immediately:
 
 ```bash
-pip install -e ".[dev]"
+python -m pip install -e ".[dev]"
 ```
 
-Editable mode means Python imports the local source tree directly. You do not need to reinstall after edits; just re-run the commands. Manage this per environment (venv/conda) and remove with `pip uninstall study-agent` if needed.
+Editable mode means Python imports the local source tree directly. You do not need to reinstall after edits; just re-run the commands. Manage this per environment (venv/conda) and remove with `python -m pip uninstall study-agent` if needed.
 
 Dependency notes:
 
 - `pyproject.toml` is the source of truth for the Python package and the optional `dev` extras.
-- `environment.yml` bootstraps the Conda or Micromamba environment used by Docker and many local setups.
+- `environment.yml` only bootstraps Python 3.12 and `pip` for Conda or Micromamba. Install Study Agent into that environment with `python -m pip install -e ".[dev]"`; do not add application dependencies to `environment.yml`.
 - `uv.lock` is intentionally not tracked. If you prefer `uv`, generate a local lockfile after cloning with `uv lock`.
+
+For uv, include the optional development tools for test commands and run every project command through uv so a managed system Python cannot be selected from `PATH`:
+
+```powershell
+uv run --extra dev python -m pytest -q tests/test_config_deployment.py
+uv run --extra dev doit test_all
+uv run study-agent-mcp --config .\config.yaml --profile native
+uv run study-agent-acp --config .\config.yaml --profile native
+```
+
+For Conda without shell activation:
+
+```bash
+conda run -n study-agent python -m pip install -e ".[dev]"
+conda run -n study-agent python -m pytest -q
+```
+
+## Verify the selected Python runtime
+
+Run these diagnostics before a native deployment or when a command appears to use the wrong Python environment. They identify what the shell would select and what uv actually uses for the project. Do not include secret values in the output you share.
+
+PowerShell:
+
+```powershell
+Get-Command python -All
+Get-Command pytest -All
+Get-Command study-agent-mcp -All
+Get-Command study-agent-acp -All
+uv run python -c "import sys, study_agent_core; print(sys.executable); print(sys.prefix); print(study_agent_core.__file__)"
+uv run python -m pip show mcp
+```
+
+Bash:
+
+```bash
+type -a python
+type -a pytest
+type -a study-agent-mcp
+type -a study-agent-acp
+uv run python -c 'import sys, study_agent_core; print(sys.executable); print(sys.prefix); print(study_agent_core.__file__)'
+uv run python -m pip show mcp
+```
+
+The `uv run` output is the authoritative project runtime. If a bare command resolves elsewhere, continue to invoke Study Agent and its test tools through `uv run` rather than changing the system Python installation. For Conda, replace `uv run` with `conda run -n study-agent`.
+
+The full suite includes developer tests that may require optional phenotype source data under `data/` and separately maintained R workflow assertions. Use the quick verification above for a fresh clone before adding those optional resources.
 
 ## Test output verbosity
 
@@ -45,6 +91,8 @@ PYTEST_OPTS="-vv -rA -s" doit run_all_tests
 
 ## Task runner (doit)
 
+`dodo.py` loads `config.yaml` from the repository root when present. Its service subprocesses receive the YAML-derived non-secret settings, while secrets remain environment variables. Runtime logs and timeout-calibration artifacts go to `paths.runtime` (default `.study-agent-runtime`), which works on Windows and Linux.
+
 List tasks:
 
 ```bash
@@ -63,7 +111,20 @@ doit test_all
 
 Task dependencies:
 
-- `test_unit` depends on `test_core` and `test_acp`
+- `test_unit` depends on `test_core` and `test_acp`.
+- `run_all` is the deterministic full Python test suite (`test_all`); it does not make live service calls.
+- `run_smoke_suite` runs every configured local ACP/MCP smoke flow, including the cohort-method, phenotype-validation, and Keeper flows. It requires the LLM, embedding, phenotype-index, and any configured Keeper dependencies.
+- `run_external_smoke_suite` runs `run_smoke_suite` plus the real Hecate/PHOEBE endpoint smoke test.
+
+Smoke tasks own temporary ACP and MCP processes. Stop any long-lived Study Agent services using ports 8765 or 8790 before running either smoke suite. Missing `LLM_API_KEY` now fails an LLM-backed smoke task rather than reporting a successful no-op.
+
+Run the suites explicitly:
+
+```bash
+uv run --extra dev doit run_all
+uv run --extra dev doit run_smoke_suite
+uv run --extra dev doit run_external_smoke_suite
+```
 
 ## ACP smoke test (core fallback)
 
@@ -88,6 +149,7 @@ curl -s -X POST http://127.0.0.1:8765/tools/call \
 Notes:
 - PowerShell aliases `curl` to `Invoke-WebRequest`. Use `curl.exe` for real curl, or use `Invoke-RestMethod` below.
 - Use here-strings to keep JSON readable.
+- When using uv, prefix every executable in the PowerShell examples with `uv run` (for example, `uv run study-agent-acp --config .\config.yaml --profile native`). Do not use bare project executables on managed Windows hosts.
 
 Start ACP with verbose logging (server + LLM):
 
@@ -95,7 +157,7 @@ Start ACP with verbose logging (server + LLM):
 $env:STUDY_AGENT_ALLOW_CORE_FALLBACK = "1"
 $env:STUDY_AGENT_DEBUG = "1"
 $env:LLM_LOG = "1"
-study-agent-acp
+uv run study-agent-acp --config .\config.yaml --profile native
 ```
 
 If you launch from outside the repo root, set `STUDY_AGENT_BASE_DIR` so relative paths (index, banner, outputs) resolve correctly:
@@ -162,40 +224,22 @@ This uses stdio MCP mode. If you use HTTP MCP, do not set `STUDY_AGENT_MCP_COMMA
 
 HTTP MCP mode (recommended for cross-platform stability):
 
-```bash
-export MCP_TRANSPORT=http
-export MCP_HOST=127.0.0.1
-export MCP_PORT=8790
-export MCP_PATH=/mcp
-study-agent-mcp
-```
-
-Then in a second shell:
+Set `mcp.transport`, `mcp.bind`, `mcp.path`, and `acp.mcp.url` once in `config.yaml`; the supplied native profile already uses `http://127.0.0.1:8790/mcp`. Start the services in separate terminals without re-exporting those YAML values:
 
 ```bash
-export STUDY_AGENT_MCP_URL="http://127.0.0.1:8790/mcp"
-study-agent-acp
+study-agent-mcp --config config.yaml --profile native
+study-agent-acp --config config.yaml --profile native
 ```
 
-Note: `STUDY_AGENT_MCP_URL` must include the port (e.g. `:8790`).
-When set, ACP uses HTTP and ignores `STUDY_AGENT_MCP_COMMAND`.
-
-PowerShell (Windows) MCP HTTP mode:
+PowerShell (Windows):
 
 ```powershell
-$env:MCP_TRANSPORT = "http"
-$env:MCP_HOST = "127.0.0.1"
-$env:MCP_PORT = "8790"
-$env:MCP_PATH = "/mcp"
-study-agent-mcp
+uv run study-agent-mcp --config .\config.yaml --profile native
+# In a second PowerShell:
+uv run study-agent-acp --config .\config.yaml --profile native
 ```
 
-Then in a second PowerShell:
-
-```powershell
-$env:STUDY_AGENT_MCP_URL = "http://127.0.0.1:8790/mcp"
-study-agent-acp
-```
+Use `STUDY_AGENT_MCP_COMMAND` only for the advanced managed-stdio mode; when `acp.mcp.url` is configured, ACP uses HTTP MCP instead.
 
 Health check (PowerShell):
 
@@ -218,24 +262,18 @@ Rotation is controlled by `STUDY_AGENT_LOG_MAX_BYTES` and `STUDY_AGENT_LOG_BACKU
 Windows logging via shell redirection still works if desired:
 
 ```powershell
-study-agent-mcp 1> mcp.out.log 2> mcp.err.log
-study-agent-acp 1> acp.out.log 2> acp.err.log
+uv run study-agent-mcp --config .\config.yaml --profile native 1> mcp.out.log 2> mcp.err.log
+uv run study-agent-acp --config .\config.yaml --profile native 1> acp.out.log 2> acp.err.log
 ```
 
 Or using `Start-Process`:
 
 ```powershell
-Start-Process study-agent-mcp -RedirectStandardOutput mcp.out.log -RedirectStandardError mcp.err.log
-Start-Process study-agent-acp -RedirectStandardOutput acp.out.log -RedirectStandardError acp.err.log
+Start-Process uv -ArgumentList @("run", "study-agent-mcp", "--config", ".\config.yaml", "--profile", "native") -RedirectStandardOutput mcp.out.log -RedirectStandardError mcp.err.log
+Start-Process uv -ArgumentList @("run", "study-agent-acp", "--config", ".\config.yaml", "--profile", "native") -RedirectStandardOutput acp.out.log -RedirectStandardError acp.err.log
 ```
 
-Recommended MCP environment (use absolute paths for stability):
-
-```bash
-export PHENOTYPE_INDEX_DIR="/absolute/path/to/phenotype_index"
-export EMBED_URL="http://localhost:3000/ollama/api/embed"
-export EMBED_MODEL="qwen3-embedding:4b"
-```
+Configure `paths.phenotype_index`, `retrieval.embedding_url`, and `retrieval.embedding_model` in `config.yaml`. Use absolute paths for the phenotype index on deployed hosts; do not duplicate these non-secret values as shell exports.
 
 Optional host/port override:
 
@@ -253,21 +291,11 @@ curl -s http://127.0.0.1:8765/health
 
 ## ACP phenotype flow (MCP + LLM)
 
-Ensure MCP is running and set LLM env vars for an OpenAI-compatible endpoint:
+Ensure MCP is running. Configure the non-secret LLM endpoint, model, API mode, timeouts, and recommendation limits in `config.yaml`; export only the secret API key and any temporary diagnostic override:
 
 ```bash
-export LLM_API_URL="http://localhost:3000/api/chat/completions"
 export LLM_API_KEY="..."
-export LLM_MODEL="gemma3:4b"
-export LLM_DRY_RUN=0
-export LLM_USE_RESPONSES=0
-export LLM_LOG=1
-export LLM_TIMEOUT=300
-export STUDY_AGENT_MCP_TIMEOUT=240
-export ACP_TIMEOUT=360
-export EMBED_TIMEOUT=120
-export LLM_CANDIDATE_LIMIT=5
-export LLM_RECOMMENDATION_MAX_RESULTS=3
+export LLM_LOG=1  # optional diagnostic override
 ```
 
 `LLM_LOG=1` enables verbose LLM logging in the ACP logger (config, prompt, raw response).
@@ -296,7 +324,7 @@ doit calibrate_timeouts
 
 What it does:
 
-- starts MCP and ACP if they are not already running
+- starts and owns temporary MCP and ACP processes; stop services already using the same ports before running it
 - warms up and samples `phenotype_intent_split`, `phenotype_recommendation_advice`, and `phenotype_recommendation`
 - tests multiple recommendation prompt sizes using `TIMEOUT_CALIBRATION_CANDIDATE_LIMITS` (default `3,5,8`)
 - uses ACP diagnostics plus MCP embedding debug logs to recommend timeouts with safety margins
@@ -810,12 +838,7 @@ Important:
 
 ### Hecate-backed configuration
 
-```bash
-export VOCAB_SEARCH_PROVIDER=hecate_api
-export VOCAB_SEARCH_URL="https://hecate.pantheon-hds.com/api/search_standard"
-export PHOEBE_PROVIDER=hecate_api
-export PHOEBE_BULK_URL="https://hecate.pantheon-hds.com/api/concepts/phoebe/bulk"
-```
+Configure `keeper.vocabulary.search_provider`, `keeper.vocabulary.search_url`, `keeper.phoebe.provider`, and `keeper.phoebe.bulk_url` in `config.yaml` for this deployment. These are non-secret settings; do not duplicate them as exports. The equivalent values are `hecate_api`, the Hecate standard-search URL, `hecate_api`, and the Hecate PHOEBE bulk URL.
 
 The Hecate PHOEBE provider always uses the bulk endpoint and sends concept IDs in chunks of 100. Optional hardening knobs: `PHOEBE_HTTP_RETRIES` and `PHOEBE_HTTP_BACKOFF_MS`.
 
@@ -834,7 +857,7 @@ Real bulk-endpoint smoke test:
 doit smoke_hecate_phoebe_bulk_endpoint
 ```
 
-This target makes a real POST to `PHOEBE_BULK_URL` through the MCP tool code path. It is opt-in and is not part of `doit run_all`. The smoke path exercises the same bulk-only provider branch used by `phoebe_related_concepts` when `PHOEBE_PROVIDER=hecate_api`.
+This target makes a real POST to `PHOEBE_BULK_URL` through the MCP tool code path. It is opt-in and is not part of `doit run_smoke_suite`; it runs only in `doit run_external_smoke_suite` or when explicitly requested. The smoke path exercises the same bulk-only provider branch used by `phoebe_related_concepts` when `PHOEBE_PROVIDER=hecate_api`.
 
 Optional overrides:
 
@@ -930,16 +953,10 @@ curl -s -X POST http://127.0.0.1:8765/tools/call \
 
 Use this when the embedding service is local and returns sparse concept rows that need OMOP metadata enrichment from the vocabulary database.
 
+Configure the non-secret provider, URL, query-prefix, schema, and table fields under `keeper` in `config.yaml`. Supply the database connection only as a secret:
+
 ```bash
-export VOCAB_SEARCH_PROVIDER=generic_search_api
-export VOCAB_SEARCH_URL="http://127.0.0.1:30080/search"
-export VOCAB_SEARCH_QUERY_PREFIX="Instruction: retrieve the concepts most related to the query. Query: "
-export VOCAB_METADATA_PROVIDER=db
-export PHOEBE_PROVIDER=db
 export OMOP_DB_ENGINE='<sqlalchemy engine url>'
-export VOCAB_DATABASE_SCHEMA=vocabulary
-export PHOEBE_DB_TABLE=concept_recommended
-export VOCAB_CONCEPT_TABLE=concept
 ```
 
 Test sparse search:
@@ -1017,12 +1034,7 @@ curl -s -X POST http://127.0.0.1:8765/flows/keeper_concept_sets_generate \
 
 ### LLM shim example
 
-Make sure the LLM shim `config.yaml` is configured for the target provider/model.
-Example Bedrock naming may require the `us.` prefix.
-
-```bash
-export LLM_MODEL=bedrock:us.anthropic.claude-opus-4-5-20251101-v1:0
-```
+Make sure the LLM shim `config.yaml` and this project's `llm.model` are configured for the target provider/model. Example Bedrock naming may require the `us.` prefix; set that model name in `config.yaml`, not as an exported non-secret variable.
 
 ```bash
 curl -s -X POST http://127.0.0.1:8765/flows/keeper_concept_sets_generate \
@@ -1033,19 +1045,17 @@ curl -s -X POST http://127.0.0.1:8765/flows/keeper_concept_sets_generate \
 
 ## Phenotype flow smoke test (ACP + MCP)
 
-Run the Python smoke test via `doit`:
+Smoke tasks own their temporary ACP and MCP processes. Stop any long-lived Study Agent services using the configured ACP/MCP ports before running a smoke task; otherwise the task can attach to those existing services while its own child processes fail to bind, producing misleading results.
+
+Run the recommendation smoke test after the required LLM, embedding endpoint, credentials, and phenotype index are configured:
 
 ```bash
-doit smoke_phenotype_flow
+doit smoke_phenotype_recommend_flow
 ```
 
-If you want `doit` to spin up MCP over HTTP automatically, set:
+Do not start ACP or MCP manually for this command. Once it succeeds, start long-lived services separately if you need to make interactive requests.
 
-```bash
-export STUDY_AGENT_MCP_URL="http://127.0.0.1:8790/mcp"
-export STUDY_AGENT_MCP_MANAGED=1
-export MCP_START_TIMEOUT=3
-```
+`doit` reads the configured `acp.mcp.url` from `config.yaml` and starts its own MCP automatically. `MCP_START_TIMEOUT` is an optional advanced override if startup needs more than its default wait period.
 
 Note: the smoke tasks set `ACP_URL` internally per flow. Avoid exporting a global `ACP_URL` unless you intend to override the target flow.
 
@@ -1063,19 +1073,9 @@ doit smoke_cohort_critique_flow
 
 ## Cohort methods specifications recommendation smoke test
 
-This live ACP + MCP smoke test requires LLM credentials, because the flow asks the LLM to map free-text cohort-method analytic settings into the CohortMethod specification shape:
+This live ACP + MCP smoke test requires LLM credentials, because the flow asks the LLM to map free-text cohort-method analytic settings into the CohortMethod specification shape. `doit` uses `acp.mcp.url` from `config.yaml` to start MCP automatically. For a longer MCP startup wait, set the advanced `MCP_START_TIMEOUT` override.
 
 ```bash
-export LLM_API_KEY="..."
-doit smoke_cohort_methods_specs_recommend_flow
-```
-
-If you want `doit` to start MCP over HTTP automatically, use the same managed MCP settings as the phenotype flow smoke test:
-
-```bash
-export STUDY_AGENT_MCP_URL="http://127.0.0.1:8790/mcp"
-export STUDY_AGENT_MCP_MANAGED=1
-export MCP_START_TIMEOUT=3
 export LLM_API_KEY="..."
 doit smoke_cohort_methods_specs_recommend_flow
 ```
