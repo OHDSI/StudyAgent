@@ -24,6 +24,8 @@ mcp:
 llm:
   api_url: http://localhost:3000/api/chat/completions
   model: agentstudyassistant
+  # Set to none for a keyless local shim; the ACP then omits Authorization.
+  authentication: required
   timeout_seconds: 300
   use_responses_api: false
 

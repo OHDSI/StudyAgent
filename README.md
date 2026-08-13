@@ -197,7 +197,7 @@ uv run study-agent-setup
 # study-agent-setup
 ```
 
-The helper writes non-secret, cross-platform settings to `config.yaml` and, only when needed, writes hidden API keys or database URLs to private `secrets.env`. Do not place secrets in `config.yaml`. Docker Compose reads both files automatically. For native services, pass the YAML file explicitly:
+The helper writes non-secret, cross-platform settings to `config.yaml` and, only when needed, writes hidden API keys or database URLs to private `secrets.env`. It asks whether the LLM endpoint requires a key; choosing no writes `llm.authentication: none`, so ACP sends no Authorization header. Do not place secrets in `config.yaml`. Docker Compose reads both files automatically. For native services, pass the YAML file explicitly:
 
 ```bash
 study-agent-mcp --config config.yaml --profile native

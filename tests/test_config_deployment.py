@@ -62,6 +62,7 @@ def test_dodo_suite_membership_and_smoke_credentials() -> None:
     ]
     with pytest.raises(RuntimeError, match="LLM_API_KEY"):
         dodo._require_llm_api_key({})
+    dodo._require_llm_api_key({"LLM_AUTHENTICATION": "none"})
 
 
 def test_dodo_runtime_environment_is_loadable() -> None:

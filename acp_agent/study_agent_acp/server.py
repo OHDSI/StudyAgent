@@ -45,6 +45,7 @@ def _log_startup_config() -> None:
     config_names = [
         "LLM_API_URL",
         "LLM_MODEL",
+        "LLM_AUTHENTICATION",
         "LLM_USE_RESPONSES",
         "LLM_TIMEOUT",
         "STUDY_AGENT_MCP_TIMEOUT",

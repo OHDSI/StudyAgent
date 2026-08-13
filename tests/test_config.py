@@ -50,6 +50,16 @@ llm: {api_url: http://llm.test/v1/chat, model: test-model}
     assert os.environ["LLM_MODEL"] == "test-model"
 
 
+def test_config_projects_keyless_llm_authentication_mode(tmp_path) -> None:
+    path = write_config(
+        tmp_path / "config.yaml",
+        "version: 1\nllm: {authentication: none}\n",
+    )
+    config = load_config(path)
+    assert config is not None
+    assert project_to_environment(config)["LLM_AUTHENTICATION"] == "none"
+
+
 def test_profile_overlay_and_unknown_keys_are_validated(tmp_path) -> None:
     path = write_config(
         tmp_path / "config.yaml",

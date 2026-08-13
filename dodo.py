@@ -84,6 +84,8 @@ def _runtime_env() -> dict[str, str]:
 
 
 def _require_llm_api_key(env: dict[str, str]) -> None:
+    if env.get("LLM_AUTHENTICATION", "required").strip().lower() == "none":
+        return
     if not env.get("LLM_API_KEY"):
         raise RuntimeError(
             "LLM_API_KEY is required for this smoke task. Set it in the process "
@@ -354,11 +356,10 @@ def task_check_llm_connectivity():
             url,
             "-H",
             "Content-Type: application/json",
-            "-H",
-            f"Authorization: Bearer {env['LLM_API_KEY']}",
-            "-d",
-            payload,
         ]
+        if env.get("LLM_AUTHENTICATION", "required").strip().lower() != "none":
+            cmd.extend(["-H", f"Authorization: Bearer {env['LLM_API_KEY']}"])
+        cmd.extend(["-d", payload])
         print("Running LLM connectivity check...")
         subprocess.run(cmd, check=True)
 

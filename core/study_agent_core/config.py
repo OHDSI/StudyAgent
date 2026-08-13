@@ -140,6 +140,7 @@ class MCPConfig(StrictModel):
 class LLMConfig(StrictModel):
     api_url: str = "http://localhost:3000/api/chat/completions"
     model: str = "agentstudyassistant"
+    authentication: Literal["required", "none"] = "required"
     timeout_seconds: int = Field(default=300, ge=1)
     use_responses_api: bool = False
     dry_run: bool = False
@@ -413,6 +414,7 @@ def project_to_environment(config: StudyAgentConfig) -> dict[str, str]:
         "MCP_PATH": config.mcp.path,
         "LLM_API_URL": config.llm.api_url,
         "LLM_MODEL": config.llm.model,
+        "LLM_AUTHENTICATION": config.llm.authentication,
         "LLM_TIMEOUT": config.llm.timeout_seconds,
         "LLM_USE_RESPONSES": config.llm.use_responses_api,
         "LLM_DRY_RUN": config.llm.dry_run,

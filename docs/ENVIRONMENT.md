@@ -117,7 +117,8 @@ Practical selection rules:
 | Variable | Used by | Notes |
 |---|---|---|
 | `LLM_API_URL` | ACP LLM client | OpenAI-compatible chat or responses endpoint. Default `http://localhost:3000/api/chat/completions`. |
-| `LLM_API_KEY` | ACP LLM client | Required for most providers. |
+| `LLM_API_KEY` | ACP LLM client | Required when `llm.authentication` is `required` (the default). |
+| `LLM_AUTHENTICATION` | ACP LLM client | Environment-only compatibility setting: `required` (default) or `none`. When using `config.yaml`, set `llm.authentication` instead. With `none`, ACP omits Authorization and does not require `LLM_API_KEY`; use only with a trusted keyless endpoint. |
 | `LLM_MODEL` | ACP LLM client | Model name passed through to the provider. |
 | `LLM_TIMEOUT` | ACP LLM client | LLM request timeout in seconds. Default `300`. |
 | `LLM_USE_RESPONSES` | ACP LLM client | Use Responses API payload shape when set to `1`. Keep `0` for `/api/chat/completions` style endpoints. |
