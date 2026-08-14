@@ -1,11 +1,13 @@
-from pathlib import Path
 
 from _repo_paths import repo_path
+import pytest
 
 
 SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_incidence_shell.R")
 IMPORT_HELPER_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "cohort_definition_import.R")
 ACQUISITION_HELPER_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "cohort_acquisition.R")
+
+pytestmark = pytest.mark.r_shell
 
 def test_outcome_selection_state_is_initialized_before_target_mapping_prompt() -> None:
     source = SOURCE.read_text(encoding="utf-8")

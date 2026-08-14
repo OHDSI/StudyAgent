@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 
-MODULE_PATH = Path(__file__).resolve().parents[1] / "mcp_server" / "scripts" / "build_phenotype_index.py"
+MODULE_PATH = Path(__file__).resolve().parents[1] / "mcp_server" / "study_agent_mcp" / "phenotype_index_builder.py"
 SPEC = importlib.util.spec_from_file_location("build_phenotype_index", MODULE_PATH)
 assert SPEC and SPEC.loader
 builder = importlib.util.module_from_spec(SPEC)

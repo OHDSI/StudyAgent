@@ -1,4 +1,3 @@
-from pathlib import Path
 import shutil
 import subprocess
 
@@ -10,6 +9,8 @@ from _repo_paths import repo_path
 SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_cohort_methods_shell.R")
 ACQUISITION_HELPER_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "cohort_acquisition.R")
 EXECUTION_SETTINGS_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "execution_settings.R")
+
+pytestmark = pytest.mark.r_shell
 
 def _generated_script_block(source: str, script_name: str, filename: str) -> str:
     start = source.index(f"{script_name} <- c(")
@@ -85,6 +86,7 @@ def test_cm_runner_is_merged_into_script_07() -> None:
     assert 'write_lines(file.path(scripts_dir, "08_launch_diagnostics_explorer.R")' in source
 
 
+@pytest.mark.r_integration
 def test_characterization_spec_accepts_generated_numeric_types() -> None:
     result = _run_r_or_skip(
         """
@@ -117,6 +119,7 @@ def test_characterization_spec_accepts_generated_numeric_types() -> None:
     assert result.returncode == 0, result.stderr
 
 
+@pytest.mark.r_integration
 def test_execution_settings_falls_back_when_max_cores_is_na() -> None:
     result = _run_r_or_skip(
         f"""
@@ -144,6 +147,7 @@ def test_execution_settings_falls_back_when_max_cores_is_na() -> None:
     assert result.returncode == 0, result.stderr
 
 
+@pytest.mark.r_integration
 def test_cohort_method_spec_accepts_generated_argument_shape() -> None:
     result = _run_r_or_skip(
         """

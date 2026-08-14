@@ -1,4 +1,5 @@
 from _repo_paths import repo_path
+import pytest
 
 
 RUNNER_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workflow_script_runner.R")
@@ -10,6 +11,8 @@ INCIDENCE_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategu
 DIALOGUE_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workflow_dialogue.R")
 MAPPING_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workflow_dialogue_mapping.R")
 EXPLORATION_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workflow_exploration_registry.R")
+
+pytestmark = pytest.mark.r_shell
 
 
 def test_dependency_check_treats_skipped_steps_as_satisfied() -> None:

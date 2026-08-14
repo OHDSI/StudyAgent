@@ -36,6 +36,7 @@ study-agent-mcp = "study_agent_core.config_cli:mcp_main"
 study-agent-acp = "study_agent_core.config_cli:acp_main"
 study-agent-demo-shell = "study_agent_acp.demo_shell:main"
 study-agent-setup = "study_agent_core.env_wizard:main"
+study-agent-build-phenotype-index = "study_agent_mcp.phenotype_index_builder:main"
 
 [tool.setuptools]
 packages = ["study_agent_core", "study_agent_mcp", "study_agent_acp"]

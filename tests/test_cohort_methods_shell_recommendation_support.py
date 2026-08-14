@@ -1,8 +1,10 @@
-from pathlib import Path
 
 from _repo_paths import repo_path
+import pytest
 
 SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_cohort_methods_shell.R")
+
+pytestmark = pytest.mark.r_shell
 
 def test_shell_supports_namespaced_recommendation_ids_and_blocks_unsupported_selection() -> None:
     source = SOURCE.read_text(encoding="utf-8")
@@ -24,10 +26,10 @@ def test_shell_displays_noncomputable_recommendation_note() -> None:
 def test_shell_resolves_namespaced_source_definition_filenames() -> None:
     source = SOURCE.read_text(encoding="utf-8")
 
-    assert 'resolve_index_definition_path <- function(source_id, index_def_dir)' in source
+    assert 'resolve_index_definition_path <- function(source_id, index_def_dir, imported_def_dir = NULL)' in source
     assert 'sprintf("ohdsi__%s.json", source_text)' in source
     assert 'gsub(":", "__", source_text, fixed = TRUE)' in source
-    assert 'src <- resolve_index_definition_path(source_id, index_def_dir)' in source
+    assert 'src <- resolve_index_definition_path(source_id, index_def_dir, imported_def_dir = imported_def_dir)' in source
 
 
 def test_shell_normalizes_namespaced_cached_and_manual_cohort_ids() -> None:

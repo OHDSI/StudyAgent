@@ -1,10 +1,14 @@
 from pathlib import Path
 
+import pytest
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FLOWS_SOURCE = REPO_ROOT / "R/slashOhdsiAcpClient/R/flows.R"
 RUNTIME_SOURCE = REPO_ROOT / "R/slashOhdsiStrategusAssistant/R/slash_ohdsi_runtime.R"
 NAMESPACE_SOURCE = REPO_ROOT / "R/slashOhdsiAcpClient/NAMESPACE"
+
+pytestmark = pytest.mark.r_shell
 
 
 def test_keeper_concept_set_wrapper_covers_full_r_contract() -> None:

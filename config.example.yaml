@@ -28,11 +28,30 @@ llm:
   authentication: required
   timeout_seconds: 300
   use_responses_api: false
+  # LLM request diagnostics; keep prompt and response logging off unless needed.
+  log: false
+  log_prompt: false
+  log_response: false
+  log_json: false
 
 retrieval:
   embedding_url: http://localhost:3000/ollama/api/embed
   embedding_model: qwen3-embedding:4b
   timeout_seconds: 120
+  # EMBED_LOG
+  log: false
+
+logging:
+  # STUDY_AGENT_LOG_LEVEL; change to DEBUG for service troubleshooting.
+  level: INFO
+  # Optional per-service overrides: ACP_LOG_LEVEL and MCP_LOG_LEVEL.
+  # Explicit output files (ACP_LOG_FILE and MCP_LOG_FILE). Paths are config-relative.
+  acp_file: study-agent-logs/study-agent-acp.log
+  mcp_file: study-agent-logs/study-agent-mcp.log
+  # acp_level: DEBUG
+  # mcp_level: DEBUG
+  acp_to_console: true
+  mcp_to_console: true
 
 profiles:
   docker:
