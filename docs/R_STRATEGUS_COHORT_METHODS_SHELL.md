@@ -2,6 +2,8 @@
 
 Current stage scope:
 
+- Both Strategus shells default to `aiSupport = "disabled"`, which runs locally without ACP. Set `aiSupport = "enabled"` to require ACP assistance or `"auto"` to use ACP when the optional client package is installed.
+
 - Cohort methods shell with ACP-assisted intent split and phenotype recommendation.
 - The shell can derive target/comparator/outcome statements from a study intent.
 - The shell can configure one effective analytic-settings profile through `step_by_step` prompts or `free_text` ACP recommendation.

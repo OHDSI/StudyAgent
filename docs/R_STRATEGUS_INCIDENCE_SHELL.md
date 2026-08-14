@@ -2,7 +2,7 @@
 
 This document summarizes the interactive Strategus incidence shell provided by
 `slashOhdsiStrategusAssistant::runStrategusIncidenceShell()`. The shell is intended for
-interactive use in R/RStudio and guides users through phenotype selection,
+interactive use in R/RStudio and defaults to a local no-AI wizard for cohort selection,
 improvement review, time-at-risk configuration, ACP-based Keeper review, and script
 generation plus in-shell execution for a CohortIncidence analysis.
 

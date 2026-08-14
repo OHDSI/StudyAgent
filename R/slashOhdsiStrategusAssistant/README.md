@@ -8,7 +8,8 @@ It owns:
 - interactive Strategus shell entrypoints
 - checkpointing and artifact layout
 - generated Strategus assets
-- ACP-based Keeper workflow orchestration for generated scripts
+- optional ACP-based Keeper workflow orchestration for generated scripts
+- a local, read-only Shiny artifact browser for completed or in-progress workflows
 - Strategus DB and execution-settings helpers
 
 Primary entrypoints:
@@ -19,6 +20,7 @@ Primary entrypoints:
 - `slashOhdsiStrategusAssistant::runKeeperCaseReviewWorkflow()`
 - `slashOhdsiStrategusAssistant::createStrategusConnectionDetails()`
 - `slashOhdsiStrategusAssistant::createStrategusExecutionSettings()`
+- `slashOhdsiStrategusAssistant::launchStrategusArtifactBrowser()`
 
 Current demo entry scripts in the repo:
 
@@ -38,9 +40,11 @@ Current shell details:
 - both Strategus shells now also persist `study-agent-project.json` and `outputs/study_agent_runtime_state.json` so generated workflow steps can be run and resumed inside the same shell
 - both Strategus shells expose an execution menu for run/resume mode with step status, `run <step>`, `skip <step>` for optional review/enrichment steps, `inspect[_v] <step>`, artifact inventory, approved exploration commands via `x` / `explore[_v]`, `/ohdsi` guidance, and an `executionTableDisplay` startup option for viewer-first table rendering
 - the incidence execution menu now includes dedicated incidence-result summaries for `CohortIncidenceModule` outputs, including `incidence_summary_preview` and `incidence_analysis_settings_summary`
-- both Strategus shells now generate `scripts/08_launch_diagnostics_explorer.R` as an optional second-session launcher that creates the merged diagnostics SQLite if needed and then opens `CohortDiagnostics::launchDiagnosticsExplorer()`
+- both Strategus shells now generate `scripts/09_launch_artifact_browser.R` for a read-only local Shiny overview and safe artifact previews, plus `scripts/08_launch_diagnostics_explorer.R` as an optional second-session launcher that creates the merged diagnostics SQLite if needed and then opens `CohortDiagnostics::launchDiagnosticsExplorer()`
 - execution mode now supports `rev` / `revise ...` commands so users can leave run mode and return to build mode, optionally switch to a temporary revision cache mode, and intentionally reopen a target/comparator/outcome decision point when a phenotype or study configuration needs to be changed
 - build-only steps such as initial recommend/select are tracked in the workflow status but are not treated as runnable generated scripts during execution mode
 - skipped optional steps are persisted in workflow step-state, treated as satisfied dependencies for downstream execution, and remain visible after `resume = TRUE` and in `/ohdsi` execution context
 
-It depends on `slashOhdsiAcpClient` for ACP calls.
+ACP support is optional. Both shells default to `aiSupport = "disabled"`, which uses the local wizard without loading or calling ACP. Set `aiSupport = "enabled"` to require ACP or `"auto"` to use it when the optional `slashOhdsiAcpClient` package is installed. No-AI workflows use direct cohort import, deterministic help, step-by-step CohortMethod settings, and omit ACP-only Keeper scripts.
+
+Both shells generate `scripts/09_launch_artifact_browser.R`. It launches the local read-only Shiny browser on `127.0.0.1`, previews safe registered artifacts, and excludes database/execution configuration files. `shiny` is an optional package dependency.

@@ -1610,6 +1610,7 @@
 #' @param remapCohortIds whether to remap selected cohort ids
 #' @param cohortIdBase optional starting cohort id when remapping
 #' @param executionTableDisplay execution-menu table display preference: `console`, `viewer`, or `auto`
+#' @param aiSupport ACP/AI mode: `disabled` (default), `enabled`, or `auto`
 #' @return invisible list with output paths
 #' @export
 runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-methods",
@@ -1643,9 +1644,12 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
                                            resume = FALSE,
                                            remapCohortIds = TRUE,
                                            cohortIdBase = NULL,
-                                           executionTableDisplay = c("console", "viewer", "auto")) {
+                                           executionTableDisplay = c("console", "viewer", "auto"),
+                                           aiSupport = c("disabled", "enabled", "auto")) {
   `%||%` <- function(x, y) if (is.null(x)) y else x
   execution_table_display <- .studyAgentSlashNormalizeExecutionTableDisplay(executionTableDisplay)
+  ai_support <- .studyAgentSlashResolveAiSupport(aiSupport)
+  ai_enabled <- .studyAgentSlashAiSupportAllowsAcp(ai_support)
 
   ensure_dir <- function(path) {
     if (!dir.exists(path)) dir.create(path, recursive = TRUE, showWarnings = FALSE)
@@ -1681,6 +1685,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     study_intent_getter = current_study_intent,
     build_stage_context = build_workflow_stage_context,
     call_dialogue = function(stage_context, message) {
+      if (!isTRUE(ai_enabled)) stop(.studyAgentSlashAiSupportDisabledMessage(ai_support, "/ohdsi guidance"))
       if (!ensure_workflow_dialogue_client(acpUrl)) {
         stop("ACP bridge unavailable. Connect ACP before using /ohdsi.")
       }
@@ -2515,6 +2520,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   }
 
   ensure_workflow_dialogue_client <- function(url) {
+    if (!isTRUE(ai_enabled)) return(FALSE)
     if (acp_client_is_ready(dialogue_acp_client$client)) return(TRUE)
     if (is.null(url) || !nzchar(trimws(url))) return(FALSE)
     tryCatch({
@@ -2526,6 +2532,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   }
 
   ensure_acp_ready <- function(url) {
+    if (!isTRUE(ai_enabled)) return(FALSE)
     if (ensure_workflow_dialogue_client(url)) return(TRUE)
     has_acp_state <- exists("acp_state", inherits = TRUE)
     has_acp_connect <- exists("acp_connect", mode = "function", inherits = TRUE)
@@ -2543,6 +2550,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   }
 
   call_shell_acp_flow <- function(flow_name, body, url = acpUrl) {
+    if (!isTRUE(ai_enabled)) stop(.studyAgentSlashAiSupportDisabledMessage(ai_support, "ACP flow"))
     if (!acp_client_is_ready(dialogue_acp_client$client)) {
       if (!ensure_workflow_dialogue_client(url)) stop("ACP bridge unavailable.")
     }
@@ -4894,8 +4902,15 @@ Available exploration commands
   skip_phenotype_improvements <- FALSE
   skip_reason <- NULL
   skip_prompt_source <- "not_prompted"
+  if (!isTRUE(ai_enabled)) {
+    skip_intent_split_and_recommendation <- TRUE
+    skip_phenotype_improvements <- TRUE
+    direct_acquisition_mode <- !isTRUE(all_cohort_ids_from_function_args)
+    skip_reason <- ai_support$reason
+    skip_prompt_source <- "ai_support_policy"
+  }
   explicit_outcome_statements_from_args <- character(0)
-  if (isTRUE(all_cohort_ids_from_function_args) && isTRUE(interactive)) {
+  if (!isTRUE(skip_intent_split_and_recommendation) && isTRUE(all_cohort_ids_from_function_args) && isTRUE(interactive)) {
     cat("\nAll target, comparator, and outcome cohort IDs were provided as function arguments:\n")
     cat(sprintf("  Target: %s\n", format_cohort_selection_summary(explicit_target_ids_from_args)))
     cat(sprintf("  Comparator: %s\n", format_cohort_selection_summary(explicit_comparator_ids_from_args)))
@@ -5223,7 +5238,7 @@ Available exploration commands
       statement = targetStatement
     )
   } else {
-    target_source_mode <- choose_selection_source_mode("target", allow_index = !isTRUE(skip_intent_split_and_recommendation) || isTRUE(direct_acquisition_mode))
+    target_source_mode <- choose_selection_source_mode("target", allow_index = isTRUE(ai_enabled) && (!isTRUE(skip_intent_split_and_recommendation) || isTRUE(direct_acquisition_mode)))
     if (is_back_signal(target_source_mode)) next
 
     imported_target_selection <- .studyAgentSlashAcquireImportedRoleSelection(
@@ -5393,7 +5408,7 @@ Available exploration commands
       statement = comparatorStatement
     )
   } else {
-    comparator_source_mode <- choose_selection_source_mode("comparator", allow_index = !isTRUE(skip_intent_split_and_recommendation) || isTRUE(direct_acquisition_mode))
+    comparator_source_mode <- choose_selection_source_mode("comparator", allow_index = isTRUE(ai_enabled) && (!isTRUE(skip_intent_split_and_recommendation) || isTRUE(direct_acquisition_mode)))
     if (is_back_signal(comparator_source_mode)) next
 
     imported_comparator_selection <- .studyAgentSlashAcquireImportedRoleSelection(
@@ -5521,7 +5536,7 @@ Available exploration commands
       statement = outcomeStatement
     ))
   } else {
-    outcome_source_mode <- choose_selection_source_mode("outcome", allow_index = !isTRUE(skip_intent_split_and_recommendation) || isTRUE(direct_acquisition_mode))
+    outcome_source_mode <- choose_selection_source_mode("outcome", allow_index = isTRUE(ai_enabled) && (!isTRUE(skip_intent_split_and_recommendation) || isTRUE(direct_acquisition_mode)))
     if (is_back_signal(outcome_source_mode)) next
 
     imported_outcome_selection <- .studyAgentSlashAcquireImportedRoleSelection(
@@ -6012,7 +6027,7 @@ Available exploration commands
   has_function_argument_description <- !is.null(analyticSettingsDescription) || !is.null(analytic_settings_description_path_resolved)
   cached_mode <- as.character(cached_inputs$analytic_settings_mode %||% if (has_function_argument_description) "free_text" else "step_by_step")
   analytic_settings_back_requested <- FALSE
-  analytic_settings_mode <- if (isTRUE(interactive)) {
+  analytic_settings_mode <- if (isTRUE(interactive) && isTRUE(ai_enabled)) {
     mode_default <- if (has_function_argument_description || identical(cached_mode, "free_text")) "free-text" else "step-by-step"
     cat("\nHow would you like to configure analytic settings?\n")
     cat("  1. Step-by-step\n")
@@ -6050,6 +6065,10 @@ Available exploration commands
     "free_text"
   } else {
     "step_by_step"
+  }
+  if (!isTRUE(ai_enabled) && identical(analytic_settings_mode, "free_text")) {
+    analytic_settings_mode <- "step_by_step"
+    if (isTRUE(interactive)) cat("AI support is disabled; using the step-by-step analytic-settings wizard.\n")
   }
   analytic_settings_selection_source <- if (isTRUE(interactive)) "manual_prompt" else if (!is.null(cached_inputs$analytic_settings_mode)) "cached" else "default_non_interactive"
   analytic_settings_input_method <- if (identical(analytic_settings_mode, "free_text")) {
@@ -6767,6 +6786,9 @@ Available exploration commands
     target_statement = targetStatement,
     comparator_statement = comparatorStatement,
     outcome_statement = outcomeStatement,
+    ai_support_mode = ai_support$mode,
+    ai_support_reason = ai_support$reason,
+    acp_capability_status = if (isTRUE(ai_enabled)) "enabled" else "disabled_by_user",
     outcome_statements = as.list(outcomeStatements),
     outcome_cohort_statements = as.list(outcomeStatementsForSelectedCohorts),
     comparison_label = comparisonLabel,
@@ -6908,7 +6930,7 @@ Available exploration commands
   keeper_concept_set_result <- NULL
   keeper_case_review_result <- NULL
 
-  if (isTRUE(interactive)) {
+  if (isTRUE(interactive) && isTRUE(ai_enabled)) {
     run_keeper_review_now <- prompt_yesno_navigation("Run ACP-based Keeper review now?", default = FALSE)
     if (isTRUE(run_keeper_review_now)) {
       keeper_config_confirmed <- FALSE
@@ -7510,7 +7532,7 @@ Keeper review saved: %s reviewed row(s)
     "print(result)",
     ""
   )
-  write_lines(file.path(scripts_dir, "04_keeper_concept_sets.R"), script_04)
+  if (isTRUE(ai_enabled)) write_lines(file.path(scripts_dir, "04_keeper_concept_sets.R"), script_04)
 
   script_05 <- c(
     script_header,
@@ -7560,7 +7582,7 @@ Keeper review saved: %s reviewed row(s)
     "print(result)",
     ""
   )
-  write_lines(file.path(scripts_dir, "05_keeper_case_review.R"), script_05)
+  if (isTRUE(ai_enabled)) write_lines(file.path(scripts_dir, "05_keeper_case_review.R"), script_05)
 
   script_06 <- c(
     script_header,
@@ -8149,6 +8171,8 @@ Keeper review saved: %s reviewed row(s)
     ""
   )
   write_lines(file.path(scripts_dir, "08_launch_diagnostics_explorer.R"), script_08)
+  script_09 <- c(script_header, sprintf("slashOhdsiStrategusAssistant::launchStrategusArtifactBrowser('%s')", base_dir))
+  write_lines(file.path(scripts_dir, "09_launch_artifact_browser.R"), script_09)
 
   project_init <- .studyAgentSlashInitializeProjectFiles(
     workflow_type = "strategus_cohort_methods",
@@ -8158,6 +8182,7 @@ Keeper review saved: %s reviewed row(s)
     execution_plan = .studyAgentSlashBuildCohortMethodsExecutionPlan(),
     study_context = list(
       study_intent = studyIntent,
+      ai_support_mode = ai_support$mode,
       comparison_label = comparisonLabel,
       target_statement = targetStatement,
       comparator_statement = comparatorStatement,
@@ -8195,11 +8220,15 @@ Keeper review saved: %s reviewed row(s)
     build_completed_steps <- c(build_completed_steps, "keeper_concept_sets")
   } else if (identical(state$keeper_concept_set_status %||% "not_run", "error")) {
     build_failed_steps <- c(build_failed_steps, "keeper_concept_sets")
+  } else if (!isTRUE(ai_enabled)) {
+    build_skipped_steps <- c(build_skipped_steps, "keeper_concept_sets")
   }
   if (identical(state$keeper_case_review_status %||% "not_run", "ok")) {
     build_completed_steps <- c(build_completed_steps, "keeper_case_review")
   } else if (identical(state$keeper_case_review_status %||% "not_run", "error")) {
     build_failed_steps <- c(build_failed_steps, "keeper_case_review")
+  } else if (!isTRUE(ai_enabled)) {
+    build_skipped_steps <- c(build_skipped_steps, "keeper_case_review")
   }
   project_init <- .studyAgentSlashFinalizeBuildProjectState(
     base_dir = base_dir,
