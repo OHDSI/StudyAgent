@@ -10,6 +10,22 @@ from ._common import with_meta
 from ._log import log_debug
 
 
+def _search_error_details(exc: Exception) -> str:
+    details = str(exc).strip()
+    if details:
+        return details
+    if isinstance(exc, AssertionError):
+        embed_model = os.getenv("EMBED_MODEL", "(not configured)")
+        return (
+            "FAISS rejected the query embedding (AssertionError with no message). "
+            "This commonly means the dense phenotype index was built with a different "
+            f"embedding model or vector dimension than the current EMBED_MODEL={embed_model!r}. "
+            "Restore the model used to build the index, or rebuild the dense index. "
+            "See docs/PHENOTYPE_INDEXING.md."
+        )
+    return f"{type(exc).__name__} with no error message"
+
+
 def register(mcp: object) -> None:
     @mcp.tool(name="phenotype_search")
     def phenotype_search_tool(
@@ -75,7 +91,7 @@ def register(mcp: object) -> None:
             return with_meta(
                 {
                     "error": "phenotype_search_failed",
-                    "details": str(exc),
+                    "details": _search_error_details(exc),
                 },
                 "phenotype_search",
             )
