@@ -121,7 +121,7 @@ def _pytest_cmd(marker: str | None = None) -> str:
     opts = os.getenv("PYTEST_OPTS", "")
     base = "pytest"
     if marker:
-        base = f"{base} -m {marker}"
+        base = f'{base} -m "{marker}"'
     if opts:
         return f"{base} {opts}"
     return base
@@ -217,8 +217,25 @@ def task_test_unit():
 
 
 def task_test_all():
+    """Run the native Python ACP/MCP test gate, excluding R packages."""
     return {
-        "actions": [_pytest_cmd()],
+        "actions": [_pytest_cmd("not r_shell")],
+        "verbosity": 2,
+    }
+
+
+def task_test_r_shells():
+    """Run static checks for the in-repository R shells and wrappers."""
+    return {
+        "actions": [_pytest_cmd("r_shell and not r_integration")],
+        "verbosity": 2,
+    }
+
+
+def task_test_r_integration():
+    """Run opt-in Rscript tests that require optional R packages."""
+    return {
+        "actions": [_pytest_cmd("r_integration")],
         "verbosity": 2,
     }
 
@@ -685,10 +702,18 @@ def task_smoke_phenotype_improvements_flow():
             )
             _wait_for_acp(_health_url(env), timeout_s=30, require_mcp=require_mcp)
             print("Running phenotype improvements flow smoke test...")
+            protocol_text = (REPO_ROOT / "tests" / "demo-data" / "protocol.md").read_text(
+                encoding="utf-8"
+            )
+            cohort = json.loads(
+                (REPO_ROOT / "tests" / "demo-data" / "test_git_event_cohort.json").read_text(
+                    encoding="utf-8"
+                )
+            )
             payload = json.dumps(
                 {
-                    "protocol_path": "tests/demo-data/protocol.md",
-                    "cohort_paths": ["tests/demo-data/test_git_event_cohort.json"],
+                    "protocol_text": protocol_text,
+                    "cohorts": [cohort],
                 }
             ).encode("utf-8")
             req = urllib.request.Request(
@@ -706,6 +731,7 @@ def task_smoke_phenotype_improvements_flow():
             except urllib.error.HTTPError as exc:
                 body = exc.read().decode("utf-8")
                 print(body)
+                raise
             print(f"ACP logs: {acp_stdout} {acp_stderr}")
         finally:
             print("Stopping ACP...")
@@ -808,9 +834,14 @@ def task_smoke_concept_sets_review_flow():
             )
             _wait_for_acp(_health_url(env), timeout_s=30, require_mcp=require_mcp)
             print("Running concept sets review flow smoke test...")
+            concept_set = json.loads(
+                (REPO_ROOT / "tests" / "demo-data" / "concept_set.json").read_text(
+                    encoding="utf-8"
+                )
+            )
             payload = json.dumps(
                 {
-                    "concept_set_path": "tests/demo-data/concept_set.json",
+                    "concept_set": concept_set,
                     "study_intent": "Identify clinical risk factors for older adult patients who experience an adverse event of acute gastro-intenstinal (GI) bleeding. The GI bleed has to be detected in the hospital setting. Risk factors can include concomitant medications or chronic and acute conditions.",
                 }
             ).encode("utf-8")
@@ -829,6 +860,7 @@ def task_smoke_concept_sets_review_flow():
             except urllib.error.HTTPError as exc:
                 body = exc.read().decode("utf-8")
                 print(body)
+                raise
             print(f"ACP logs: {acp_stdout} {acp_stderr}")
         finally:
             print("Stopping ACP...")
@@ -984,6 +1016,7 @@ def task_smoke_phenotype_validation_review_flow():
             ) as response:
                 body = response.read().decode("utf-8")
                 print(body)
+                raise
             print(f"ACP logs: {acp_stdout} {acp_stderr}")
         finally:
             print("Stopping ACP...")
@@ -1054,6 +1087,7 @@ def task_smoke_keeper_concept_sets_generate_flow():
             ) as response:
                 body = response.read().decode("utf-8")
                 print(body)
+                raise
             print(f"ACP logs: {acp_stdout} {acp_stderr}")
         finally:
             print("Stopping ACP...")

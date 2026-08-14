@@ -50,6 +50,39 @@ llm: {api_url: http://llm.test/v1/chat, model: test-model}
     assert os.environ["LLM_MODEL"] == "test-model"
 
 
+def test_config_projects_logging_controls(tmp_path) -> None:
+    path = write_config(
+        tmp_path / "config.yaml",
+        """\
+version: 1
+logging:
+  level: DEBUG
+  acp_level: WARNING
+  mcp_level: ERROR
+  acp_file: logs/acp.log
+  mcp_file: logs/mcp.log
+llm:
+  log: true
+  log_prompt: false
+  log_response: false
+retrieval:
+  log: true
+""",
+    )
+    config = load_config(path)
+    assert config is not None
+    values = project_to_environment(config)
+    assert values["STUDY_AGENT_LOG_LEVEL"] == "DEBUG"
+    assert values["ACP_LOG_LEVEL"] == "WARNING"
+    assert values["MCP_LOG_LEVEL"] == "ERROR"
+    assert values["ACP_LOG_FILE"] == str(tmp_path / "logs/acp.log")
+    assert values["MCP_LOG_FILE"] == str(tmp_path / "logs/mcp.log")
+    assert values["LLM_LOG"] == "1"
+    assert values["LLM_LOG_PROMPT"] == "0"
+    assert values["LLM_LOG_RESPONSE"] == "0"
+    assert values["EMBED_LOG"] == "1"
+
+
 def test_config_projects_keyless_llm_authentication_mode(tmp_path) -> None:
     path = write_config(
         tmp_path / "config.yaml",

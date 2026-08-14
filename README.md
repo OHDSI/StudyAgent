@@ -174,8 +174,8 @@ uv run --extra dev doit smoke_phenotype_recommend_flow
 **Only after those smoke test succeed**, start the long-lived services for interactive use in separate terminals:
 
 ```powershell
-uv run study-agent-mcp --config .\config.yaml --profile native
-uv run study-agent-acp --config .\config.yaml --profile native
+uv run study-agent-mcp --config .\config.yaml --profile native   # on linux, change .\config to ./config
+uv run study-agent-acp --config .\config.yaml --profile native   # on linux, change .\config to ./config
 ```
 
 Conda or Micromamba remains supported. It supplies Python and `pip`; `conda run -n study-agent python -m pip install -e ".[dev]"` reads the application dependency definition from `pyproject.toml`.

@@ -1,6 +1,6 @@
-from pathlib import Path
 
 from _repo_paths import repo_path
+import pytest
 
 
 FLOWS_SOURCE = repo_path("R", "slashOhdsiAcpClient", "R", "flows.R")
@@ -8,6 +8,8 @@ DEMO_SOURCE = repo_path("scripts", "demo_ohdsi_dialogue.R")
 DIALOGUE_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "workflow_dialogue.R")
 INCIDENCE_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_incidence_shell.R")
 COHORT_METHODS_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_cohort_methods_shell.R")
+
+pytestmark = pytest.mark.r_shell
 
 def test_r_workflow_context_dialogue_wrapper_flattens_stage_context() -> None:
     source = FLOWS_SOURCE.read_text(encoding="utf-8")

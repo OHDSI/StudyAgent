@@ -1,8 +1,11 @@
 from _repo_paths import repo_path
+import pytest
 
 
 COHORT_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_cohort_methods_shell.R")
 INCIDENCE_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_incidence_shell.R")
+
+pytestmark = pytest.mark.r_shell
 
 
 def _generated_script_block(source: str, script_name: str, filename: str) -> str:

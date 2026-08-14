@@ -22,12 +22,10 @@ def register(mcp: object) -> None:
             payload = {"error": "phenotype_reindex is disabled. Set PHENOTYPE_REINDEX_ALLOW=1 to enable."}
             return with_meta(payload, "phenotype_reindex")
 
-        script_path = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..", "..", "scripts", "build_phenotype_index.py")
-        )
         cmd = [
             sys.executable,
-            script_path,
+            "-m",
+            "study_agent_mcp.phenotype_index_builder",
             "--metadata-csv",
             metadata_csv,
             "--output-dir",

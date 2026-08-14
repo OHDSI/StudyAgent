@@ -11,6 +11,8 @@ COHORT_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_c
 INCIDENCE_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "strategus_incidence_shell.R")
 ACQUISITION_HELPER_SOURCE = repo_path("R", "slashOhdsiStrategusAssistant", "R", "cohort_acquisition.R")
 
+pytestmark = pytest.mark.r_shell
+
 
 def _run_r_or_skip(expression: str) -> subprocess.CompletedProcess[str]:
     if shutil.which("Rscript") is None:
@@ -36,6 +38,7 @@ def test_shell_seed_templates_include_auth_type_and_jar_folder() -> None:
     assert 'DATABASECONNECTOR_JAR_FOLDER = ""' in source
 
 
+@pytest.mark.r_integration
 def test_integrated_auth_can_omit_user_and_password_when_databaseconnector_is_available() -> None:
     result = _run_r_or_skip(
         f"""
@@ -58,6 +61,7 @@ def test_integrated_auth_can_omit_user_and_password_when_databaseconnector_is_av
     assert result.returncode == 0, result.stderr
 
 
+@pytest.mark.r_integration
 def test_username_password_auth_still_requires_credentials() -> None:
     result = _run_r_or_skip(
         f"""
@@ -80,6 +84,7 @@ def test_username_password_auth_still_requires_credentials() -> None:
     assert result.returncode == 0, result.stderr
 
 
+@pytest.mark.r_integration
 def test_explicit_db_port_overrides_port_embedded_in_server_when_databaseconnector_is_available() -> None:
     result = _run_r_or_skip(
         f"""
@@ -105,6 +110,7 @@ def test_explicit_db_port_overrides_port_embedded_in_server_when_databaseconnect
     assert result.returncode == 0, result.stderr
 
 
+@pytest.mark.r_integration
 def test_postgres_host_database_server_preserves_server_and_port_separately() -> None:
     result = _run_r_or_skip(
         f"""
@@ -130,6 +136,7 @@ def test_postgres_host_database_server_preserves_server_and_port_separately() ->
     assert result.returncode == 0, result.stderr
 
 
+@pytest.mark.r_integration
 def test_postgres_host_port_database_with_blank_db_port_is_split_correctly() -> None:
     result = _run_r_or_skip(
         f"""

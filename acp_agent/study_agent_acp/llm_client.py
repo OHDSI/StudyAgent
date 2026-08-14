@@ -612,10 +612,12 @@ def call_llm(prompt: str, required_keys: Optional[Sequence[str]] = None) -> LLMC
             f'CONFIG > url={api_url} model={model} timeout={timeout} request_mode={request_mode} prompt_chars={len(prompt)}'
         )
 
+    if log_prompt:
+        _log_llm(f"OUTGOING PROMPT > {prompt}")
+
     if dry_run:
-        if log_enabled or log_prompt:
+        if log_enabled:
             _log_llm("DRY RUN > skipping API call")
-            _log_llm(f"OUTGOING PROMPT > {prompt}")
         return LLMCallResult(
             status="disabled",
             error="dry_run_enabled",
@@ -635,7 +637,10 @@ def call_llm(prompt: str, required_keys: Optional[Sequence[str]] = None) -> LLMC
 
     if authentication == "required" and not api_key:
         if log_enabled:
-            _log_llm("ERROR > missing LLM_API_KEY")
+            _log_llm(
+                "ERROR > missing LLM_API_KEY while LLM_AUTHENTICATION=required. "
+                "Set llm.authentication: none in config.yaml only for a trusted keyless endpoint."
+            )
         return LLMCallResult(
             status="disabled",
             error="missing_api_key",
@@ -662,9 +667,6 @@ def call_llm(prompt: str, required_keys: Optional[Sequence[str]] = None) -> LLMC
     if authentication == "required":
         request.add_header("Authorization", f"Bearer {api_key}")
 
-    if log_enabled or log_prompt:
-        _log_llm(f"OUTGOING PROMPT > {prompt}")
-
     start = time.time()
     http_status: Optional[int] = None
     try:
@@ -674,8 +676,9 @@ def call_llm(prompt: str, required_keys: Optional[Sequence[str]] = None) -> LLMC
     except urllib.error.HTTPError as exc:
         raw = exc.read().decode("utf-8", errors="replace")
         duration = time.time() - start
-        if log_enabled or log_response:
+        if log_enabled:
             _log_llm(f"HTTP ERROR > status={exc.code} seconds={duration:.2f}")
+        if log_response:
             _log_llm(f"ERROR BODY > {raw}")
         return LLMCallResult(
             status="http_error",
@@ -713,7 +716,7 @@ def call_llm(prompt: str, required_keys: Optional[Sequence[str]] = None) -> LLMC
     duration = time.time() - start
     if log_enabled:
         _log_llm(f"TIMING > seconds={duration:.2f}")
-    if log_enabled or log_response:
+    if log_response:
         _log_llm(f"RAW RESPONSE > {raw}")
 
     try:
@@ -721,7 +724,7 @@ def call_llm(prompt: str, required_keys: Optional[Sequence[str]] = None) -> LLMC
     except json.JSONDecodeError:
         data = None
     if log_json and data is not None:
-        _log_llm(f"JSON > {data}")
+        _log_llm(f"JSON > {json.dumps(data, ensure_ascii=True, indent=2, sort_keys=True)}")
 
     content_text: Optional[str] = None
     parse_stage = "envelope"

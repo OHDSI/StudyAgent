@@ -5,6 +5,9 @@ from study_agent_core.logging_utils import configure_service_logger, format_log_
 
 def test_configure_service_logger_writes_to_file(tmp_path, monkeypatch):
     log_dir = tmp_path / "logs"
+    # An explicit file takes precedence over a directory by design. Clear a
+    # deployment-level setting so this test exercises the directory fallback.
+    monkeypatch.delenv("ACP_LOG_FILE", raising=False)
     monkeypatch.setenv("STUDY_AGENT_LOG_DIR", str(log_dir))
     monkeypatch.setenv("ACP_LOG_LEVEL", "DEBUG")
     monkeypatch.setenv("ACP_LOG_TO_CONSOLE", "0")
@@ -79,6 +82,9 @@ def test_format_log_kv_redacts_helper_fields():
 
 def test_configure_service_logger_redacts_formatted_args_in_file(tmp_path, monkeypatch):
     log_dir = tmp_path / "logs"
+    # An explicit file takes precedence over a directory by design. Clear a
+    # deployment-level setting so this test exercises the directory fallback.
+    monkeypatch.delenv("ACP_LOG_FILE", raising=False)
     monkeypatch.setenv("STUDY_AGENT_LOG_DIR", str(log_dir))
     monkeypatch.setenv("ACP_LOG_LEVEL", "DEBUG")
     monkeypatch.setenv("ACP_LOG_TO_CONSOLE", "0")

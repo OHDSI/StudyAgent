@@ -23,6 +23,8 @@ For uv, include the optional development tools for test commands and run every p
 ```powershell
 uv run --extra dev python -m pytest -q tests/test_config_deployment.py
 uv run --extra dev doit test_all
+doit test_r_shells
+doit test_r_integration
 uv run study-agent-mcp --config .\config.yaml --profile native
 uv run study-agent-acp --config .\config.yaml --profile native
 ```
@@ -111,8 +113,10 @@ doit test_all
 
 Task dependencies:
 
-- `test_unit` depends on `test_core` and `test_acp`.
-- `run_all` is the deterministic full Python test suite (`test_all`); it does not make live service calls.
+- `test_unit` depends on `test_core`, `test_acp`, and `test_mcp`.
+- `test_all` and `run_all` are the deterministic native Python ACP/MCP test gate; they exclude R-package tests and do not make live service calls.
+- `test_r_shells` runs the static checks for the in-repository R shells and R client wrappers.
+- `test_r_integration` runs the opt-in Rscript checks; it requires Rscript and the relevant optional R packages.
 - `run_smoke_suite` runs every configured local ACP/MCP smoke flow, including the cohort-method, phenotype-validation, and Keeper flows. It requires the LLM, embedding, phenotype-index, and any configured Keeper dependencies.
 - `run_external_smoke_suite` runs `run_smoke_suite` plus the real Hecate/PHOEBE endpoint smoke test.
 
@@ -122,6 +126,8 @@ Run the suites explicitly:
 
 ```bash
 uv run --extra dev doit run_all
+uv run --extra dev doit test_r_shells
+uv run --extra dev doit test_r_integration
 uv run --extra dev doit run_smoke_suite
 uv run --extra dev doit run_external_smoke_suite
 ```
@@ -247,12 +253,13 @@ Health check (PowerShell):
 Invoke-RestMethod -Uri http://127.0.0.1:8765/health
 ```
 
-Built-in rotating service logging:
+Built-in rotating service logging is configured in `config.yaml`:
 
-```bash
-export STUDY_AGENT_LOG_DIR="/tmp/study-agent-logs"
-export ACP_LOG_LEVEL=DEBUG
-export MCP_LOG_LEVEL=DEBUG
+```yaml
+paths:
+  logs: study-agent-logs
+logging:
+  level: DEBUG
 ```
 
 ACP writes `study-agent-acp.log`; MCP writes `study-agent-mcp.log`.
@@ -295,13 +302,12 @@ Ensure MCP is running. Configure the non-secret LLM endpoint, model, authenticat
 
 ```bash
 export LLM_API_KEY="..."
-export LLM_LOG=1  # optional diagnostic override
 ```
 
-`LLM_LOG=1` enables verbose LLM logging in the ACP logger (config, prompt, raw response).
-For full payload capture during debugging, also set `LLM_LOG_RESPONSE=1`.
-For OpenWebUI using `/api/chat/completions`, keep `LLM_USE_RESPONSES=0` (the Responses API schema is not supported and can yield empty outputs).
-Recommended timeout ladder: `ACP_TIMEOUT > LLM_TIMEOUT > STUDY_AGENT_MCP_TIMEOUT`.
+`llm.log: true` enables LLM configuration and timing logs. Keep `llm.log_prompt` and `llm.log_response` disabled unless actively diagnosing an approved, non-sensitive request.
+For full payload capture during debugging, temporarily set `llm.log_response: true`; this can expose response content.
+For OpenWebUI using `/api/chat/completions`, set `llm.use_responses_api: false` (the Responses API schema is not supported and can yield empty outputs).
+Recommended timeout ladder: `acp.request_timeout_seconds > llm.timeout_seconds > acp.mcp.timeout_seconds`.
 
 Then call:
 

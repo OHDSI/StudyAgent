@@ -57,6 +57,32 @@ The configuration precedence is: explicit CLI options, `config.yaml`, secret env
 
 `config.yaml` and `secrets.env` are ignored by Git. `config.yaml` contains no secrets and must be readable by the container service user; the wizard writes it with ordinary read permissions. `secrets.env` remains private. Use `study-agent-setup --migrate-env .env` to split an existing environment file without displaying its values. Docker Compose mounts `config.yaml` read-only and loads `secrets.env`; its `docker` profile sets container bind addresses and ACP's internal MCP URL. This Python-service configuration does not configure the separately deployed R packages; their remote-client configuration remains independent.
 
+### Logging and troubleshooting
+
+Use `logging.level: DEBUG` for broad ACP and MCP service diagnostics. `acp_level` and `mcp_level` are optional service-specific overrides. These settings correspond to `STUDY_AGENT_LOG_LEVEL`, `ACP_LOG_LEVEL`, and `MCP_LOG_LEVEL`, but YAML is preferred for configured deployments.
+
+```yaml
+logging:
+  level: DEBUG
+  acp_to_console: true
+  mcp_to_console: true
+  # Explicit log destinations; these override paths.logs for each service.
+  acp_file: study-agent-logs/study-agent-acp.log
+  mcp_file: study-agent-logs/study-agent-mcp.log
+
+llm:
+  log: true
+  # Leave these false unless actively diagnosing an approved, non-sensitive request.
+  log_prompt: false
+  log_response: false
+  log_json: false
+
+retrieval:
+  log: true
+```
+
+`llm.log` records configuration and request timing without displaying the API key. Prompt and raw-response logging can expose sensitive content and generate large logs, so keep `llm.log_prompt`, `llm.log_response`, and `llm.log_json` disabled unless specifically needed. Restart the affected service after changing `config.yaml`.
+
 ### Docker host services
 
 Within a container, `localhost` is the container itself. The Docker profile enables localhost-to-host rewriting; the native profile explicitly disables it, even if native commands happen to run inside a nested containerized development environment. For an LLM or embedding service running on the Docker host, configure `http://host.docker.internal:<port>/...`. Compose maps that name to Docker's `host-gateway` on Linux, macOS, and Windows. You can verify the mapping after startup with `docker compose exec acp-agent getent hosts host.docker.internal`; to inspect the current bridge gateway directly, use `docker compose exec acp-agent sh -c "ip route show default"`. Do not copy a bridge IP such as `172.17.0.1` into `config.yaml`, because it can change between hosts and networks.

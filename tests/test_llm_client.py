@@ -39,6 +39,50 @@ def test_call_llm_keyless_mode_omits_authorization_header(monkeypatch):
 
 
 @pytest.mark.acp
+def test_call_llm_diagnostic_flags_are_independent(monkeypatch):
+    payload = {"choices": [{"message": {"content": "{\"advice\":\"ok\"}"}}]}
+    messages: list[str] = []
+
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.setenv("LLM_AUTHENTICATION", "none")
+    monkeypatch.setenv("LLM_LOG", "1")
+    monkeypatch.setenv("LLM_LOG_PROMPT", "1")
+    monkeypatch.setenv("LLM_LOG_RESPONSE", "1")
+    monkeypatch.setenv("LLM_LOG_JSON", "1")
+    monkeypatch.setattr(llm_client, "_log_llm", messages.append)
+    monkeypatch.setattr(
+        llm_client.urllib.request,
+        "urlopen",
+        lambda request, timeout=0: _FakeResponse(json.dumps(payload)),
+    )
+
+    result = llm_client.call_llm("diagnostic prompt", required_keys=["advice"])
+
+    assert result.status == "ok"
+    assert any(message.startswith("CONFIG >") for message in messages)
+    assert "OUTGOING PROMPT > diagnostic prompt" in messages
+    assert any(message.startswith("RAW RESPONSE >") for message in messages)
+    assert any(message.startswith("JSON > {") for message in messages)
+
+
+@pytest.mark.acp
+def test_missing_key_logging_explains_required_authentication(monkeypatch):
+    messages: list[str] = []
+
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.setenv("LLM_AUTHENTICATION", "required")
+    monkeypatch.setenv("LLM_LOG", "1")
+    monkeypatch.setenv("LLM_LOG_PROMPT", "1")
+    monkeypatch.setattr(llm_client, "_log_llm", messages.append)
+
+    result = llm_client.call_llm("diagnostic prompt")
+
+    assert result.error == "missing_api_key"
+    assert "OUTGOING PROMPT > diagnostic prompt" in messages
+    assert any("llm.authentication: none" in message for message in messages)
+
+
+@pytest.mark.acp
 def test_call_llm_chat_completions_success(monkeypatch):
     payload = {
         "choices": [

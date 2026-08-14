@@ -71,13 +71,15 @@ def render_env_file(
 
 def _config_document(values: Mapping[str, str], run_style: str) -> dict[str, object]:
     mcp_url = values.get("STUDY_AGENT_MCP_URL", "http://127.0.0.1:8790/mcp")
+    log_dir = values.get("STUDY_AGENT_LOG_DIR", "study-agent-logs")
     if run_style == "docker":
         mcp_url = "http://mcp-server:8790/mcp"
     document: dict[str, object] = {
         "version": 1,
         "profile": run_style,
         "paths": {
-            "phenotype_index": values.get("PHENOTYPE_INDEX_DIR", "data/phenotype_index")
+            "phenotype_index": values.get("PHENOTYPE_INDEX_DIR", "data/phenotype_index"),
+            "logs": log_dir,
         },
         "network": {"rewrite_container_hosts": run_style == "docker"},
         "acp": {
@@ -89,6 +91,13 @@ def _config_document(values: Mapping[str, str], run_style: str) -> dict[str, obj
                 "mode": "stdio" if "STUDY_AGENT_MCP_COMMAND" in values else "http",
                 "timeout_seconds": 240,
             },
+        },
+        "logging": {
+            "level": values.get("STUDY_AGENT_LOG_LEVEL", "INFO"),
+            "acp_file": values.get("ACP_LOG_FILE", str(Path(log_dir) / "study-agent-acp.log")),
+            "mcp_file": values.get("MCP_LOG_FILE", str(Path(log_dir) / "study-agent-mcp.log")),
+            "acp_to_console": True,
+            "mcp_to_console": True,
         },
         "mcp": {
             "transport": values.get("MCP_TRANSPORT", "http"),
@@ -327,6 +336,22 @@ def collect_configuration(
                 ),
             }
         )
+    values["STUDY_AGENT_LOG_DIR"] = _prompt_text(
+        "Service log directory", default="study-agent-logs", input_fn=input_fn
+    )
+    values["STUDY_AGENT_LOG_LEVEL"] = _prompt_choice(
+        "Service log level",
+        {
+            "debug": "debug",
+            "info": "info",
+            "warning": "warning",
+            "error": "error",
+            "off": "off",
+        },
+        default="info",
+        input_fn=input_fn,
+        output_fn=output_fn,
+    ).upper()
     return values, secrets, run_style
 
 
