@@ -71,6 +71,8 @@ def test_generated_cm_spec_builds_and_executes_strategus_analysis_specification(
     assert "Configured %s points to another Study Agent project" in block
     assert "message('Strategus execution roots:')" in block
     assert "strategus_execute_summary.json" in block
+    assert "normalizePath(file.path(base_dir, path)" in block
+    assert "file.path(dirname(base_dir), path)" not in block
     assert "failed with empty errorMessage; inspect work/results roots and exported tables." in block
     assert "CohortMethod::runCmAnalyses(" not in block
     assert "CohortMethod::loadCmAnalysisList(" not in block

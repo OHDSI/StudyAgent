@@ -151,7 +151,7 @@
   resolve_saved_path <- function(path) {
     path <- trimws(as.character(path %||% ""))
     if (!nzchar(path)) return(NULL)
-    .studyAgentSlashResolveArtifactPath(path, base_dir)
+    .studyAgentSlashResolveProjectPath(path, base_dir)
   }
 
   confirmed_results <- resolve_saved_path(confirmed$results_root %||% "")
@@ -167,8 +167,8 @@
     if (is.list(exec_cfg)) {
       configured_results_input <- trimws(as.character(exec_cfg$resultsFolder %||% ""))
       configured_work_input <- trimws(as.character(exec_cfg$workFolder %||% ""))
-      if (nzchar(configured_results_input)) configured_results <- .studyAgentSlashResolveArtifactPath(configured_results_input, base_dir)
-      if (nzchar(configured_work_input)) configured_work <- .studyAgentSlashResolveArtifactPath(configured_work_input, base_dir)
+      if (nzchar(configured_results_input)) configured_results <- .studyAgentSlashResolveProjectPath(configured_results_input, base_dir)
+      if (nzchar(configured_work_input)) configured_work <- .studyAgentSlashResolveProjectPath(configured_work_input, base_dir)
     }
   }
 
@@ -211,7 +211,7 @@
   resolve_root <- function(path, fallback = NULL) {
     path <- trimws(as.character(path %||% ""))
     if (!nzchar(path)) return(fallback)
-    .studyAgentSlashResolveArtifactPath(path, base_dir)
+    .studyAgentSlashResolveProjectPath(path, base_dir)
   }
 
   resolved_results <- resolve_root(results_root, fallback = configured$configured_results_root %||% NULL)

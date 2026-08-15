@@ -116,7 +116,8 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
       message("Calling ACP flow: workflow_context_dialogue")
       .studyAgentSlashWorkflowContextDialogue(dialogue_acp_client$client, stage_context, message)
     },
-    empty_question_message = "Enter a question after /ohdsi. Example: /ohdsi why are these candidates weak here?"
+    empty_question_message = "Enter a question after /ohdsi. Example: /ohdsi why are these candidates weak here?",
+    disabled_command_message = if (!isTRUE(ai_enabled)) "The /ohdsi command is disabled for this no-AI workflow. Use h or help for local guidance." else NULL
   )
   dialogue_state <- dialogue_session$state
   set_dialogue_context <- dialogue_session$set_context
@@ -921,10 +922,10 @@ Execution commands
 ")
     cat("  - s or status: show execution status (derived from step state and artifacts)
 ")
-    cat("  - art or artifacts: list current known artifacts
-  - b or backup: create a workflow state snapshot
-  - bk or backups: list available workflow state snapshots
-")
+    cat("  - art or artifacts: list current known artifacts\n")
+    cat("  - v or viewer: launch the local read-only artifact browser (ends when the Shiny app stops)\n")
+    cat("  - b or backup: create a workflow state snapshot\n")
+    cat("  - bk or backups: list available workflow state snapshots\n")
     cat("  - x or explore[_v]: list available approved exploration commands
 ")
     cat("  - x <command-id> or explore <command-id>: run an approved exploration command
@@ -946,8 +947,7 @@ Execution commands
 ")
     cat("  - rev or revise [build|intent|target|outcome]: return to build mode for intentional revision
 ")
-    cat("  - /ohdsi <question>: ask a contextualized OHDSI workflow question
-")
+    if (isTRUE(ai_enabled)) cat("  - /ohdsi <question>: ask a contextualized OHDSI workflow question\n")
     cat("  - q or quit: leave the execution menu
 ")
     cat(sprintf("  - default table display for art/x/inspect: %s
@@ -1118,7 +1118,12 @@ Available exploration commands
     repeat {
       .studyAgentSlashReconcileProjectState(base_dir, write = TRUE)
       refresh_execution_dialogue_context()
-      entered <- trimws(readline_with_dialogue("Execution command [Enter=finish, x=explore[_v], s=status, h=help/show commands, /ohdsi=AI assistance]: "))
+      execution_prompt <- if (isTRUE(ai_enabled)) {
+        "Execution command [h=help/show commands, Enter=finish, x=explore[_v], s=status, /ohdsi=AI assistance]: "
+      } else {
+        "Execution command [h=help/show commands, Enter=finish, x=explore[_v], s=status]: "
+      }
+      entered <- trimws(readline_with_dialogue(execution_prompt))
       if (!nzchar(entered)) {
         if (isTRUE(confirm_execution_menu_exit())) return(invisible(list(action = "exit")))
         next
@@ -1134,6 +1139,15 @@ Available exploration commands
       }
       if (identical(lowered, "help explore")) {
         print_explore_help()
+        next
+      }
+      if (lowered %in% c("v", "viewer")) {
+        cat("Launching the local artifact browser. Stop the Shiny app to return to this execution menu.\n")
+        launch_result <- tryCatch({
+          launchStrategusArtifactBrowser(base_dir)
+          NULL
+        }, error = function(e) e)
+        if (inherits(launch_result, "error")) cat(sprintf("Artifact browser could not be launched: %s\n", conditionMessage(launch_result)))
         next
       }
       if (lowered %in% c("art", "artifact", "artifacts")) {
@@ -1319,7 +1333,7 @@ Available exploration commands
         inspect_execution_outputs(step_id, viewer = viewer)
         next
       }
-      cat("Choose h, s, art, x[_v], b, bk, reset <step>, skip <step>, restore <snapshot-id>, rev, n, a, i[_v], run <step>, /ohdsi <question>, q, or Enter. Type h for valid steps and explore for approved commands.\n")
+      cat(if (isTRUE(ai_enabled)) "Choose h, s, art, x[_v], b, bk, reset <step>, skip <step>, restore <snapshot-id>, rev, n, a, i[_v], run <step>, /ohdsi <question>, q, or Enter. Type h for valid steps and explore for approved commands.\n" else "Choose h, s, art, x[_v], b, bk, reset <step>, skip <step>, restore <snapshot-id>, rev, n, a, i[_v], run <step>, q, or Enter. Type h for valid steps and explore for approved commands.\n")
     }
   }
 
@@ -1334,7 +1348,11 @@ Available exploration commands
       cat(paste(readLines(banner_path, warn = FALSE), collapse = "\n"), "\n")
     }
     cat("\nStudy Agent: Strategus CohortIncidence shell\n")
-    cat("Use /ohdsi for contextual guidance. Type /back at supported stage boundaries to return to the previous step.\n")
+    if (isTRUE(ai_enabled)) {
+      cat("Use /ohdsi for contextual guidance. Type /back at supported stage boundaries to return to the previous step.\n")
+    } else {
+      cat("Type /back at supported stage boundaries to return to the previous step.\n")
+    }
   }
 
   if (isTRUE(resume) && file.exists(project_state_path) && file.exists(runtime_state_path)) {
@@ -1421,8 +1439,8 @@ Available exploration commands
 
     intent_split_path <- file.path(output_dir, "intent_split.json")
     intent_response <- NULL
-    target_statement <- default_direct_statement("Target", studyIntent)
-    outcome_statement <- default_direct_statement("Outcome", studyIntent)
+    target_statement <- if (isTRUE(ai_enabled)) default_direct_statement("Target", studyIntent) else ""
+    outcome_statement <- if (isTRUE(ai_enabled)) default_direct_statement("Outcome", studyIntent) else ""
 
     if (isTRUE(direct_acquisition_mode)) {
       if (interactive) {
@@ -1727,8 +1745,8 @@ Available exploration commands
     core$phenotype_improvements %||% list()
   }
 
-  do_target_improvements <- TRUE
-  if (interactive) {
+  do_target_improvements <- !isTRUE(skip_phenotype_improvements)
+  if (interactive && isTRUE(do_target_improvements)) {
     set_dialogue_context("target_improvements", "target", context = list(study_intent = studyIntent, role_statement = target_statement, target_statement = target_statement, selected_target_ids = as.list(selected_ids_target %||% list())))
     do_target_improvements <- prompt_yesno("Continue to target phenotype improvements?", default = TRUE)
     if (do_target_improvements) {
@@ -1998,8 +2016,8 @@ Available exploration commands
       copy_cohort_json_multi(selected_ids_outcome[[i]], new_ids_outcome[[i]], c(selected_outcome_dir, selected_dir), index_def_dir, imported_def_dir = imported_definition_dir)
     }
 
-    do_outcome_improvements <- TRUE
-    if (interactive) {
+    do_outcome_improvements <- !isTRUE(skip_phenotype_improvements)
+    if (interactive && isTRUE(do_outcome_improvements)) {
       set_dialogue_context("outcome_improvements", "outcome", context = list(study_intent = studyIntent, role_statement = outcome_statement, target_statement = target_statement, outcome_statement = outcome_statement, selected_outcome_ids = as.list(selected_ids_outcome %||% list())))
       do_outcome_improvements <- prompt_yesno("Continue to outcome phenotype improvements?", default = TRUE)
       if (do_outcome_improvements) {
@@ -3133,19 +3151,10 @@ Keeper review saved: %s reviewed row(s)
     "exec <- slashOhdsiStrategusAssistant::createStrategusExecutionSettings(path = execution_settings_path)",
     "executionSettings_incidence <- exec$executionSettings",
     "resolve_path <- function(path) {",
-    "  if (!nzchar(path)) return(path)",
-    "  if (grepl('^(/|[A-Za-z]:[\\\\/]|~)', path)) return(normalizePath(path, winslash = '/', mustWork = FALSE))",
-    "  candidates <- unique(c(",
-    "    file.path(base_dir, path),",
-    "    file.path(dirname(base_dir), path),",
-    "    file.path(dirname(dirname(base_dir)), path),",
-    "    file.path(getwd(), path)",
-    "  ))",
-    "  for (candidate in candidates) {",
-    "    normalized <- normalizePath(candidate, winslash = '/', mustWork = FALSE)",
-    "    if (file.exists(normalized) || dir.exists(normalized)) return(normalized)",
-    "  }",
-    "  normalizePath(candidates[[1]], winslash = '/', mustWork = FALSE)",
+    "  path <- trimws(as.character(path %||% \"\"))",
+    "  if (!nzchar(path)) stop(\"Configured execution root must not be empty.\")",
+    "  if (grepl('^(?:/|~|[A-Za-z]:)', path)) return(normalizePath(path, winslash = '/', mustWork = FALSE))",
+    "  normalizePath(file.path(base_dir, path), winslash = \"/\", mustWork = FALSE)",
     "}",
     "validate_execution_root <- function(label, root_path) {",
     "  normalized_root <- normalizePath(resolve_path(as.character(root_path %||% '')), winslash = '/', mustWork = FALSE)",
@@ -3295,19 +3304,10 @@ Keeper review saved: %s reviewed row(s)
     sprintf("base_dir <- '%s'", base_dir),
     "execution_settings_path <- file.path(base_dir, 'strategus-execution-settings.json')",
     "resolve_path <- function(path) {",
-    "  if (!nzchar(path)) return(path)",
-    "  if (grepl('^(/|[A-Za-z]:[\\\\/]|~)', path)) return(path)",
-    "  candidates <- unique(c(",
-    "    file.path(base_dir, path),",
-    "    file.path(dirname(base_dir), path),",
-    "    file.path(dirname(dirname(base_dir)), path),",
-    "    file.path(getwd(), path)",
-    "  ))",
-    "  for (candidate in candidates) {",
-    "    normalized <- normalizePath(candidate, winslash = '/', mustWork = FALSE)",
-    "    if (file.exists(normalized) || dir.exists(normalized)) return(normalized)",
-    "  }",
-    "  normalizePath(candidates[[1]], winslash = '/', mustWork = FALSE)",
+    "  path <- trimws(as.character(path %||% \"\"))",
+    "  if (!nzchar(path)) stop(\"Configured execution root must not be empty.\")",
+    "  if (grepl('^(?:/|~|[A-Za-z]:)', path)) return(normalizePath(path, winslash = '/', mustWork = FALSE))",
+    "  normalizePath(file.path(base_dir, path), winslash = \"/\", mustWork = FALSE)",
     "}",
     "exec_cfg <- jsonlite::fromJSON(execution_settings_path, simplifyVector = FALSE)",
     "results_root <- normalizePath(resolve_path(as.character(exec_cfg$resultsFolder %||% '')), winslash = '/', mustWork = FALSE)",

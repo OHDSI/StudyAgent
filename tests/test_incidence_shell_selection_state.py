@@ -137,6 +137,8 @@ def test_shell_seeds_runtime_templates_and_generated_scripts_use_them() -> None:
     assert "Configured %s points to another Study Agent project" in script06
     assert "message('Strategus execution roots:')" in script06
     assert "strategus_execute_summary.json" in script06
+    assert "normalizePath(file.path(base_dir, path)" in script06
+    assert "file.path(dirname(base_dir), path)" not in script06
     assert "<FILL IN>" not in script06
 
 

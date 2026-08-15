@@ -149,6 +149,21 @@
   )
 }
 
+.studyAgentSlashPersistStrategusExecutionRoots <- function(base_dir, project_state, summary) {
+  if (is.null(summary) || !is.list(summary)) return(project_state)
+  results_root <- trimws(as.character(summary$results_root %||% ""))
+  work_root <- trimws(as.character(summary$work_root %||% ""))
+  if (!nzchar(results_root) && !nzchar(work_root)) return(project_state)
+  .studyAgentSlashPersistExecutionRoots(
+    base_dir = base_dir,
+    project_state = project_state,
+    results_root = if (nzchar(results_root)) results_root else NULL,
+    work_root = if (nzchar(work_root)) work_root else NULL,
+    source = "strategus_execute_summary",
+    write = FALSE
+  )
+}
+
 .studyAgentSlashResolvePostRunStepResult <- function(base_dir, step_id, default_status, default_error = NULL) {
   summary <- .studyAgentSlashReadStrategusExecuteSummary(base_dir, step_id)
   if (is.null(summary)) {
@@ -257,6 +272,11 @@
   )
 
   finished_at <- .studyAgentSlashNowTimestamp()
+  project_state <- .studyAgentSlashPersistStrategusExecutionRoots(
+    base_dir = base_dir,
+    project_state = project_state,
+    summary = result$summary
+  )
   project_state <- .studyAgentSlashSetProjectStepStatus(project_state, step_id, result$status, error = result$error)
   project_state <- .studyAgentSlashRefreshProjectArtifactsAfterStep(project_state, base_dir, step_id = step_id)
   project_state <- .studyAgentSlashAdvanceResumePointer(project_state)
@@ -403,6 +423,12 @@
 .studyAgentSlashSummarizeWorkflowStatus <- function(base_dir) {
   project_state <- .studyAgentSlashReconcileProjectState(base_dir, write = TRUE)$project_state
   vapply(project_state$execution_plan %||% list(), function(step) {
-    sprintf("%s [%s]", as.character(step$label %||% step$step_id %||% ""), as.character(step$status %||% "not_started"))
+    status <- as.character(step$status %||% "not_started")
+    run_hint <- ""
+    if (identical(status, "not_started")) {
+      availability <- .studyAgentSlashWorkflowStepRunAvailability(base_dir, step)
+      if (isTRUE(availability$runnable)) run_hint <- sprintf(" — run %s", as.character(step$step_id %||% ""))
+    }
+    sprintf("%s [%s]%s", as.character(step$label %||% step$step_id %||% ""), status, run_hint)
   }, character(1))
 }
