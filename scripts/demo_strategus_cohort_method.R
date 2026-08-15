@@ -18,6 +18,7 @@ load_study_agent_r_packages(include_strategus = TRUE)
 
 Sys.setenv(ACP_TIMEOUT = "1800") # set high because of detailed keeper concept set extraction
 Sys.setenv(ACP_URL = acp_url)
+
 Sys.setenv(PHENOTYPE_INDEX_DIR = repo_file("data", "phenotype_index_cipher_omop"))
 invisible(connect_study_agent_acp())
 
@@ -62,7 +63,7 @@ slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell(
 ##   outputDir = "demo-strategus-cohort-method",
 ##   acpUrl = "http://127.0.0.1:8765",
 ##   studyAgentBaseDir = repo_root,
-##   indexDir = "data/phenotype_index_cipher_omop",
+##    indexDir = "data/phenotype_index_cipher_omop",
 ##   incidenceOutputDir = "demo-strategus-cohort-incidence",
 ##   resume = TRUE,
 ##   allowCache = TRUE,
