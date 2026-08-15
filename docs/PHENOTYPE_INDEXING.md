@@ -21,7 +21,7 @@ The metadata CSV identifies cohorts and their descriptive fields. The definition
 The repository includes a small example derived from PhenotypeLibrary:
 
 - `data/Cohorts.csv` — metadata for 20 cohorts
-- `data/Cohorts/` — the corresponding exported cohort-definition JSON files
+- `data/cohorts/` — the corresponding exported cohort-definition JSON files
 
 From the repository root, build a sparse index:
 

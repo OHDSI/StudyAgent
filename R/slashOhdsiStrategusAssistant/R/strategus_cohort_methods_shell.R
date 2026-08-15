@@ -1610,6 +1610,7 @@
 #' @param remapCohortIds whether to remap selected cohort ids
 #' @param cohortIdBase optional starting cohort id when remapping
 #' @param executionTableDisplay execution-menu table display preference: `console`, `viewer`, or `auto`
+#' @param aiSupport ACP/AI mode: `disabled` (default), `enabled`, or `auto`
 #' @return invisible list with output paths
 #' @export
 runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-methods",
@@ -1643,9 +1644,12 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
                                            resume = FALSE,
                                            remapCohortIds = TRUE,
                                            cohortIdBase = NULL,
-                                           executionTableDisplay = c("console", "viewer", "auto")) {
+                                           executionTableDisplay = c("console", "viewer", "auto"),
+                                           aiSupport = c("disabled", "enabled", "auto")) {
   `%||%` <- function(x, y) if (is.null(x)) y else x
   execution_table_display <- .studyAgentSlashNormalizeExecutionTableDisplay(executionTableDisplay)
+  ai_support <- .studyAgentSlashResolveAiSupport(aiSupport)
+  ai_enabled <- .studyAgentSlashAiSupportAllowsAcp(ai_support)
 
   ensure_dir <- function(path) {
     if (!dir.exists(path)) dir.create(path, recursive = TRUE, showWarnings = FALSE)
@@ -1681,13 +1685,15 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
     study_intent_getter = current_study_intent,
     build_stage_context = build_workflow_stage_context,
     call_dialogue = function(stage_context, message) {
+      if (!isTRUE(ai_enabled)) stop(.studyAgentSlashAiSupportDisabledMessage(ai_support, "/ohdsi guidance"))
       if (!ensure_workflow_dialogue_client(acpUrl)) {
         stop("ACP bridge unavailable. Connect ACP before using /ohdsi.")
       }
       message("Calling ACP flow: workflow_context_dialogue")
       .studyAgentSlashWorkflowContextDialogue(dialogue_acp_client$client, stage_context, message)
     },
-    empty_question_message = "Enter a question after /ohdsi. Example: /ohdsi why is washout important here?"
+    empty_question_message = "Enter a question after /ohdsi. Example: /ohdsi why is washout important here?",
+    disabled_command_message = if (!isTRUE(ai_enabled)) "The /ohdsi command is disabled for this no-AI workflow. Use h or help for local guidance." else NULL
   )
   dialogue_state <- dialogue_session$state
   set_dialogue_context <- dialogue_session$set_context
@@ -2515,6 +2521,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   }
 
   ensure_workflow_dialogue_client <- function(url) {
+    if (!isTRUE(ai_enabled)) return(FALSE)
     if (acp_client_is_ready(dialogue_acp_client$client)) return(TRUE)
     if (is.null(url) || !nzchar(trimws(url))) return(FALSE)
     tryCatch({
@@ -2526,6 +2533,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   }
 
   ensure_acp_ready <- function(url) {
+    if (!isTRUE(ai_enabled)) return(FALSE)
     if (ensure_workflow_dialogue_client(url)) return(TRUE)
     has_acp_state <- exists("acp_state", inherits = TRUE)
     has_acp_connect <- exists("acp_connect", mode = "function", inherits = TRUE)
@@ -2543,6 +2551,7 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
   }
 
   call_shell_acp_flow <- function(flow_name, body, url = acpUrl) {
+    if (!isTRUE(ai_enabled)) stop(.studyAgentSlashAiSupportDisabledMessage(ai_support, "ACP flow"))
     if (!acp_client_is_ready(dialogue_acp_client$client)) {
       if (!ensure_workflow_dialogue_client(url)) stop("ACP bridge unavailable.")
     }
@@ -3192,8 +3201,8 @@ runStrategusCohortMethodsShell <- function(outputDir = "demo-strategus-cohort-me
                                         patched_role_dir,
                                         improvements_path,
                                         role_statement = NULL) {
-    do_improvements <- TRUE
-    if (interactive) {
+    do_improvements <- isTRUE(ai_enabled)
+    if (interactive && isTRUE(do_improvements)) {
       do_improvements <- prompt_yesno(
         sprintf("Continue to %s phenotype improvements?", role_key),
         default = TRUE
@@ -4252,10 +4261,10 @@ Execution commands
 ")
     cat("  - s or status: show execution status (derived from step state and artifacts)
 ")
-    cat("  - art or artifacts: list current known artifacts
-  - b or backup: create a workflow state snapshot
-  - bk or backups: list available workflow state snapshots
-")
+    cat("  - art or artifacts: list current known artifacts\n")
+    cat("  - v or viewer: launch the local read-only artifact browser (ends when the Shiny app stops)\n")
+    cat("  - b or backup: create a workflow state snapshot\n")
+    cat("  - bk or backups: list available workflow state snapshots\n")
     cat("  - x or explore[_v]: list available approved exploration commands
 ")
     cat("  - x <command-id> or explore <command-id>: run an approved exploration command
@@ -4277,8 +4286,7 @@ Execution commands
 ")
     cat("  - rev or revise [build|intent|target|comparator|outcome]: return to build mode for intentional revision
 ")
-    cat("  - /ohdsi <question>: ask a contextualized OHDSI workflow question
-")
+    if (isTRUE(ai_enabled)) cat("  - /ohdsi <question>: ask a contextualized OHDSI workflow question\n")
     cat("  - q or quit: leave the execution menu
 ")
     cat(sprintf("  - default table display for art/x/inspect: %s
@@ -4449,7 +4457,12 @@ Available exploration commands
     repeat {
       .studyAgentSlashReconcileProjectState(base_dir, write = TRUE)
       refresh_execution_dialogue_context()
-      entered <- trimws(readline_with_dialogue("Execution command [Enter=finish, x=explore[_v], s=status, h=help/show commands, /ohdsi=AI assistance]: "))
+      execution_prompt <- if (isTRUE(ai_enabled)) {
+        "Execution command [h=help/show commands, Enter=finish, x=explore[_v], s=status, /ohdsi=AI assistance]: "
+      } else {
+        "Execution command [h=help/show commands, Enter=finish, x=explore[_v], s=status]: "
+      }
+      entered <- trimws(readline_with_dialogue(execution_prompt))
       if (!nzchar(entered)) {
         if (isTRUE(confirm_execution_menu_exit())) return(invisible(list(action = "exit")))
         next
@@ -4465,6 +4478,15 @@ Available exploration commands
       }
       if (identical(lowered, "help explore")) {
         print_explore_help()
+        next
+      }
+      if (lowered %in% c("v", "viewer")) {
+        cat("Launching the local artifact browser. Stop the Shiny app to return to this execution menu.\n")
+        launch_result <- tryCatch({
+          launchStrategusArtifactBrowser(base_dir)
+          NULL
+        }, error = function(e) e)
+        if (inherits(launch_result, "error")) cat(sprintf("Artifact browser could not be launched: %s\n", conditionMessage(launch_result)))
         next
       }
       if (lowered %in% c("art", "artifact", "artifacts")) {
@@ -4650,7 +4672,7 @@ Available exploration commands
         inspect_execution_outputs(step_id, viewer = viewer)
         next
       }
-      cat("Choose h, s, art, x[_v], b, bk, reset <step>, skip <step>, restore <snapshot-id>, rev, n, a, i[_v], run <step>, /ohdsi <question>, q, or Enter. Type h for valid steps and explore for approved commands.\n")
+      cat(if (isTRUE(ai_enabled)) "Choose h, s, art, x[_v], b, bk, reset <step>, skip <step>, restore <snapshot-id>, rev, n, a, i[_v], run <step>, /ohdsi <question>, q, or Enter. Type h for valid steps and explore for approved commands.\n" else "Choose h, s, art, x[_v], b, bk, reset <step>, skip <step>, restore <snapshot-id>, rev, n, a, i[_v], run <step>, q, or Enter. Type h for valid steps and explore for approved commands.\n")
     }
   }
   cached_inputs <- NULL
@@ -4684,7 +4706,11 @@ Available exploration commands
       cat(paste(readLines(banner_path, warn = FALSE), collapse = "\n"), "\n")
     }
     cat("\nStudy Agent: Strategus CohortMethod shell\n")
-    cat("Use /ohdsi for contextual guidance. Type /back at supported stage boundaries to return to the previous step.\n")
+    if (isTRUE(ai_enabled)) {
+      cat("Use /ohdsi for contextual guidance. Type /back at supported stage boundaries to return to the previous step.\n")
+    } else {
+      cat("Type /back at supported stage boundaries to return to the previous step.\n")
+    }
   }
 
   if (isTRUE(resume) && file.exists(project_state_path) && file.exists(runtime_state_path)) {
@@ -4894,8 +4920,15 @@ Available exploration commands
   skip_phenotype_improvements <- FALSE
   skip_reason <- NULL
   skip_prompt_source <- "not_prompted"
+  if (!isTRUE(ai_enabled)) {
+    skip_intent_split_and_recommendation <- TRUE
+    skip_phenotype_improvements <- TRUE
+    direct_acquisition_mode <- !isTRUE(all_cohort_ids_from_function_args)
+    skip_reason <- ai_support$reason
+    skip_prompt_source <- "ai_support_policy"
+  }
   explicit_outcome_statements_from_args <- character(0)
-  if (isTRUE(all_cohort_ids_from_function_args) && isTRUE(interactive)) {
+  if (!isTRUE(skip_intent_split_and_recommendation) && isTRUE(all_cohort_ids_from_function_args) && isTRUE(interactive)) {
     cat("\nAll target, comparator, and outcome cohort IDs were provided as function arguments:\n")
     cat(sprintf("  Target: %s\n", format_cohort_selection_summary(explicit_target_ids_from_args)))
     cat(sprintf("  Comparator: %s\n", format_cohort_selection_summary(explicit_comparator_ids_from_args)))
@@ -4944,18 +4977,18 @@ Available exploration commands
 
   if (isTRUE(skip_intent_split_and_recommendation)) {
     if (isTRUE(direct_acquisition_mode)) {
-      target_statement_default <- first_nonempty(
+      target_statement_default <- if (isTRUE(ai_enabled)) first_nonempty(
         target_statement_default,
         direct_role_statement_default("Target", studyIntent)
-      )
-      comparator_statement_default <- first_nonempty(
+      ) else target_statement_default
+      comparator_statement_default <- if (isTRUE(ai_enabled)) first_nonempty(
         comparator_statement_default,
         direct_role_statement_default("Comparator", studyIntent)
-      )
-      outcome_statement_default <- first_nonempty(
+      ) else comparator_statement_default
+      outcome_statement_default <- if (isTRUE(ai_enabled)) first_nonempty(
         outcome_statement_default,
         direct_role_statement_default("Outcome", studyIntent)
-      )
+      ) else outcome_statement_default
       outcome_statements_default <- combine_statement_list(
         outcome_statement_default,
         outcome_statements_default
@@ -5223,7 +5256,7 @@ Available exploration commands
       statement = targetStatement
     )
   } else {
-    target_source_mode <- choose_selection_source_mode("target", allow_index = !isTRUE(skip_intent_split_and_recommendation) || isTRUE(direct_acquisition_mode))
+    target_source_mode <- choose_selection_source_mode("target", allow_index = isTRUE(ai_enabled) && (!isTRUE(skip_intent_split_and_recommendation) || isTRUE(direct_acquisition_mode)))
     if (is_back_signal(target_source_mode)) next
 
     imported_target_selection <- .studyAgentSlashAcquireImportedRoleSelection(
@@ -5393,7 +5426,7 @@ Available exploration commands
       statement = comparatorStatement
     )
   } else {
-    comparator_source_mode <- choose_selection_source_mode("comparator", allow_index = !isTRUE(skip_intent_split_and_recommendation) || isTRUE(direct_acquisition_mode))
+    comparator_source_mode <- choose_selection_source_mode("comparator", allow_index = isTRUE(ai_enabled) && (!isTRUE(skip_intent_split_and_recommendation) || isTRUE(direct_acquisition_mode)))
     if (is_back_signal(comparator_source_mode)) next
 
     imported_comparator_selection <- .studyAgentSlashAcquireImportedRoleSelection(
@@ -5521,7 +5554,7 @@ Available exploration commands
       statement = outcomeStatement
     ))
   } else {
-    outcome_source_mode <- choose_selection_source_mode("outcome", allow_index = !isTRUE(skip_intent_split_and_recommendation) || isTRUE(direct_acquisition_mode))
+    outcome_source_mode <- choose_selection_source_mode("outcome", allow_index = isTRUE(ai_enabled) && (!isTRUE(skip_intent_split_and_recommendation) || isTRUE(direct_acquisition_mode)))
     if (is_back_signal(outcome_source_mode)) next
 
     imported_outcome_selection <- .studyAgentSlashAcquireImportedRoleSelection(
@@ -6012,7 +6045,7 @@ Available exploration commands
   has_function_argument_description <- !is.null(analyticSettingsDescription) || !is.null(analytic_settings_description_path_resolved)
   cached_mode <- as.character(cached_inputs$analytic_settings_mode %||% if (has_function_argument_description) "free_text" else "step_by_step")
   analytic_settings_back_requested <- FALSE
-  analytic_settings_mode <- if (isTRUE(interactive)) {
+  analytic_settings_mode <- if (isTRUE(interactive) && isTRUE(ai_enabled)) {
     mode_default <- if (has_function_argument_description || identical(cached_mode, "free_text")) "free-text" else "step-by-step"
     cat("\nHow would you like to configure analytic settings?\n")
     cat("  1. Step-by-step\n")
@@ -6050,6 +6083,10 @@ Available exploration commands
     "free_text"
   } else {
     "step_by_step"
+  }
+  if (!isTRUE(ai_enabled) && identical(analytic_settings_mode, "free_text")) {
+    analytic_settings_mode <- "step_by_step"
+    if (isTRUE(interactive)) cat("AI support is disabled; using the step-by-step analytic-settings wizard.\n")
   }
   analytic_settings_selection_source <- if (isTRUE(interactive)) "manual_prompt" else if (!is.null(cached_inputs$analytic_settings_mode)) "cached" else "default_non_interactive"
   analytic_settings_input_method <- if (identical(analytic_settings_mode, "free_text")) {
@@ -6767,6 +6804,9 @@ Available exploration commands
     target_statement = targetStatement,
     comparator_statement = comparatorStatement,
     outcome_statement = outcomeStatement,
+    ai_support_mode = ai_support$mode,
+    ai_support_reason = ai_support$reason,
+    acp_capability_status = if (isTRUE(ai_enabled)) "enabled" else "disabled_by_user",
     outcome_statements = as.list(outcomeStatements),
     outcome_cohort_statements = as.list(outcomeStatementsForSelectedCohorts),
     comparison_label = comparisonLabel,
@@ -6908,7 +6948,7 @@ Available exploration commands
   keeper_concept_set_result <- NULL
   keeper_case_review_result <- NULL
 
-  if (isTRUE(interactive)) {
+  if (isTRUE(interactive) && isTRUE(ai_enabled)) {
     run_keeper_review_now <- prompt_yesno_navigation("Run ACP-based Keeper review now?", default = FALSE)
     if (isTRUE(run_keeper_review_now)) {
       keeper_config_confirmed <- FALSE
@@ -7510,7 +7550,7 @@ Keeper review saved: %s reviewed row(s)
     "print(result)",
     ""
   )
-  write_lines(file.path(scripts_dir, "04_keeper_concept_sets.R"), script_04)
+  if (isTRUE(ai_enabled)) write_lines(file.path(scripts_dir, "04_keeper_concept_sets.R"), script_04)
 
   script_05 <- c(
     script_header,
@@ -7560,7 +7600,7 @@ Keeper review saved: %s reviewed row(s)
     "print(result)",
     ""
   )
-  write_lines(file.path(scripts_dir, "05_keeper_case_review.R"), script_05)
+  if (isTRUE(ai_enabled)) write_lines(file.path(scripts_dir, "05_keeper_case_review.R"), script_05)
 
   script_06 <- c(
     script_header,
@@ -8004,19 +8044,10 @@ Keeper review saved: %s reviewed row(s)
     "connectionDetails <- slashOhdsiStrategusAssistant::createStrategusConnectionDetails(path = db_details_path)",
     "exec <- slashOhdsiStrategusAssistant::createStrategusExecutionSettings(path = execution_settings_path)",
     "resolve_path <- function(path) {",
-    "  if (!nzchar(path)) return(path)",
-    "  if (grepl('^(/|[A-Za-z]:[\\\\/]|~)', path)) return(normalizePath(path, winslash = '/', mustWork = FALSE))",
-    "  candidates <- unique(c(",
-    "    file.path(base_dir, path),",
-    "    file.path(dirname(base_dir), path),",
-    "    file.path(dirname(dirname(base_dir)), path),",
-    "    file.path(getwd(), path)",
-    "  ))",
-    "  for (candidate in candidates) {",
-    "    normalized <- normalizePath(candidate, winslash = '/', mustWork = FALSE)",
-    "    if (file.exists(normalized) || dir.exists(normalized)) return(normalized)",
-    "  }",
-    "  normalizePath(candidates[[1]], winslash = '/', mustWork = FALSE)",
+    "  path <- trimws(as.character(path %||% \"\"))",
+    "  if (!nzchar(path)) stop(\"Configured execution root must not be empty.\")",
+    "  if (grepl('^(?:/|~|[A-Za-z]:)', path)) return(normalizePath(path, winslash = '/', mustWork = FALSE))",
+    "  normalizePath(file.path(base_dir, path), winslash = \"/\", mustWork = FALSE)",
     "}",
     "validate_execution_root <- function(label, root_path) {",
     "  normalized_root <- normalizePath(resolve_path(as.character(root_path %||% '')), winslash = '/', mustWork = FALSE)",
@@ -8088,19 +8119,10 @@ Keeper review saved: %s reviewed row(s)
     sprintf("base_dir <- '%s'", base_dir),
     "execution_settings_path <- file.path(base_dir, 'strategus-execution-settings.json')",
     "resolve_path <- function(path) {",
-    "  if (!nzchar(path)) return(path)",
-    "  if (grepl('^(/|[A-Za-z]:[\\\\/]|~)', path)) return(path)",
-    "  candidates <- unique(c(",
-    "    file.path(base_dir, path),",
-    "    file.path(dirname(base_dir), path),",
-    "    file.path(dirname(dirname(base_dir)), path),",
-    "    file.path(getwd(), path)",
-    "  ))",
-    "  for (candidate in candidates) {",
-    "    normalized <- normalizePath(candidate, winslash = '/', mustWork = FALSE)",
-    "    if (file.exists(normalized) || dir.exists(normalized)) return(normalized)",
-    "  }",
-    "  normalizePath(candidates[[1]], winslash = '/', mustWork = FALSE)",
+    "  path <- trimws(as.character(path %||% \"\"))",
+    "  if (!nzchar(path)) stop(\"Configured execution root must not be empty.\")",
+    "  if (grepl('^(?:/|~|[A-Za-z]:)', path)) return(normalizePath(path, winslash = '/', mustWork = FALSE))",
+    "  normalizePath(file.path(base_dir, path), winslash = \"/\", mustWork = FALSE)",
     "}",
     "exec_cfg <- jsonlite::fromJSON(execution_settings_path, simplifyVector = FALSE)",
     "results_root <- normalizePath(resolve_path(as.character(exec_cfg$resultsFolder %||% '')), winslash = '/', mustWork = FALSE)",
@@ -8149,6 +8171,8 @@ Keeper review saved: %s reviewed row(s)
     ""
   )
   write_lines(file.path(scripts_dir, "08_launch_diagnostics_explorer.R"), script_08)
+  script_09 <- c(script_header, sprintf("slashOhdsiStrategusAssistant::launchStrategusArtifactBrowser('%s')", base_dir))
+  write_lines(file.path(scripts_dir, "09_launch_artifact_browser.R"), script_09)
 
   project_init <- .studyAgentSlashInitializeProjectFiles(
     workflow_type = "strategus_cohort_methods",
@@ -8158,6 +8182,7 @@ Keeper review saved: %s reviewed row(s)
     execution_plan = .studyAgentSlashBuildCohortMethodsExecutionPlan(),
     study_context = list(
       study_intent = studyIntent,
+      ai_support_mode = ai_support$mode,
       comparison_label = comparisonLabel,
       target_statement = targetStatement,
       comparator_statement = comparatorStatement,
@@ -8195,11 +8220,15 @@ Keeper review saved: %s reviewed row(s)
     build_completed_steps <- c(build_completed_steps, "keeper_concept_sets")
   } else if (identical(state$keeper_concept_set_status %||% "not_run", "error")) {
     build_failed_steps <- c(build_failed_steps, "keeper_concept_sets")
+  } else if (!isTRUE(ai_enabled)) {
+    build_skipped_steps <- c(build_skipped_steps, "keeper_concept_sets")
   }
   if (identical(state$keeper_case_review_status %||% "not_run", "ok")) {
     build_completed_steps <- c(build_completed_steps, "keeper_case_review")
   } else if (identical(state$keeper_case_review_status %||% "not_run", "error")) {
     build_failed_steps <- c(build_failed_steps, "keeper_case_review")
+  } else if (!isTRUE(ai_enabled)) {
+    build_skipped_steps <- c(build_skipped_steps, "keeper_case_review")
   }
   project_init <- .studyAgentSlashFinalizeBuildProjectState(
     base_dir = base_dir,

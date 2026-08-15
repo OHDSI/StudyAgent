@@ -2,6 +2,8 @@
 
 Current stage scope:
 
+- Both Strategus shells default to `aiSupport = "disabled"`, which runs locally without ACP. Set `aiSupport = "enabled"` to require ACP assistance or `"auto"` to use ACP when the optional client package is installed.
+
 - Cohort methods shell with ACP-assisted intent split and phenotype recommendation.
 - The shell can derive target/comparator/outcome statements from a study intent.
 - The shell can configure one effective analytic-settings profile through `step_by_step` prompts or `free_text` ACP recommendation.
@@ -30,7 +32,7 @@ Workflow diagrams live in `docs/WORKFLOW_COHORT_METHODS.md`.
    Interactive runs ask for short analysis labels for selected cohorts and the comparison; labels must
    be 100 characters or fewer because downstream Strategus/Characterization result tables use short
    identifier fields.
-   When direct acquisition starts from a blank study intent, the shell derives a default study-intent sentence from the confirmed target/comparator/outcome statements, lets the user edit it, and then persists the confirmed value for downstream state and `/ohdsi` context.
+   When direct acquisition starts from a blank study intent, the shell derives a default study-intent sentence from the confirmed target/comparator/outcome statements, lets the user edit it, and then persists the confirmed value for downstream state and AI-enabled `/ohdsi` context.
 4. Optional cohort ID remap step to avoid collisions (`remapCohortIds`).
 5. Normalize the chosen cohort JSON definitions into the workflow's selected cohort folders, including cached imports under `imported-cohort-definitions/` when the source was a database or local file path.
 6. Optional negative control and covariate concept-set IDs are still captured as placeholders.
@@ -38,7 +40,7 @@ Workflow diagrams live in `docs/WORKFLOW_COHORT_METHODS.md`.
    Analytic settings are always collected in this stage and confirmed before finalization.
 8. Optionally run ACP-based Keeper review inline with reuse/resume controls and bounded Keeper stage gates around domain generation and case review.
 9. Generate scripts in `scripts/` for cohort generation, Keeper review, diagnostics, CohortMethod spec/execution, and an optional Diagnostics Explorer launcher, including `07_cm_spec.R` and `08_launch_diagnostics_explorer.R`.
-10. Optionally enter run/resume mode in the same shell to execute generated steps, inspect artifacts, ask `/ohdsi` questions, or return to build mode with `revise ...`.
+10. Optionally enter run/resume mode in the same shell to execute generated steps, inspect artifacts, ask `/ohdsi` questions in AI-enabled mode, or return to build mode with `revise ...`.
 
 Build-mode interaction notes:
 
@@ -125,6 +127,14 @@ The following directories are created under `outputDir`:
 - `study-agent-project.json`
 - `outputs/study_agent_runtime_state.json`
 
+## Deployment path ownership
+
+`outputDir` is the workflow project root. It contains the generated scripts, workflow state, database/execution-settings snapshots, and local execution evidence. The installed R environment and the script used to launch the shell are not used as output locations.
+
+Relative `workFolder` and `resultsFolder` values in `strategus-execution-settings.json` are resolved from `outputDir`; use `"work"` and `"results"` for the default layout. Absolute writable roots outside `outputDir` are also supported, for example `D:/StudyRuns/cohort-method/results` or `H:/StudyRuns/cohort-method/results`. Prefer forward slashes in JSON paths on Windows.
+
+Keep each user output directory private and writable. `strategus-db-details.json` can contain database credentials and is intentionally excluded from the artifact browser.
+
 ## Generated Scripts
 
 - `scripts/02_apply_improvements.R`
@@ -154,7 +164,7 @@ Current execution-menu capabilities:
 - `x` / `explore[_v]`: list approved exploration commands for the current workflow state
 - `x <command-id>` or `explore <command-id>` or a listed command number: run one approved artifact-exploration command
   Diagnostics review remains file- and artifact-based inside the runner; the Shiny diagnostics explorer is launched from a separate generated script.
-- `/ohdsi <question>`: ask a contextualized workflow question using the current workflow state
+- `/ohdsi <question>`: in AI-enabled mode, ask a contextualized workflow question using the current workflow state; in no-AI mode the command reports that it is disabled.
 - `rev` / `revise [build|intent|target|comparator|outcome]`: leave execution mode and return to build mode, with an option to switch to temporary revision cache mode for this pass
 
 Current behavior notes:
@@ -162,7 +172,7 @@ Current behavior notes:
 - For target, comparator, and outcome roles, the shell can now acquire cohort definitions from phenotype-index recommendation, an existing database cohort definition, a local cohort JSON file, or a directory of local cohort JSON files. Imported definitions are validated, cached under `imported-cohort-definitions/`, and then treated like local working artifacts for downstream steps.
 - When a database cohort-definition source is used, the shell reads `strategus-cohort-source-db-details.json` instead of the execution-oriented `strategus-db-details.json`, allowing the cohort-definition source DB to differ from the patient-level execution DB.
 - Optional review/enrichment steps can be skipped explicitly in execution mode. The current skippable set is `apply_improvements`, `keeper_concept_sets`, `keeper_case_review`, and `diagnostics`.
-- Skipped steps are persisted in workflow step state, are treated as satisfied dependencies for downstream steps, and remain visible in resumed sessions and `/ohdsi` execution context.
+- Skipped steps are persisted in workflow step state, are treated as satisfied dependencies for downstream steps, and remain visible in resumed sessions and AI-enabled `/ohdsi` execution context.
 - Exiting the execution menu asks for confirmation unless the workflow is already complete.
 - Invalid step or exploration input no longer exits the shell; the menu stays active and prints valid choices.
 - `inspect_v <step>` and `explore_v <command-id>` try to open tabular results with `utils::View(...)` when an interactive viewer is available.
@@ -231,8 +241,8 @@ The format matches `strategus-db-details.json`. Example for a postgres-backed co
   "resultsDatabaseSchema": "results_schema",
   "vocabularyDatabaseSchema": "vocab_schema",
   "cohortTable": "cohort",
-  "workFolder": "demo-strategus-cohort-method/work",
-  "resultsFolder": "demo-strategus-cohort-method/results",
+  "workFolder": "work",
+  "resultsFolder": "results",
   "cohortIdFieldName": "cohort_definition_id"
 }
 ```
@@ -242,8 +252,8 @@ Current Keeper specifics:
 
 - `scripts/04_keeper_concept_sets.R` uses `runKeeperConceptSetWorkflow(...)` and writes `outputs/keeper_concept_set_state.json`.
 - `scripts/05_keeper_case_review.R` uses `runKeeperCaseReviewWorkflow(...)` and writes `outputs/keeper_case_review_state.json`.
-- `scripts/08_launch_diagnostics_explorer.R` creates `MergedCohortDiagnosticsData.sqlite` with `CohortDiagnostics::createMergedResultsFile()` when needed, then launches `CohortDiagnostics::launchDiagnosticsExplorer()` against that merged diagnostics database. Run it in a second R session if you want the shell and `/ohdsi` to remain available.
-- `scripts/07_cm_spec.R` depends on the cohort-selection and analytic-settings outputs produced during build mode and does not require Keeper or diagnostics artifacts to have been run first. Those steps remain useful optional context for review, `/ohdsi`, and result interpretation.
+- `scripts/08_launch_diagnostics_explorer.R` creates `MergedCohortDiagnosticsData.sqlite` with `CohortDiagnostics::createMergedResultsFile()` when needed, then launches `CohortDiagnostics::launchDiagnosticsExplorer()` against that merged diagnostics database. Run it in a second R session if you want the shell and, when enabled, `/ohdsi` to remain available.
+- `scripts/07_cm_spec.R` depends on the cohort-selection and analytic-settings outputs produced during build mode and does not require Keeper or diagnostics artifacts to have been run first. Those steps remain useful optional context for review, AI-enabled `/ohdsi`, and result interpretation.
 - Inline Keeper review now exposes bounded stage gates before and after each requested concept-set domain and before and after case review.
 - The generated Keeper scripts expose `ACP_TIMEOUT`, concept-set reuse/overwrite, row reuse/resume, and explicit row selection controls such as `1-3,5`.
 - Manual editing of `keeper-case-review/concept-sets-approved/*.json` is consumable, but the concept-set approve/edit/rerun UX is still incomplete.
@@ -267,7 +277,7 @@ Current Keeper specifics:
 ## Notes
 
 - This stage is designed as a bridge: it combines ACP/MCP-assisted intent split, phenotype recommendation/improvement, analytic-settings recommendation, and ACP-based Keeper review with reproducible Strategus script generation.
-- Interactive runs support `/back` at major stage boundaries for study intent, target selection, comparator selection, outcome selection, study configuration, and Keeper-review entry while keeping `/ohdsi` available for contextual guidance. Build-mode `h` / `help` is also available at the major design prompts, and the execution menu help reminds users that `/ohdsi` is available during run/resume mode.
+- Interactive runs support `/back` at major stage boundaries for study intent, target selection, comparator selection, outcome selection, study configuration, and Keeper-review entry while making `/ohdsi` available for contextual guidance in AI-enabled mode. Build-mode `h` / `help` is also available at the major design prompts, and the execution menu help reminds users that `/ohdsi` is available during run/resume mode.
 - When direct acquisition begins from a blank study-intent prompt, the shell still requires a persisted study intent before downstream configuration continues; it derives that default from the confirmed target/comparator/outcome statements and lets the user edit it before saving.
 - `resume = TRUE` uses the persisted workflow step-state and project manifest, so previously skipped optional steps remain skipped unless the user explicitly resets them.
 - If no Keeper artifacts exist yet, the shell suppresses the inline Keeper reuse/resume prompts instead of asking about caches unconditionally.

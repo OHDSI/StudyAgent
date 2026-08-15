@@ -16,6 +16,7 @@
 #' @param autoApplyImprovements when TRUE, apply improvements without prompting (defaults to TRUE for non-interactive)
 #' @param resume when TRUE, resume from last checkpoint if present
 #' @param executionTableDisplay execution-menu table display preference: `console`, `viewer`, or `auto`
+#' @param aiSupport ACP/AI mode: `disabled` (default), `enabled`, or `auto`
 #' @return invisible list with output paths
 #' @export
 runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incidence",
@@ -34,9 +35,12 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
                                       promptOnCache = TRUE,
                                       autoApplyImprovements = NA,
                                       resume = FALSE,
-                                      executionTableDisplay = c("console", "viewer", "auto")) {
+                                      executionTableDisplay = c("console", "viewer", "auto"),
+                                      aiSupport = c("disabled", "enabled", "auto")) {
   `%||%` <- function(x, y) if (is.null(x)) y else x
   execution_table_display <- .studyAgentSlashNormalizeExecutionTableDisplay(executionTableDisplay)
+  ai_support <- .studyAgentSlashResolveAiSupport(aiSupport)
+  ai_enabled <- .studyAgentSlashAiSupportAllowsAcp(ai_support)
 
   ensure_dir <- function(path) {
     if (!dir.exists(path)) dir.create(path, recursive = TRUE)
@@ -81,6 +85,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   }
 
   ensure_workflow_dialogue_client <- function(url) {
+    if (!isTRUE(ai_enabled)) return(FALSE)
     if (acp_client_is_ready(dialogue_acp_client$client)) return(TRUE)
     if (is.null(url) || !nzchar(trimws(url))) return(FALSE)
     tryCatch({
@@ -92,6 +97,7 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
   }
 
   call_shell_acp_flow <- function(flow_name, body, url = acpUrl) {
+    if (!isTRUE(ai_enabled)) stop(.studyAgentSlashAiSupportDisabledMessage(ai_support, "ACP flow"))
     if (!acp_client_is_ready(dialogue_acp_client$client)) {
       if (!ensure_workflow_dialogue_client(url)) stop("ACP bridge unavailable.")
     }
@@ -103,13 +109,15 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
     study_intent_getter = current_study_intent,
     build_stage_context = build_workflow_stage_context,
     call_dialogue = function(stage_context, message) {
+      if (!isTRUE(ai_enabled)) stop(.studyAgentSlashAiSupportDisabledMessage(ai_support, "/ohdsi guidance"))
       if (!ensure_workflow_dialogue_client(acpUrl)) {
         stop("ACP bridge unavailable. Connect ACP before using /ohdsi.")
       }
       message("Calling ACP flow: workflow_context_dialogue")
       .studyAgentSlashWorkflowContextDialogue(dialogue_acp_client$client, stage_context, message)
     },
-    empty_question_message = "Enter a question after /ohdsi. Example: /ohdsi why are these candidates weak here?"
+    empty_question_message = "Enter a question after /ohdsi. Example: /ohdsi why are these candidates weak here?",
+    disabled_command_message = if (!isTRUE(ai_enabled)) "The /ohdsi command is disabled for this no-AI workflow. Use h or help for local guidance." else NULL
   )
   dialogue_state <- dialogue_session$state
   set_dialogue_context <- dialogue_session$set_context
@@ -914,10 +922,10 @@ Execution commands
 ")
     cat("  - s or status: show execution status (derived from step state and artifacts)
 ")
-    cat("  - art or artifacts: list current known artifacts
-  - b or backup: create a workflow state snapshot
-  - bk or backups: list available workflow state snapshots
-")
+    cat("  - art or artifacts: list current known artifacts\n")
+    cat("  - v or viewer: launch the local read-only artifact browser (ends when the Shiny app stops)\n")
+    cat("  - b or backup: create a workflow state snapshot\n")
+    cat("  - bk or backups: list available workflow state snapshots\n")
     cat("  - x or explore[_v]: list available approved exploration commands
 ")
     cat("  - x <command-id> or explore <command-id>: run an approved exploration command
@@ -939,8 +947,7 @@ Execution commands
 ")
     cat("  - rev or revise [build|intent|target|outcome]: return to build mode for intentional revision
 ")
-    cat("  - /ohdsi <question>: ask a contextualized OHDSI workflow question
-")
+    if (isTRUE(ai_enabled)) cat("  - /ohdsi <question>: ask a contextualized OHDSI workflow question\n")
     cat("  - q or quit: leave the execution menu
 ")
     cat(sprintf("  - default table display for art/x/inspect: %s
@@ -1111,7 +1118,12 @@ Available exploration commands
     repeat {
       .studyAgentSlashReconcileProjectState(base_dir, write = TRUE)
       refresh_execution_dialogue_context()
-      entered <- trimws(readline_with_dialogue("Execution command [Enter=finish, x=explore[_v], s=status, h=help/show commands, /ohdsi=AI assistance]: "))
+      execution_prompt <- if (isTRUE(ai_enabled)) {
+        "Execution command [h=help/show commands, Enter=finish, x=explore[_v], s=status, /ohdsi=AI assistance]: "
+      } else {
+        "Execution command [h=help/show commands, Enter=finish, x=explore[_v], s=status]: "
+      }
+      entered <- trimws(readline_with_dialogue(execution_prompt))
       if (!nzchar(entered)) {
         if (isTRUE(confirm_execution_menu_exit())) return(invisible(list(action = "exit")))
         next
@@ -1127,6 +1139,15 @@ Available exploration commands
       }
       if (identical(lowered, "help explore")) {
         print_explore_help()
+        next
+      }
+      if (lowered %in% c("v", "viewer")) {
+        cat("Launching the local artifact browser. Stop the Shiny app to return to this execution menu.\n")
+        launch_result <- tryCatch({
+          launchStrategusArtifactBrowser(base_dir)
+          NULL
+        }, error = function(e) e)
+        if (inherits(launch_result, "error")) cat(sprintf("Artifact browser could not be launched: %s\n", conditionMessage(launch_result)))
         next
       }
       if (lowered %in% c("art", "artifact", "artifacts")) {
@@ -1312,7 +1333,7 @@ Available exploration commands
         inspect_execution_outputs(step_id, viewer = viewer)
         next
       }
-      cat("Choose h, s, art, x[_v], b, bk, reset <step>, skip <step>, restore <snapshot-id>, rev, n, a, i[_v], run <step>, /ohdsi <question>, q, or Enter. Type h for valid steps and explore for approved commands.\n")
+      cat(if (isTRUE(ai_enabled)) "Choose h, s, art, x[_v], b, bk, reset <step>, skip <step>, restore <snapshot-id>, rev, n, a, i[_v], run <step>, /ohdsi <question>, q, or Enter. Type h for valid steps and explore for approved commands.\n" else "Choose h, s, art, x[_v], b, bk, reset <step>, skip <step>, restore <snapshot-id>, rev, n, a, i[_v], run <step>, q, or Enter. Type h for valid steps and explore for approved commands.\n")
     }
   }
 
@@ -1327,7 +1348,11 @@ Available exploration commands
       cat(paste(readLines(banner_path, warn = FALSE), collapse = "\n"), "\n")
     }
     cat("\nStudy Agent: Strategus CohortIncidence shell\n")
-    cat("Use /ohdsi for contextual guidance. Type /back at supported stage boundaries to return to the previous step.\n")
+    if (isTRUE(ai_enabled)) {
+      cat("Use /ohdsi for contextual guidance. Type /back at supported stage boundaries to return to the previous step.\n")
+    } else {
+      cat("Type /back at supported stage boundaries to return to the previous step.\n")
+    }
   }
 
   if (isTRUE(resume) && file.exists(project_state_path) && file.exists(runtime_state_path)) {
@@ -1390,7 +1415,13 @@ Available exploration commands
     skip_phenotype_improvements <- FALSE
     skip_reason <- NULL
     skip_prompt_source <- if (isTRUE(interactive)) "interactive_user_choice" else "not_prompted"
-    if (isTRUE(blank_study_intent_direct)) {
+    if (!isTRUE(ai_enabled)) {
+      direct_acquisition_mode <- TRUE
+      skip_intent_split_and_recommendation <- TRUE
+      skip_phenotype_improvements <- TRUE
+      skip_reason <- ai_support$reason
+      skip_prompt_source <- "ai_support_policy"
+    } else if (isTRUE(blank_study_intent_direct)) {
       direct_acquisition_mode <- TRUE
       skip_intent_split_and_recommendation <- TRUE
       skip_reason <- "blank_study_intent_direct_acquisition"
@@ -1408,8 +1439,8 @@ Available exploration commands
 
     intent_split_path <- file.path(output_dir, "intent_split.json")
     intent_response <- NULL
-    target_statement <- default_direct_statement("Target", studyIntent)
-    outcome_statement <- default_direct_statement("Outcome", studyIntent)
+    target_statement <- if (isTRUE(ai_enabled)) default_direct_statement("Target", studyIntent) else ""
+    outcome_statement <- if (isTRUE(ai_enabled)) default_direct_statement("Outcome", studyIntent) else ""
 
     if (isTRUE(direct_acquisition_mode)) {
       if (interactive) {
@@ -1505,7 +1536,7 @@ Available exploration commands
   selection_manifest_path <- file.path(output_dir, "selected_cohort_sources.json")
 
   repeat {
-    target_source_mode <- choose_selection_source_mode("target", allow_index = !isTRUE(skip_intent_split_and_recommendation) || isTRUE(direct_acquisition_mode))
+    target_source_mode <- choose_selection_source_mode("target", allow_index = isTRUE(ai_enabled) && (!isTRUE(skip_intent_split_and_recommendation) || isTRUE(direct_acquisition_mode)))
     if (is_back_signal(target_source_mode)) next
 
     imported_target_selection <- .studyAgentSlashAcquireImportedRoleSelection(
@@ -1714,8 +1745,8 @@ Available exploration commands
     core$phenotype_improvements %||% list()
   }
 
-  do_target_improvements <- TRUE
-  if (interactive) {
+  do_target_improvements <- !isTRUE(skip_phenotype_improvements)
+  if (interactive && isTRUE(do_target_improvements)) {
     set_dialogue_context("target_improvements", "target", context = list(study_intent = studyIntent, role_statement = target_statement, target_statement = target_statement, selected_target_ids = as.list(selected_ids_target %||% list())))
     do_target_improvements <- prompt_yesno("Continue to target phenotype improvements?", default = TRUE)
     if (do_target_improvements) {
@@ -1809,7 +1840,7 @@ Available exploration commands
 
 
   repeat {
-    outcome_source_mode <- choose_selection_source_mode("outcome", allow_index = !isTRUE(skip_intent_split_and_recommendation) || isTRUE(direct_acquisition_mode))
+    outcome_source_mode <- choose_selection_source_mode("outcome", allow_index = isTRUE(ai_enabled) && (!isTRUE(skip_intent_split_and_recommendation) || isTRUE(direct_acquisition_mode)))
     if (is_back_signal(outcome_source_mode)) next
 
     imported_outcome_selection <- .studyAgentSlashAcquireImportedRoleSelection(
@@ -1985,8 +2016,8 @@ Available exploration commands
       copy_cohort_json_multi(selected_ids_outcome[[i]], new_ids_outcome[[i]], c(selected_outcome_dir, selected_dir), index_def_dir, imported_def_dir = imported_definition_dir)
     }
 
-    do_outcome_improvements <- TRUE
-    if (interactive) {
+    do_outcome_improvements <- !isTRUE(skip_phenotype_improvements)
+    if (interactive && isTRUE(do_outcome_improvements)) {
       set_dialogue_context("outcome_improvements", "outcome", context = list(study_intent = studyIntent, role_statement = outcome_statement, target_statement = target_statement, outcome_statement = outcome_statement, selected_outcome_ids = as.list(selected_ids_outcome %||% list())))
       do_outcome_improvements <- prompt_yesno("Continue to outcome phenotype improvements?", default = TRUE)
       if (do_outcome_improvements) {
@@ -2168,6 +2199,9 @@ Available exploration commands
     study_intent = studyIntent,
     target_statement = target_statement,
     outcome_statement = outcome_statement,
+    ai_support_mode = ai_support$mode,
+    ai_support_reason = ai_support$reason,
+    acp_capability_status = if (isTRUE(ai_enabled)) "enabled" else "disabled_by_user",
     skip_intent_split_and_recommendation = isTRUE(skip_intent_split_and_recommendation),
     skip_phenotype_improvements = isTRUE(skip_phenotype_improvements),
     direct_acquisition_mode = isTRUE(direct_acquisition_mode),
@@ -2239,7 +2273,7 @@ Available exploration commands
   keeper_concept_set_result <- NULL
   keeper_case_review_result <- NULL
 
-  if (isTRUE(interactive)) {
+  if (isTRUE(interactive) && isTRUE(ai_enabled)) {
     repeat {
       cat("
 Keeper review uses the local DB and execution settings files:
@@ -2943,7 +2977,7 @@ Keeper review saved: %s reviewed row(s)
     "print(result)",
     ""
   )
-  write_lines(file.path(scripts_dir, "04_keeper_concept_sets.R"), script_04)
+  if (isTRUE(ai_enabled)) write_lines(file.path(scripts_dir, "04_keeper_concept_sets.R"), script_04)
 
   # 05 - Keeper case review
   script_05 <- c(
@@ -3002,7 +3036,7 @@ Keeper review saved: %s reviewed row(s)
     "print(result)",
     ""
   )
-  write_lines(file.path(scripts_dir, "05_keeper_case_review.R"), script_05)
+  if (isTRUE(ai_enabled)) write_lines(file.path(scripts_dir, "05_keeper_case_review.R"), script_05)
 
   # 06 - diagnostics
   script_06 <- c(
@@ -3117,19 +3151,10 @@ Keeper review saved: %s reviewed row(s)
     "exec <- slashOhdsiStrategusAssistant::createStrategusExecutionSettings(path = execution_settings_path)",
     "executionSettings_incidence <- exec$executionSettings",
     "resolve_path <- function(path) {",
-    "  if (!nzchar(path)) return(path)",
-    "  if (grepl('^(/|[A-Za-z]:[\\\\/]|~)', path)) return(normalizePath(path, winslash = '/', mustWork = FALSE))",
-    "  candidates <- unique(c(",
-    "    file.path(base_dir, path),",
-    "    file.path(dirname(base_dir), path),",
-    "    file.path(dirname(dirname(base_dir)), path),",
-    "    file.path(getwd(), path)",
-    "  ))",
-    "  for (candidate in candidates) {",
-    "    normalized <- normalizePath(candidate, winslash = '/', mustWork = FALSE)",
-    "    if (file.exists(normalized) || dir.exists(normalized)) return(normalized)",
-    "  }",
-    "  normalizePath(candidates[[1]], winslash = '/', mustWork = FALSE)",
+    "  path <- trimws(as.character(path %||% \"\"))",
+    "  if (!nzchar(path)) stop(\"Configured execution root must not be empty.\")",
+    "  if (grepl('^(?:/|~|[A-Za-z]:)', path)) return(normalizePath(path, winslash = '/', mustWork = FALSE))",
+    "  normalizePath(file.path(base_dir, path), winslash = \"/\", mustWork = FALSE)",
     "}",
     "validate_execution_root <- function(label, root_path) {",
     "  normalized_root <- normalizePath(resolve_path(as.character(root_path %||% '')), winslash = '/', mustWork = FALSE)",
@@ -3279,19 +3304,10 @@ Keeper review saved: %s reviewed row(s)
     sprintf("base_dir <- '%s'", base_dir),
     "execution_settings_path <- file.path(base_dir, 'strategus-execution-settings.json')",
     "resolve_path <- function(path) {",
-    "  if (!nzchar(path)) return(path)",
-    "  if (grepl('^(/|[A-Za-z]:[\\\\/]|~)', path)) return(path)",
-    "  candidates <- unique(c(",
-    "    file.path(base_dir, path),",
-    "    file.path(dirname(base_dir), path),",
-    "    file.path(dirname(dirname(base_dir)), path),",
-    "    file.path(getwd(), path)",
-    "  ))",
-    "  for (candidate in candidates) {",
-    "    normalized <- normalizePath(candidate, winslash = '/', mustWork = FALSE)",
-    "    if (file.exists(normalized) || dir.exists(normalized)) return(normalized)",
-    "  }",
-    "  normalizePath(candidates[[1]], winslash = '/', mustWork = FALSE)",
+    "  path <- trimws(as.character(path %||% \"\"))",
+    "  if (!nzchar(path)) stop(\"Configured execution root must not be empty.\")",
+    "  if (grepl('^(?:/|~|[A-Za-z]:)', path)) return(normalizePath(path, winslash = '/', mustWork = FALSE))",
+    "  normalizePath(file.path(base_dir, path), winslash = \"/\", mustWork = FALSE)",
     "}",
     "exec_cfg <- jsonlite::fromJSON(execution_settings_path, simplifyVector = FALSE)",
     "results_root <- normalizePath(resolve_path(as.character(exec_cfg$resultsFolder %||% '')), winslash = '/', mustWork = FALSE)",
@@ -3340,6 +3356,8 @@ Keeper review saved: %s reviewed row(s)
     ""
   )
   write_lines(file.path(scripts_dir, "08_launch_diagnostics_explorer.R"), script_08)
+  script_09 <- c(script_header, sprintf("slashOhdsiStrategusAssistant::launchStrategusArtifactBrowser('%s')", base_dir))
+  write_lines(file.path(scripts_dir, "09_launch_artifact_browser.R"), script_09)
 
   project_init <- .studyAgentSlashInitializeProjectFiles(
     workflow_type = "strategus_incidence",
@@ -3349,6 +3367,7 @@ Keeper review saved: %s reviewed row(s)
     execution_plan = .studyAgentSlashBuildIncidenceExecutionPlan(),
     study_context = list(
       study_intent = studyIntent,
+      ai_support_mode = ai_support$mode,
       target_statement = target_statement,
       outcome_statement = outcome_statement,
       selected_target_ids = as.list(new_ids_target),
@@ -3383,11 +3402,15 @@ Keeper review saved: %s reviewed row(s)
     build_completed_steps <- c(build_completed_steps, "keeper_concept_sets")
   } else if (identical(state$keeper_concept_set_status %||% "not_run", "error")) {
     build_failed_steps <- c(build_failed_steps, "keeper_concept_sets")
+  } else if (!isTRUE(ai_enabled)) {
+    build_skipped_steps <- c(build_skipped_steps, "keeper_concept_sets")
   }
   if (identical(state$keeper_case_review_status %||% "not_run", "ok")) {
     build_completed_steps <- c(build_completed_steps, "keeper_case_review")
   } else if (identical(state$keeper_case_review_status %||% "not_run", "error")) {
     build_failed_steps <- c(build_failed_steps, "keeper_case_review")
+  } else if (!isTRUE(ai_enabled)) {
+    build_skipped_steps <- c(build_skipped_steps, "keeper_case_review")
   }
   project_init <- .studyAgentSlashFinalizeBuildProjectState(
     base_dir = base_dir,

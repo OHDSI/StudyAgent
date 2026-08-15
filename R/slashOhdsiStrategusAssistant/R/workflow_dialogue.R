@@ -142,7 +142,8 @@ new_workflow_dialogue_session <- function(interactive = TRUE,
                                           call_dialogue,
                                           render_response = render_workflow_dialogue_response,
                                           empty_question_message = "Enter a question after /ohdsi.",
-                                          command_prefix = "/ohdsi") {
+                                          command_prefix = "/ohdsi",
+                                          disabled_command_message = NULL) {
   if (!is.function(study_intent_getter)) stop("study_intent_getter must be a function.")
   if (!is.function(build_stage_context)) stop("build_stage_context must be a function.")
   if (!is.function(call_dialogue)) stop("call_dialogue must be a function.")
@@ -174,6 +175,10 @@ new_workflow_dialogue_session <- function(interactive = TRUE,
     trimmed <- trimws(as.character(entered %||% ""))
     if (!isTRUE(interactive) || !startsWith(trimmed, command_prefix)) {
       return(list(handled = FALSE, value = entered))
+    }
+    if (!is.null(disabled_command_message)) {
+      cat(as.character(disabled_command_message), "\n")
+      return(list(handled = TRUE, value = ""))
     }
     question <- trimws(sub(paste0("^", command_prefix), "", trimmed))
     if (!nzchar(question)) {

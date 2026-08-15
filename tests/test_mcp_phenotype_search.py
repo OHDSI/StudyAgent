@@ -45,3 +45,22 @@ def test_phenotype_search_uses_env_weights(monkeypatch) -> None:
     assert payload["weights"]["sparse"] == 0.1
     assert stub.args["dense_weight"] == 0.9
     assert stub.args["sparse_weight"] == 0.1
+
+
+@pytest.mark.mcp
+def test_phenotype_search_explains_blank_faiss_assertion(monkeypatch) -> None:
+    class MismatchedIndex:
+        def search(self, **kwargs):
+            raise AssertionError
+
+    monkeypatch.setattr(phenotype_search, "get_default_index", lambda: MismatchedIndex())
+    monkeypatch.setenv("EMBED_MODEL", "new-embedding-model")
+
+    mcp = DummyMCP()
+    phenotype_search.register(mcp)
+    payload = mcp.tools["phenotype_search"](query="test")
+
+    assert payload["error"] == "phenotype_search_failed"
+    assert "dense phenotype index was built with a different embedding model" in payload["details"]
+    assert "new-embedding-model" in payload["details"]
+    assert "rebuild the dense index" in payload["details"]

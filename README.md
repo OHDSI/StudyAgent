@@ -13,26 +13,37 @@ This project is in beta testing. The videos below provide an overview of the pro
 
 Read [What about agent skills (e.g., SKILL.md)?](https://github.com/OHDSI/StudyAgent/blob/main/docs/WHAT-ABOUT-AGENT-SKILLS.md) to understand how this project will likely eventually be used with coding agents like Codex and Claude.
 
-[VIDEO: Installation on Windows with Powershell and UV](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=0878dcf9-5752-42ef-b8a7-b4a50113c579) (*Docker and conda options are described below*)
+## Videos
 
-[VIDEO: Overview of Study Agent for AI-Assisted Real-world evidence generation](https://www.youtube.com/watch?v=rMxnmEGWoO4)
+### Setup and getting started
 
-[VIDEO: AI-assisted Real-world evidence - Study Agent and R part 1 - Strategus Cohort Method overview, study intent, phenotype selection, and interactive runner shell intro](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=eef98905-e9eb-497f-8d07-b46e00c3702d)
+- **[Install Study Agent on Windows with PowerShell and uv](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=0878dcf9-5752-42ef-b8a7-b4a50113c579)**  
+  Docker and Conda installation options are described below.
 
-[VIDEO: AI-assisted Real-world evidence - Study Agent and R part 2 - inspect cohorts and initiate keeper concept set](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=8f719cc9-08f4-4bea-9091-b46e00cf641e)
-
-[VIDEO: AI-assisted Real-world Evidence - Study Agent and R Part 3 - Keeper concept set run and inspection ](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=c3ab5141-d7cb-4bd6-b3ec-b46f00d8f83d)
-
-[VIDEO: AI-assisted Real-world evidence - Study Agent and R part 4 - case review (Keeper) ](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=7bd986fa-960c-493a-8417-b470001e542f)
-
-[VIDEO: AI-assisted Real-world evidence - Study Agent and R part 5 - diagnostics and cohort method](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=f0f50c8d-765e-4c36-97ec-b47100dfc516)
-
-[VIDEO: AI-assisted Real-world evidence - Study Agent and R BONUS - using /ohsdi and Atlas/WebAPI to generate cohorts](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=f0df2da7-86ee-4f4e-8f65-b4790179fc70)
+- **[Set up Study Agent phenotype indexing](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=9d82b4fb-ef65-47a0-a9f9-b4a6010a72e7)**  
+  Prepare phenotype indexes used by Study Agent for recommendations.
 
 
------
+### Study Agent with R for real-world evidence generation
 
-### How it works
+- **[Overview — AI-assisted real-world evidence generation with Study Agent](https://www.youtube.com/watch?v=rMxnmEGWoO4)**
+
+A step-by-step demonstration of using Study Agent with an R and Strategus workflow:
+
+1. **[Part 1 — Define the study and select phenotypes](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=eef98905-e9eb-497f-8d07-b46e00c3702d)**  
+   Introduces the Strategus CohortMethod workflow, study intent, phenotype selection, and the interactive runner shell.
+
+2. **[Part 2 — Inspect cohorts and create a keeper concept set](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=8f719cc9-08f4-4bea-9091-b46e00cf641e)**
+
+3. **[Part 3 — Run and inspect the keeper concept set](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=c3ab5141-d7cb-4bd6-b3ec-b46f00d8f83d)**
+
+4. **[Part 4 — Review keeper cases](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=7bd986fa-960c-493a-8417-b470001e542f)**
+
+5. **[Part 5 — Run diagnostics and CohortMethod](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=f0f50c8d-765e-4c36-97ec-b47100dfc516)**
+
+**Bonus:** **[Generate cohorts with `/ohdsi` and ATLAS/WebAPI](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=f0df2da7-86ee-4f4e-8f65-b4790179fc70)**
+
+## How it works
 
 
 The project separates orchestration from deterministic tooling:
@@ -85,13 +96,14 @@ Related implemented flows:
 This same recommendation path is already wired into the R Strategus incidence shell and the cohort-method shell.
 
 Primary references:
-- [docs/TESTING.md](docs/TESTING.md)
+- [docs/PHENOTYPE_INDEXING.md](docs/PHENOTYPE_INDEXING.md)
 - [docs/WORKFLOW_CONTEXT_DIALOGUE_SLASH_OHDSI.md](docs/WORKFLOW_CONTEXT_DIALOGUE_SLASH_OHDSI.md)
 - [docs/WORKFLOW_PHENOTYPE_RECOMMENDATION.md](docs/WORKFLOW_PHENOTYPE_RECOMMENDATION.md)
 - [docs/PHENOTYPE_VALIDATION_REVIEW.md](docs/PHENOTYPE_VALIDATION_REVIEW.md)
 - [docs/SPEC_KEEPER_INTERFACE.md](docs/SPEC_KEEPER_INTERFACE.md)
 - [docs/R_STRATEGUS_INCIDENCE_SHELL.md](docs/R_STRATEGUS_INCIDENCE_SHELL.md)
 - [docs/R_STRATEGUS_COHORT_METHODS_SHELL.md](docs/R_STRATEGUS_COHORT_METHODS_SHELL.md)
+- [docs/TESTING.md](docs/TESTING.md)
 - [docs/WORKFLOW_INCIDENCE.md](docs/WORKFLOW_INCIDENCE.md)
 - [docs/ROADMAP.md](docs/ROADMAP.md)
 - [docs/R_PACKAGE_ARCHITECTURE_PLAN.md](docs/R_PACKAGE_ARCHITECTURE_PLAN.md)

@@ -26,6 +26,15 @@ createStrategusExecutionSettings <- function(path = file.path(getwd(), "strategu
   cohortTable <- cfg$cohortTable
   workFolder <- cfg$workFolder
   resultsFolder <- cfg$resultsFolder
+  settings_base_dir <- dirname(normalizePath(path, winslash = "/", mustWork = FALSE))
+  resolve_workspace_path <- function(value) {
+    value <- trimws(as.character(value %||% ""))
+    if (!nzchar(value)) return(value)
+    if (grepl("^(?:/|~|[A-Za-z]:)", value)) return(normalizePath(value, winslash = "/", mustWork = FALSE))
+    normalizePath(file.path(settings_base_dir, value), winslash = "/", mustWork = FALSE)
+  }
+  workFolder <- resolve_workspace_path(workFolder)
+  resultsFolder <- resolve_workspace_path(resultsFolder)
   cohortIdFieldName <- cfg$cohortIdFieldName %||% "cohort_definition_id"
   maxCores <- cfg$maxCores %||% parallel::detectCores()
   maxCores <- suppressWarnings(as.integer(maxCores)[1])

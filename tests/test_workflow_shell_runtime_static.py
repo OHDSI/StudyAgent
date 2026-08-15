@@ -41,6 +41,8 @@ def test_runner_reconciles_derived_state_and_persists_step_state() -> None:
     assert 'status = "skipped"' in source
     assert 'skip_reason = as.character(reason %||% "user_skipped")' in source
     assert '.studyAgentSlashResolvePostRunStepResult <- function(base_dir, step_id, default_status, default_error = NULL) {' in source
+    assert '.studyAgentSlashPersistStrategusExecutionRoots <- function(base_dir, project_state, summary) {' in source
+    assert 'source = "strategus_execute_summary"' in source
     assert 'status = "completed_with_failures"' in source
 
 
@@ -91,6 +93,8 @@ def test_step_state_module_defines_backup_restore_reset_primitives() -> None:
     assert '"stale"' in source
     assert '"blocked"' in source
     assert 'derived_status %in% c("completed", "ok", "completed_with_failures")' in source
+    assert '"analysis-settings/strategus_execute_result.rds"' in source
+    assert '"analysis-settings/strategus_execute_summary.json"' in source
 
 
 def _assert_shell_finalizes_build_phase_steps(source: str) -> None:
@@ -204,7 +208,7 @@ def _assert_exploration_menu_surface(source: str) -> None:
     assert 'artifacts' in source
     assert 'x=explore[_v]' in source
     assert 'inspect' in source
-    assert 'Execution command [Enter=finish, x=explore[_v], s=status, h=help/show commands, /ohdsi=AI assistance]:' in source
+    assert 'Execution command [h=help/show commands, Enter=finish, x=explore[_v], s=status, /ohdsi=AI assistance]:' in source
     assert 'Choose h, s, art, x[_v],' in source
     assert 'skip <step>' in source
     assert 'number: run the numbered exploration command shown by x' in source

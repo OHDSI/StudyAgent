@@ -213,8 +213,18 @@
       "keeper-case-review/concept-sets-approved"
     )
   }
-  if (step_id %in% c("diagnostics", "cm_spec", "incidence_spec")) {
+  if (identical(step_id, "diagnostics")) {
     override_paths <- c(override_paths, .studyAgentSlashExecutionArtifactPaths(base_dir, project_state = project_state))
+  }
+  if (step_id %in% c("cm_spec", "incidence_spec")) {
+    # A Strategus specification is complete when its durable, workflow-local
+    # execution record is available. Configured results/work roots are useful
+    # for discovery, but may be external or cleaned up after a successful run.
+    override_paths <- c(
+      override_paths,
+      "analysis-settings/strategus_execute_result.rds",
+      "analysis-settings/strategus_execute_summary.json"
+    )
   }
   unique(override_paths[nzchar(override_paths)])
 }
