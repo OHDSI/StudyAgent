@@ -106,6 +106,8 @@ def test_health_reports_mcp_not_configured():
     assert captured["status"] == 200
     assert captured["payload"] == {
         "status": "ok",
+        "api_version": 1,
+        "service_version": "0.1.0",
         "mcp": {"ok": False, "configured": False, "error": "mcp_not_configured"},
         "mcp_index": {"skipped": True, "reason": "mcp_not_configured"},
     }

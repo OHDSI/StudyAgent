@@ -17,6 +17,7 @@
 #' @param resume when TRUE, resume from last checkpoint if present
 #' @param executionTableDisplay execution-menu table display preference: `console`, `viewer`, or `auto`
 #' @param aiSupport ACP/AI mode: `disabled` (default), `enabled`, or `auto`
+#' @param checkRuntime when TRUE (default), require the release-tested HADES runtime before starting
 #' @return invisible list with output paths
 #' @export
 runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incidence",
@@ -36,11 +37,13 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
                                       autoApplyImprovements = NA,
                                       resume = FALSE,
                                       executionTableDisplay = c("console", "viewer", "auto"),
-                                      aiSupport = c("disabled", "enabled", "auto")) {
+                                      aiSupport = c("disabled", "enabled", "auto"),
+                                      checkRuntime = TRUE) {
   `%||%` <- function(x, y) if (is.null(x)) y else x
   execution_table_display <- .studyAgentSlashNormalizeExecutionTableDisplay(executionTableDisplay)
   ai_support <- .studyAgentSlashResolveAiSupport(aiSupport)
   ai_enabled <- .studyAgentSlashAiSupportAllowsAcp(ai_support)
+  if (isTRUE(checkRuntime)) checkStrategusRuntime()
 
   ensure_dir <- function(path) {
     if (!dir.exists(path)) dir.create(path, recursive = TRUE)
@@ -3137,6 +3140,8 @@ Keeper review saved: %s reviewed row(s)
     "output_dir <- file.path(base_dir, 'outputs')",
     "analysis_settings_dir <- file.path(base_dir, 'analysis-settings')",
     "dir.create(analysis_settings_dir, recursive = TRUE, showWarnings = FALSE)",
+    "runtime_report <- slashOhdsiStrategusAssistant::checkStrategusRuntime()",
+    "jsonlite::write_json(runtime_report, file.path(analysis_settings_dir, 'hades-runtime.json'), pretty = TRUE, auto_unbox = TRUE, null = 'null')",
     "time_at_risk_settings_path <- file.path(analysis_settings_dir, 'time_at_risk_settings.json')",
     "selected_dir <- file.path(base_dir, 'selected-cohorts')",
     "patched_dir <- file.path(base_dir, 'patched-cohorts')",

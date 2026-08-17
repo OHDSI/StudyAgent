@@ -21,6 +21,9 @@ def _generated_script_block(source: str, script_name: str, filename: str) -> str
 def _run_r_or_skip(expression: str) -> subprocess.CompletedProcess[str]:
     if shutil.which("Rscript") is None:
         pytest.skip("Rscript is not available")
+    activate = repo_path("renv", "activate.R")
+    if activate.exists():
+        expression = f"source({str(activate.as_posix())!r});\n" + expression
     result = subprocess.run(
         ["Rscript", "-e", expression],
         check=False,
@@ -47,21 +50,24 @@ def test_generated_cm_spec_builds_and_executes_strategus_analysis_specification(
     assert "target_id <- as.numeric(" in block
     assert "outcome_ids <- vapply(" in block
     assert "numeric(1)" in block
-    assert "outcomeIds = as.numeric(outcome_ids)" in block
-    assert "outcomeWashoutDays = as.numeric(" in block
+    assert "outcomeIds = as.numeric(outcome_ids)" not in block
+    assert "outcomeWashoutDays = as.numeric(" not in block
     assert "maxCohortSize = studyPopulationDefaults$maxCohortSize" in block
     assert "keep first, truncate to second" not in block
-    assert "call_with_supported_args <- function(" in block
-    assert "characterizationFormals <- names(formals(characterizationModule$createModuleSpecifications))" in block
+    assert "Characterization::createStudyPopulationSettings(" in block
+    assert "Characterization::createTargetBaselineSettings(" in block
+    assert "characterizationModule$.__enclos_env__$super$createModuleSpecifications(" in block
+    assert "characterizationFormals <-" not in block
     assert "createStudyPopulationArgs <- CohortMethod::createCreateStudyPopulationArgs(" in block
     assert "removeSubjectsWithPriorOutcome = studyPopulationDefaults$removeSubjectsWithPriorOutcome" in block
     assert "useRegularization =" not in block
     assert "prior = outcomeModelPrior" in block
-    assert "cmAnalysisFormals <- names(formals(CohortMethod::createCmAnalysis))" in block
-    assert "if ('createStudyPopulationArgs' %in% cmAnalysisFormals)" in block
-    assert "else if ('createStudyPopArgs' %in% cmAnalysisFormals)" in block
-    assert "if ('cmAnalysesSpecifications' %in% cmModuleFormals)" in block
-    assert "else if (all(c('cmAnalysisList', 'targetComparatorOutcomesList') %in% cmModuleFormals))" in block
+    assert "cmAnalysisList <- list(do.call(CohortMethod::createCmAnalysis, cmAnalysisArgs))" in block
+    assert "cmAnalysesSpecifications <- CohortMethod::createCmAnalysesSpecifications(" in block
+    assert "cohortMethodModuleSpecifications <- cmModule$createModuleSpecifications(" in block
+    assert "cmAnalysisFormals <-" not in block
+    assert "cmModuleFormals <-" not in block
+    assert "trimByPsToEquipoiseArgs" not in block
     assert "cmAnalysesSpecifications = cmAnalysesSpecifications$toList()" not in block
     assert "ParallelLogger::saveSettingsToJson(analysisSpecifications, analysis_spec_path)" in block
     assert "result <- Strategus::execute(" in block
@@ -95,26 +101,37 @@ def test_characterization_spec_accepts_generated_numeric_types() -> None:
         if (!requireNamespace('Strategus', quietly = TRUE)) quit(status = 42)
         library(Strategus)
         `%||%` <- function(x, y) if (is.null(x)) y else x
-        call_with_supported_args <- function(fn, args) {
-          formal_names <- names(formals(fn)) %||% character(0)
-          if (!('...' %in% formal_names)) {
-            args <- args[names(args) %in% formal_names]
-          }
-          do.call(fn, args)
-        }
         module <- CharacterizationModule$new()
-        spec <- call_with_supported_args(module$createModuleSpecifications, list(
-          targetIds = as.numeric(c(1, 2)),
-          outcomeIds = as.numeric(c(3)),
-          limitToFirstInNDays = as.numeric(c(99999, 99999)),
-          minPriorObservation = as.numeric(365),
-          outcomeWashoutDays = as.numeric(c(99999)),
-          riskWindowStart = as.numeric(0),
-          startAnchor = 'cohort start',
-          riskWindowEnd = as.numeric(0),
-          endAnchor = 'cohort end',
-          mode = 'CohortIncidence'
-        ))
+        population_settings <- lapply(as.numeric(c(1, 2)), function(target_id) {
+          Characterization::createStudyPopulationSettings(
+            targetIds = target_id,
+            limitToFirstInNDays = as.numeric(99999),
+            minPriorObservation = as.numeric(365)
+          )
+        })
+        target_baseline_settings <- lapply(population_settings, function(study_population_settings) {
+          Characterization::createTargetBaselineSettings(
+            studyPopulationSettings = study_population_settings,
+            covariateSettings = FeatureExtraction::createDefaultCovariateSettings()
+          )
+        })
+        characterization_analysis <- Characterization::createCharacterizationSettings(
+          timeToEventSettings = NULL,
+          dechallengeRechallengeSettings = NULL,
+          targetBaselineSettings = target_baseline_settings,
+          riskFactorSettings = NULL,
+          caseSeriesSettings = NULL
+        )
+        spec <- module$.__enclos_env__$super$createModuleSpecifications(
+          moduleSpecifications = list(
+            analysis = characterization_analysis,
+            minCharacterizationMean = 0.01,
+            mode = 'CohortIncidence',
+            minSMD = 0.01,
+            minCovariateCount = 5,
+            outputTable = 'characterization_cohorts'
+          )
+        )
         stopifnot(length(spec) > 0)
         """
     )
@@ -160,16 +177,6 @@ def test_cohort_method_spec_accepts_generated_argument_shape() -> None:
         library(CohortMethod)
         library(Strategus)
         `%||%` <- function(x, y) if (is.null(x)) y else x
-        call_with_supported_args <- function(fn, args) {
-          formal_names <- names(formals(fn)) %||% character(0)
-          if (!('...' %in% formal_names)) {
-            args <- args[names(args) %in% formal_names]
-          }
-          do.call(fn, args)
-        }
-        has_exported_function <- function(package_name, function_name) {
-          function_name %in% getNamespaceExports(package_name)
-        }
         target_id <- as.numeric(1)
         comparator_id <- as.numeric(2)
         outcome_ids <- as.numeric(3)
@@ -228,52 +235,24 @@ def test_cohort_method_spec_accepts_generated_argument_shape() -> None:
           createStudyPopulationArgs = studyPopulationArgs,
           createPsArgs = NULL,
           trimByPsArgs = NULL,
-          trimByPsToEquipoiseArgs = NULL,
           matchOnPsArgs = NULL,
           stratifyByPsArgs = NULL,
           fitOutcomeModelArgs = fitOutcomeModelArgs
         )
-        cmAnalysisFormals <- names(formals(CohortMethod::createCmAnalysis)) %||% character(0)
-        if ('createStudyPopulationArgs' %in% cmAnalysisFormals) {
-          cmAnalysisArgs$createStudyPopulationArgs <- studyPopulationArgs
-        } else if ('createStudyPopArgs' %in% cmAnalysisFormals) {
-          cmAnalysisArgs$createStudyPopArgs <- studyPopulationArgs
-          cmAnalysisArgs$createStudyPopulationArgs <- NULL
-        } else {
-          stop('Unsupported CohortMethod::createCmAnalysis signature')
-        }
-        cmAnalysisList <- list(call_with_supported_args(CohortMethod::createCmAnalysis, cmAnalysisArgs))
+        cmAnalysisList <- list(do.call(CohortMethod::createCmAnalysis, cmAnalysisArgs))
         cmDiagnosticThresholds <- CohortMethod::createCmDiagnosticThresholds()
         cmModule <- CohortMethodModule$new()
-        cmModuleFormals <- names(formals(cmModule$createModuleSpecifications)) %||% character(0)
-        if ('cmAnalysesSpecifications' %in% cmModuleFormals) {
-          if (!has_exported_function('CohortMethod', 'createCmAnalysesSpecifications')) {
-            stop('Expected createCmAnalysesSpecifications export')
-          }
-          cmAnalysesSpecifications <- CohortMethod::createCmAnalysesSpecifications(
-            cmAnalysisList = cmAnalysisList,
-            targetComparatorOutcomesList = targetComparatorOutcomesList,
-            cmDiagnosticThresholds = cmDiagnosticThresholds
-          )
-          spec <- call_with_supported_args(
-            cmModule$createModuleSpecifications,
-            list(cmAnalysesSpecifications = cmAnalysesSpecifications)
-          )
-        } else if (all(c('cmAnalysisList', 'targetComparatorOutcomesList') %in% cmModuleFormals)) {
-          spec <- call_with_supported_args(
-            cmModule$createModuleSpecifications,
-            list(
-              cmAnalysisList = cmAnalysisList,
-              targetComparatorOutcomesList = targetComparatorOutcomesList,
-              analysesToExclude = NULL,
-              refitPsForEveryOutcome = FALSE,
-              refitPsForEveryStudyPopulation = TRUE,
-              cmDiagnosticThresholds = cmDiagnosticThresholds
-            )
-          )
-        } else {
-          stop('Unsupported CohortMethodModule signature')
-        }
+        cmAnalysesSpecifications <- CohortMethod::createCmAnalysesSpecifications(
+          cmAnalysisList = cmAnalysisList,
+          targetComparatorOutcomesList = targetComparatorOutcomesList,
+          analysesToExclude = NULL,
+          refitPsForEveryOutcome = FALSE,
+          refitPsForEveryStudyPopulation = TRUE,
+          cmDiagnosticThresholds = cmDiagnosticThresholds
+        )
+        spec <- cmModule$createModuleSpecifications(
+          cmAnalysesSpecifications = cmAnalysesSpecifications
+        )
         stopifnot(length(spec) > 0)
         """
     )

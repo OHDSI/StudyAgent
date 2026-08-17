@@ -1,7 +1,8 @@
+
 #' Create an ACP client object
-#' @param url ACP base URL, e.g. "http://127.0.0.1:8765"
+#' @param url ACP base URL, e.g. `"http://127.0.0.1:8765"`
 #' @param token optional bearer token
-#' @param check when TRUE, call `/health` before returning
+#' @param check when TRUE, call `/health` and validate the ACP API version before returning
 #' @return ACP client object
 #' @export
 acp_client <- function(url = "http://127.0.0.1:8765", token = NULL, check = TRUE) {
@@ -12,19 +13,63 @@ acp_client <- function(url = "http://127.0.0.1:8765", token = NULL, check = TRUE
     ),
     class = "acp_client"
   )
-  if (isTRUE(check)) acp_check_health(client)
+  if (isTRUE(check)) {
+    health <- acp_check_health(client)
+    acp_check_compatibility(client, health = health)
+  }
   client
+}
+
+#' Retrieve ACP service information
+#' @param client ACP client object
+#' @return Parsed `/health` payload.
+#' @export
+acp_server_info <- function(client) {
+  client <- .as_acp_client(client)
+  resp <- httr::GET(paste0(client$url, "/health"), httr::timeout(.acp_timeout_seconds()))
+  if (httr::status_code(resp) != 200) stop("ACP bridge not reachable", call. = FALSE)
+  jsonlite::fromJSON(httr::content(resp, as = "text", encoding = "UTF-8"), simplifyVector = FALSE)
 }
 
 #' Check ACP health
 #' @param client ACP client object
-#' @return invisible(TRUE) when ACP is reachable
+#' @return Invisibly, the parsed health payload when ACP is reachable.
 #' @export
 acp_check_health <- function(client) {
+  health <- acp_server_info(client)
+  if (!identical(as.character(health$status %||% ""), "ok")) {
+    stop("ACP bridge did not report a healthy status.", call. = FALSE)
+  }
+  invisible(health)
+}
+
+#' Check ACP client/server API compatibility
+#' @param client ACP client object
+#' @param health optional parsed `/health` payload
+#' @return Invisibly, the parsed health payload.
+#' @export
+acp_check_compatibility <- function(client, health = NULL) {
   client <- .as_acp_client(client)
-  resp <- httr::GET(paste0(client$url, "/health"), httr::timeout(.acp_timeout_seconds()))
-  if (httr::status_code(resp) != 200) stop("ACP bridge not reachable")
-  invisible(TRUE)
+  health <- health %||% acp_server_info(client)
+  api_version <- suppressWarnings(as.integer(health$api_version %||% NA_integer_))
+  if (is.na(api_version)) {
+    stop(
+      "ACP server does not report an api_version. Use a StudyAgent ACP server compatible with slashOhdsiAcpClient 0.1.0.",
+      call. = FALSE
+    )
+  }
+  if (!identical(api_version, .acp_supported_api_version)) {
+    stop(
+      sprintf(
+        "Incompatible ACP API version: client requires %s but server reports %s (service version %s).",
+        .acp_supported_api_version,
+        api_version,
+        as.character(health$service_version %||% "unknown")
+      ),
+      call. = FALSE
+    )
+  }
+  invisible(health)
 }
 
 #' Determine whether an ACP client object appears valid

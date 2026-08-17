@@ -48,3 +48,16 @@ Current shell details:
 ACP support is optional. Both shells default to `aiSupport = "disabled"`, which uses the local wizard without loading or calling ACP. Set `aiSupport = "enabled"` to require ACP or `"auto"` to use it when the optional `slashOhdsiAcpClient` package is installed. No-AI workflows use direct cohort import, deterministic help, step-by-step CohortMethod settings, and omit ACP-only Keeper scripts.
 
 Both shells generate `scripts/09_launch_artifact_browser.R`. It launches the local read-only Shiny browser on `127.0.0.1`, previews safe registered artifacts, and excludes database/execution configuration files. `shiny` is an optional package dependency.
+
+## Tested HADES Runtime
+
+This package release targets the versions recorded in inst/hades-runtime.json, derived from the
+release-tested renv.lock. The package DESCRIPTION declares the corresponding HADES package
+minimum versions; the runtime profile records the exact versions that were tested. Both shell
+entrypoints run checkStrategusRuntime() by default before writing workflow artifacts, and generated
+specification scripts write their runtime report to analysis-settings/hades-runtime.json.
+
+Use strategusRuntimeReport() to inspect the active environment. A different runtime is rejected by
+default because generated Strategus calls are tied to the tested API signatures. During deliberate
+upgrade work only, start a shell with checkRuntime = FALSE, update the lockfile and package metadata,
+and add/execute the associated generated-script tests before releasing a new package tag.

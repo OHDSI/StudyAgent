@@ -6,6 +6,18 @@ interactive use in R/RStudio and defaults to a local no-AI wizard for cohort sel
 improvement review, time-at-risk configuration, ACP-based Keeper review, and script
 generation plus in-shell execution for a CohortIncidence analysis.
 
+## Tested R Runtime
+
+slashOhdsiStrategusAssistant declares its direct HADES dependencies in DESCRIPTION. The exact
+release-tested versions are recorded in R/slashOhdsiStrategusAssistant/inst/hades-runtime.json and
+come from the active renv.lock. Both shells call checkStrategusRuntime() by default before they
+write workflow artifacts. Generated incidence and cohort-method specification scripts repeat the check
+and save analysis-settings/hades-runtime.json with the observed versions.
+
+Use strategusRuntimeReport() to inspect a site environment. A version mismatch stops execution by
+default; use checkRuntime = FALSE only while intentionally validating an updated lockfile and before
+publishing a new package tag.
+
 ## What the shell does
 
 - Prompts for a study intent, but also supports direct cohort acquisition when the study-intent prompt is left blank.
