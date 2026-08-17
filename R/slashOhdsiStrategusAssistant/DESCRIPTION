@@ -1,13 +1,29 @@
 Package: slashOhdsiStrategusAssistant
 Type: Package
 Title: Strategus Workflow Assistant for slash-ohdsi
-Version: 0.0.1
+Version: 0.1.0
 Authors@R: person("Your","Name", email="you@example.org", role=c("aut","cre"))
 Description: Higher-level Strategus workflow package for slash-ohdsi. Owns workflow-stage context construction, shell orchestration, checkpoints, and Strategus-facing assets.
 License: MIT + file LICENSE
 Encoding: UTF-8
-Depends: R (>= 4.2)
-Imports: jsonlite, DatabaseConnector, CohortGenerator, Strategus, utils
-Suggests: slashOhdsiAcpClient, shiny
+Depends: R (>= 4.4.0)
+Imports:
+    Characterization (>= 4.0.0),
+    CohortDiagnostics (>= 3.4.2),
+    CohortGenerator (>= 1.1.1),
+    CohortIncidence (>= 4.1.1),
+    CohortMethod (>= 6.0.3),
+    Cyclops (>= 3.7.1),
+    DatabaseConnector (>= 7.2.0),
+    dplyr,
+    FeatureExtraction (>= 3.13.0),
+    jsonlite,
+    ParallelLogger (>= 3.5.1),
+    Strategus (>= 1.5.0),
+    utils
+Suggests:
+    shiny,
+    slashOhdsiAcpClient
+Config/hades-runtime-profile: hades-r4.5.3-2026-08-17
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2

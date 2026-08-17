@@ -1,5 +1,138 @@
-# Current Sprint Plan
+# PENDING SPRINTS PLAN
 
+## Integration of R with MCP tools and ACP management - coordination with SKILLS
+
+Codex> I'm thinking about the architecture of the ACP and MCP tools. I think it's possible that if there is a functional R and the correct renv environment on the same server that's running the ACP and MCP services, then we should be able to run Rscript from Python to do a lot of things that levere the R Hades tools and functions. For example, in the phenotype_improvement flow, it would be possible to run an R CohortGenerator function to test if a change to a cohort definition was valid. One of the planned new flows will be the creation of a cohort definition from a narrative description with the output being an R Capr computable cohort definition. If the ACP ran as a service and a coding model (through the LLM API)  or coding agent like Codex (thorugh a new  SKILL that communicated with the ACP service using REST) created a new Capr definition, the ACP could test if the definition compiles to a valid Circe definition.  Hypotheticaly, is that correct? 
+<shell-maker-end-of-prompt>
+▶ Thought
+
+▶ . Thinking
+
+
+**Assessing package specifics for architecture**
+
+Yes in principle. I’ll confirm the relevant capabilities in the active R/HADES environment so I can distinguish “compile a definition safely” from “execute it against a CDM,” which have different operational and security requirements.
+
+▶ Thought, ran a command
+
+▶ ✓ Command Rscript -e 'source("renv/activate.R"); for (pkg in c("Capr", "CohortGenerator", "CirceR")) { cat("\n", pkg, " ", if (requireNamespace(pkg, quietly = TRUE)) as.character(utils::packageVersion(pkg)) else "not installed", "\n", sep = ""); if (requireNamespace(pkg, quietly = TRUE)) print(grep("compile|cohort|json|expression", getNamespaceExports(pkg), value = TRUE, ignore.case = TRUE)) }'
+
+```console
+Rscript -e 'source("renv/activate.R"); for (pkg in c("Capr", "CohortGenerator", "CirceR")) { cat("\n", pkg, " ", if (requireNamespace(pkg, quietly = TRUE)) as.character(utils::packageVersion(pkg)) else "not installed", "\n", sep = ""); if (requireNamespace(pkg, quietly = TRUE)) print(grep("compile|cohort|json|expression", getNamespaceExports(pkg), value = TRUE, ignore.case = TRUE)) }'
+```
+
+- The project is out-of-sync -- use `renv::status()` for details.
+
+Capr 2.1.1
+[1] "as.json"            "makeCohortSet"      "compile"           
+[4] ".__T__as.json:Capr" ".__T__compile:Capr" "cohort"            
+[7] "writeCohort"       
+
+CohortGenerator 1.1.1
+ [1] "getCohortTableNames"                       
+ [2] "getCohortValidationCounts"                 
+ [3] "createCohortSubset"                        
+ [4] "createCohortSubsetOperator"                
+ [5] "computeCohortAttrition"                    
+ [6] "generateCohortSet"                         
+ [7] "CohortSubsetDefinition"                    
+ [8] "createCohortTemplateDefintion"             
+ [9] "getLastGeneratedCohortChecksums"           
+[10] "saveCohortDefinitionSet"                   
+[11] "saveCohortSubsetDefinition"                
+[12] "dropCohortStatsTables"                     
+[13] "createEmptyNegativeControlOutcomeCohortSet"
+[14] "createAtcCohortTemplateDefinition"         
+[15] "createCohortTables"                        
+[16] "addCohortSubsetDefinition"                 
+[17] "createUnionCohortTemplate"                 
+[18] "sampleCohortDefinitionSet"                 
+[19] "createEmptyCohortDefinitionSet"            
+[20] "getCohortDefinitionSet"                    
+[21] "addSqlCohortDefinition"                    
+[22] "createRxNormCohortTemplateDefinition"      
+[23] "getCohortStats"                            
+[24] "isCohortDefinitionSet"                     
+[25] "checkAndFixCohortDefinitionSetDataTypes"   
+[26] "getCohortCounts"                           
+[27] "SubsetCohortWindow"                        
+[28] "CohortSubsetOperator"                      
+[29] "createCohortSubsetDefinition"              
+[30] "createSubsetCohortWindow"                  
+[31] "addUnionCohortDefinition"                  
+[32] "runCohortGeneration"                       
+[33] "exportCohortStatsTables"                   
+[34] "getCohortInclusionRules"                   
+[35] "exportCohortSubsetStatsTables"             
+[36] "createSnomedCohortTemplateDefinition"      
+[37] "generateNegativeControlOutcomeCohorts"     
+[38] "CohortTemplateDefinition"                  
+[39] "addCohortTemplateDefintion"                
+
+CirceR 1.3.3
+[1] "cohortPrintFriendly"          "conceptSetExpressionFromJson"
+[3] "buildCohortQuery"             "cohortExpressionFromJson"
+
+▶ . Thinking
+
+
+**Designing ACP-MCP orchestration flow**
+
+**Planning secure R worker sandboxing**
+
+Yes—architecturally that is correct, with one important boundary: the ACP should orchestrate the request, while the R/HADES operation should be a controlled tool execution, ideally exposed through MCP or a dedicated R worker.
+
+The active environment supports the building blocks:
+
+• Capr 2.1.1 exports compile() and as.json().
+• CirceR 1.3.3 can parse a cohort JSON expression and build cohort SQL.
+• CohortGenerator 1.1.1 can then construct or generate a cohort set when database execution is intentionally enabled.
+
+A safe cohort-definition validation path would be:
+
+
+text ⧉
+
+Narrative / proposed Capr definition
+  → ACP flow orchestrates
+  → controlled R validation tool
+  → Capr compile
+  → Circe JSON serialization
+  → CirceR parse + SQL build
+  → structured diagnostics returned to ACP
+
+
+That validates several distinct things without touching patient data:
+
+1. The submitted Capr definition is syntactically valid.
+2. It compiles to a Circe-compatible cohort definition.
+3. The emitted JSON can be parsed by CirceR.
+4. SQL can be generated for the intended dialect.
+5. Warnings and compilation errors can be returned to the model/user as structured feedback.
+
+Cohort generation against a CDM is a separate, higher-authority operation. It needs database credentials, writable cohort/result tables, audit logging, and likely user confirmation. A compile-only validation worker should have none of those credentials.
+
+The major safety rule is: do not let an LLM or external coding agent submit arbitrary R source for execution. Instead, the R tool should accept a constrained payload—for example, a Capr expression in an approved declarative format or a specific source artifact—and run a fixed, allowlisted R script. The tool should use temporary directories, timeouts, resource limits, no shell interpolation, and a runtime check against the certified renv profile.
+
+For your Codex example, a new skill could call an ACP REST endpoint such as cohort_definition_compile_validate. ACP would invoke the R-backed tool and return:
+
+
+json ⧉
+
+{
+  "valid": true,
+  "capr_version": "2.1.1",
+  "circe_valid": true,
+  "sql_generated": true,
+  "warnings": [],
+  "diagnostics": []
+}
+
+
+So yes: this is a strong next capability. It gives AI-assisted authoring a deterministic validation loop before a cohort definition ever reaches a database.
+
+
+------------------------------------------------------------
 ## Preparation Note: Service Registry and Integration
 
 ### Current finding

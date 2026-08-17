@@ -17,6 +17,7 @@
 #' @param resume when TRUE, resume from last checkpoint if present
 #' @param executionTableDisplay execution-menu table display preference: `console`, `viewer`, or `auto`
 #' @param aiSupport ACP/AI mode: `disabled` (default), `enabled`, or `auto`
+#' @param checkRuntime when TRUE (default), require the release-tested HADES runtime before starting
 #' @return invisible list with output paths
 #' @export
 runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incidence",
@@ -36,11 +37,13 @@ runStrategusIncidenceShell <- function(outputDir = "demo-strategus-cohort-incide
                                       autoApplyImprovements = NA,
                                       resume = FALSE,
                                       executionTableDisplay = c("console", "viewer", "auto"),
-                                      aiSupport = c("disabled", "enabled", "auto")) {
+                                      aiSupport = c("disabled", "enabled", "auto"),
+                                      checkRuntime = TRUE) {
   `%||%` <- function(x, y) if (is.null(x)) y else x
   execution_table_display <- .studyAgentSlashNormalizeExecutionTableDisplay(executionTableDisplay)
   ai_support <- .studyAgentSlashResolveAiSupport(aiSupport)
   ai_enabled <- .studyAgentSlashAiSupportAllowsAcp(ai_support)
+  if (isTRUE(checkRuntime)) checkStrategusRuntime()
 
   ensure_dir <- function(path) {
     if (!dir.exists(path)) dir.create(path, recursive = TRUE)
@@ -3137,6 +3140,8 @@ Keeper review saved: %s reviewed row(s)
     "output_dir <- file.path(base_dir, 'outputs')",
     "analysis_settings_dir <- file.path(base_dir, 'analysis-settings')",
     "dir.create(analysis_settings_dir, recursive = TRUE, showWarnings = FALSE)",
+    "runtime_report <- slashOhdsiStrategusAssistant::checkStrategusRuntime()",
+    "jsonlite::write_json(runtime_report, file.path(analysis_settings_dir, 'hades-runtime.json'), pretty = TRUE, auto_unbox = TRUE, null = 'null')",
     "time_at_risk_settings_path <- file.path(analysis_settings_dir, 'time_at_risk_settings.json')",
     "selected_dir <- file.path(base_dir, 'selected-cohorts')",
     "patched_dir <- file.path(base_dir, 'patched-cohorts')",
@@ -3464,6 +3469,8 @@ Keeper review saved: %s reviewed row(s)
     cat("  3) Rscript scripts/05_keeper_case_review.R\n")
     cat("  4) Rscript scripts/06_diagnostics.R\n")
     cat("  5) Rscript scripts/07_incidence_spec.R\n")
+    cat("Artifact browser (optional, run in second R session):\n")
+    cat("  - Rscript scripts/09_launch_artifact_browser.R\n")
     cat("Optional diagnostics viewer (run in a second R session):\n")
     cat("  - Rscript scripts/08_launch_diagnostics_explorer.R\n")
     cat("Notes:\n")

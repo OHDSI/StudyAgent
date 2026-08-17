@@ -1,92 +1,90 @@
 # Current Sprint Plan
 
-1. Define the configuration contract
+ plan:
 
-  Create a versioned schema and a checked-in config.example.yaml. Keep generated config.yaml ignored, because it will be deployment-specific even though it contains no secrets.
+1. Make dependency ownership explicit in each package’s DESCRIPTION.
 
-  Use config-relative paths. For example, data/phenotype_index resolves relative to the configuration file, not the process working directory. This is the key Windows/Linux
-  portability improvement.
+   slashOhdsiStrategusAssistant should list the HADES packages it directly relies on in Imports, with minimum supported versions where appropriate. This will include Strategus and its direct runtime dependencies such as DatabaseConnector, FeatureExtraction, Capr, CohortCharacterization, and OHDSIShinyModules, plus any other packages called by shell or generated-script code.
 
-  Separate ACP’s bind address from its public URL, and MCP’s bind address from ACP’s MCP URL. Docker needs internal service names, while host users need loopback URLs.
+   slashOhdsiAcpClient should remain much lighter. It should declare only its actual R dependencies, while documenting the compatible StudyAgent/ACP server release range separately.
 
-  2. Build a shared Python configuration layer
+2. Use renv.lock as the tested dependency contract.
 
-  Add core/study_agent_core/config.py that:
+   For every package release, the active renv.lock and installed renv library define the precise package set against which:
 
-  - Locates the configuration through --config, then an optional STUDY_AGENT_CONFIG bootstrap variable, then ./config.yaml.
-  - Validates YAML with Pydantic models.
-  - Resolves relative paths safely.
-  - Rejects secret values and unknown keys.
-  - Provides redacted diagnostic output.
-  - Supports native and docker profiles or explicit profile overlays.
+   ◦ the R package is developed;
+   ◦ generated incidence and cohort-method scripts are tested;
+   ◦ demos are exercised;
+   ◦ CI validates the release.
 
-  The configuration path is the one acceptable non-secret environment/bootstrap value during migration; a CLI --config flag is preferred where practical.
+   The lockfile is more precise than DESCRIPTION; DESCRIPTION communicates install-time requirements, while the lockfile records the exact validated environment.
 
-  3. Use startup wrappers before importing service modules
+3. Add runtime environment checks to both shells.
 
-  This is an important implementation detail. MCP currently constructs FastMCP at module import time, so configuration must be loaded before importing study_agent_mcp.server.
+   At shell startup—and again before specification execution—the package should check installed versions against its declared expectations.
 
-  Introduce thin CLI entrypoint wrappers for ACP and MCP that parse --config and --profile, load configuration, and then import/start the service. The MCP package’s current import
-  side effect should be made lazy to permit that ordering.
+   For the Strategus assistant, the check should report:
 
-  For the first compatibility release, the loader can project validated non-secret YAML values into the existing legacy environment names before service imports. That avoids a risky
-  simultaneous refactor of every configuration read.
+   ◦ R version;
+   ◦ installed Strategus and key HADES package versions;
+   ◦ required versus installed versions;
+   ◦ whether the package set matches the release-tested renv.lock where that metadata is available;
+   ◦ clear remediation guidance if requirements are not met.
 
-  Precedence should be:
+   A missing or incompatible critical package should stop execution before generated scripts are written or run. Noncritical capabilities, such as an optional artifact viewer dependency, can warn instead.
 
-  1. Explicit CLI values
-  2. config.yaml
-  3. Secret environment variables
-  4. Legacy non-secret environment variables, only as a documented compatibility fallback
-  5. Built-in defaults
+4. Test generated scripts against the active lockfile environment.
 
-  When config.yaml is present, it should win over legacy non-secret variables so a stale shell environment cannot silently override deployment configuration.
+   Add focused CI checks that use the checked-in/current renv.lock environment to:
 
-  4. Migrate call sites incrementally
+   ◦ parse every generated script;
+   ◦ generate both incidence and cohort-method specifications;
+   ◦ construct the relevant Strategus/module objects;
+   ◦ run a lightweight execution test where practical;
+   ◦ retain regressions such as the current targetIds/Characterization signature failure.
 
-  Refactor Python modules from os.getenv() to the shared typed configuration object by area:
+   This makes the lockfile-backed CI environment the authoritative proof that the emitted scripts match current signatures.
 
-  - ACP and MCP startup/connection modes
-  - LLM and retrieval configuration
-  - Logging and network rewriting
-  - Keeper, vocabulary, PHOEBE, and external-service endpoints
-  - Demo shell and indexing scripts
-  - Test/calibration tools, where CLI flags should replace one-off operational variables
+5. Version by package release and Git tag.
 
-  Keep secret retrieval isolated in a small secrets adapter rather than distributing direct environment reads throughout the codebase.
+   When the packages separate into Odyssey repositories:
 
-  5. Update Docker Compose and the setup wizard
+   ◦ tag each release of slashOhdsiStrategusAssistant;
+   ◦ update DESCRIPTION, renv.lock, demos, and compatibility documentation together;
+   ◦ test the tagged source against the associated lockfile;
+   ◦ publish the exact tested HADES versions in release notes.
 
-  Compose should mount the YAML file read-only, for example at /app/config.yaml, and invoke service CLI wrappers with that path and the docker profile.
+   We should avoid claiming broad compatibility beyond what was tested. A release can say, for example, “tested with Strategus X, DatabaseConnector Y, and CohortCharacterization Z,” while DESCRIPTION expresses the minimum installation requirements.
 
-  Move .env to a secret-only compatibility file—or rename it to secrets.env to make its role unambiguous. Docker Compose may still use it as an env_file; it simply must not carry
-  ordinary deployment settings anymore.
+6. Define the ACP server compatibility separately.
 
-  Update study-agent-setup to write:
+   A Python/ACP server version is not an R package dependency, so it should not be forced into Imports. Instead, slashOhdsiAcpClient should have:
 
-  - config.yaml containing only ordinary configuration
-  - optionally secrets.env, with hidden-input secrets and restrictive permissions
+   ◦ a documented compatible StudyAgent/ACP server version range;
+   ◦ a small runtime compatibility check against an ACP version/health endpoint;
+   ◦ a protocol or API version identifier returned by the server;
+   ◦ a clear error if the client and server are incompatible.
 
-  Add an explicit migration option for existing .env files. It should classify known keys, move only non-secrets into YAML, preserve secret values without displaying them, and require
-  confirmation before replacing files.
+   This allows the R ACP client to be independently released while still preventing silent protocol drift.
 
-  6. Test and deprecate safely
+7. Keep one small shared compatibility utility inside each package initially.
 
-  Add tests for:
+   We do not need a third compatibility package now. Start with internal helpers such as:
 
-  - Schema validation, defaults, profiles, and path resolution
-  - YAML never serializing secret values
-  - Python startup with --config in HTTP and stdio MCP modes
-  - ACP-to-managed-MCP configuration propagation
-  - Docker mount/profile behavior
-  - Native Windows CI coverage for path behavior
-  - Legacy environment-only startup remaining functional
+   ◦ checkStrategusEnvironment()
+   ◦ checkAcpCompatibility()
+   ◦ packageVersionReport()
+   ◦ assertRequiredPackageVersion()
 
-  Deprecation should be gradual:
+   If shared logic becomes substantial after the packages split, it can then be extracted deliberately.
 
-  - Release 1: YAML supported; legacy environment configuration works unchanged.
-  - Release 2: warn when non-secret legacy variables configure a service.
-  - Release 3: remove legacy non-secret configuration only after deployments have migrated.
+The immediate implementation sequence should be:
 
-  The largest technical risk is startup ordering, especially MCP’s module-level initialization, plus keeping Python and R interpretation of paths/profiles identical. A shared schema,
-  configuration-relative paths, CLI-first loading, and a temporary compatibility adapter keep that risk controlled.
+1. Inventory direct R dependencies used by each package and generated script.
+2. Update both DESCRIPTION files.
+3. Add the startup/pre-execution checks.
+4. Add lockfile-backed generated-script tests, starting with cohort method.
+5. Add release documentation that connects package tags to tested renv.lock environments.
+6. Add ACP server/client version negotiation to slashOhdsiAcpClient.
+
+This keeps the maintenance model familiar to R developers, aligns naturally with standalone Odyssey package releases, and gives air-gapped users an early, actionable error when the installed HADES stack does not match what the shell was tested against.

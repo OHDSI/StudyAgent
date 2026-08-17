@@ -30,6 +30,8 @@ SERVICES = [
 ]
 SERVICE_REGISTRY_PATH = os.getenv("STUDY_AGENT_SERVICE_REGISTRY", "docs/SERVICE_REGISTRY.yaml")
 logger = logging.getLogger("study_agent.acp")
+ACP_API_VERSION = 1
+ACP_SERVICE_VERSION = "0.1.0"
 
 
 def _sanitize_config_value(name: str, value: Optional[str]) -> Optional[str]:
@@ -185,7 +187,11 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
         parsed = urlsplit(self.path)
 
         if parsed.path == "/health":
-            payload = {"status": "ok"}
+            payload = {
+                "status": "ok",
+                "api_version": ACP_API_VERSION,
+                "service_version": ACP_SERVICE_VERSION,
+            }
             if self.mcp_client is not None:
                 payload["mcp"] = self.mcp_client.health_check()
                 params = parse_qs(parsed.query)

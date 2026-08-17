@@ -1,6 +1,8 @@
 export(acp_call_action)
 export(acp_call_flow)
 export(acp_check_health)
+export(acp_check_compatibility)
+export(acp_server_info)
 export(acp_client)
 export(acp_cohort_methods_intent_split)
 export(acp_concept_set_edit)

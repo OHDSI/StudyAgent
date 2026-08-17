@@ -60,8 +60,9 @@ launchStrategusArtifactBrowser <- function(outputDir,
       shiny::tabPanel("Overview", shiny::tableOutput("overview")),
       shiny::tabPanel("Artifacts", shiny::fluidRow(
         shiny::column(6, shiny::selectInput("artifact", "Artifact", choices = safe_table$artifact_id)),
-        shiny::column(6, shiny::tableOutput("artifacts"))
+        shiny::column(6, shiny::h4("Selected artifact preview"), shiny::verbatimTextOutput("selected_artifact_preview"))
       )),
+      shiny::tabPanel("All artifacts", shiny::tableOutput("artifacts")),
       shiny::tabPanel("Preview", shiny::verbatimTextOutput("preview")),
       shiny::tabPanel("Diagnostics", shiny::p("Run scripts/08_launch_diagnostics_explorer.R for the specialized CohortDiagnostics Explorer."))
     )
@@ -69,6 +70,7 @@ launchStrategusArtifactBrowser <- function(outputDir,
   server <- function(input, output, session) {
     output$overview <- shiny::renderTable(state_summary, striped = TRUE)
     output$artifacts <- shiny::renderTable(safe_table, striped = TRUE)
+    output$selected_artifact_preview <- shiny::renderText(preview_artifact(input$artifact))
     output$preview <- shiny::renderText(preview_artifact(input$artifact))
   }
   shiny::runApp(shiny::shinyApp(ui, server), host = host, port = port, launch.browser = launch.browser)

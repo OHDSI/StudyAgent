@@ -118,22 +118,23 @@ Most local setups only need:
 - phenotype retrieval settings if phenotype search is used
 - Keeper / OMOP / vocabulary settings if Keeper flows are used
 
-Recommended local runtime:
+Python configuration uses config.yaml for validated, non-secret settings and named profiles
+such as native and docker. Keep secrets in secrets.env, never in config.yaml. CLI values override YAML;
+YAML overrides legacy non-secret environment variables. Use the documented configuration rather than
+introducing new non-secret environment-variable setup instructions.
+
+Recommended native runtime:
 
 ```bash
-export MCP_TRANSPORT=http
-export MCP_HOST=127.0.0.1
-export MCP_PORT=8790
-export MCP_PATH=/mcp
-study-agent-mcp
+uv run study-agent-mcp --config ./config.yaml --profile native
 ```
 
 ```bash
-export STUDY_AGENT_MCP_URL="http://127.0.0.1:8790/mcp"
-export STUDY_AGENT_HOST=127.0.0.1
-export STUDY_AGENT_PORT=8765
-study-agent-acp
+uv run study-agent-acp --config ./config.yaml --profile native
 ```
+
+On managed Windows hosts, use uv run for every project command so PowerShell cannot select a global
+Python or console script. Docker Compose supplies the docker profile.
 
 Use full filesystem paths where practical, especially for:
 
@@ -143,13 +144,14 @@ Use full filesystem paths where practical, especially for:
 
 ## Setup
 
-Python environment:
+Python packaging and development:
 
-```bash
-pip install -e ".[dev]"
-```
+- [pyproject.toml](pyproject.toml) is the source of truth for Python dependencies, console scripts, and the dev extra.
+- Prefer uv run --extra dev for development, tests, and service commands.
+- environment.yml remains a Conda/Micromamba bootstrap for Python plus pip; install this project into it with python -m pip install -e ".[dev]".
+- config.yaml is created from config.example.yaml or uv run study-agent-setup; keep private settings in secrets.env.
 
-Official local workflow also supports the `environment.yml` based Conda/Micromamba setup described in [README.md](README.md).
+Do not rely on bare python, pytest, doit, study-agent-mcp, or study-agent-acp commands when using uv.
 
 Useful manual R entrypoints include:
 
@@ -166,15 +168,15 @@ Primary testing guide:
 Useful broad commands:
 
 ```bash
-pytest -m acp
-pytest -m mcp
+uv run --extra dev python -m pytest -m acp
+uv run --extra dev python -m pytest -m mcp
 ```
 
 Cheap targeted checks:
 
 ```bash
-pytest -q tests/test_demo_shell.py
-python -m study_agent_acp.demo_shell --help
+uv run --extra dev python -m pytest -q tests/test_demo_shell.py
+uv run study-agent-demo-shell --help
 ```
 
 For R-shell and generated-script changes, prefer focused static tests first. Relevant examples:

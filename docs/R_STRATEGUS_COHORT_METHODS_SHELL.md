@@ -13,6 +13,18 @@ Current stage scope:
 
 This shell is provided as `slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell()`.
 
+## Tested R Runtime
+
+slashOhdsiStrategusAssistant declares its direct HADES dependencies in DESCRIPTION. The exact
+release-tested HADES versions and the minimum supported R version are recorded in R/slashOhdsiStrategusAssistant/inst/hades-runtime.json and
+come from the active renv.lock. Both shells call checkStrategusRuntime() by default before they
+write workflow artifacts. Generated incidence and cohort-method specification scripts repeat the check
+and save analysis-settings/hades-runtime.json with the observed versions.
+
+Use strategusRuntimeReport() to inspect a site environment. A version mismatch stops execution by
+default; use checkRuntime = FALSE only while intentionally validating an updated lockfile and before
+publishing a new package tag.
+
 ## Running
 
 Usage examples for `slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell()` live in `scripts/demo_strategus_cohort_method.R`. Package-level shell notes live in `R/slashOhdsiStrategusAssistant/README.md`.
