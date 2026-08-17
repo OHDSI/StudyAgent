@@ -9,7 +9,7 @@ generation plus in-shell execution for a CohortIncidence analysis.
 ## Tested R Runtime
 
 slashOhdsiStrategusAssistant declares its direct HADES dependencies in DESCRIPTION. The exact
-release-tested versions are recorded in R/slashOhdsiStrategusAssistant/inst/hades-runtime.json and
+release-tested HADES versions and the minimum supported R version are recorded in R/slashOhdsiStrategusAssistant/inst/hades-runtime.json and
 come from the active renv.lock. Both shells call checkStrategusRuntime() by default before they
 write workflow artifacts. Generated incidence and cohort-method specification scripts repeat the check
 and save analysis-settings/hades-runtime.json with the observed versions.
@@ -71,6 +71,7 @@ The shell writes scripts under `scripts/` for reproducibility:
 6. `06_diagnostics.R`
 7. `07_incidence_spec.R`
 8. `08_launch_diagnostics_explorer.R`
+9. `09_launch_artifact_browser.R` (optional, run in second R session)
 
 ## Execution Menu
 

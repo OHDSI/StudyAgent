@@ -68,7 +68,7 @@ def test_generated_cm_spec_builds_and_executes_strategus_analysis_specification(
     assert "cmAnalysisFormals <-" not in block
     assert "cmModuleFormals <-" not in block
     assert "trimByPsToEquipoiseArgs" not in block
-    assert "cmAnalysesSpecifications = cmAnalysesSpecifications$toList()" not in block
+    assert "cmAnalysesSpecifications = cmAnalysesSpecifications$toList()" in block
     assert "ParallelLogger::saveSettingsToJson(analysisSpecifications, analysis_spec_path)" in block
     assert "result <- Strategus::execute(" in block
     assert "connectionDetails <- slashOhdsiStrategusAssistant::createStrategusConnectionDetails(path = db_details_path)" in block

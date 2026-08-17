@@ -14,7 +14,7 @@ def test_runtime_profile_is_lockfile_style_and_declares_current_hades_stack() ->
     profile = json.loads(PROFILE.read_text(encoding="utf-8"))
 
     assert profile["profile"] == "hades-r4.5.3-2026-08-17"
-    assert profile["r_version"] == "4.5.3"
+    assert profile["r_version"] == ">= 4.4.0"
     assert profile["packages"]["Strategus"] == "1.5.0"
     assert profile["packages"]["Characterization"] == "4.0.0"
     assert profile["packages"]["CohortMethod"] == "6.0.3"
@@ -42,3 +42,15 @@ def test_cohort_method_uses_current_characterization_settings_adapter() -> None:
     assert "Characterization::createTargetBaselineSettings(" in source
     assert "characterizationModule$.__enclos_env__$super$createModuleSpecifications(" in source
     assert "trimByPsToEquipoiseArgs" not in source
+
+
+def test_artifact_browser_previews_the_dropdown_selection() -> None:
+    browser = repo_path(
+        "R", "slashOhdsiStrategusAssistant", "R", "strategus_artifact_browser.R"
+    ).read_text(encoding="utf-8")
+    incidence = INCIDENCE_SOURCE.read_text(encoding="utf-8")
+
+    assert 'verbatimTextOutput("selected_artifact_preview")' in browser
+    assert 'output$selected_artifact_preview <- shiny::renderText(preview_artifact(input$artifact))' in browser
+    assert "Artifact browser (optional, run in second R session):" in incidence
+    assert "Rscript scripts/09_launch_artifact_browser.R" in incidence

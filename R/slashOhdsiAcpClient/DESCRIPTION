@@ -6,7 +6,7 @@ Authors@R: person("Your","Name", email="you@example.org", role=c("aut","cre"))
 Description: Thin R client for the OHDSI Study Agent ACP bridge. Provides explicit client objects, health checks, and typed wrappers around ACP flows and actions.
 License: MIT + file LICENSE
 Encoding: UTF-8
-Depends: R (>= 4.5.0)
+Depends: R (>= 4.4.0)
 Imports: httr, jsonlite, utils, tools
 Config/study-agent-acp-api-version: 1
 Roxygen: list(markdown = TRUE)

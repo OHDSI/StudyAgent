@@ -1,6 +1,6 @@
 {
   "profile": "hades-r4.5.3-2026-08-17",
-  "r_version": "4.5.3",
+  "r_version": ">= 4.4.0",
   "packages": {
     "Strategus": "1.5.0",
     "DatabaseConnector": "7.2.0",

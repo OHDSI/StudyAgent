@@ -29,6 +29,7 @@ strategusRuntimeReport <- function() {
     profile = as.character(profile$profile),
     expected_r_version = as.character(profile$r_version),
     installed_r_version = as.character(getRversion()),
+    r_version_matches = getRversion() >= numeric_version(sub("^>=\\s*", "", as.character(profile$r_version))),
     packages = lapply(names(expected), function(package_name) {
       list(
         package = package_name,
@@ -42,12 +43,12 @@ strategusRuntimeReport <- function() {
 
 #' Check that the HADES runtime matches this package release
 #'
-#' The generated Strategus scripts target the precise HADES versions recorded
-#' from this release's tested renv.lock. By default, a different version is
+#' The generated Strategus scripts target the tested HADES versions and minimum R version recorded
+#' from this release's tested renv.lock. By default, a different HADES version is
 #' rejected before a workflow writes or executes a specification. Set strict
 #' to FALSE only when deliberately evaluating a new runtime.
 #'
-#' @param strict Require exact tested package and R versions.
+#' @param strict Require exact tested package versions and the minimum tested R version.
 #' @return Invisibly, a runtime report.
 #' @export
 checkStrategusRuntime <- function(strict = TRUE) {
@@ -55,7 +56,7 @@ checkStrategusRuntime <- function(strict = TRUE) {
   package_rows <- report$packages
   missing <- vapply(package_rows, function(row) is.na(row$installed), logical(1))
   mismatched <- vapply(package_rows, function(row) !isTRUE(row$matches), logical(1))
-  r_matches <- identical(report$installed_r_version, report$expected_r_version)
+  r_matches <- isTRUE(report$r_version_matches)
 
   if (any(missing) || (isTRUE(strict) && (!r_matches || any(mismatched)))) {
     details <- c(

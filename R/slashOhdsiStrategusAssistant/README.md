@@ -53,7 +53,7 @@ Both shells generate `scripts/09_launch_artifact_browser.R`. It launches the loc
 
 This package release targets the versions recorded in inst/hades-runtime.json, derived from the
 release-tested renv.lock. The package DESCRIPTION declares the corresponding HADES package
-minimum versions; the runtime profile records the exact versions that were tested. Both shell
+minimum versions; the runtime profile records the tested HADES package versions and the minimum R version. Both shell
 entrypoints run checkStrategusRuntime() by default before writing workflow artifacts, and generated
 specification scripts write their runtime report to analysis-settings/hades-runtime.json.
 

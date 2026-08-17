@@ -7977,7 +7977,7 @@ Keeper review saved: %s reviewed row(s)
     "  cmDiagnosticThresholds = cmDiagnosticThresholds",
     ")",
     "cohortMethodModuleSpecifications <- cmModule$createModuleSpecifications(",
-    "  cmAnalysesSpecifications = cmAnalysesSpecifications",
+    "  cmAnalysesSpecifications = cmAnalysesSpecifications$toList()",
     ")",
     "",
     "analysisSpecifications <- Strategus::createEmptyAnalysisSpecifications()",
