@@ -1,15 +1,15 @@
 # OHDSI Study Agent
 
-Stud Agent is an agent-style interface for common OHDSI study design tasks. The fundamental use case for this project is to enable AI-assisted, but human led, observational study designs leveraging existing deterministic OHDSI tools. Initially, this is with HADES and Atlas but there no restriction on the use of study agent flows in other tooling environments (e.g., DARWIN tools).
+Study Agent is an agent harness for common OHDSI study design tasks. The fundamental use case for this project is to enable AI-assisted, but human led, observational study designs leveraging existing deterministic OHDSI tools. Initially, this is with [HADES](https://ohdsi.github.io/Hades/) and [Atlas](https://github.com/OHDSI/Atlas/) but there no restriction on the use of study agent flows in other tooling environments (e.g., DARWIN tools or pharmacovigilance workflows).
 
 The current implementation provides:
 
 - Phenotype recommendations for target, comparator, and outcome cohort selection
 - Phenotype validation using AI-assisted concept generation, profile extraction, and row adjudication for phenotype validation (i.e., an ACP service for [Keeper](https://github.com/OHDSI/Keeper) functionality)
-- R-based interactive shells to specify and run real-world evidence generation using HADES incidence rate analysis and CohortMethod methods
-- Support for `/ohdsi` AI interactive run and inspection features and contextualized question answering. 
+- AI-services for clients such as the R-based interactive shells provided by [SlashOhdsiStrategusAssistant](https://github.com/OHDSI/SlashOhdsiStrategusAssistant) to specify and run real-world evidence generation workflows
+- AI-Support for `/ohdsi` contextualized question answering
 
-This project is in beta testing. The videos below provide an overview of the project and the current state for R-Hades support.
+This project is in beta testing. The videos below provide an overview of the project and how to install and set up the index needed for `phenotype_recommendation`. For now, links to videos showing use by the SlashOhdsiStrategusAssistant package are shown but these will eventually move to that package. 
 
 Read [What about agent skills (e.g., SKILL.md)?](https://github.com/OHDSI/StudyAgent/blob/main/docs/WHAT-ABOUT-AGENT-SKILLS.md) to understand how this project will likely eventually be used with coding agents like Codex and Claude.
 
@@ -26,9 +26,13 @@ Read [What about agent skills (e.g., SKILL.md)?](https://github.com/OHDSI/StudyA
 
 ### Study Agent with R for real-world evidence generation
 
+
 - **[Overview — AI-assisted real-world evidence generation with Study Agent](https://www.youtube.com/watch?v=rMxnmEGWoO4)**
 
 A step-by-step demonstration of using Study Agent with an R and Strategus workflow:
+
+> [!NOTE]
+> The workflow in R now requires you install [SlashOhdsiAcpClient](https://github.com/OHDSI/SlashOhdsiAcpClient) and [SlashOhdsiStrategusAssistant](https://github.com/OHDSI/SlashOhdsiStrategusAssistant) in your R environment along with their requirements. 
 
 1. **[Part 1 — Define the study and select phenotypes](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=eef98905-e9eb-497f-8d07-b46e00c3702d)**  
    Introduces the Strategus CohortMethod workflow, study intent, phenotype selection, and the interactive runner shell.
@@ -101,12 +105,10 @@ Primary references:
 - [docs/WORKFLOW_PHENOTYPE_RECOMMENDATION.md](docs/WORKFLOW_PHENOTYPE_RECOMMENDATION.md)
 - [docs/PHENOTYPE_VALIDATION_REVIEW.md](docs/PHENOTYPE_VALIDATION_REVIEW.md)
 - [docs/SPEC_KEEPER_INTERFACE.md](docs/SPEC_KEEPER_INTERFACE.md)
-- [docs/R_STRATEGUS_INCIDENCE_SHELL.md](docs/R_STRATEGUS_INCIDENCE_SHELL.md)
-- [docs/R_STRATEGUS_COHORT_METHODS_SHELL.md](docs/R_STRATEGUS_COHORT_METHODS_SHELL.md)
 - [docs/TESTING.md](docs/TESTING.md)
 - [docs/WORKFLOW_INCIDENCE.md](docs/WORKFLOW_INCIDENCE.md)
 - [docs/ROADMAP.md](docs/ROADMAP.md)
-- [docs/R_PACKAGE_ARCHITECTURE_PLAN.md](docs/R_PACKAGE_ARCHITECTURE_PLAN.md)
+
 
 ### 2.  Phenotype Validation
 
@@ -138,7 +140,7 @@ Primary references:
 ### Workflow A:  HADES real-world evidence generation using incidence rate analysis
 
 1. Start MCP and ACP
-2. Continue through `slashOhdsiStrategusAssistant::runStrategusIncidenceShell()`
+2. In R, install slashOhdsiStrategusAssistant and continue through `slashOhdsiStrategusAssistant::runStrategusIncidenceShell()`
 
 See scripts/demo_strategus_incidence_rate.R
 
@@ -147,7 +149,7 @@ See scripts/demo_strategus_incidence_rate.R
 Use this when you need a practical validation loop around a phenotype.
 
 1. Start MCP and ACP
-2. Continue through `slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell()`
+2. install slashOhdsiStrategusAssistant and Continue through `slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell()`
 
 scripts/demo_strategus_cohort_method.R
 
