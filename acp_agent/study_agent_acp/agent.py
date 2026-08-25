@@ -20,6 +20,7 @@ from study_agent_core.models import (
     PhenotypeRecommendationPlanInput,
     PhenotypeRecommendationsInput,
     WorkflowContextDialogueInput,
+    PhenotypeMakeComputableInput,
 )
 from study_agent_core.tools import (
     cohort_methods_intent_split,
@@ -1232,6 +1233,21 @@ class StudyAgent(PhenotypeRecommendationMixin):
     ) -> Dict[str, Any]:
         if not study_intent:
             return {"status": "error", "error": "missing study_intent"}
+        if request.concept_review_mode == "propose" and not request.concept_sets:
+            if self._mcp_client is None:
+                return {"status": "error", "error": "MCP client unavailable"}
+            domains = sorted({str(value) for value in request.scope.get("criterion_domains", {}).values() if value})
+            query = str(request.scope.get("index_event") or narrative)
+            candidates = self.call_tool("vocab_search_standard", {"query": query, "domains": domains or None, "limit": 20})
+            candidate_payload = candidates.get("full_result") or {}
+            bundle = self.call_tool("phenotype_make_computable_prompt_bundle", {})
+            bundle_payload = bundle.get("full_result") or {}
+            if bundle.get("status") != "ok" or bundle_payload.get("error"):
+                return {"status": "unavailable", "error": "computable_prompt_bundle_failed", "details": bundle}
+            prompt = build_lint_prompt(bundle_payload.get("overview", ""), bundle_payload.get("spec", ""), bundle_payload.get("output_schema", {}), "phenotype_make_computable", {"narrative_statement": narrative, "scope": request.scope, "concept_candidates": candidate_payload.get("concepts", [])}, max_kb=20)
+            llm_result = self._call_llm(prompt, required_keys=["status", "scope_check", "concept_sets", "cohort_plan", "assumptions", "warnings"])
+            proposed_plan = llm_result.parsed_content if llm_result.status == "ok" else None
+            return {"status": "needs_concept_review" if proposed_plan else "unavailable", "narrative_statement": narrative, "concept_review_mode": "propose", "concept_candidates": candidate_payload.get("concepts", []), "proposed_plan": proposed_plan, "llm_status": llm_result.status, "diagnostics": self._llm_diagnostics(llm_result)}
         if self._mcp_client is None:
             return {"status": "error", "error": "MCP client unavailable"}
         if top_k is None:
@@ -3116,6 +3132,58 @@ class StudyAgent(PhenotypeRecommendationMixin):
             "diagnostics": diagnostics,
         }
 
+    def run_phenotype_make_computable_flow(
+        self,
+        narrative_statement: str,
+        confirmed_scope: bool = False,
+        scope: Optional[Dict[str, Any]] = None,
+        concept_review_mode: str = "required",
+        concept_sets: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        request = PhenotypeMakeComputableInput(narrative_statement=narrative_statement, confirmed_scope=confirmed_scope, scope=scope or {}, concept_review_mode=concept_review_mode, concept_sets=concept_sets or [])
+        narrative = request.narrative_statement.strip()
+        if not narrative:
+            return {"status": "error", "error": "missing_narrative_statement"}
+        required_scope = ["index_event", "criterion_domains", "entry_limit", "prior_observation", "index_day_boundary", "windows", "exit_strategy"]
+        missing = [key for key in required_scope if request.scope.get(key) in (None, "", [], {})]
+        if not request.confirmed_scope or missing:
+            return {"status": "needs_clarification", "narrative_statement": narrative, "required_scope_fields": required_scope, "missing_scope_fields": missing, "questions": ["Confirm the index event and whether it is the first qualifying event or first raw event.", "Confirm the OMOP domain for every clinical criterion.", "Confirm entry-event limit, observation/washout, index-day boundaries, temporal windows, and exit strategy."], "concept_review_mode": request.concept_review_mode}
+        if request.concept_review_mode == "required" and not request.concept_sets:
+            if self._mcp_client is None:
+                return {"status": "error", "error": "MCP client unavailable"}
+            domains = sorted({str(value) for value in request.scope.get("criterion_domains", {}).values() if value})
+            query = str(request.scope.get("index_event") or narrative)
+            candidates = self.call_tool("vocab_search_standard", {"query": query, "domains": domains or None, "limit": 20})
+            payload = candidates.get("full_result") or {}
+            raw_candidates = payload.get("concepts", [])
+            concept_ids = [int(row.get("conceptId")) for row in raw_candidates if row.get("conceptId") not in (None, "")]
+            hydrated = self.call_tool("vocab_fetch_concepts", {"concept_ids": concept_ids, "concepts": raw_candidates}) if concept_ids else None
+            hydrated_payload = (hydrated or {}).get("full_result") or {}
+            return {"status": "needs_concept_review", "narrative_statement": narrative, "scope": request.scope, "concept_review_mode": request.concept_review_mode, "concept_candidates": hydrated_payload.get("concepts", raw_candidates), "concept_provenance": {"tool": "vocab_search_standard", "query": query, "domains": domains, "tool_status": candidates.get("status"), "metadata_tool": "vocab_fetch_concepts", "metadata_status": (hydrated or {}).get("status")}}
+        if request.concept_review_mode == "propose" and not request.concept_sets:
+            domains = sorted({str(value) for value in request.scope.get("criterion_domains", {}).values() if value})
+            query = str(request.scope.get("index_event") or narrative)
+            candidates = self.call_tool("vocab_search_standard", {"query": query, "domains": domains or None, "limit": 20})
+            candidate_payload = candidates.get("full_result") or {}
+            bundle = self.call_tool("phenotype_make_computable_prompt_bundle", {})
+            bundle_payload = bundle.get("full_result") or {}
+            if bundle.get("status") != "ok" or bundle_payload.get("error"):
+                return {"status": "unavailable", "error": "computable_prompt_bundle_failed", "details": bundle}
+            prompt = build_lint_prompt(bundle_payload.get("overview", ""), bundle_payload.get("spec", ""), bundle_payload.get("output_schema", {}), "phenotype_make_computable", {"narrative_statement": narrative, "scope": request.scope, "concept_candidates": candidate_payload.get("concepts", [])}, max_kb=20)
+            llm_result = self._call_llm(prompt, required_keys=["status", "scope_check", "concept_sets", "cohort_plan", "assumptions", "warnings"])
+            proposed_plan = llm_result.parsed_content if llm_result.status == "ok" else None
+            return {"status": "needs_concept_review" if proposed_plan else "unavailable", "narrative_statement": narrative, "concept_review_mode": "propose", "concept_candidates": candidate_payload.get("concepts", []), "proposed_plan": proposed_plan, "llm_status": llm_result.status, "diagnostics": self._llm_diagnostics(llm_result)}
+        if self._mcp_client is None:
+            return {"status": "error", "error": "MCP client unavailable"}
+        emitted = self.call_tool("phenotype_make_computable_emit", {"scope": request.scope, "concept_sets": request.concept_sets})
+        source = (emitted.get("full_result") or {}).get("capr_code")
+        if emitted.get("status") != "ok" or not source:
+            return {"status": "unavailable", "error": "capr_emission_failed", "details": emitted}
+        validated = self.call_tool("phenotype_make_computable_validate", {"capr_code": source})
+        result = validated.get("full_result") or {}
+        if validated.get("status") != "ok" or result.get("status") != "passed":
+            return {"status": "unavailable", "error": "capr_validation_failed", "validation": result}
+        return {"status": "ok", "narrative_statement": narrative, "capr_code": source, "circe_json": result.get("circe_json"), "validation": {"status": "passed", "messages": result.get("messages", [])}}
     def _wrap_result(self, name: str, result: Dict[str, Any], warnings: List[str]) -> Dict[str, Any]:
         safe_summary = self._safe_summary(result)
         return {

@@ -27,6 +27,9 @@ TOOL_MODULES: list[str] = [
     "study_agent_mcp.tools.keeper_profiles",
     "study_agent_mcp.tools.cohort_methods_prompt_bundle",
     "study_agent_mcp.tools.workflow_context_dialogue",
+    "study_agent_mcp.tools.phenotype_make_computable",
+    "study_agent_mcp.tools.phenotype_make_computable_validate",
+    "study_agent_mcp.tools.phenotype_make_computable_emit",
 ]
 
 

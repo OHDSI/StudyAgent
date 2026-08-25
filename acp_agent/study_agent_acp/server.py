@@ -15,6 +15,7 @@ from .mcp_client import HttpMCPClient, HttpMCPClientConfig, StdioMCPClient, Stdi
 SERVICES = [
     {"name": "phenotype_recommendation", "endpoint": "/flows/phenotype_recommendation"},
     {"name": "phenotype_definition", "endpoint": "/flows/phenotype_definition"},
+    {"name": "phenotype_make_computable", "endpoint": "/flows/phenotype_make_computable"},
     {"name": "phenotype_improvements", "endpoint": "/flows/phenotype_improvements"},
     {"name": "concept_sets_review", "endpoint": "/flows/concept_sets_review"},
     {"name": "cohort_critique_general_design", "endpoint": "/flows/cohort_critique_general_design"},
@@ -270,6 +271,16 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             _write_json(self, status, result)
             return
 
+        if self.path == "/flows/phenotype_make_computable":
+            try:
+                from study_agent_core.models import PhenotypeMakeComputableInput
+                payload = PhenotypeMakeComputableInput(**_read_json(self))
+            except Exception as exc:
+                _write_json(self, 422, {"error": f"invalid_payload: {exc}"})
+                return
+            result = self.agent.run_phenotype_make_computable_flow(**payload.model_dump())
+            _write_json(self, 200 if result.get("status") != "error" else 400, result)
+            return
         if self.path == "/flows/phenotype_definition":
             try:
                 body = _read_json(self)

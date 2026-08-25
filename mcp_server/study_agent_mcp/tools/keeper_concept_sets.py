@@ -352,6 +352,29 @@ def _iter_generic_result_rows(payload: Any) -> List[Dict[str, Any]]:
     return []
 
 
+
+def _search_standard_via_db(query: str, domains: List[str] | None, concept_classes: List[str] | None, limit: int) -> Dict[str, Any]:
+    engine_name = _resolve_vocab_engine_name()
+    schema = _safe_identifier(os.getenv("VOCAB_DATABASE_SCHEMA", "vocabulary"), "vocab_database_schema")
+    table = _safe_identifier(os.getenv("VOCAB_CONCEPT_TABLE", "concept"), "vocab_concept_table")
+    conditions = ["lower(concept_name) LIKE lower(:query)", "standard_concept = 'S'", "invalid_reason IS NULL"]
+    params: Dict[str, Any] = {"query": f"%{query.strip()}%", "limit": max(1, min(int(limit), 100))}
+    binds = []
+    if domains:
+        conditions.append("domain_id IN :domains")
+        params["domains"] = list(domains)
+        binds.append(sa.bindparam("domains", expanding=True))
+    if concept_classes:
+        conditions.append("concept_class_id IN :classes")
+        params["classes"] = list(concept_classes)
+        binds.append(sa.bindparam("classes", expanding=True))
+    sql = sa.text(f"SELECT concept_id, concept_name, vocabulary_id, domain_id, concept_class_id, standard_concept FROM {schema}.{table} WHERE {' AND '.join(conditions)} ORDER BY concept_name LIMIT :limit").bindparams(*binds)
+    engine = create_engine_with_dependencies(engine_name, future=True)
+    with engine.connect() as connection:
+        rows = connection.execute(sql, params).mappings().all()
+    concepts = [{"conceptId": row["concept_id"], "conceptName": row["concept_name"], "vocabularyId": row["vocabulary_id"], "domainId": row["domain_id"], "conceptClassId": row["concept_class_id"], "standardConcept": row["standard_concept"]} for row in rows]
+    return {"concepts": concepts, "count": len(concepts), "provider": "db"}
+
 def _search_standard_via_generic_api(
     query: str,
     domains: List[str] | None,
@@ -764,6 +787,11 @@ def register(mcp: object) -> None:
             )
         if selected_provider == "none":
             return with_meta({"concepts": [], "count": 0, "provider": selected_provider}, "vocab_search_standard")
+        if selected_provider == "db":
+            try:
+                return with_meta(_search_standard_via_db(query, domains, concept_classes, limit), "vocab_search_standard")
+            except Exception as exc:
+                return with_meta({"error": "vocab_search_standard_failed", "provider": "db", "details": str(exc), "concepts": [], "count": 0}, "vocab_search_standard")
         if selected_provider == "hecate_api":
             try:
                 payload = _search_standard_via_hecate(query, domains, concept_classes, limit)

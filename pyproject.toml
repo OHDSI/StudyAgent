@@ -18,6 +18,7 @@ dependencies = [
   "omop-alchemy==0.6.0",
   "orm-loader==0.3.26",
   "pydantic>=2.0.0",
+  "psycopg[binary]>=3.1,<4",
   "PyYAML>=6.0",
   "requests>=2.33",
   "sqlalchemy>=2.0",

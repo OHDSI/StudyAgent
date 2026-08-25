@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "phenotype_make_computable_plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["status", "scope_check", "concept_sets", "cohort_plan", "assumptions", "warnings"],
+  "properties": {
+    "status": {"enum": ["ok", "needs_clarification", "not_expressible"]},
+    "scope_check": {"type": "object"},
+    "concept_sets": {"type": "array", "items": {"type": "object"}},
+    "cohort_plan": {"type": "object"},
+    "assumptions": {"type": "array", "items": {"type": "string"}},
+    "warnings": {"type": "array", "items": {"type": "string"}}
+  }
+}

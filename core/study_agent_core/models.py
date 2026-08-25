@@ -339,3 +339,17 @@ class CohortMethodSpecsRecommendationOutput(BaseModel):
 
 class LLMAuditEnvelope(BaseModel):
     records: List[LLMAuditRecord] = Field(default_factory=list)
+
+ConceptReviewMode = Literal["required", "propose", "provided_only"]
+
+
+class PhenotypeMakeComputableInput(BaseModel):
+    """Stateless direct-narrative request for a computable cohort definition."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    narrative_statement: str
+    confirmed_scope: bool = False
+    scope: Dict[str, Any] = Field(default_factory=dict)
+    concept_review_mode: ConceptReviewMode = "required"
+    concept_sets: List[Dict[str, Any]] = Field(default_factory=list)
