@@ -8,22 +8,15 @@ from pathlib import Path
 from typing import Any, Dict
 
 from ._common import with_meta
+from .phenotype_make_computable_emit import ENTRY_POINT
 
 _R_LIBS = "/ai-agent/HadesProject/OHDSI-Study-Agent/renv/library/linux-ubuntu-noble/R-4.5/x86_64-pc-linux-gnu"
-_FORBIDDEN_IDENTIFIERS = (
-    "assign", "assigninnamespace", "attach", "connection", "download", "download.file",
-    "dyn.load", "eval", "file", "get", "getnamespace", "library.dynam", "load",
-    "loadnamespace", "parse", "pipe", "readlines", "readrds", "readurl", "save",
-    "serialize", "setwd", "shell", "socket", "source", "system", "system2", "unlink",
-    "url", "write", "writelines",
-)
+_FORBIDDEN_IDENTIFIERS = ("assign", "assigninnamespace", "attach", "connection", "download", "download.file", "dyn.load", "eval", "file", "get", "getnamespace", "library.dynam", "load", "loadnamespace", "parse", "pipe", "readlines", "readrds", "readurl", "save", "serialize", "setwd", "shell", "socket", "source", "system", "system2", "unlink", "url", "write", "writelines")
 _FORBIDDEN_NAMESPACE_PREFIXES = ("base::", "utils::", "methods::", "parallel::", "tools::", "httr::", "curl::")
 
 
 def _unsafe_r_constructs(capr_code: str) -> list[str]:
-    """Reject source capable of process, filesystem, network, or reflective execution."""
     import re
-
     normalized = capr_code.lower().replace("`", "")
     normalized = re.sub(r'(["\'])(?:\\.|(?!\1).)*\1', '""', normalized, flags=re.DOTALL)
     normalized = re.sub(r"(?m)#.*$", "", normalized)
@@ -33,7 +26,7 @@ def _unsafe_r_constructs(capr_code: str) -> list[str]:
 
 
 def validate_capr_source(capr_code: str, timeout_seconds: int = 60) -> Dict[str, Any]:
-    """Execute deterministic Capr source and require CirceR SQL compilation."""
+    """Validate pure function-form Capr source and compile its Circe JSON."""
     if not capr_code.strip():
         return {"status": "failed", "messages": ["empty_capr_code"]}
     hits = _unsafe_r_constructs(capr_code)
@@ -41,17 +34,15 @@ def validate_capr_source(capr_code: str, timeout_seconds: int = 60) -> Dict[str,
         return {"status": "failed", "messages": [f"forbidden_r_constructs:{','.join(hits)}"]}
     with tempfile.TemporaryDirectory(prefix="study-agent-capr-") as directory:
         root = Path(directory)
-        script = root / "cohort.R"
-        output = root / "cohort.json"
+        script, output = root / "phenotype_definition.R", root / "cohort.json"
         script.write_text(capr_code, encoding="utf-8")
         runner = (
-            "args<-commandArgs(TRUE); suppressPackageStartupMessages(library(Capr)); "
-            "source(args[1], local=new.env(parent=globalenv())); "
-            "if(!file.exists(args[2])) stop('cohort_json_not_written'); "
-            "j<-paste(readLines(args[2],warn=FALSE),collapse='\\n'); "
-            "e<-CirceR::cohortExpressionFromJson(j); "
-            "s<-CirceR::buildCohortQuery(e,CirceR::createGenerateOptions(generateStats=FALSE)); "
-            "if(!is.character(s)||!nchar(s)) stop('circe_sql_empty')"
+            "args<-commandArgs(TRUE); e<-new.env(parent=baseenv()); sys.source(args[1],envir=e); "
+            f"if(!exists('{ENTRY_POINT}',envir=e,inherits=FALSE)) stop('capr_entry_point_missing'); "
+            f"d<-e[['{ENTRY_POINT}']](); if(!methods::is(d,'Cohort')) stop('capr_entry_point_did_not_return_cohort'); "
+            "Capr::writeCohort(d,args[2]); if(!file.exists(args[2])) stop('cohort_json_not_written'); "
+            "j<-paste(readLines(args[2],warn=FALSE),collapse='\\n'); e2<-CirceR::cohortExpressionFromJson(j); "
+            "s<-CirceR::buildCohortQuery(e2,CirceR::createGenerateOptions(generateStats=FALSE)); if(!is.character(s)||!nchar(s)) stop('circe_sql_empty')"
         )
         env = {"PATH": os.environ.get("PATH", ""), "R_PROFILE_USER": "/dev/null", "R_ENVIRON_USER": "/dev/null", "R_LIBS_USER": _R_LIBS}
         try:

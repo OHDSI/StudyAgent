@@ -1233,21 +1233,6 @@ class StudyAgent(PhenotypeRecommendationMixin):
     ) -> Dict[str, Any]:
         if not study_intent:
             return {"status": "error", "error": "missing study_intent"}
-        if request.concept_review_mode == "propose" and not request.concept_sets:
-            if self._mcp_client is None:
-                return {"status": "error", "error": "MCP client unavailable"}
-            domains = sorted({str(value) for value in request.scope.get("criterion_domains", {}).values() if value})
-            query = str(request.scope.get("index_event") or narrative)
-            candidates = self.call_tool("vocab_search_standard", {"query": query, "domains": domains or None, "limit": 20})
-            candidate_payload = candidates.get("full_result") or {}
-            bundle = self.call_tool("phenotype_make_computable_prompt_bundle", {})
-            bundle_payload = bundle.get("full_result") or {}
-            if bundle.get("status") != "ok" or bundle_payload.get("error"):
-                return {"status": "unavailable", "error": "computable_prompt_bundle_failed", "details": bundle}
-            prompt = build_lint_prompt(bundle_payload.get("overview", ""), bundle_payload.get("spec", ""), bundle_payload.get("output_schema", {}), "phenotype_make_computable", {"narrative_statement": narrative, "scope": request.scope, "concept_candidates": candidate_payload.get("concepts", [])}, max_kb=20)
-            llm_result = self._call_llm(prompt, required_keys=["status", "scope_check", "concept_sets", "cohort_plan", "assumptions", "warnings"])
-            proposed_plan = llm_result.parsed_content if llm_result.status == "ok" else None
-            return {"status": "needs_concept_review" if proposed_plan else "unavailable", "narrative_statement": narrative, "concept_review_mode": "propose", "concept_candidates": candidate_payload.get("concepts", []), "proposed_plan": proposed_plan, "llm_status": llm_result.status, "diagnostics": self._llm_diagnostics(llm_result)}
         if self._mcp_client is None:
             return {"status": "error", "error": "MCP client unavailable"}
         if top_k is None:
@@ -3173,17 +3158,27 @@ class StudyAgent(PhenotypeRecommendationMixin):
             llm_result = self._call_llm(prompt, required_keys=["status", "scope_check", "concept_sets", "cohort_plan", "assumptions", "warnings"])
             proposed_plan = llm_result.parsed_content if llm_result.status == "ok" else None
             return {"status": "needs_concept_review" if proposed_plan else "unavailable", "narrative_statement": narrative, "concept_review_mode": "propose", "concept_candidates": candidate_payload.get("concepts", []), "proposed_plan": proposed_plan, "llm_status": llm_result.status, "diagnostics": self._llm_diagnostics(llm_result)}
+        mixed_domain_sets = []
+        for concept_set in request.concept_sets:
+            reviewed_items = concept_set.get("items") or concept_set.get("concepts") or []
+            domains = sorted({str(item.get("domain") or item.get("domainId")) for item in reviewed_items if isinstance(item, dict) and (item.get("domain") or item.get("domainId"))})
+            if len(domains) > 1:
+                mixed_domain_sets.append({"concept_set_name": concept_set.get("name") or "unnamed concept set", "domains": domains})
+        if mixed_domain_sets and not request.scope.get("multi_domain_entry_policy"):
+            return {"status": "needs_clarification", "narrative_statement": narrative, "clarification_type": "mixed_domain_entry", "detected_concept_sets": mixed_domain_sets, "questions": ["Do all listed domains qualify for cohort entry, or is one domain supporting evidence only?", "If more than one domain qualifies, is the index the earliest qualifying event across those domains?", "Confirm the event-date basis for each qualifying domain and whether each reviewed concept family is appropriate for entry."], "decision_options": ["diagnosis_only", "any_qualifying_domain", "supporting_evidence_only"], "clarification_provenance": {"detected_from": "reviewed_concept_sets", "policy_field": "multi_domain_entry_policy"}}
         if self._mcp_client is None:
             return {"status": "error", "error": "MCP client unavailable"}
         emitted = self.call_tool("phenotype_make_computable_emit", {"scope": request.scope, "concept_sets": request.concept_sets})
-        source = (emitted.get("full_result") or {}).get("capr_code")
+        emitted_payload = emitted.get("full_result") or {}
+        source = emitted_payload.get("capr_code")
+        entry_point = emitted_payload.get("entry_point")
         if emitted.get("status") != "ok" or not source:
             return {"status": "unavailable", "error": "capr_emission_failed", "details": emitted}
         validated = self.call_tool("phenotype_make_computable_validate", {"capr_code": source})
         result = validated.get("full_result") or {}
         if validated.get("status") != "ok" or result.get("status") != "passed":
             return {"status": "unavailable", "error": "capr_validation_failed", "validation": result}
-        return {"status": "ok", "narrative_statement": narrative, "capr_code": source, "circe_json": result.get("circe_json"), "validation": {"status": "passed", "messages": result.get("messages", [])}}
+        return {"status": "ok", "narrative_statement": narrative, "capr": {"filename": "phenotype_definition.R", "entry_point": entry_point, "source": source}, "circe_json": result.get("circe_json"), "validation": {"status": "passed", "messages": result.get("messages", [])}}
     def _wrap_result(self, name: str, result: Dict[str, Any], warnings: List[str]) -> Dict[str, Any]:
         safe_summary = self._safe_summary(result)
         return {

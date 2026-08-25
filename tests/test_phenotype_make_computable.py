@@ -76,6 +76,8 @@ def test_confirmed_provided_concept_set_returns_validated_artifacts():
     assert result["status"] == "ok"
     assert result["validation"]["status"] == "passed"
     assert isinstance(result["circe_json"], dict)
+    assert result["capr"]["filename"] == "phenotype_definition.R"
+    assert result["capr"]["entry_point"] == "phenotype_make_computable_definition"
 
 
 def test_required_concept_review_returns_vocab_candidates():
@@ -115,18 +117,24 @@ def test_supported_training_cases_compile_with_reviewed_policies():
         ("794", {"index_event": "Digestive hemorrhage", "entry_limit": "All", "exit_strategy": {"type": "fixed", "offset_days": 14}}),
         ("743", {"index_event": "Diabetic ketoacidosis", "entry_limit": "All", "visit_overlap": True, "exit_strategy": {"type": "fixed", "offset_days": 30}}),
         ("222", {"index_event": "SJS/TEN", "entry_limit": "All", "visit_overlap": True, "exit_strategy": {"type": "fixed", "offset_days": 1}}),
-    ]
-    for case_id, scope in cases:
         ("1340", {"index_event": "Anorexia nervosa", "entry_limit": "All", "exit_strategy": {"type": "fixed", "offset_days": 30}, "era_days": 365}),
         ("1341", {"index_event": "Eating disorders", "entry_limit": "All", "exit_strategy": {"type": "fixed", "offset_days": 30}, "era_days": 365}),
         ("1345", {"index_event": "Personality disorders", "entry_limit": "All", "exit_strategy": {"type": "fixed", "offset_days": 30}, "era_days": 365}),
         ("1346", {"index_event": "ADHD", "entry_limit": "All", "exit_strategy": {"type": "fixed", "offset_days": 30}, "era_days": 365}),
         ("1347", {"index_event": "PTSD", "entry_limit": "All", "exit_strategy": {"type": "fixed", "offset_days": 30}, "era_days": 365}),
+    ]
+    for case_id, scope in cases:
         emitted = emit_capr(scope, _policy_concept_sets(case_id))
         assert emitted["status"] == "passed", case_id
         assert validate_capr_source(emitted["capr_code"])["status"] == "passed", case_id
 
 
+
+def test_emitted_capr_is_a_pure_function_artifact():
+    emitted = emit_capr({"index_event": "Cirrhosis", "entry_limit": "First", "exit_strategy": "observation"}, _policy_concept_sets("710"))
+    assert emitted["entry_point"] == "phenotype_make_computable_definition"
+    assert "phenotype_make_computable_definition <- function()" in emitted["capr_code"]
+    assert "writeCohort" not in emitted["capr_code"]
 def test_era_days_becomes_circe_collapse_settings():
     emitted = emit_capr({"index_event": "Anorexia", "entry_limit": "All", "exit_strategy": {"type": "fixed", "offset_days": 30}, "era_days": 365}, _policy_concept_sets("1340"))
     circe = validate_capr_source(emitted["capr_code"])["circe_json"]
@@ -137,3 +145,41 @@ def test_mixed_domain_concept_set_fails_closed():
     emitted = emit_capr({"index_event": "Rheumatoid arthritis", "entry_limit": "First", "exit_strategy": "observation"}, _policy_concept_sets("858"))
     assert emitted["status"] == "failed"
     assert emitted["messages"] == ["mixed_domain_concept_set_requires_explicit_multi_domain_plan"]
+
+
+def test_mixed_domain_concept_set_returns_clarification_card_before_emission():
+    scope = {"index_event": "Rheumatoid arthritis", "criterion_domains": {"Rheumatoid arthritis": "Condition or Observation"}, "entry_limit": "First", "prior_observation": "0", "index_day_boundary": "included", "windows": "none", "exit_strategy": "observation"}
+    result = StudyAgent(mcp_client=_Mcp()).run_phenotype_make_computable_flow("Earliest rheumatoid arthritis diagnosis by condition or observation date.", True, scope, "provided_only", _policy_concept_sets("858"))
+    assert result["status"] == "needs_clarification"
+    assert result["clarification_type"] == "mixed_domain_entry"
+    assert result["detected_concept_sets"][0]["domains"] == ["Condition", "Observation"]
+    assert result["clarification_provenance"]["detected_from"] == "reviewed_concept_sets"
+
+
+def test_temporal_followup_with_continuous_observation_compiles():
+    scope = {"index_event": "Transverse myelitis", "entry_limit": "All", "exit_strategy": {"type": "fixed", "index": "startDate", "offset_days": 1}, "temporal_followup": {"index_concept_set": "Transverse Myelitis", "trigger_concept_set": "Symptoms for Transverse Myelitis", "followup_days": 30, "washout_days": 365}}
+    emitted = emit_capr(scope, _policy_concept_sets("63"))
+    circe = validate_capr_source(emitted["capr_code"])["circe_json"]
+    assert circe["PrimaryCriteria"]["ObservationWindow"] == {"PriorDays": 365, "PostDays": 0}
+    assert circe["EndStrategy"]["DateOffset"] == {"DateField": "StartDate", "Offset": 1}
+    assert len(circe["InclusionRules"]) == 1
+    assert circe["PrimaryCriteria"]["ObservationWindow"] == {"PriorDays": 365, "PostDays": 0}
+
+
+def test_single_condition_prior_observation_scope_is_preserved_in_circe():
+    emitted = emit_capr({"index_event": "Cirrhosis", "entry_limit": "First", "prior_observation": 365, "exit_strategy": "observation"}, _policy_concept_sets("710"))
+    circe = validate_capr_source(emitted["capr_code"])["circe_json"]
+    assert circe["PrimaryCriteria"]["ObservationWindow"] == {"PriorDays": 365, "PostDays": 0}
+
+
+def test_visit_overlap_prior_observation_scope_is_preserved_in_circe():
+    scope = {"index_event": "SJS/TEN", "entry_limit": "All", "prior_observation": 365, "visit_overlap": True, "exit_strategy": {"type": "fixed", "offset_days": 1}}
+    emitted = emit_capr(scope, _policy_concept_sets("222"))
+    circe = validate_capr_source(emitted["capr_code"])["circe_json"]
+    assert circe["PrimaryCriteria"]["ObservationWindow"] == {"PriorDays": 365, "PostDays": 0}
+
+
+def test_temporal_followup_rejects_inconsistent_prior_observation():
+    scope = {"index_event": "Transverse myelitis", "entry_limit": "All", "prior_observation": 0, "temporal_followup": {"index_concept_set": "Transverse Myelitis", "trigger_concept_set": "Symptoms for Transverse Myelitis", "followup_days": 30, "washout_days": 365}}
+    result = emit_capr(scope, _policy_concept_sets("63"))
+    assert result["messages"] == ["temporal_followup_prior_observation_must_equal_washout_days"]

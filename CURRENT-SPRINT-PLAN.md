@@ -132,3 +132,16 @@ After direct narrative generation is stable, update phenotype_definition so a se
 - The maintained prompt bundle will live under `mcp_server/prompts/phenotype_make_computable/` and include a repository-owned, versioned `CAPR_REFERENCE.md`; runtime behavior must not depend on the sandbox copy.
 - V1 uses the existing StudyAgent vocabulary/PHOEBE tools behind a provider boundary. The Groundworkers/OMOP-stack upgrade remains a separately tested comparison branch, not a prerequisite for this flow.
 - The supplied project R library is the validation runtime. The flow must explicitly use `R_LIBS_USER=/ai-agent/HadesProject/OHDSI-Study-Agent/renv/library/linux-ubuntu-noble/R-4.5/x86_64-pc-linux-gnu` for Capr/CirceR execution; no `renv` mutation or snapshot is authorized.
+
+## Mixed-domain clarification convention (cohort 858 design case)
+
+- Preserve retained cohort 858 and its provenance unchanged; it is a development ambiguity case, not an automatically supported definition.
+- A reviewed concept set spanning more than one OMOP event domain must not be emitted until the caller supplies an explicit `multi_domain_entry_policy` (for example `diagnosis_only`, `any_qualifying_domain`, or `supporting_evidence_only`).
+- The direct flow returns `needs_clarification` with detected concept-set/domain provenance and asks whether each domain qualifies, how domains combine, and which event dates can define the index.
+- A future statement-clarification ACP flow should present this as a decision card. It must not choose a clinical-evidence policy on the caller's behalf.
+
+## Cohort 63 corrected development variant
+
+- Preserve the retained cohort-63 reference unchanged. It encodes a 365-day clean window without requiring 365 days of continuous observation.
+- The StudyAgent development variant requires both: 365 days of continuous observation before index and no qualifying direct-diagnosis or symptom-follow-up pathway in days -365 through -1.
+- This is a deliberate semantic correction requested during sprint review, so reference comparison must report the observation-window difference rather than overwrite the original artifact.
