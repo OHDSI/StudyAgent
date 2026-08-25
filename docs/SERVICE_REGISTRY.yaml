@@ -44,11 +44,11 @@ services:
       - concept_sets
     output:
       - status
-      - capr_code
+      - capr: filename, entry_point, source
       - circe_json
       - validation
     validation:
-      - Capr execution and CirceR SQL generation for supported deterministic emitters
+      - Capr function invocation and CirceR SQL generation for supported deterministic emitters
       - no server-side persistence of caller artifacts
   phenotype_improvements:
     endpoint: /flows/phenotype_improvements

@@ -183,3 +183,37 @@ def test_temporal_followup_rejects_inconsistent_prior_observation():
     scope = {"index_event": "Transverse myelitis", "entry_limit": "All", "prior_observation": 0, "temporal_followup": {"index_concept_set": "Transverse Myelitis", "trigger_concept_set": "Symptoms for Transverse Myelitis", "followup_days": 30, "washout_days": 365}}
     result = emit_capr(scope, _policy_concept_sets("63"))
     assert result["messages"] == ["temporal_followup_prior_observation_must_equal_washout_days"]
+
+
+def test_invalid_declared_scope_is_returned_as_clarification_before_emission():
+    result = StudyAgent(mcp_client=_Mcp()).run_phenotype_make_computable_flow(
+        "earliest cirrhosis",
+        True,
+        {"index_event": "Cirrhosis", "entry_limit": "Earliest", "exit_strategy": "observation"},
+        "provided_only",
+        _policy_concept_sets("710"),
+    )
+    assert result["status"] == "needs_clarification"
+    assert result["clarification_type"] == "invalid_scope"
+    assert result["scope_errors"][0]["loc"] == ("scope", "entry_limit")
+
+
+def test_scope_rejects_undeclared_semantics_before_emission():
+    result = StudyAgent(mcp_client=_Mcp()).run_phenotype_make_computable_flow(
+        "earliest cirrhosis",
+        True,
+        {"index_event": "Cirrhosis", "entry_limit": "First", "exit_strategy": "observation", "drug_era": {"days": 30}},
+        "provided_only",
+        _policy_concept_sets("710"),
+    )
+    assert result["status"] == "needs_clarification"
+    assert result["clarification_type"] == "invalid_scope"
+    assert result["scope_errors"][0]["type"] == "extra_forbidden"
+
+
+def test_unsupported_scope_semantics_fail_closed():
+    concepts = _policy_concept_sets("710")
+    boundary = emit_capr({"index_event": "Cirrhosis", "entry_limit": "First", "index_day_boundary": "excluded", "exit_strategy": "observation"}, concepts)
+    windows = emit_capr({"index_event": "Cirrhosis", "entry_limit": "First", "windows": {"start": -30, "end": 0}, "exit_strategy": "observation"}, concepts)
+    assert boundary["messages"] == ["unsupported_index_day_boundary"]
+    assert windows["messages"] == ["unsupported_temporal_windows_require_explicit_emitter_mode"]

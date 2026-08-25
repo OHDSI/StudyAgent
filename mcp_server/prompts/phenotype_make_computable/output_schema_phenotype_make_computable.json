@@ -8,7 +8,20 @@
     "status": {"enum": ["ok", "needs_clarification", "not_expressible"]},
     "scope_check": {"type": "object"},
     "concept_sets": {"type": "array", "items": {"type": "object"}},
-    "cohort_plan": {"type": "object"},
+    "cohort_plan": {
+      "type": "object",
+      "properties": {
+        "mode": {"enum": ["condition_entry", "visit_overlap", "temporal_followup", "mixed_domain_clarification"]},
+        "entry_limit": {"enum": ["First", "All"]},
+        "prior_observation_days": {"type": "integer", "minimum": 0},
+        "exit_strategy": {"type": "object"},
+        "era_days": {"type": "integer", "minimum": 0},
+        "visit_overlap_mode": {"enum": ["entry", "attrition"]},
+        "temporal_followup": {"type": "object"},
+        "multi_domain_entry_policy": {"enum": ["diagnosis_only", "any_qualifying_domain", "supporting_evidence_only"]}
+      },
+      "additionalProperties": true
+    },
     "assumptions": {"type": "array", "items": {"type": "string"}},
     "warnings": {"type": "array", "items": {"type": "string"}}
   }

@@ -343,6 +343,48 @@ class LLMAuditEnvelope(BaseModel):
 ConceptReviewMode = Literal["required", "propose", "provided_only"]
 
 
+class PhenotypePriorObservationScope(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    days: int = Field(ge=0)
+
+
+class PhenotypeFixedExitScope(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["fixed"]
+    index: Literal["startDate", "endDate"] = "endDate"
+    offset_days: int = 0
+
+
+class PhenotypeTemporalFollowupScope(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    index_concept_set: str = ""
+    trigger_concept_set: str = ""
+    followup_days: int = Field(default=30, ge=0)
+    washout_days: int = Field(default=365, ge=1)
+
+
+class PhenotypeMakeComputableScope(BaseModel):
+    """Declared v1 scope surface accepted by the computable phenotype flow."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    index_event: Optional[str] = None
+    criterion_domains: Dict[str, str] = Field(default_factory=dict)
+    entry_limit: Optional[Literal["First", "All"]] = None
+    prior_observation: Optional[int | PhenotypePriorObservationScope] = None
+    index_day_boundary: Optional[Literal["included", "excluded"]] = None
+    windows: Optional[Literal["none"] | Dict[str, Any] | List[Any]] = None
+    exit_strategy: Optional[Literal["observation", "end_of_observation"] | PhenotypeFixedExitScope] = None
+    era_days: int = Field(default=0, ge=0)
+    visit_overlap: bool = False
+    visit_overlap_mode: Optional[Literal["entry", "attrition"]] = None
+    temporal_followup: Optional[PhenotypeTemporalFollowupScope] = None
+    multi_domain_entry_policy: Optional[Literal["diagnosis_only", "any_qualifying_domain", "supporting_evidence_only"]] = None
+
+
 class PhenotypeMakeComputableInput(BaseModel):
     """Stateless direct-narrative request for a computable cohort definition."""
 
@@ -350,6 +392,6 @@ class PhenotypeMakeComputableInput(BaseModel):
 
     narrative_statement: str
     confirmed_scope: bool = False
-    scope: Dict[str, Any] = Field(default_factory=dict)
+    scope: PhenotypeMakeComputableScope = Field(default_factory=PhenotypeMakeComputableScope)
     concept_review_mode: ConceptReviewMode = "required"
     concept_sets: List[Dict[str, Any]] = Field(default_factory=list)

@@ -5,6 +5,7 @@ import os
 import subprocess
 import tempfile
 from pathlib import Path
+from threading import Lock
 from typing import Any, Dict
 
 from ._common import with_meta
@@ -13,6 +14,9 @@ from .phenotype_make_computable_emit import ENTRY_POINT
 _R_LIBS = "/ai-agent/HadesProject/OHDSI-Study-Agent/renv/library/linux-ubuntu-noble/R-4.5/x86_64-pc-linux-gnu"
 _FORBIDDEN_IDENTIFIERS = ("assign", "assigninnamespace", "attach", "connection", "download", "download.file", "dyn.load", "eval", "file", "get", "getnamespace", "library.dynam", "load", "loadnamespace", "parse", "pipe", "readlines", "readrds", "readurl", "save", "serialize", "setwd", "shell", "socket", "source", "system", "system2", "unlink", "url", "write", "writelines")
 _FORBIDDEN_NAMESPACE_PREFIXES = ("base::", "utils::", "methods::", "parallel::", "tools::", "httr::", "curl::")
+# Capr/Circe validation shells out to R and writes temporary compilation artifacts.
+# One lane per MCP process avoids resource contention under threaded transports.
+_R_VALIDATION_LOCK = Lock()
 
 
 def _unsafe_r_constructs(capr_code: str) -> list[str]:
@@ -32,6 +36,11 @@ def validate_capr_source(capr_code: str, timeout_seconds: int = 60) -> Dict[str,
     hits = _unsafe_r_constructs(capr_code)
     if hits:
         return {"status": "failed", "messages": [f"forbidden_r_constructs:{','.join(hits)}"]}
+    with _R_VALIDATION_LOCK:
+        return _validate_capr_source_serialized(capr_code, timeout_seconds)
+
+
+def _validate_capr_source_serialized(capr_code: str, timeout_seconds: int) -> Dict[str, Any]:
     with tempfile.TemporaryDirectory(prefix="study-agent-capr-") as directory:
         root = Path(directory)
         script, output = root / "phenotype_definition.R", root / "cohort.json"

@@ -29,6 +29,9 @@ class StdioMCPClient:
     def __init__(self, config: StdioMCPClientConfig) -> None:
         self._config = config
         self._lock = Lock()
+        # A persistent stdio session is shared by ACP request threads. Serialize
+        # operations so replies cannot be consumed by another request.
+        self._session_call_lock = Lock()
         self._portal = None
         self._portal_cm = None
         self._session: ClientSession | None = None
@@ -40,7 +43,8 @@ class StdioMCPClient:
                 return anyio.run(self._list_tools_oneshot)
             self._ensure_session()
             assert self._portal is not None
-            return self._portal.call(self._list_tools)
+            helper = getattr(self, "_call_on_persistent_session", None)
+            return helper(self._list_tools) if helper else self._portal.call(self._list_tools)
         except Exception as exc:
             if _should_use_oneshot(exc):
                 return anyio.run(self._list_tools_oneshot)
@@ -52,7 +56,8 @@ class StdioMCPClient:
                 return anyio.run(self._call_tool_oneshot, name, arguments)
             self._ensure_session()
             assert self._portal is not None
-            return self._portal.call(self._call_tool, name, arguments)
+            helper = getattr(self, "_call_on_persistent_session", None)
+            return helper(self._call_tool, name, arguments) if helper else self._portal.call(self._call_tool, name, arguments)
         except Exception as exc:
             if _should_use_oneshot(exc):
                 return anyio.run(self._call_tool_oneshot, name, arguments)
@@ -64,9 +69,20 @@ class StdioMCPClient:
                 return anyio.run(self._ping_oneshot)
             self._ensure_session()
             assert self._portal is not None
-            return self._portal.call(self._ping)
+            helper = getattr(self, "_call_on_persistent_session", None)
+            return helper(self._ping) if helper else self._portal.call(self._ping)
         except Exception as exc:
             return {"ok": False, "error": str(exc)}
+
+    def _call_on_persistent_session(self, function, *args):
+        assert self._portal is not None
+        lock = getattr(self, "_session_call_lock", None)
+        if lock is None:
+            # Retain compatibility with minimal test doubles implementing this
+            # client surface. Real instances always own the serialization lock.
+            return self._portal.call(function, *args)
+        with lock:
+            return self._portal.call(function, *args)
 
     async def _list_tools(self) -> List[Dict[str, Any]]:
         assert self._session is not None

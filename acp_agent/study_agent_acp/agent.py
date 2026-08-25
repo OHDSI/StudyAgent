@@ -4,7 +4,10 @@ import os
 import re
 import time
 from copy import deepcopy
+from threading import Lock
 from typing import Any, Dict, List, Optional, Protocol
+
+from pydantic import ValidationError
 
 from .phenotype_recommendation_utils import PhenotypeRecommendationMixin
 
@@ -73,6 +76,9 @@ class StudyAgent(PhenotypeRecommendationMixin):
         self._mcp_client = mcp_client
         self._allow_core_fallback = allow_core_fallback
         self._confirmation_required = set(confirmation_required_tools or [])
+        # The configured chat model can be slow and is shared by threaded ACP
+        # requests. Keep proposal mode deterministic and bounded to one call.
+        self._phenotype_make_computable_llm_lock = Lock()
 
         self._core_tools = {
             "propose_concept_set_diff": propose_concept_set_diff,
@@ -279,6 +285,9 @@ class StudyAgent(PhenotypeRecommendationMixin):
         self._mcp_client = mcp_client
         self._allow_core_fallback = allow_core_fallback
         self._confirmation_required = set(confirmation_required_tools or [])
+        # The configured chat model can be slow and is shared by threaded ACP
+        # requests. Keep proposal mode deterministic and bounded to one call.
+        self._phenotype_make_computable_llm_lock = Lock()
 
         self._core_tools = {
             "propose_concept_set_diff": propose_concept_set_diff,
@@ -3125,37 +3134,47 @@ class StudyAgent(PhenotypeRecommendationMixin):
         concept_review_mode: str = "required",
         concept_sets: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
-        request = PhenotypeMakeComputableInput(narrative_statement=narrative_statement, confirmed_scope=confirmed_scope, scope=scope or {}, concept_review_mode=concept_review_mode, concept_sets=concept_sets or [])
+        try:
+            request = PhenotypeMakeComputableInput(narrative_statement=narrative_statement, confirmed_scope=confirmed_scope, scope=scope or {}, concept_review_mode=concept_review_mode, concept_sets=concept_sets or [])
+        except ValidationError as exc:
+            return {
+                "status": "needs_clarification",
+                "clarification_type": "invalid_scope",
+                "scope_errors": exc.errors(include_url=False),
+                "questions": ["Correct the declared v1 scope fields before requesting Capr emission."],
+            }
         narrative = request.narrative_statement.strip()
+        scope_data = request.scope.model_dump(exclude_none=True)
         if not narrative:
             return {"status": "error", "error": "missing_narrative_statement"}
         required_scope = ["index_event", "criterion_domains", "entry_limit", "prior_observation", "index_day_boundary", "windows", "exit_strategy"]
-        missing = [key for key in required_scope if request.scope.get(key) in (None, "", [], {})]
+        missing = [key for key in required_scope if scope_data.get(key) in (None, "", [], {})]
         if not request.confirmed_scope or missing:
             return {"status": "needs_clarification", "narrative_statement": narrative, "required_scope_fields": required_scope, "missing_scope_fields": missing, "questions": ["Confirm the index event and whether it is the first qualifying event or first raw event.", "Confirm the OMOP domain for every clinical criterion.", "Confirm entry-event limit, observation/washout, index-day boundaries, temporal windows, and exit strategy."], "concept_review_mode": request.concept_review_mode}
         if request.concept_review_mode == "required" and not request.concept_sets:
             if self._mcp_client is None:
                 return {"status": "error", "error": "MCP client unavailable"}
-            domains = sorted({str(value) for value in request.scope.get("criterion_domains", {}).values() if value})
-            query = str(request.scope.get("index_event") or narrative)
+            domains = sorted({str(value) for value in scope_data.get("criterion_domains", {}).values() if value})
+            query = str(scope_data.get("index_event") or narrative)
             candidates = self.call_tool("vocab_search_standard", {"query": query, "domains": domains or None, "limit": 20})
             payload = candidates.get("full_result") or {}
             raw_candidates = payload.get("concepts", [])
             concept_ids = [int(row.get("conceptId")) for row in raw_candidates if row.get("conceptId") not in (None, "")]
             hydrated = self.call_tool("vocab_fetch_concepts", {"concept_ids": concept_ids, "concepts": raw_candidates}) if concept_ids else None
             hydrated_payload = (hydrated or {}).get("full_result") or {}
-            return {"status": "needs_concept_review", "narrative_statement": narrative, "scope": request.scope, "concept_review_mode": request.concept_review_mode, "concept_candidates": hydrated_payload.get("concepts", raw_candidates), "concept_provenance": {"tool": "vocab_search_standard", "query": query, "domains": domains, "tool_status": candidates.get("status"), "metadata_tool": "vocab_fetch_concepts", "metadata_status": (hydrated or {}).get("status")}}
+            return {"status": "needs_concept_review", "narrative_statement": narrative, "scope": scope_data, "concept_review_mode": request.concept_review_mode, "concept_candidates": hydrated_payload.get("concepts", raw_candidates), "concept_provenance": {"tool": "vocab_search_standard", "query": query, "domains": domains, "tool_status": candidates.get("status"), "metadata_tool": "vocab_fetch_concepts", "metadata_status": (hydrated or {}).get("status")}}
         if request.concept_review_mode == "propose" and not request.concept_sets:
-            domains = sorted({str(value) for value in request.scope.get("criterion_domains", {}).values() if value})
-            query = str(request.scope.get("index_event") or narrative)
+            domains = sorted({str(value) for value in scope_data.get("criterion_domains", {}).values() if value})
+            query = str(scope_data.get("index_event") or narrative)
             candidates = self.call_tool("vocab_search_standard", {"query": query, "domains": domains or None, "limit": 20})
             candidate_payload = candidates.get("full_result") or {}
             bundle = self.call_tool("phenotype_make_computable_prompt_bundle", {})
             bundle_payload = bundle.get("full_result") or {}
             if bundle.get("status") != "ok" or bundle_payload.get("error"):
                 return {"status": "unavailable", "error": "computable_prompt_bundle_failed", "details": bundle}
-            prompt = build_lint_prompt(bundle_payload.get("overview", ""), bundle_payload.get("spec", ""), bundle_payload.get("output_schema", {}), "phenotype_make_computable", {"narrative_statement": narrative, "scope": request.scope, "concept_candidates": candidate_payload.get("concepts", [])}, max_kb=20)
-            llm_result = self._call_llm(prompt, required_keys=["status", "scope_check", "concept_sets", "cohort_plan", "assumptions", "warnings"])
+            prompt = build_lint_prompt(bundle_payload.get("overview", ""), bundle_payload.get("spec", ""), bundle_payload.get("output_schema", {}), "phenotype_make_computable", {"narrative_statement": narrative, "scope": scope_data, "concept_candidates": candidate_payload.get("concepts", [])}, max_kb=20)
+            with self._phenotype_make_computable_llm_lock:
+                llm_result = self._call_llm(prompt, required_keys=["status", "scope_check", "concept_sets", "cohort_plan", "assumptions", "warnings"])
             proposed_plan = llm_result.parsed_content if llm_result.status == "ok" else None
             return {"status": "needs_concept_review" if proposed_plan else "unavailable", "narrative_statement": narrative, "concept_review_mode": "propose", "concept_candidates": candidate_payload.get("concepts", []), "proposed_plan": proposed_plan, "llm_status": llm_result.status, "diagnostics": self._llm_diagnostics(llm_result)}
         mixed_domain_sets = []
@@ -3164,11 +3183,11 @@ class StudyAgent(PhenotypeRecommendationMixin):
             domains = sorted({str(item.get("domain") or item.get("domainId")) for item in reviewed_items if isinstance(item, dict) and (item.get("domain") or item.get("domainId"))})
             if len(domains) > 1:
                 mixed_domain_sets.append({"concept_set_name": concept_set.get("name") or "unnamed concept set", "domains": domains})
-        if mixed_domain_sets and not request.scope.get("multi_domain_entry_policy"):
+        if mixed_domain_sets and not scope_data.get("multi_domain_entry_policy"):
             return {"status": "needs_clarification", "narrative_statement": narrative, "clarification_type": "mixed_domain_entry", "detected_concept_sets": mixed_domain_sets, "questions": ["Do all listed domains qualify for cohort entry, or is one domain supporting evidence only?", "If more than one domain qualifies, is the index the earliest qualifying event across those domains?", "Confirm the event-date basis for each qualifying domain and whether each reviewed concept family is appropriate for entry."], "decision_options": ["diagnosis_only", "any_qualifying_domain", "supporting_evidence_only"], "clarification_provenance": {"detected_from": "reviewed_concept_sets", "policy_field": "multi_domain_entry_policy"}}
         if self._mcp_client is None:
             return {"status": "error", "error": "MCP client unavailable"}
-        emitted = self.call_tool("phenotype_make_computable_emit", {"scope": request.scope, "concept_sets": request.concept_sets})
+        emitted = self.call_tool("phenotype_make_computable_emit", {"scope": scope_data, "concept_sets": request.concept_sets})
         emitted_payload = emitted.get("full_result") or {}
         source = emitted_payload.get("capr_code")
         entry_point = emitted_payload.get("entry_point")

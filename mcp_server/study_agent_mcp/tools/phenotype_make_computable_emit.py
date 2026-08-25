@@ -78,6 +78,12 @@ def _function_source(scope_comment: str, body: str) -> str:
 
 def emit_capr(scope: Dict[str, Any], concept_sets: List[Dict[str, Any]]) -> Dict[str, Any]:
     temporal = scope.get("temporal_followup") or {}
+    index_day_boundary = scope.get("index_day_boundary")
+    if index_day_boundary not in (None, "included"):
+        return {"status": "failed", "messages": ["unsupported_index_day_boundary"]}
+    windows = scope.get("windows")
+    if windows not in (None, "none", {}, []):
+        return {"status": "failed", "messages": ["unsupported_temporal_windows_require_explicit_emitter_mode"]}
     if temporal:
         index_name, trigger_name = temporal.get("index_concept_set"), temporal.get("trigger_concept_set")
         by_name = {row.get("name"): row for row in concept_sets}
