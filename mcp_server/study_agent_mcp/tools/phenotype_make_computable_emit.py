@@ -156,9 +156,14 @@ Capr::cohort(
     if len(concept_sets) != 1:
         return {"status": "failed", "messages": ["v1_emitter_requires_exactly_one_concept_set"]}
     item = concept_sets[0]
-    if str(item.get("domain") or item.get("domainId") or "") != "Condition":
+    member_domains = _member_domains(item)
+    declared_domain = str(item.get("domain") or item.get("domainId") or "")
+    # The public review model permits policy-bearing item domains without a redundant
+    # set-level domain. Infer that unambiguous domain before applying v1 restrictions.
+    domain = declared_domain or (next(iter(member_domains)) if len(member_domains) == 1 else "")
+    if domain != "Condition":
         return {"status": "failed", "messages": ["v1_emitter_supports_condition_entry_only"]}
-    if len(_member_domains(item)) > 1:
+    if len(member_domains) > 1:
         return {"status": "failed", "messages": ["mixed_domain_concept_set_requires_explicit_multi_domain_plan"]}
     expression, error = _concept_set_expression(item)
     era_days, era_error = _era_days(scope)

@@ -96,6 +96,14 @@ def test_propose_mode_returns_llm_plan_for_review():
     assert result["status"] == "needs_concept_review"
     assert result["llm_status"] == "ok"
     assert result["proposed_plan"]["status"] == "needs_clarification"
+    assert result["concept_provenance"] == {
+        "tool": "vocab_search_standard",
+        "query": "Cirrhosis",
+        "domains": ["Condition"],
+        "tool_status": "ok",
+        "metadata_tool": "vocab_fetch_concepts",
+        "metadata_status": "ok",
+    }
 
 
 def test_prompt_contract_requires_policy_bearing_reviewed_concept_items():
@@ -240,6 +248,14 @@ def test_concept_set_input_normalizes_ohdsi_aliases_before_emission():
     result = StudyAgent(mcp_client=_Mcp()).run_phenotype_make_computable_flow("earliest cirrhosis", True, scope, "provided_only", concept_sets)
     assert result["status"] == "ok"
     assert result["circe_json"]["ConceptSets"][0]["expression"]["items"][0]["includeDescendants"] is True
+
+
+def test_single_item_domain_is_inferred_when_set_domain_is_omitted():
+    emitted = emit_capr(
+        {"index_event": "Cirrhosis", "entry_limit": "First", "exit_strategy": "observation"},
+        [{"name": "Cirrhosis", "items": [{"concept_id": 4064161, "domain": "Condition", "include_descendants": False, "include_mapped": False, "is_excluded": False}]}],
+    )
+    assert emitted["status"] == "passed"
 
 
 def test_invalid_reviewed_concept_set_returns_clarification_before_emission():

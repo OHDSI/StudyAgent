@@ -3179,11 +3179,24 @@ class StudyAgent(PhenotypeRecommendationMixin):
             query = str(scope_data.get("index_event") or narrative)
             candidates = self.call_tool("vocab_search_standard", {"query": query, "domains": domains or None, "limit": 20})
             candidate_payload = candidates.get("full_result") or {}
+            raw_candidates = candidate_payload.get("concepts", [])
+            concept_ids = [int(row.get("conceptId")) for row in raw_candidates if row.get("conceptId") not in (None, "")]
+            hydrated = self.call_tool("vocab_fetch_concepts", {"concept_ids": concept_ids, "concepts": raw_candidates}) if concept_ids else None
+            hydrated_payload = (hydrated or {}).get("full_result") or {}
+            candidate_list = hydrated_payload.get("concepts", raw_candidates)
+            concept_provenance = {
+                "tool": "vocab_search_standard",
+                "query": query,
+                "domains": domains,
+                "tool_status": candidates.get("status"),
+                "metadata_tool": "vocab_fetch_concepts",
+                "metadata_status": (hydrated or {}).get("status"),
+            }
             bundle = self.call_tool("phenotype_make_computable_prompt_bundle", {})
             bundle_payload = bundle.get("full_result") or {}
             if bundle.get("status") != "ok" or bundle_payload.get("error"):
                 return {"status": "unavailable", "error": "computable_prompt_bundle_failed", "details": bundle}
-            prompt = build_lint_prompt(bundle_payload.get("overview", ""), bundle_payload.get("spec", ""), bundle_payload.get("output_schema", {}), "phenotype_make_computable", {"narrative_statement": narrative, "scope": scope_data, "concept_candidates": candidate_payload.get("concepts", [])}, max_kb=20)
+            prompt = build_lint_prompt(bundle_payload.get("overview", ""), bundle_payload.get("spec", ""), bundle_payload.get("output_schema", {}), "phenotype_make_computable", {"narrative_statement": narrative, "scope": scope_data, "concept_candidates": candidate_list}, max_kb=20)
             with self._phenotype_make_computable_llm_lock:
                 llm_result = self._call_llm(prompt, required_keys=["status", "scope_check", "concept_sets", "cohort_plan", "assumptions", "warnings"])
             proposed_plan = None
@@ -3193,7 +3206,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
                     proposed_plan = PhenotypeMakeComputableProposal.model_validate(llm_result.parsed_content).model_dump(exclude_none=True)
                 except ValidationError as exc:
                     proposal_errors = exc.errors(include_url=False)
-            return {"status": "needs_concept_review" if proposed_plan else "unavailable", "narrative_statement": narrative, "concept_review_mode": "propose", "concept_candidates": candidate_payload.get("concepts", []), "proposed_plan": proposed_plan, "llm_status": llm_result.status, "proposal_validation_errors": proposal_errors, "diagnostics": self._llm_diagnostics(llm_result)}
+            return {"status": "needs_concept_review" if proposed_plan else "unavailable", "narrative_statement": narrative, "concept_review_mode": "propose", "concept_candidates": candidate_list, "concept_provenance": concept_provenance, "proposed_plan": proposed_plan, "llm_status": llm_result.status, "proposal_validation_errors": proposal_errors, "diagnostics": self._llm_diagnostics(llm_result)}
         mixed_domain_sets = []
         for concept_set in concept_set_data:
             reviewed_items = concept_set.get("items") or concept_set.get("concepts") or []
