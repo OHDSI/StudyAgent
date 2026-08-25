@@ -55,7 +55,7 @@ conda run -n study-agent study-agent-mcp --config .\config.yaml --profile native
 
 The configuration precedence is: explicit CLI options, `config.yaml`, secret environment variables, legacy non-secret environment variables, then built-in defaults. When YAML is loaded, its non-secret values override stale legacy shell settings. Environment-only deployments continue to work during the compatibility period.
 
-`config.yaml` and `secrets.env` are ignored by Git. `config.yaml` contains no secrets and must be readable by the container service user; the wizard writes it with ordinary read permissions. `secrets.env` remains private. Use `study-agent-setup --migrate-env .env` to split an existing environment file without displaying its values. Docker Compose mounts `config.yaml` read-only and loads `secrets.env`; its `docker` profile sets container bind addresses and ACP's internal MCP URL. This Python-service configuration does not configure the separately deployed R packages; their remote-client configuration remains independent.
+`config.yaml` and `secrets.env` are ignored by Git. `config.yaml` contains no secrets and must be readable by the container service user; the wizard writes it with ordinary read permissions. `secrets.env` remains private. Use `study-agent-setup --migrate-env .env` to split an existing environment file without displaying its values. Docker Compose mounts `config.yaml` read-only and loads `secrets.env`; its `docker` profile sets container bind addresses and ACP's internal MCP URL. The MCP R runtime is configured through `mcp.r` (the `Rscript` executable and Capr/Circe library path); `study-agent-setup` prompts for both values. Remote R-client package configuration remains independent.
 
 ### Logging and troubleshooting
 

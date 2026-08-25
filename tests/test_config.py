@@ -37,6 +37,7 @@ acp:
 mcp:
   bind: {host: 127.0.0.1, port: 8790}
   transport: http
+  r: {rscript: /opt/R/bin/Rscript, library: r-library}
 llm: {api_url: http://llm.test/v1/chat, model: test-model}
 """,
     )
@@ -46,8 +47,12 @@ llm: {api_url: http://llm.test/v1/chat, model: test-model}
     assert config.paths.phenotype_index == tmp_path / "data/index"
     values = project_to_environment(config)
     assert values["LLM_MODEL"] == "test-model"
+    assert values["R_SCRIPT"] == "/opt/R/bin/Rscript"
+    assert values["R_LIBS_USER"] == str(tmp_path / "r-library")
     apply_config(config)
     assert os.environ["LLM_MODEL"] == "test-model"
+    os.environ.pop("R_SCRIPT", None)
+    os.environ.pop("R_LIBS_USER", None)
 
 
 def test_config_projects_logging_controls(tmp_path) -> None:

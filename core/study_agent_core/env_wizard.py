@@ -106,6 +106,7 @@ def _config_document(values: Mapping[str, str], run_style: str) -> dict[str, obj
                 "port": int(values.get("MCP_PORT", "8790")),
             },
             "path": values.get("MCP_PATH", "/mcp"),
+            "r": {"rscript": values.get("R_SCRIPT", "Rscript")},
         },
     }
     acp = document["acp"]
@@ -116,6 +117,12 @@ def _config_document(values: Mapping[str, str], run_style: str) -> dict[str, obj
         mcp["url"] = mcp_url
     else:
         mcp["command"] = values["STUDY_AGENT_MCP_COMMAND"]
+    mcp_runtime = document["mcp"]
+    assert isinstance(mcp_runtime, dict)
+    r_runtime = mcp_runtime["r"]
+    assert isinstance(r_runtime, dict)
+    if values.get("R_LIBS_USER"):
+        r_runtime["library"] = values["R_LIBS_USER"]
     if "LLM_API_URL" in values:
         document["llm"] = {
             "api_url": values["LLM_API_URL"],
@@ -211,6 +218,9 @@ def collect_configuration(
                 "STUDY_AGENT_MCP_URL": "http://mcp-server:8790/mcp",
             }
         )
+    if _prompt_choice("Configure Capr/Circe R validation?", {"yes": "yes", "no": "no"}, default="yes", input_fn=input_fn, output_fn=output_fn) == "yes":
+        values["R_SCRIPT"] = _prompt_text("Rscript executable", default="Rscript", input_fn=input_fn)
+        values["R_LIBS_USER"] = _prompt_text("Capr/Circe R library path", default=str((Path.cwd() / "renv" / "library").resolve()), input_fn=input_fn)
     secrets: dict[str, str] = {}
     if (
         _prompt_choice(

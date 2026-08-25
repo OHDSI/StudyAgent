@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ConceptSetDiffInput(BaseModel):
@@ -385,6 +385,73 @@ class PhenotypeMakeComputableScope(BaseModel):
     multi_domain_entry_policy: Optional[Literal["diagnosis_only", "any_qualifying_domain", "supporting_evidence_only"]] = None
 
 
+class PhenotypeReviewedConceptItem(BaseModel):
+    """One user-reviewed vocabulary item and its inclusion policy."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    concept_id: int = Field(alias="conceptId")
+    domain: Optional[str] = Field(default=None, alias="domainId")
+    include_descendants: bool = Field(default=False, alias="includeDescendants")
+    include_mapped: bool = Field(default=False, alias="includeMapped")
+    is_excluded: bool = Field(default=False, alias="isExcluded")
+
+
+class PhenotypeReviewedConceptSet(BaseModel):
+    """A reviewed set represented by policy-bearing items or direct concept IDs."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    name: str = ""
+    domain: Optional[str] = Field(default=None, alias="domainId")
+    items: List[PhenotypeReviewedConceptItem] = Field(default_factory=list)
+    concept_ids: List[int] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_ohdsi_aliases(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+        if "concepts" in normalized and "items" not in normalized:
+            normalized["items"] = normalized.pop("concepts")
+        if "conceptIds" in normalized and "concept_ids" not in normalized:
+            normalized["concept_ids"] = normalized.pop("conceptIds")
+        return normalized
+
+    @model_validator(mode="after")
+    def require_one_concept_representation(self) -> "PhenotypeReviewedConceptSet":
+        if bool(self.items) == bool(self.concept_ids):
+            raise ValueError("concept_set_requires_exactly_one_of_items_or_concept_ids")
+        return self
+
+
+class PhenotypeMakeComputableProposalPlan(BaseModel):
+    """Machine-checkable plan returned by proposal mode before human review."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Optional[Literal["condition_entry", "visit_overlap", "temporal_followup", "mixed_domain_clarification"]] = None
+    entry_limit: Optional[Literal["First", "All"]] = None
+    prior_observation_days: Optional[int] = Field(default=None, ge=0)
+    exit_strategy: Optional[Literal["observation", "end_of_observation"] | PhenotypeFixedExitScope] = None
+    era_days: Optional[int] = Field(default=None, ge=0)
+    visit_overlap_mode: Optional[Literal["entry", "attrition"]] = None
+    temporal_followup: Optional[PhenotypeTemporalFollowupScope] = None
+    multi_domain_entry_policy: Optional[Literal["diagnosis_only", "any_qualifying_domain", "supporting_evidence_only"]] = None
+
+
+class PhenotypeMakeComputableProposal(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["ok", "needs_clarification", "not_expressible"]
+    scope_check: Dict[str, Any]
+    concept_sets: List[PhenotypeReviewedConceptSet] = Field(default_factory=list)
+    cohort_plan: PhenotypeMakeComputableProposalPlan
+    assumptions: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+
+
 class PhenotypeMakeComputableInput(BaseModel):
     """Stateless direct-narrative request for a computable cohort definition."""
 
@@ -394,4 +461,4 @@ class PhenotypeMakeComputableInput(BaseModel):
     confirmed_scope: bool = False
     scope: PhenotypeMakeComputableScope = Field(default_factory=PhenotypeMakeComputableScope)
     concept_review_mode: ConceptReviewMode = "required"
-    concept_sets: List[Dict[str, Any]] = Field(default_factory=list)
+    concept_sets: List[PhenotypeReviewedConceptSet] = Field(default_factory=list)

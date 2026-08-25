@@ -50,6 +50,22 @@ The flow returns `needs_clarification` for an unconfirmed or incomplete scope. I
 
 Only `index_day_boundary: "included"` and `windows: "none"` are supported outside explicit emitter modes. Other values fail closed. Unsupported concept/domain combinations or temporal forms return structured emitter diagnostics rather than an approximate definition.
 
+Reviewed concept sets must contain exactly one of `items` (each with `concept_id`/`conceptId` and descendant, mapped, and exclusion policies) or `concept_ids`/`conceptIds`. The flow also accepts `concepts` as an item-list alias and normalizes OMOP-style camelCase item fields. Malformed review input returns `needs_clarification` with `invalid_concept_sets` before emission.
+
+## Live prompt-contract smoke test
+
+Run the synthetic, non-PHI prompt smoke test with the same configuration loader used by service startup:
+
+```bash
+uv run --extra dev python scripts/smoke_phenotype_make_computable_llm.py --config ./config.yaml --profile native
+```
+
+It prints only transport, parse, and schema status; it does not write cohort artifacts.
+
+## R library selection
+
+Capr/Circe validation uses `R_LIBS_USER` when it is set. Otherwise it discovers the first project library under `renv/library/`. Deployments should set `R_LIBS_USER` explicitly to the validated Capr/Circe library, especially where more than one R version or platform library is available.
+
 ## Concurrent requests
 
 The ACP service may accept concurrent HTTP requests, but `phenotype_make_computable` serializes its proposal LLM call per ACP process. Managed stdio MCP operations are serialized on their shared session, and Capr/Circe R compilation is serialized per MCP process. Requests can therefore queue under load; this v1 boundary prioritizes artifact isolation and deterministic validation over parallel R execution.

@@ -4,7 +4,7 @@ from pathlib import Path
 from study_agent_acp.llm_client import LLMCallResult
 from study_agent_acp.agent import StudyAgent
 from study_agent_mcp.tools.phenotype_make_computable_emit import emit_capr
-from study_agent_mcp.tools.phenotype_make_computable_validate import validate_capr_source
+from study_agent_mcp.tools.phenotype_make_computable_validate import _r_library_path, validate_capr_source
 from study_agent_mcp.tools.phenotype_make_computable import _load_bundle
 
 
@@ -91,11 +91,34 @@ def test_required_concept_review_returns_vocab_candidates():
 def test_propose_mode_returns_llm_plan_for_review():
     scope = {"index_event": "Cirrhosis", "criterion_domains": {"Cirrhosis": "Condition"}, "entry_limit": "First", "prior_observation": "0", "index_day_boundary": "included", "windows": "none", "exit_strategy": "observation"}
     agent = StudyAgent(mcp_client=_Mcp())
-    agent._call_llm = lambda prompt, required_keys: LLMCallResult(status="ok", parsed_content={"status": "needs_concept_review", "scope_check": {}, "concept_sets": [], "cohort_plan": {}, "assumptions": [], "warnings": []})
+    agent._call_llm = lambda prompt, required_keys: LLMCallResult(status="ok", parsed_content={"status": "needs_clarification", "scope_check": {}, "concept_sets": [], "cohort_plan": {}, "assumptions": [], "warnings": []})
     result = agent.run_phenotype_make_computable_flow("earliest cirrhosis", True, scope, "propose")
     assert result["status"] == "needs_concept_review"
     assert result["llm_status"] == "ok"
-    assert result["proposed_plan"]["status"] == "needs_concept_review"
+    assert result["proposed_plan"]["status"] == "needs_clarification"
+
+
+def test_prompt_contract_requires_policy_bearing_reviewed_concept_items():
+    bundle = _load_bundle()
+    concept_set = bundle["output_schema"]["properties"]["concept_sets"]["items"]
+    item = concept_set["properties"]["items"]["items"]
+    assert concept_set["required"] == ["name", "domain", "items"]
+    assert item["required"] == ["concept_id", "domain", "include_descendants", "include_mapped", "is_excluded"]
+
+
+def test_propose_mode_rejects_a_plan_with_an_unsupported_exit_strategy():
+    scope = {"index_event": "Cirrhosis", "criterion_domains": {"Cirrhosis": "Condition"}, "entry_limit": "First", "prior_observation": 0, "index_day_boundary": "included", "windows": "none", "exit_strategy": "observation"}
+    agent = StudyAgent(mcp_client=_Mcp())
+    agent._call_llm = lambda prompt, required_keys: LLMCallResult(status="ok", parsed_content={"status": "ok", "scope_check": {}, "concept_sets": [], "cohort_plan": {"exit_strategy": {"type": "observation_end"}}, "assumptions": [], "warnings": []})
+    result = agent.run_phenotype_make_computable_flow("earliest cirrhosis", True, scope, "propose")
+    assert result["status"] == "unavailable"
+    assert result["proposed_plan"] is None
+    assert result["proposal_validation_errors"]
+
+
+def test_validator_prefers_explicit_r_library_environment(monkeypatch):
+    monkeypatch.setenv("R_LIBS_USER", "/configured/r/library")
+    assert _r_library_path() == "/configured/r/library"
 
 
 def test_validator_rejects_indirect_process_execution():
@@ -209,6 +232,22 @@ def test_scope_rejects_undeclared_semantics_before_emission():
     assert result["status"] == "needs_clarification"
     assert result["clarification_type"] == "invalid_scope"
     assert result["scope_errors"][0]["type"] == "extra_forbidden"
+
+
+def test_concept_set_input_normalizes_ohdsi_aliases_before_emission():
+    scope = {"index_event": "Cirrhosis", "criterion_domains": {"Cirrhosis": "Condition"}, "entry_limit": "First", "prior_observation": 0, "index_day_boundary": "included", "windows": "none", "exit_strategy": "observation"}
+    concept_sets = [{"name": "Cirrhosis", "domainId": "Condition", "concepts": [{"conceptId": 4064161, "domainId": "Condition", "includeDescendants": True, "includeMapped": False, "isExcluded": False}]}]
+    result = StudyAgent(mcp_client=_Mcp()).run_phenotype_make_computable_flow("earliest cirrhosis", True, scope, "provided_only", concept_sets)
+    assert result["status"] == "ok"
+    assert result["circe_json"]["ConceptSets"][0]["expression"]["items"][0]["includeDescendants"] is True
+
+
+def test_invalid_reviewed_concept_set_returns_clarification_before_emission():
+    scope = {"index_event": "Cirrhosis", "criterion_domains": {"Cirrhosis": "Condition"}, "entry_limit": "First", "prior_observation": 0, "index_day_boundary": "included", "windows": "none", "exit_strategy": "observation"}
+    result = StudyAgent(mcp_client=_Mcp()).run_phenotype_make_computable_flow("earliest cirrhosis", True, scope, "provided_only", [{"name": "Cirrhosis", "domain": "Condition", "items": [{"concept_id": "not-an-id"}]}])
+    assert result["status"] == "needs_clarification"
+    assert result["clarification_type"] == "invalid_concept_sets"
+    assert result["concept_set_errors"][0]["loc"] == ("concept_sets", 0, "items", 0, "concept_id")
 
 
 def test_unsupported_scope_semantics_fail_closed():
