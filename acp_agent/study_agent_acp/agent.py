@@ -1,10 +1,13 @@
+import csv
+import io
 import json
 import logging
 import os
 import re
 import time
+import uuid
 from copy import deepcopy
-from threading import Lock
+from threading import Lock, RLock
 from typing import Any, Dict, List, Optional, Protocol
 
 from pydantic import ValidationError
@@ -25,6 +28,7 @@ from study_agent_core.models import (
     WorkflowContextDialogueInput,
     PhenotypeMakeComputableInput,
     PhenotypeMakeComputableProposal,
+    PhenotypeConceptTermProposal,
 )
 from study_agent_core.tools import (
     cohort_methods_intent_split,
@@ -80,6 +84,10 @@ class StudyAgent(PhenotypeRecommendationMixin):
         # The configured chat model can be slow and is shared by threaded ACP
         # requests. Keep proposal mode deterministic and bounded to one call.
         self._phenotype_make_computable_llm_lock = Lock()
+        # Large concept-review results are immutable, short-lived in-memory records.
+        # They avoid returning hundreds of candidates through an interactive transcript.
+        self._phenotype_review_sessions: Dict[str, Dict[str, Any]] = {}
+        self._phenotype_review_sessions_lock = RLock()
 
         self._core_tools = {
             "propose_concept_set_diff": propose_concept_set_diff,
@@ -107,6 +115,171 @@ class StudyAgent(PhenotypeRecommendationMixin):
             "keeper_profiles_generate": KeeperProfilesGenerateInput.model_json_schema(),
         }
 
+    def _phenotype_review_ttl_seconds(self) -> int:
+        return max(60, int(os.getenv("PHENOTYPE_REVIEW_SESSION_TTL_SECONDS", "1800")))
+
+    def _prune_phenotype_review_sessions(self) -> None:
+        now = time.monotonic()
+        expired = [review_id for review_id, record in self._phenotype_review_sessions.items() if record["expires_at_monotonic"] <= now]
+        for review_id in expired:
+            self._phenotype_review_sessions.pop(review_id, None)
+
+    def _store_phenotype_review_session(self, response: Dict[str, Any], *, direct_candidate_ids: set[int]) -> Dict[str, Any]:
+        ttl_seconds = self._phenotype_review_ttl_seconds()
+        review_id = uuid.uuid4().hex
+        candidate_rows = deepcopy(response.get("concept_candidates") or [])
+        plan = deepcopy(response.get("proposed_plan"))
+        assessments = (plan or {}).get("candidate_assessments") or []
+        now_wall = time.time()
+        record = {
+            "expires_at_monotonic": time.monotonic() + ttl_seconds,
+            "expires_at_epoch": int(now_wall + ttl_seconds),
+            "response": deepcopy(response),
+            "candidate_rows": candidate_rows,
+            "direct_candidate_ids": set(direct_candidate_ids),
+            "assessment_count": len(assessments),
+        }
+        with self._phenotype_review_sessions_lock:
+            self._prune_phenotype_review_sessions()
+            self._phenotype_review_sessions[review_id] = record
+        compact = {key: value for key, value in response.items() if key not in {"concept_candidates", "proposed_plan"}}
+        compact.update({
+            "review_delivery": "session",
+            "review_id": review_id,
+            "candidate_count": len(candidate_rows),
+            "assessment_count": len(assessments),
+            "assessment_scope": {
+                "direct_candidate_count": len(direct_candidate_ids),
+                "relationship_context_candidate_count": max(0, len(candidate_rows) - len(direct_candidate_ids)),
+            },
+            "proposed_plan_present": plan is not None,
+            "review_expires_at_epoch": record["expires_at_epoch"],
+            "review_urls": {
+                "candidates": f"/flows/phenotype_make_computable/reviews/{review_id}/candidates",
+                "candidates_csv": f"/flows/phenotype_make_computable/reviews/{review_id}/candidates.csv",
+                "proposal": f"/flows/phenotype_make_computable/reviews/{review_id}/proposal",
+            },
+        })
+        return compact
+
+    def _review_session(self, review_id: str) -> Optional[Dict[str, Any]]:
+        with self._phenotype_review_sessions_lock:
+            self._prune_phenotype_review_sessions()
+            record = self._phenotype_review_sessions.get(review_id)
+            return deepcopy(record) if record is not None else None
+
+    def get_phenotype_review_candidates(self, review_id: str, offset: int = 0, limit: int = 100) -> Optional[Dict[str, Any]]:
+        record = self._review_session(review_id)
+        if record is None:
+            return None
+        rows = record["candidate_rows"]
+        offset = max(0, int(offset))
+        limit = max(1, min(500, int(limit)))
+        return {
+            "review_id": review_id,
+            "total": len(rows),
+            "offset": offset,
+            "limit": limit,
+            "candidates": rows[offset : offset + limit],
+        }
+
+    def get_phenotype_review_proposal(self, review_id: str) -> Optional[Dict[str, Any]]:
+        record = self._review_session(review_id)
+        if record is None:
+            return None
+        response = record["response"]
+        return {
+            "review_id": review_id,
+            "proposed_plan": response.get("proposed_plan"),
+            "proposal_validation_status": response.get("proposal_validation_status"),
+            "proposal_validation_errors": response.get("proposal_validation_errors") or [],
+            "concept_build": response.get("concept_build") or {},
+            "concept_provenance": response.get("concept_provenance") or {},
+            "diagnostics": response.get("diagnostics") or {},
+        }
+
+    @staticmethod
+    def _csv_cell(value: Any) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, (dict, list)):
+            value = json.dumps(value, sort_keys=True)
+        value = str(value)
+        return f"'{value}" if value.startswith(("=", "+", "-", "@")) else value
+
+    def get_phenotype_review_csv(self, review_id: str) -> Optional[str]:
+        record = self._review_session(review_id)
+        if record is None:
+            return None
+        response = record["response"]
+        plan = response.get("proposed_plan") or {}
+        assessments = {int(row["concept_id"]): row for row in plan.get("candidate_assessments") or []}
+        proposed_items: Dict[int, Dict[str, Any]] = {}
+        proposed_set_names: Dict[int, str] = {}
+        for concept_set in plan.get("concept_sets") or []:
+            for item in concept_set.get("items") or []:
+                proposed_items[int(item["concept_id"])] = item
+                proposed_set_names[int(item["concept_id"])] = str(concept_set.get("name") or "")
+        fields = [
+            "concept_set_name", "concept_id", "concept_name", "domain", "vocabulary", "concept_class", "standard_concept",
+            "source_term", "source_stage", "relationship_evidence", "assessment_status", "precision_eligible", "assessment_rationale",
+            "proposed_include_descendants", "proposed_include_mapped", "proposed_is_excluded", "review_action",
+            "review_include_descendants", "review_include_mapped", "review_is_excluded", "review_notes",
+        ]
+        out = io.StringIO(newline="")
+        writer = csv.DictWriter(out, fieldnames=fields)
+        writer.writeheader()
+        direct_ids = record["direct_candidate_ids"]
+        for candidate in record["candidate_rows"]:
+            concept_id = int(candidate.get("conceptId"))
+            assessment = assessments.get(concept_id) or {}
+            proposed = proposed_items.get(concept_id) or {}
+            writer.writerow({
+                "concept_set_name": proposed_set_names.get(concept_id, ""),
+                "concept_id": concept_id,
+                "concept_name": self._csv_cell(candidate.get("conceptName")),
+                "domain": self._csv_cell(candidate.get("domainId")),
+                "vocabulary": self._csv_cell(candidate.get("vocabularyId")),
+                "concept_class": self._csv_cell(candidate.get("conceptClassId")),
+                "standard_concept": self._csv_cell(candidate.get("standardConcept")),
+                "source_term": self._csv_cell(candidate.get("sourceTerm")),
+                "source_stage": self._csv_cell(candidate.get("sourceStage")),
+                "relationship_evidence": self._csv_cell(candidate.get("relationshipEvidence") or candidate.get("relationshipId")),
+                "assessment_status": "assessed" if assessment else ("not_assessed_retrieval_context" if concept_id not in direct_ids else "not_assessed"),
+                "precision_eligible": assessment.get("precision_eligible", ""),
+                "assessment_rationale": self._csv_cell(assessment.get("rationale")),
+                "proposed_include_descendants": proposed.get("include_descendants", ""),
+                "proposed_include_mapped": proposed.get("include_mapped", ""),
+                "proposed_is_excluded": proposed.get("is_excluded", ""),
+                "review_action": "", "review_include_descendants": "", "review_include_mapped": "", "review_is_excluded": "", "review_notes": "",
+            })
+        return out.getvalue()
+
+    def _deliver_phenotype_review(
+        self,
+        response: Dict[str, Any],
+        *,
+        review_delivery: str,
+        direct_candidate_ids: set[int],
+    ) -> Dict[str, Any]:
+        candidate_count = len(response.get("concept_candidates") or [])
+        use_session = review_delivery == "session" or (review_delivery == "auto" and candidate_count > 10)
+        if not use_session:
+            response["review_delivery"] = "inline"
+            response["candidate_count"] = candidate_count
+            response["assessment_count"] = len(((response.get("proposed_plan") or {}).get("candidate_assessments") or []))
+            return response
+        return self._store_phenotype_review_session(response, direct_candidate_ids=direct_candidate_ids)
+
+    @staticmethod
+    def _compact_phenotype_assessment_candidates(candidates: List[Dict[str, Any]], allowed_ids: set[int]) -> List[Dict[str, Any]]:
+        fields = ("conceptId", "conceptName", "domainId", "vocabularyId", "conceptClassId", "standardConcept", "sourceTerm", "sourceStage", "relationshipEvidence", "relationshipId", "sourceConceptId")
+        return [
+            {field: row.get(field) for field in fields if row.get(field) not in (None, "", [], {})}
+            for row in candidates
+            if row.get("conceptId") not in (None, "") and int(row["conceptId"]) in allowed_ids
+        ]
+
     def _debug_enabled(self) -> bool:
         return os.getenv("STUDY_AGENT_DEBUG", "0") == "1"
 
@@ -114,7 +287,18 @@ class StudyAgent(PhenotypeRecommendationMixin):
         if self._debug_enabled():
             logger.debug(message)
 
-    def _llm_diagnostics(self, result: Optional[LLMCallResult]) -> Dict[str, Any]:
+    def _llm_diagnostics(
+        self,
+        result: Optional[LLMCallResult],
+        *,
+        include_response_content: bool = True,
+    ) -> Dict[str, Any]:
+        """Return LLM call metadata, optionally including verbose response payloads.
+
+        ``LLM_LOG_RESPONSE`` is useful for server-side troubleshooting, but raw model
+        text can be much larger than the structured proposal already returned by an
+        ACP flow. Interactive API responses can opt out of duplicate payloads.
+        """
         if result is None:
             return {
                 "llm_status": "disabled",
@@ -133,7 +317,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
         }
         if result.missing_keys:
             diagnostics["llm_missing_keys"] = result.missing_keys
-        if os.getenv("LLM_LOG_RESPONSE", "0") == "1":
+        if include_response_content and os.getenv("LLM_LOG_RESPONSE", "0") == "1":
             diagnostics["llm_raw_response"] = result.raw_response
             diagnostics["llm_content_text"] = result.content_text
         return diagnostics
@@ -289,6 +473,10 @@ class StudyAgent(PhenotypeRecommendationMixin):
         # The configured chat model can be slow and is shared by threaded ACP
         # requests. Keep proposal mode deterministic and bounded to one call.
         self._phenotype_make_computable_llm_lock = Lock()
+        # Large concept-review results are immutable, short-lived in-memory records.
+        # They avoid returning hundreds of candidates through an interactive transcript.
+        self._phenotype_review_sessions: Dict[str, Dict[str, Any]] = {}
+        self._phenotype_review_sessions_lock = RLock()
 
         self._core_tools = {
             "propose_concept_set_diff": propose_concept_set_diff,
@@ -319,7 +507,18 @@ class StudyAgent(PhenotypeRecommendationMixin):
         if self._debug_enabled():
             logger.debug(message)
 
-    def _llm_diagnostics(self, result: Optional[LLMCallResult]) -> Dict[str, Any]:
+    def _llm_diagnostics(
+        self,
+        result: Optional[LLMCallResult],
+        *,
+        include_response_content: bool = True,
+    ) -> Dict[str, Any]:
+        """Return LLM call metadata, optionally including verbose response payloads.
+
+        ``LLM_LOG_RESPONSE`` is useful for server-side troubleshooting, but raw model
+        text can be much larger than the structured proposal already returned by an
+        ACP flow. Interactive API responses can opt out of duplicate payloads.
+        """
         if result is None:
             return {
                 "llm_status": "disabled",
@@ -338,7 +537,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
         }
         if result.missing_keys:
             diagnostics["llm_missing_keys"] = result.missing_keys
-        if os.getenv("LLM_LOG_RESPONSE", "0") == "1":
+        if include_response_content and os.getenv("LLM_LOG_RESPONSE", "0") == "1":
             diagnostics["llm_raw_response"] = result.raw_response
             diagnostics["llm_content_text"] = result.content_text
         return diagnostics
@@ -3134,9 +3333,11 @@ class StudyAgent(PhenotypeRecommendationMixin):
         scope: Optional[Dict[str, Any]] = None,
         concept_review_mode: str = "required",
         concept_sets: Optional[List[Dict[str, Any]]] = None,
+        concept_build_mode: str = "search_only",
+        review_delivery: str = "auto",
     ) -> Dict[str, Any]:
         try:
-            request = PhenotypeMakeComputableInput(narrative_statement=narrative_statement, confirmed_scope=confirmed_scope, scope=scope or {}, concept_review_mode=concept_review_mode, concept_sets=concept_sets or [])
+            request = PhenotypeMakeComputableInput(narrative_statement=narrative_statement, confirmed_scope=confirmed_scope, scope=scope or {}, concept_review_mode=concept_review_mode, concept_build_mode=concept_build_mode, review_delivery=review_delivery, concept_sets=concept_sets or [])
         except ValidationError as exc:
             errors = exc.errors(include_url=False)
             concept_set_errors = [error for error in errors if error.get("loc", (None,))[0] == "concept_sets"]
@@ -3173,40 +3374,354 @@ class StudyAgent(PhenotypeRecommendationMixin):
             concept_ids = [int(row.get("conceptId")) for row in raw_candidates if row.get("conceptId") not in (None, "")]
             hydrated = self.call_tool("vocab_fetch_concepts", {"concept_ids": concept_ids, "concepts": raw_candidates}) if concept_ids else None
             hydrated_payload = (hydrated or {}).get("full_result") or {}
-            return {"status": "needs_concept_review", "narrative_statement": narrative, "scope": scope_data, "concept_review_mode": request.concept_review_mode, "concept_candidates": hydrated_payload.get("concepts", raw_candidates), "concept_provenance": {"tool": "vocab_search_standard", "query": query, "domains": domains, "tool_status": candidates.get("status"), "metadata_tool": "vocab_fetch_concepts", "metadata_status": (hydrated or {}).get("status")}}
+            candidate_list = hydrated_payload.get("concepts", raw_candidates)
+            direct_candidate_ids = {int(row["conceptId"]) for row in candidate_list if row.get("conceptId") not in (None, "")}
+            return self._deliver_phenotype_review(
+                {"status": "needs_concept_review", "narrative_statement": narrative, "scope": scope_data, "concept_review_mode": request.concept_review_mode, "concept_candidates": candidate_list, "concept_provenance": {"tool": "vocab_search_standard", "query": query, "domains": domains, "tool_status": candidates.get("status"), "metadata_tool": "vocab_fetch_concepts", "metadata_status": (hydrated or {}).get("status")}},
+                review_delivery=request.review_delivery,
+                direct_candidate_ids=direct_candidate_ids,
+            )
         if request.concept_review_mode == "propose" and not concept_set_data:
             domains = sorted({str(value) for value in scope_data.get("criterion_domains", {}).values() if value})
             query = str(scope_data.get("index_event") or narrative)
-            candidates = self.call_tool("vocab_search_standard", {"query": query, "domains": domains or None, "limit": 20})
-            candidate_payload = candidates.get("full_result") or {}
-            raw_candidates = candidate_payload.get("concepts", [])
-            concept_ids = [int(row.get("conceptId")) for row in raw_candidates if row.get("conceptId") not in (None, "")]
-            hydrated = self.call_tool("vocab_fetch_concepts", {"concept_ids": concept_ids, "concepts": raw_candidates}) if concept_ids else None
-            hydrated_payload = (hydrated or {}).get("full_result") or {}
-            candidate_list = hydrated_payload.get("concepts", raw_candidates)
-            concept_provenance = {
-                "tool": "vocab_search_standard",
-                "query": query,
-                "domains": domains,
-                "tool_status": candidates.get("status"),
-                "metadata_tool": "vocab_fetch_concepts",
-                "metadata_status": (hydrated or {}).get("status"),
-            }
             bundle = self.call_tool("phenotype_make_computable_prompt_bundle", {})
             bundle_payload = bundle.get("full_result") or {}
             if bundle.get("status") != "ok" or bundle_payload.get("error"):
                 return {"status": "unavailable", "error": "computable_prompt_bundle_failed", "details": bundle}
-            prompt = build_lint_prompt(bundle_payload.get("overview", ""), bundle_payload.get("spec", ""), bundle_payload.get("output_schema", {}), "phenotype_make_computable", {"narrative_statement": narrative, "scope": scope_data, "concept_candidates": candidate_list}, max_kb=20)
+
+            concept_build: Dict[str, Any] = {"mode": request.concept_build_mode}
+            ontology_descendant_pairs: List[Dict[str, int]] = []
+            if request.concept_build_mode == "grounded":
+                term_prompt = build_lint_prompt(
+                    bundle_payload.get("concept_terms_overview", ""),
+                    bundle_payload.get("concept_terms_spec", ""),
+                    bundle_payload.get("concept_terms_schema", {}),
+                    "phenotype_make_computable_concept_terms",
+                    {"narrative_statement": narrative, "scope": scope_data, "index_event": query},
+                    max_kb=4,
+                )
+                with self._phenotype_make_computable_llm_lock:
+                    terms_result = self._call_llm(term_prompt, required_keys=["terms"])
+                if terms_result.status != "ok":
+                    return {
+                        "status": "unavailable",
+                        "error": "concept_term_generation_failed",
+                        "diagnostics": self._llm_diagnostics(terms_result),
+                    }
+                try:
+                    term_proposal = PhenotypeConceptTermProposal.model_validate(terms_result.parsed_content)
+                except ValidationError as exc:
+                    return {
+                        "status": "unavailable",
+                        "error": "concept_term_generation_invalid",
+                        "term_validation_errors": exc.errors(include_url=False),
+                        "diagnostics": self._llm_diagnostics(terms_result),
+                    }
+                search_terms: List[str] = []
+                for term in [query, *term_proposal.terms]:
+                    normalized = str(term).strip()
+                    if normalized and normalized.casefold() not in {item.casefold() for item in search_terms}:
+                        search_terms.append(normalized)
+                search_terms = search_terms[:5]
+                search_candidates: List[Dict[str, Any]] = []
+                search_runs: List[Dict[str, Any]] = []
+                for term_index, term in enumerate(search_terms):
+                    search_result = self.call_tool(
+                        "vocab_search_standard",
+                        {"query": term, "domains": domains or None, "limit": 20},
+                    )
+                    search_payload = search_result.get("full_result") or {}
+                    if search_result.get("status") != "ok" or search_payload.get("error"):
+                        return {
+                            "status": "unavailable",
+                            "error": "concept_vocabulary_search_failed",
+                            "details": search_result,
+                            "term": term,
+                        }
+                    rows = search_payload.get("concepts") or []
+                    search_runs.append({"term": term, "count": len(rows), "status": search_result.get("status")})
+                    for row in rows:
+                        enriched = dict(row)
+                        enriched["sourceTerm"] = term
+                        enriched["sourceStage"] = "index_event_search" if term_index == 0 else "term_expansion_search"
+                        search_candidates.append(enriched)
+                standard_result = self.call_tool(
+                    "vocab_filter_standard_concepts",
+                    {"concepts": search_candidates, "domains": domains or None},
+                )
+                standard_payload = standard_result.get("full_result") or {}
+                if standard_result.get("status") != "ok" or standard_payload.get("error"):
+                    return {
+                        "status": "unavailable",
+                        "error": "concept_standardization_failed",
+                        "details": standard_result,
+                    }
+                raw_candidates = standard_payload.get("concepts") or []
+                direct_candidate_ids = {int(row["conceptId"]) for row in raw_candidates if row.get("conceptId") not in (None, "")}
+                relationship_ids = ["Ontology-descendant", "Patient context", "Lexical via standard"]
+                raw_candidate_ids = [int(row.get("conceptId")) for row in raw_candidates if row.get("conceptId") not in (None, "")]
+                relationship_expansion: Dict[str, Any] = {
+                    "requested_relationship_ids": relationship_ids,
+                    "status": "not_run",
+                    "related_candidate_count": 0,
+                }
+                related_candidates: List[Dict[str, Any]] = []
+                if raw_candidate_ids:
+                    related_result = self.call_tool(
+                        "phoebe_related_concepts",
+                        {"concept_ids": raw_candidate_ids, "relationship_ids": relationship_ids},
+                    )
+                    related_payload = related_result.get("full_result") or {}
+                    relationship_expansion.update({
+                        "status": related_result.get("status"),
+                        "provider": related_payload.get("provider"),
+                        "raw_count": related_payload.get("raw_count"),
+                        "controls": related_payload.get("controls"),
+                    })
+                    if related_result.get("status") == "ok" and not related_payload.get("error"):
+                        related_rows = related_payload.get("concepts") or []
+                        related_standard = self.call_tool(
+                            "vocab_filter_standard_concepts",
+                            {"concepts": related_rows, "domains": domains or None},
+                        )
+                        related_standard_payload = related_standard.get("full_result") or {}
+                        if related_standard.get("status") == "ok" and not related_standard_payload.get("error"):
+                            related_candidates = related_standard_payload.get("concepts") or []
+                            relationship_expansion["standardization_status"] = related_standard.get("status")
+                        else:
+                            relationship_expansion["status"] = "standardization_unavailable"
+                            relationship_expansion["error"] = related_standard_payload.get("error") or related_standard.get("warnings")
+                        for related in related_rows:
+                            if str(related.get("relationshipId") or "") != "Ontology-descendant":
+                                continue
+                            source_id = related.get("sourceConceptId")
+                            descendant_id = related.get("conceptId")
+                            if source_id not in (None, "") and descendant_id not in (None, ""):
+                                ontology_descendant_pairs.append({
+                                    "ancestor_concept_id": int(source_id),
+                                    "descendant_concept_id": int(descendant_id),
+                                })
+                    else:
+                        relationship_expansion["error"] = related_payload.get("error") or related_result.get("warnings")
+
+                merged_candidates: Dict[int, Dict[str, Any]] = {}
+                for row in [*raw_candidates, *related_candidates]:
+                    if row.get("conceptId") in (None, ""):
+                        continue
+                    concept_id = int(row["conceptId"])
+                    candidate = dict(row)
+                    if candidate.get("relationshipId"):
+                        candidate["sourceStage"] = "phoebe_related_concepts"
+                    existing = merged_candidates.get(concept_id)
+                    if existing is None:
+                        merged_candidates[concept_id] = candidate
+                    elif candidate.get("relationshipId"):
+                        evidence = list(existing.get("relationshipEvidence") or [])
+                        evidence.append({
+                            "relationshipId": candidate.get("relationshipId"),
+                            "sourceConceptId": candidate.get("sourceConceptId"),
+                        })
+                        existing["relationshipEvidence"] = evidence
+                prehydrated_candidates = list(merged_candidates.values())
+                concept_ids = [int(row["conceptId"]) for row in prehydrated_candidates]
+                hydrated = self.call_tool("vocab_fetch_concepts", {"concept_ids": concept_ids, "concepts": prehydrated_candidates}) if concept_ids else None
+                hydrated_payload = (hydrated or {}).get("full_result") or {}
+                hydrated_candidates = hydrated_payload.get("concepts", prehydrated_candidates)
+                candidate_list = []
+                for candidate in hydrated_candidates:
+                    concept_id = candidate.get("conceptId")
+                    original = merged_candidates.get(int(concept_id)) if concept_id not in (None, "") else None
+                    candidate_list.append({**(original or {}), **candidate})
+                relationship_expansion["related_candidate_count"] = len(related_candidates)
+                relationship_expansion["ontology_descendant_pair_count"] = len(ontology_descendant_pairs)
+                concept_provenance = {
+                    "tool": "grounded_vocabulary_pipeline",
+                    "query": query,
+                    "domains": domains,
+                    "search_terms": search_terms,
+                    "search_runs": search_runs,
+                    "search_candidate_count": len(search_candidates),
+                    "standard_candidate_count": len(raw_candidates),
+                    "relationship_expansion": relationship_expansion,
+                    "tool_status": standard_result.get("status"),
+                    "metadata_tool": "vocab_fetch_concepts",
+                    "metadata_status": (hydrated or {}).get("status"),
+                }
+                concept_build.update({
+                    "terms": search_terms,
+                    "term_diagnostics": self._llm_diagnostics(terms_result),
+                    "relationship_expansion": relationship_expansion,
+                    "step_counts": {
+                        "search_candidates": len(search_candidates),
+                        "standard_candidates": len(raw_candidates),
+                        "related_candidates": len(related_candidates),
+                        "hydrated_candidates": len(candidate_list),
+                    },
+                })
+            else:
+                candidates = self.call_tool("vocab_search_standard", {"query": query, "domains": domains or None, "limit": 20})
+                candidate_payload = candidates.get("full_result") or {}
+                raw_candidates = candidate_payload.get("concepts", [])
+                direct_candidate_ids = {int(row["conceptId"]) for row in raw_candidates if row.get("conceptId") not in (None, "")}
+                concept_ids = [int(row.get("conceptId")) for row in raw_candidates if row.get("conceptId") not in (None, "")]
+                hydrated = self.call_tool("vocab_fetch_concepts", {"concept_ids": concept_ids, "concepts": raw_candidates}) if concept_ids else None
+                hydrated_payload = (hydrated or {}).get("full_result") or {}
+                candidate_list = hydrated_payload.get("concepts", raw_candidates)
+                concept_provenance = {
+                    "tool": "vocab_search_standard",
+                    "query": query,
+                    "domains": domains,
+                    "tool_status": candidates.get("status"),
+                    "metadata_tool": "vocab_fetch_concepts",
+                    "metadata_status": (hydrated or {}).get("status"),
+                }
+                concept_build["step_counts"] = {"hydrated_candidates": len(candidate_list)}
+
+            prompt = build_lint_prompt(
+                bundle_payload.get("overview", ""),
+                bundle_payload.get("spec", ""),
+                bundle_payload.get("output_schema", {}),
+                "phenotype_make_computable",
+                {
+                    "narrative_statement": narrative,
+                    "scope": scope_data,
+                    "concept_candidates": self._compact_phenotype_assessment_candidates(candidate_list, direct_candidate_ids),
+                    "assessment_scope": {"direct_candidate_ids": sorted(direct_candidate_ids), "relationship_context_candidates_are_not_assessed": True},
+                    "concept_build": concept_build,
+                },
+                max_kb=24,
+            )
             with self._phenotype_make_computable_llm_lock:
-                llm_result = self._call_llm(prompt, required_keys=["status", "scope_check", "concept_sets", "cohort_plan", "assumptions", "warnings"])
+                llm_result = self._call_llm(prompt, required_keys=["status", "scope_check", "candidate_assessments", "concept_sets", "cohort_plan", "assumptions", "warnings"])
             proposed_plan = None
-            proposal_errors = []
+            proposal_errors: List[Dict[str, Any]] = []
             if llm_result.status == "ok":
                 try:
                     proposed_plan = PhenotypeMakeComputableProposal.model_validate(llm_result.parsed_content).model_dump(exclude_none=True)
                 except ValidationError as exc:
                     proposal_errors = exc.errors(include_url=False)
-            return {"status": "needs_concept_review" if proposed_plan else "unavailable", "narrative_statement": narrative, "concept_review_mode": "propose", "concept_candidates": candidate_list, "concept_provenance": concept_provenance, "proposed_plan": proposed_plan, "llm_status": llm_result.status, "proposal_validation_errors": proposal_errors, "diagnostics": self._llm_diagnostics(llm_result)}
+            if proposed_plan is not None:
+                candidate_by_id = {
+                    int(candidate["conceptId"]): candidate
+                    for candidate in candidate_list
+                    if candidate.get("conceptId") not in (None, "")
+                }
+                candidate_ids = set(candidate_by_id)
+                assessment_candidate_ids = candidate_ids & direct_candidate_ids
+                assessment_by_id: Dict[int, Dict[str, Any]] = {}
+                for assessment_index, assessment in enumerate(proposed_plan.get("candidate_assessments") or []):
+                    concept_id = int(assessment["concept_id"])
+                    if concept_id not in candidate_ids:
+                        proposal_errors.append({
+                            "loc": ("candidate_assessments", assessment_index, "concept_id"),
+                            "msg": "assessment_concept_not_in_candidates",
+                            "type": "value_error",
+                        })
+                    elif concept_id in assessment_by_id:
+                        proposal_errors.append({
+                            "loc": ("candidate_assessments", assessment_index, "concept_id"),
+                            "msg": "duplicate_candidate_assessment",
+                            "type": "value_error",
+                        })
+                    else:
+                        assessment_by_id[concept_id] = assessment
+                for concept_id in sorted(assessment_candidate_ids - set(assessment_by_id)):
+                    proposal_errors.append({
+                        "loc": ("candidate_assessments",),
+                        "msg": "missing_candidate_assessment",
+                        "type": "value_error",
+                        "concept_id": concept_id,
+                    })
+
+                seen_ids = set()
+                for set_index, concept_set in enumerate(proposed_plan.get("concept_sets") or []):
+                    positive_items: List[Dict[str, Any]] = []
+                    for item_index, item in enumerate(concept_set.get("items") or []):
+                        concept_id = int(item["concept_id"])
+                        if concept_id not in candidate_by_id:
+                            proposal_errors.append({
+                                "loc": ("concept_sets", set_index, "items", item_index, "concept_id"),
+                                "msg": "proposed_concept_not_in_grounded_candidates",
+                                "type": "value_error",
+                            })
+                        elif concept_id in seen_ids:
+                            proposal_errors.append({
+                                "loc": ("concept_sets", set_index, "items", item_index, "concept_id"),
+                                "msg": "duplicate_proposed_concept_id",
+                                "type": "value_error",
+                            })
+                        else:
+                            seen_ids.add(concept_id)
+                            candidate_domain = str(candidate_by_id[concept_id].get("domainId") or "")
+                            if candidate_domain and item.get("domain") != candidate_domain:
+                                proposal_errors.append({
+                                    "loc": ("concept_sets", set_index, "items", item_index, "domain"),
+                                    "msg": "proposed_concept_domain_mismatch",
+                                    "type": "value_error",
+                                })
+                            assessment = assessment_by_id.get(concept_id)
+                            if not item.get("is_excluded") and assessment is None:
+                                proposal_errors.append({
+                                    "loc": ("concept_sets", set_index, "items", item_index, "concept_id"),
+                                    "msg": "proposed_concept_not_assessed_for_precision",
+                                    "type": "value_error",
+                                })
+                            elif not item.get("is_excluded") and not assessment["precision_eligible"]:
+                                proposal_errors.append({
+                                    "loc": ("concept_sets", set_index, "items", item_index, "concept_id"),
+                                    "msg": "proposed_concept_marked_precision_ineligible",
+                                    "type": "value_error",
+                                })
+                            if not item.get("is_excluded"):
+                                positive_items.append({"conceptId": concept_id})
+                    if positive_items and ontology_descendant_pairs:
+                        deduped = self.call_tool(
+                            "vocab_remove_descendants",
+                            {"concepts": positive_items, "ancestor_pairs": ontology_descendant_pairs},
+                        )
+                        deduped_payload = deduped.get("full_result") or {}
+                        if deduped.get("status") != "ok" or deduped_payload.get("error"):
+                            proposal_errors.append({
+                                "loc": ("concept_sets", set_index),
+                                "msg": "hierarchy_redundancy_check_unavailable",
+                                "type": "value_error",
+                            })
+                        else:
+                            for concept_id in deduped_payload.get("removed_concept_ids") or []:
+                                proposal_errors.append({
+                                    "loc": ("concept_sets", set_index, "items"),
+                                    "msg": "redundant_descendant_covered_by_included_ancestor",
+                                    "type": "value_error",
+                                    "concept_id": concept_id,
+                                })
+                fatal_error_messages = {
+                    "assessment_concept_not_in_candidates",
+                    "proposed_concept_not_in_grounded_candidates",
+                }
+                if any(error.get("msg") in fatal_error_messages for error in proposal_errors):
+                    proposed_plan = None
+            proposal_validation_status = (
+                "failed" if proposed_plan is None
+                else "requires_review" if proposal_errors
+                else "passed"
+            )
+            return self._deliver_phenotype_review(
+                {
+                    "status": "unavailable" if proposal_validation_status == "failed" else "needs_concept_review",
+                    "narrative_statement": narrative,
+                    "concept_review_mode": "propose",
+                    "concept_build": concept_build,
+                    "concept_candidates": candidate_list,
+                    "concept_provenance": concept_provenance,
+                    "proposed_plan": proposed_plan,
+                    "proposal_validation_status": proposal_validation_status,
+                    "llm_status": llm_result.status,
+                    "proposal_validation_errors": proposal_errors,
+                    "diagnostics": self._llm_diagnostics(llm_result, include_response_content=False),
+                },
+                review_delivery=request.review_delivery,
+                direct_candidate_ids=direct_candidate_ids,
+            )
         mixed_domain_sets = []
         for concept_set in concept_set_data:
             reviewed_items = concept_set.get("items") or concept_set.get("concepts") or []

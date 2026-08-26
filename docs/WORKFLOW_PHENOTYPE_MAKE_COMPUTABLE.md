@@ -10,6 +10,10 @@
 
 `propose` uses the configured LLM only to prepare a reviewable cohort-plan proposal. It does not bypass concept review or deterministic validation.
 
+`concept_build_mode` defaults to `search_only`, preserving the direct index-event vocabulary lookup. The opt-in `grounded` mode first asks the LLM for up to five clinical search terms without concept IDs, retrieves and standardizes candidates through the vocabulary MCP tools, then requests PHOEBE evidence for `Ontology-descendant`, `Patient context`, and `Lexical via standard`. PHOEBE expansion is non-fatal: an unavailable provider leaves the base candidates reviewable and records the failure in provenance. The proposal LLM assesses the compact direct-search candidate scope, not every relationship-expanded context candidate; all candidates remain available to human review with relationship evidence. Only assessed, precision-eligible candidates may be proposed. `Ontology-descendant` evidence deterministically rejects a non-excluded child when a proposed ancestor already includes descendants. Proposal validation distinguishes `passed`, `requires_review`, and `failed`: non-fatal assessment, eligibility, or hierarchy objections remain review material with explicit `proposal_validation_errors`; evidence-boundary violations fail closed.
+
+Large review sets use `review_delivery: "auto"` by default: inline response for ten or fewer candidates, otherwise a short session response with an opaque `review_id`, counts, and relative URLs for paged candidates, a CSV download, and the full unreviewed proposal. Sessions are immutable, in-memory, and expire after `PHENOTYPE_REVIEW_SESSION_TTL_SECONDS` (default 1800 seconds); ACP restart also expires them. A client may request `review_delivery: "inline"` or `"session"` explicitly. Downloading the CSV is a client-authorized artifact write; editing it does not approve a concept set or bypass the later `provided_only` approval gate.
+
 ## Example
 
 ```json
@@ -35,6 +39,8 @@
 ```
 
 A successful response contains `capr.filename` (`phenotype_definition.R`), `capr.entry_point` (`phenotype_make_computable_definition`), `capr.source`, inline `circe_json`, and technical validation status. Sourcing the R file has no side effects; the function returns a Capr cohort object. The caller owns artifact persistence.
+
+For a session response, retrieve candidate pages with `GET /flows/phenotype_make_computable/reviews/<review_id>/candidates?offset=0&limit=100`, retrieve the frozen proposal at `/proposal`, or download `candidates.csv`. Expired or unknown review IDs return `410 review_not_found_or_expired`.
 
 ## Current supported surface
 

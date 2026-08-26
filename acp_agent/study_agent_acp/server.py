@@ -127,6 +127,21 @@ def _write_json(handler: BaseHTTPRequestHandler, status: int, payload: Dict[str,
             logger.debug("response write failed: client disconnected")
 
 
+def _write_text(handler: BaseHTTPRequestHandler, status: int, body: str, content_type: str, filename: Optional[str] = None) -> None:
+    encoded = body.encode("utf-8")
+    handler.send_response(status)
+    handler.send_header("Content-Type", content_type)
+    handler.send_header("Content-Length", str(len(encoded)))
+    if filename:
+        handler.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+    handler.end_headers()
+    try:
+        handler.wfile.write(encoded)
+    except BrokenPipeError:
+        if getattr(handler, "debug", False):
+            logger.debug("response write failed: client disconnected")
+
+
 def _load_registry_services() -> tuple[list[Dict[str, Any]], list[str]]:
     warnings: list[str] = []
     try:
@@ -186,6 +201,40 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             logger.debug("GET path=%s content_type=%s", self.path, content_type)
 
         parsed = urlsplit(self.path)
+
+        review_prefix = "/flows/phenotype_make_computable/reviews/"
+        if parsed.path.startswith(review_prefix):
+            suffix = parsed.path[len(review_prefix):]
+            parts = suffix.split("/")
+            if len(parts) == 2 and parts[0] and parts[1] in {"candidates", "candidates.csv", "proposal"}:
+                review_id, resource = parts
+                if resource == "candidates":
+                    params = parse_qs(parsed.query)
+                    try:
+                        offset = int(params.get("offset", ["0"])[0])
+                        limit = int(params.get("limit", ["100"])[0])
+                    except ValueError:
+                        _write_json(self, 400, {"error": "invalid_review_page"})
+                        return
+                    result = self.agent.get_phenotype_review_candidates(review_id, offset=offset, limit=limit)
+                    if result is None:
+                        _write_json(self, 410, {"error": "review_not_found_or_expired"})
+                    else:
+                        _write_json(self, 200, result)
+                    return
+                if resource == "proposal":
+                    result = self.agent.get_phenotype_review_proposal(review_id)
+                    if result is None:
+                        _write_json(self, 410, {"error": "review_not_found_or_expired"})
+                    else:
+                        _write_json(self, 200, result)
+                    return
+                csv_text = self.agent.get_phenotype_review_csv(review_id)
+                if csv_text is None:
+                    _write_json(self, 410, {"error": "review_not_found_or_expired"})
+                else:
+                    _write_text(self, 200, csv_text, "text/csv; charset=utf-8", filename=f"phenotype_review_{review_id}.csv")
+                return
 
         if parsed.path == "/health":
             payload = {

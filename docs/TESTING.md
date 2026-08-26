@@ -120,7 +120,7 @@ Task dependencies:
 - `run_smoke_suite` runs every configured local ACP/MCP smoke flow, including the cohort-method, phenotype-validation, and Keeper flows. It requires the LLM, embedding, phenotype-index, and any configured Keeper dependencies.
 - `run_external_smoke_suite` runs `run_smoke_suite` plus the real Hecate/PHOEBE endpoint smoke test.
 - `smoke_phenotype_make_computable_flow` is a retained ACP/MCP/R workflow test for all 11 training cohorts: nine supported definitions, corrected cohort 63 (temporal follow-up with 365-day observation), and cohort 858 (intentional mixed-domain clarification). It uses reviewed reference-set policies and does not call the LLM.
-- `smoke_phenotype_make_computable_proposal_flow` is a separate slow ACP/MCP/LLM workflow test. It uses synthetic text, retrieves Condition candidates from the configured vocabulary source, and verifies that the LLM returns a schema-compliant proposal for human review. It deliberately does not emit Capr from that proposal.
+- `smoke_phenotype_make_computable_proposal_flow` is a separate slow ACP/MCP/LLM workflow test. It uses synthetic text, runs the opt-in grounded concept-build path (LLM search terms plus vocabulary standardization/hydration), and verifies that the LLM returns a schema-compliant, evidence-bounded proposal for human review. It deliberately does not emit Capr from that proposal.
 
 Smoke tasks own temporary ACP and MCP processes. Stop any long-lived Study Agent services using ports 8765 or 8790 before running either smoke suite. Missing `LLM_API_KEY` fails an LLM-backed smoke task when `llm.authentication` is `required` (the default); keyless shims should set `llm.authentication: none` in `config.yaml`.
 

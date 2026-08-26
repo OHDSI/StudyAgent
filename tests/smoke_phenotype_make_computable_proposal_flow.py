@@ -35,6 +35,7 @@ def main() -> int:
             "exit_strategy": "observation",
         },
         "concept_review_mode": "propose",
+        "concept_build_mode": "grounded",
         "concept_sets": [],
     }
     request = urllib.request.Request(
@@ -55,6 +56,15 @@ def main() -> int:
         raise AssertionError(f"expected successful proposal for review, got {result}")
     if not result.get("concept_candidates") or not isinstance(plan, dict):
         raise AssertionError("expected vocabulary candidates and a structured LLM proposal")
+    candidate_ids = {int(candidate["conceptId"]) for candidate in result["concept_candidates"] if candidate.get("conceptId") not in (None, "")}
+    assessed_ids = {int(assessment["concept_id"]) for assessment in plan.get("candidate_assessments") or []}
+    if candidate_ids != assessed_ids:
+        raise AssertionError("expected one eligibility assessment for every retrieved candidate")
+    if result.get("concept_build", {}).get("mode") != "grounded":
+        raise AssertionError(f"expected grounded concept-build evidence, got {result.get('concept_build')}")
+    provenance = result.get("concept_provenance") or {}
+    if provenance.get("tool") != "grounded_vocabulary_pipeline" or not provenance.get("search_terms"):
+        raise AssertionError(f"expected grounded retrieval provenance, got {provenance}")
     required = {"status", "scope_check", "concept_sets", "cohort_plan", "assumptions", "warnings"}
     if not required.issubset(plan):
         raise AssertionError(f"proposal missing contract keys: {sorted(required - set(plan))}")

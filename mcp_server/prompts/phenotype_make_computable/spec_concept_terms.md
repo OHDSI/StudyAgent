@@ -1,0 +1,1 @@
+Return JSON matching the supplied schema. Produce one to five concise clinical search terms. The first term must be the confirmed index event exactly as supplied. Do not include instructions, negated terms, concept IDs, domain/table names, or explanatory prose. The terms are candidate-retrieval hints, not a concept-set decision.

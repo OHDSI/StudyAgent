@@ -42,3 +42,29 @@ def test_phenotype_make_computable_route_rejects_invalid_payload(monkeypatch):
     captured = _post(monkeypatch, {"narrative_statement": 42})
     assert captured["status"] == 422
     assert captured["payload"]["error"].startswith("invalid_payload:")
+
+
+@pytest.mark.acp
+def test_phenotype_review_session_routes_page_and_download(monkeypatch):
+    handler = acp_server.ACPRequestHandler.__new__(acp_server.ACPRequestHandler)
+    handler.path = "/flows/phenotype_make_computable/reviews/review123/candidates?offset=2&limit=5"
+    handler.headers = {}
+    handler.debug = False
+    handler.mcp_client = None
+    handler.agent = type("ReviewAgent", (), {
+        "get_phenotype_review_candidates": staticmethod(lambda review_id, offset, limit: {"review_id": review_id, "offset": offset, "limit": limit, "candidates": []}),
+        "get_phenotype_review_proposal": staticmethod(lambda review_id: {"review_id": review_id, "proposed_plan": {}}),
+        "get_phenotype_review_csv": staticmethod(lambda review_id: "concept_id\n1\n"),
+    })()
+    captured = {}
+    monkeypatch.setattr(acp_server, "_write_json", lambda _handler, status, payload: captured.update(status=status, payload=payload))
+    handler.do_GET()
+    assert captured == {"status": 200, "payload": {"review_id": "review123", "offset": 2, "limit": 5, "candidates": []}}
+
+    handler.path = "/flows/phenotype_make_computable/reviews/review123/candidates.csv"
+    captured = {}
+    monkeypatch.setattr(acp_server, "_write_text", lambda _handler, status, body, content_type, filename=None: captured.update(status=status, body=body, content_type=content_type, filename=filename))
+    handler.do_GET()
+    assert captured["status"] == 200
+    assert captured["body"] == "concept_id\n1\n"
+    assert captured["filename"] == "phenotype_review_review123.csv"

@@ -19,6 +19,12 @@ class _Mcp:
             return {"concepts": [{"conceptId": 4064161, "conceptName": "Cirrhosis of liver", "domainId": "Condition", "standardConcept": "S"}]}
         if name == "vocab_fetch_concepts":
             return {"concepts": arguments["concepts"], "provider": "db"}
+        if name == "vocab_filter_standard_concepts":
+            return {"concepts": arguments["concepts"], "count": len(arguments["concepts"]), "provider": "db"}
+        if name == "phoebe_related_concepts":
+            return {"concepts": [], "count": 0, "provider": "db", "controls": {}}
+        if name == "vocab_remove_descendants":
+            return {"concepts": arguments["concepts"], "count": len(arguments["concepts"]), "removed_concept_ids": []}
         if name == "phenotype_make_computable_prompt_bundle":
             return _load_bundle()
         if name == "phenotype_make_computable_validate":
@@ -91,7 +97,7 @@ def test_required_concept_review_returns_vocab_candidates():
 def test_propose_mode_returns_llm_plan_for_review():
     scope = {"index_event": "Cirrhosis", "criterion_domains": {"Cirrhosis": "Condition"}, "entry_limit": "First", "prior_observation": "0", "index_day_boundary": "included", "windows": "none", "exit_strategy": "observation"}
     agent = StudyAgent(mcp_client=_Mcp())
-    agent._call_llm = lambda prompt, required_keys: LLMCallResult(status="ok", parsed_content={"status": "needs_clarification", "scope_check": {}, "concept_sets": [], "cohort_plan": {}, "assumptions": [], "warnings": []})
+    agent._call_llm = lambda prompt, required_keys: LLMCallResult(status="ok", parsed_content={"status": "needs_clarification", "scope_check": {}, "candidate_assessments": [{"concept_id": 4064161, "precision_eligible": True, "rationale": "matches the confirmed index event"}], "concept_sets": [], "cohort_plan": {}, "assumptions": [], "warnings": []})
     result = agent.run_phenotype_make_computable_flow("earliest cirrhosis", True, scope, "propose")
     assert result["status"] == "needs_concept_review"
     assert result["llm_status"] == "ok"
@@ -106,6 +112,155 @@ def test_propose_mode_returns_llm_plan_for_review():
     }
 
 
+def test_propose_response_omits_verbose_raw_llm_payload(monkeypatch):
+    monkeypatch.setenv("LLM_LOG_RESPONSE", "1")
+    scope = {"index_event": "Cirrhosis", "criterion_domains": {"Cirrhosis": "Condition"}, "entry_limit": "First", "prior_observation": "0", "index_day_boundary": "included", "windows": "none", "exit_strategy": "observation"}
+    agent = StudyAgent(mcp_client=_Mcp())
+    agent._call_llm = lambda prompt, required_keys: LLMCallResult(
+        status="ok",
+        content_text='{"large": "raw model output"}',
+        raw_response={"content": "raw model output"},
+        parsed_content={"status": "ok", "scope_check": {}, "candidate_assessments": [{"concept_id": 4064161, "precision_eligible": True, "rationale": "matches"}], "concept_sets": [], "cohort_plan": {}, "assumptions": [], "warnings": []},
+    )
+
+    result = agent.run_phenotype_make_computable_flow("earliest cirrhosis", True, scope, "propose")
+
+    assert result["status"] == "needs_concept_review"
+    assert "llm_content_text" not in result["diagnostics"]
+    assert "llm_raw_response" not in result["diagnostics"]
+
+
+def test_session_delivery_keeps_large_review_rows_out_of_initial_response():
+    scope = {"index_event": "Cirrhosis", "criterion_domains": {"Cirrhosis": "Condition"}, "entry_limit": "First", "prior_observation": 0, "index_day_boundary": "included", "windows": "none", "exit_strategy": "observation"}
+    agent = StudyAgent(mcp_client=_Mcp())
+    agent._call_llm = lambda prompt, required_keys: LLMCallResult(
+        status="ok",
+        parsed_content={"status": "ok", "scope_check": {}, "candidate_assessments": [{"concept_id": 4064161, "precision_eligible": True, "rationale": "matches"}], "concept_sets": [], "cohort_plan": {}, "assumptions": [], "warnings": []},
+    )
+
+    result = agent.run_phenotype_make_computable_flow(
+        "earliest cirrhosis", True, scope, "propose", review_delivery="session"
+    )
+
+    assert result["review_delivery"] == "session"
+    assert result["candidate_count"] == 1
+    assert result["assessment_count"] == 1
+    assert result["proposed_plan_present"] is True
+    assert "concept_candidates" not in result
+    assert "proposed_plan" not in result
+    review_id = result["review_id"]
+    page = agent.get_phenotype_review_candidates(review_id, offset=0, limit=1)
+    assert page["total"] == 1
+    assert page["candidates"][0]["conceptId"] == 4064161
+    csv_text = agent.get_phenotype_review_csv(review_id)
+    assert "assessment_status" in csv_text
+    assert "Cirrhosis of liver" in csv_text
+
+
+def test_grounded_propose_mode_uses_terms_and_rejects_invented_concepts():
+    scope = {"index_event": "Cirrhosis", "criterion_domains": {"Cirrhosis": "Condition"}, "entry_limit": "First", "prior_observation": 0, "index_day_boundary": "included", "windows": "none", "exit_strategy": "observation"}
+    agent = StudyAgent(mcp_client=_Mcp())
+    responses = iter([
+        LLMCallResult(status="ok", parsed_content={"terms": ["Cirrhosis", "Hepatic cirrhosis"]}),
+        LLMCallResult(status="ok", parsed_content={"status": "ok", "scope_check": {}, "candidate_assessments": [{"concept_id": 4064161, "precision_eligible": True, "rationale": "matches the confirmed index event"}], "concept_sets": [{"name": "Cirrhosis", "domain": "Condition", "items": [{"concept_id": 9999999, "domain": "Condition", "include_descendants": False, "include_mapped": False, "is_excluded": False}]}], "cohort_plan": {"mode": "condition_entry", "entry_limit": "First", "prior_observation_days": 0, "exit_strategy": "observation", "era_days": 0}, "assumptions": [], "warnings": []}),
+    ])
+    agent._call_llm = lambda prompt, required_keys: next(responses)
+    result = agent.run_phenotype_make_computable_flow("earliest cirrhosis", True, scope, "propose", concept_build_mode="grounded")
+    assert result["status"] == "unavailable"
+    assert result["concept_build"]["mode"] == "grounded"
+    assert result["concept_provenance"]["search_terms"] == ["Cirrhosis", "Hepatic cirrhosis"]
+    assert result["proposal_validation_errors"][0]["msg"] == "proposed_concept_not_in_grounded_candidates"
+
+
+
+class _RelationshipMcp(_Mcp):
+    def call_tool(self, name, arguments):
+        if name == "vocab_search_standard":
+            return {"concepts": [{"conceptId": 1, "conceptName": "Parent condition", "domainId": "Condition", "standardConcept": "S"}]}
+        if name == "phoebe_related_concepts":
+            return {
+                "concepts": [{
+                    "conceptId": 2,
+                    "conceptName": "Child condition",
+                    "domainId": "Condition",
+                    "standardConcept": "S",
+                    "relationshipId": "Ontology-descendant",
+                    "sourceConceptId": 1,
+                }],
+                "count": 1,
+                "provider": "db",
+                "controls": {"applied_relationship_ids": ["Ontology-descendant"]},
+            }
+        if name == "vocab_remove_descendants":
+            ids = {row["conceptId"] for row in arguments["concepts"]}
+            return {
+                "concepts": [row for row in arguments["concepts"] if row["conceptId"] != 2],
+                "count": len(arguments["concepts"]) - (1 if {1, 2}.issubset(ids) else 0),
+                "removed_concept_ids": [2] if {1, 2}.issubset(ids) else [],
+            }
+        return super().call_tool(name, arguments)
+
+
+def test_grounded_propose_rejects_redundant_descendant_covered_by_included_ancestor():
+    scope = {"index_event": "Parent condition", "criterion_domains": {"Parent condition": "Condition"}, "entry_limit": "First", "prior_observation": 0, "index_day_boundary": "included", "windows": "none", "exit_strategy": "observation"}
+    agent = StudyAgent(mcp_client=_RelationshipMcp())
+    responses = iter([
+        LLMCallResult(status="ok", parsed_content={"terms": ["Parent condition"]}),
+        LLMCallResult(status="ok", parsed_content={
+            "status": "ok",
+            "scope_check": {},
+            "candidate_assessments": [
+                {"concept_id": 1, "precision_eligible": True, "rationale": "parent matches"},
+                {"concept_id": 2, "precision_eligible": True, "rationale": "child matches"},
+            ],
+            "concept_sets": [{"name": "Parent", "domain": "Condition", "items": [
+                {"concept_id": 1, "domain": "Condition", "include_descendants": True, "include_mapped": False, "is_excluded": False},
+                {"concept_id": 2, "domain": "Condition", "include_descendants": False, "include_mapped": False, "is_excluded": False},
+            ]}],
+            "cohort_plan": {"mode": "condition_entry", "entry_limit": "First", "prior_observation_days": 0, "exit_strategy": "observation", "era_days": 0},
+            "assumptions": [],
+            "warnings": [],
+        }),
+    ])
+    agent._call_llm = lambda prompt, required_keys: next(responses)
+
+    result = agent.run_phenotype_make_computable_flow("earliest parent condition", True, scope, "propose", concept_build_mode="grounded")
+
+    assert result["status"] == "needs_concept_review"
+    assert result["proposal_validation_status"] == "requires_review"
+    assert result["concept_provenance"]["relationship_expansion"]["related_candidate_count"] == 1
+    assert {row["conceptId"] for row in result["concept_candidates"]} == {1, 2}
+    assert any(error["msg"] == "redundant_descendant_covered_by_included_ancestor" for error in result["proposal_validation_errors"])
+
+
+def test_grounded_propose_allows_ineligible_descendant_as_explicit_exclusion():
+    scope = {"index_event": "Parent condition", "criterion_domains": {"Parent condition": "Condition"}, "entry_limit": "First", "prior_observation": 0, "index_day_boundary": "included", "windows": "none", "exit_strategy": "observation"}
+    agent = StudyAgent(mcp_client=_RelationshipMcp())
+    responses = iter([
+        LLMCallResult(status="ok", parsed_content={"terms": ["Parent condition"]}),
+        LLMCallResult(status="ok", parsed_content={
+            "status": "ok",
+            "scope_check": {},
+            "candidate_assessments": [
+                {"concept_id": 1, "precision_eligible": True, "rationale": "parent matches"},
+                {"concept_id": 2, "precision_eligible": False, "rationale": "child must be excluded"},
+            ],
+            "concept_sets": [{"name": "Parent", "domain": "Condition", "items": [
+                {"concept_id": 1, "domain": "Condition", "include_descendants": True, "include_mapped": False, "is_excluded": False},
+                {"concept_id": 2, "domain": "Condition", "include_descendants": False, "include_mapped": False, "is_excluded": True},
+            ]}],
+            "cohort_plan": {"mode": "condition_entry", "entry_limit": "First", "prior_observation_days": 0, "exit_strategy": "observation", "era_days": 0},
+            "assumptions": [],
+            "warnings": [],
+        }),
+    ])
+    agent._call_llm = lambda prompt, required_keys: next(responses)
+
+    result = agent.run_phenotype_make_computable_flow("earliest parent condition", True, scope, "propose", concept_build_mode="grounded")
+
+    assert result["status"] == "needs_concept_review"
+    assert result["proposed_plan"]["concept_sets"][0]["items"][1]["is_excluded"] is True
+
 def test_prompt_contract_requires_policy_bearing_reviewed_concept_items():
     bundle = _load_bundle()
     concept_set = bundle["output_schema"]["properties"]["concept_sets"]["items"]
@@ -117,7 +272,7 @@ def test_prompt_contract_requires_policy_bearing_reviewed_concept_items():
 def test_propose_mode_rejects_a_plan_with_an_unsupported_exit_strategy():
     scope = {"index_event": "Cirrhosis", "criterion_domains": {"Cirrhosis": "Condition"}, "entry_limit": "First", "prior_observation": 0, "index_day_boundary": "included", "windows": "none", "exit_strategy": "observation"}
     agent = StudyAgent(mcp_client=_Mcp())
-    agent._call_llm = lambda prompt, required_keys: LLMCallResult(status="ok", parsed_content={"status": "ok", "scope_check": {}, "concept_sets": [], "cohort_plan": {"exit_strategy": {"type": "observation_end"}}, "assumptions": [], "warnings": []})
+    agent._call_llm = lambda prompt, required_keys: LLMCallResult(status="ok", parsed_content={"status": "ok", "scope_check": {}, "candidate_assessments": [{"concept_id": 4064161, "precision_eligible": True, "rationale": "matches the confirmed index event"}], "concept_sets": [], "cohort_plan": {"exit_strategy": {"type": "observation_end"}}, "assumptions": [], "warnings": []})
     result = agent.run_phenotype_make_computable_flow("earliest cirrhosis", True, scope, "propose")
     assert result["status"] == "unavailable"
     assert result["proposed_plan"] is None

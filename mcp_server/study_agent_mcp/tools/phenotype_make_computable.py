@@ -35,6 +35,9 @@ def _load_bundle() -> Dict[str, Any]:
         "overview": _load_text(os.path.join(base, "overview_phenotype_make_computable.md")),
         "spec": _load_text(os.path.join(base, "spec_phenotype_make_computable.md")),
         "output_schema": _load_json(os.path.join(base, "output_schema_phenotype_make_computable.json")),
+        "concept_terms_overview": _load_text(os.path.join(base, "overview_concept_terms.md")),
+        "concept_terms_spec": _load_text(os.path.join(base, "spec_concept_terms.md")),
+        "concept_terms_schema": _load_json(os.path.join(base, "output_schema_concept_terms.json")),
         "capr_reference": _load_text(os.path.join(base, "CAPR_REFERENCE.md")),
     }
     _CACHE["bundle"] = payload

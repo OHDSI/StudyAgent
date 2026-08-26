@@ -341,6 +341,8 @@ class LLMAuditEnvelope(BaseModel):
     records: List[LLMAuditRecord] = Field(default_factory=list)
 
 ConceptReviewMode = Literal["required", "propose", "provided_only"]
+ConceptBuildMode = Literal["search_only", "grounded"]
+ReviewDelivery = Literal["auto", "inline", "session"]
 
 
 class PhenotypePriorObservationScope(BaseModel):
@@ -441,15 +443,33 @@ class PhenotypeMakeComputableProposalPlan(BaseModel):
     multi_domain_entry_policy: Optional[Literal["diagnosis_only", "any_qualifying_domain", "supporting_evidence_only"]] = None
 
 
+class PhenotypeCandidateAssessment(BaseModel):
+    """Review-oriented eligibility assessment for a retrieved vocabulary option."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    concept_id: int
+    precision_eligible: bool
+    rationale: str = Field(min_length=1, max_length=500)
+
+
 class PhenotypeMakeComputableProposal(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     status: Literal["ok", "needs_clarification", "not_expressible"]
     scope_check: Dict[str, Any]
+    candidate_assessments: List[PhenotypeCandidateAssessment] = Field(default_factory=list)
     concept_sets: List[PhenotypeReviewedConceptSet] = Field(default_factory=list)
     cohort_plan: PhenotypeMakeComputableProposalPlan
     assumptions: List[str] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
+
+
+class PhenotypeConceptTermProposal(BaseModel):
+    # Bounded clinical search terms proposed before vocabulary retrieval.
+    model_config = ConfigDict(extra="forbid")
+
+    terms: List[str] = Field(default_factory=list, max_length=5)
 
 
 class PhenotypeMakeComputableInput(BaseModel):
@@ -461,4 +481,6 @@ class PhenotypeMakeComputableInput(BaseModel):
     confirmed_scope: bool = False
     scope: PhenotypeMakeComputableScope = Field(default_factory=PhenotypeMakeComputableScope)
     concept_review_mode: ConceptReviewMode = "required"
+    concept_build_mode: ConceptBuildMode = "search_only"
+    review_delivery: ReviewDelivery = "auto"
     concept_sets: List[PhenotypeReviewedConceptSet] = Field(default_factory=list)

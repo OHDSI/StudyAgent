@@ -6,6 +6,7 @@
   "required": [
     "status",
     "scope_check",
+    "candidate_assessments",
     "concept_sets",
     "cohort_plan",
     "assumptions",
@@ -162,6 +163,31 @@
       "type": "array",
       "items": {
         "type": "string"
+      }
+    },
+    "candidate_assessments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "concept_id",
+          "precision_eligible",
+          "rationale"
+        ],
+        "properties": {
+          "concept_id": {
+            "type": "integer"
+          },
+          "precision_eligible": {
+            "type": "boolean"
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        }
       }
     }
   }
