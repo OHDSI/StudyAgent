@@ -54,6 +54,7 @@ def test_phenotype_review_session_routes_page_and_download(monkeypatch):
     handler.agent = type("ReviewAgent", (), {
         "get_phenotype_review_candidates": staticmethod(lambda review_id, offset, limit: {"review_id": review_id, "offset": offset, "limit": limit, "candidates": []}),
         "get_phenotype_review_proposal": staticmethod(lambda review_id: {"review_id": review_id, "proposed_plan": {}}),
+        "get_phenotype_review_manifest": staticmethod(lambda review_id: {"review_id": review_id, "schema_version": 1}),
         "get_phenotype_review_csv": staticmethod(lambda review_id: "concept_id\n1\n"),
     })()
     captured = {}
@@ -68,3 +69,8 @@ def test_phenotype_review_session_routes_page_and_download(monkeypatch):
     assert captured["status"] == 200
     assert captured["body"] == "concept_id\n1\n"
     assert captured["filename"] == "phenotype_review_review123.csv"
+
+    handler.path = "/flows/phenotype_make_computable/reviews/review123/manifest"
+    captured = {}
+    handler.do_GET()
+    assert captured == {"status": 200, "payload": {"review_id": "review123", "schema_version": 1}}

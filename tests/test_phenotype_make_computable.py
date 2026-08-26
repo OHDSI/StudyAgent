@@ -154,7 +154,12 @@ def test_session_delivery_keeps_large_review_rows_out_of_initial_response():
     assert page["candidates"][0]["conceptId"] == 4064161
     csv_text = agent.get_phenotype_review_csv(review_id)
     assert "assessment_status" in csv_text
+    assert "proposed_include_concept" in csv_text
+    assert "review_exclude_concepts" in csv_text
     assert "Cirrhosis of liver" in csv_text
+    manifest = agent.get_phenotype_review_manifest(review_id)
+    assert manifest["scope"]["index_event"] == "Cirrhosis"
+    assert "T" in manifest["review_expires_at"]
 
 
 def test_grounded_propose_mode_uses_terms_and_rejects_invented_concepts():

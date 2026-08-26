@@ -1,4 +1,5 @@
 import csv
+from datetime import datetime
 import io
 import json
 import logging
@@ -138,6 +139,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
             "candidate_rows": candidate_rows,
             "direct_candidate_ids": set(direct_candidate_ids),
             "assessment_count": len(assessments),
+            "created_at_epoch": int(now_wall),
         }
         with self._phenotype_review_sessions_lock:
             self._prune_phenotype_review_sessions()
@@ -154,10 +156,12 @@ class StudyAgent(PhenotypeRecommendationMixin):
             },
             "proposed_plan_present": plan is not None,
             "review_expires_at_epoch": record["expires_at_epoch"],
+            "review_expires_at": datetime.fromtimestamp(record["expires_at_epoch"]).astimezone().isoformat(timespec="seconds"),
             "review_urls": {
                 "candidates": f"/flows/phenotype_make_computable/reviews/{review_id}/candidates",
                 "candidates_csv": f"/flows/phenotype_make_computable/reviews/{review_id}/candidates.csv",
                 "proposal": f"/flows/phenotype_make_computable/reviews/{review_id}/proposal",
+                "manifest": f"/flows/phenotype_make_computable/reviews/{review_id}/manifest",
             },
         })
         return compact
@@ -198,6 +202,30 @@ class StudyAgent(PhenotypeRecommendationMixin):
             "diagnostics": response.get("diagnostics") or {},
         }
 
+    def get_phenotype_review_manifest(self, review_id: str) -> Optional[Dict[str, Any]]:
+        record = self._review_session(review_id)
+        if record is None:
+            return None
+        response = record["response"]
+        return {
+            "schema_version": 1,
+            "review_id": review_id,
+            "created_at_epoch": record["created_at_epoch"],
+            "created_at": datetime.fromtimestamp(record["created_at_epoch"]).astimezone().isoformat(timespec="seconds"),
+            "review_expires_at_epoch": record["expires_at_epoch"],
+            "review_expires_at": datetime.fromtimestamp(record["expires_at_epoch"]).astimezone().isoformat(timespec="seconds"),
+            "narrative_statement": response.get("narrative_statement"),
+            "scope": response.get("scope") or {},
+            "concept_review_mode": response.get("concept_review_mode"),
+            "concept_build_mode": (response.get("concept_build") or {}).get("mode"),
+            "candidate_count": len(record["candidate_rows"]),
+            "assessment_scope": {
+                "direct_candidate_count": len(record["direct_candidate_ids"]),
+                "relationship_context_candidate_count": max(0, len(record["candidate_rows"]) - len(record["direct_candidate_ids"])),
+            },
+            "concept_provenance": response.get("concept_provenance") or {},
+        }
+
     @staticmethod
     def _csv_cell(value: Any) -> str:
         if value is None:
@@ -223,8 +251,10 @@ class StudyAgent(PhenotypeRecommendationMixin):
         fields = [
             "concept_set_name", "concept_id", "concept_name", "domain", "vocabulary", "concept_class", "standard_concept",
             "source_term", "source_stage", "relationship_evidence", "assessment_status", "precision_eligible", "assessment_rationale",
-            "proposed_include_descendants", "proposed_include_mapped", "proposed_is_excluded", "review_action",
-            "review_include_descendants", "review_include_mapped", "review_is_excluded", "review_notes",
+            "proposed_include_concept", "proposed_include_descendants", "proposed_include_mapped",
+            "proposed_exclude_concept", "proposed_exclude_descendants", "proposed_exclude_mapped",
+            "review_include_concept", "review_include_descendants", "review_include_mapped",
+            "review_exclude_concepts", "review_exclude_descendants", "review_exclude_mapped", "review_notes",
         ]
         out = io.StringIO(newline="")
         writer = csv.DictWriter(out, fieldnames=fields)
@@ -248,10 +278,14 @@ class StudyAgent(PhenotypeRecommendationMixin):
                 "assessment_status": "assessed" if assessment else ("not_assessed_retrieval_context" if concept_id not in direct_ids else "not_assessed"),
                 "precision_eligible": assessment.get("precision_eligible", ""),
                 "assessment_rationale": self._csv_cell(assessment.get("rationale")),
-                "proposed_include_descendants": proposed.get("include_descendants", ""),
-                "proposed_include_mapped": proposed.get("include_mapped", ""),
-                "proposed_is_excluded": proposed.get("is_excluded", ""),
-                "review_action": "", "review_include_descendants": "", "review_include_mapped": "", "review_is_excluded": "", "review_notes": "",
+                "proposed_include_concept": "x" if proposed and not proposed.get("is_excluded") else "",
+                "proposed_include_descendants": "x" if proposed and not proposed.get("is_excluded") and proposed.get("include_descendants") else "",
+                "proposed_include_mapped": "x" if proposed and not proposed.get("is_excluded") and proposed.get("include_mapped") else "",
+                "proposed_exclude_concept": "x" if proposed and proposed.get("is_excluded") else "",
+                "proposed_exclude_descendants": "x" if proposed and proposed.get("is_excluded") and proposed.get("include_descendants") else "",
+                "proposed_exclude_mapped": "x" if proposed and proposed.get("is_excluded") and proposed.get("include_mapped") else "",
+                "review_include_concept": "", "review_include_descendants": "", "review_include_mapped": "",
+                "review_exclude_concepts": "", "review_exclude_descendants": "", "review_exclude_mapped": "", "review_notes": "",
             })
         return out.getvalue()
 
@@ -3710,6 +3744,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
                     "status": "unavailable" if proposal_validation_status == "failed" else "needs_concept_review",
                     "narrative_statement": narrative,
                     "concept_review_mode": "propose",
+                    "scope": scope_data,
                     "concept_build": concept_build,
                     "concept_candidates": candidate_list,
                     "concept_provenance": concept_provenance,

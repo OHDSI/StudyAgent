@@ -206,7 +206,7 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
         if parsed.path.startswith(review_prefix):
             suffix = parsed.path[len(review_prefix):]
             parts = suffix.split("/")
-            if len(parts) == 2 and parts[0] and parts[1] in {"candidates", "candidates.csv", "proposal"}:
+            if len(parts) == 2 and parts[0] and parts[1] in {"candidates", "candidates.csv", "proposal", "manifest"}:
                 review_id, resource = parts
                 if resource == "candidates":
                     params = parse_qs(parsed.query)
@@ -224,6 +224,13 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
                     return
                 if resource == "proposal":
                     result = self.agent.get_phenotype_review_proposal(review_id)
+                    if result is None:
+                        _write_json(self, 410, {"error": "review_not_found_or_expired"})
+                    else:
+                        _write_json(self, 200, result)
+                    return
+                if resource == "manifest":
+                    result = self.agent.get_phenotype_review_manifest(review_id)
                     if result is None:
                         _write_json(self, 410, {"error": "review_not_found_or_expired"})
                     else:
