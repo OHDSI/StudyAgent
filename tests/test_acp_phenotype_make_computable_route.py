@@ -74,3 +74,34 @@ def test_phenotype_review_session_routes_page_and_download(monkeypatch):
     captured = {}
     handler.do_GET()
     assert captured == {"status": 200, "payload": {"review_id": "review123", "schema_version": 1}}
+
+
+def test_write_text_strips_response_splitting_characters_from_filename():
+    headers = []
+
+    class Handler:
+        debug = False
+
+        def send_response(self, _status):
+            pass
+
+        def send_header(self, name, value):
+            headers.append((name, value))
+
+        def end_headers(self):
+            pass
+
+        class wfile:
+            @staticmethod
+            def write(_body):
+                pass
+
+    acp_server._write_text(
+        Handler(),
+        200,
+        "concept_id\n1\n",
+        "text/csv; charset=utf-8",
+        filename='review.csv\r\nX-Injected: true"',
+    )
+
+    assert ("Content-Disposition", 'attachment; filename="review.csvX-Injected: true"') in headers

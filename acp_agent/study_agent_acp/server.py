@@ -133,7 +133,11 @@ def _write_text(handler: BaseHTTPRequestHandler, status: int, body: str, content
     handler.send_header("Content-Type", content_type)
     handler.send_header("Content-Length", str(len(encoded)))
     if filename:
-        handler.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+        # `filename` may be derived from a URL path segment. A response header
+        # must never contain CR/LF supplied by a request, since that could inject
+        # a second header or response body.
+        safe_filename = filename.replace("\r", "").replace("\n", "").replace('"', "")
+        handler.send_header("Content-Disposition", f'attachment; filename="{safe_filename}"')
     handler.end_headers()
     try:
         handler.wfile.write(encoded)
