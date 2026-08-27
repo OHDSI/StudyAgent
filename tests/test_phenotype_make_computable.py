@@ -1,4 +1,5 @@
 import csv
+import pytest
 from pathlib import Path
 
 from study_agent_acp.llm_client import LLMCallResult
@@ -70,14 +71,14 @@ def test_710_simple_condition_fixture():
 
 
 def test_222_visit_overlap_fixture():
-    emitted = emit_capr({"index_event": "SJS/TEN", "entry_limit": "All", "visit_overlap": True, "exit_strategy": {"type": "fixed", "offset_days": 1}}, _policy_concept_sets("222"))
+    emitted = emit_capr({"index_event": "SJS/TEN", "entry_limit": "All", "visit_overlap": True, "visit_overlap_mode": "entry", "exit_strategy": {"type": "fixed", "offset_days": 1}}, _policy_concept_sets("222"))
     validated = validate_capr_source(emitted["capr_code"])
     assert validated["status"] == "passed"
     circe = validated["circe_json"]
     assert len(circe["ConceptSets"]) == 2
     assert circe["PrimaryCriteria"]["PrimaryCriteriaLimit"]["Type"] == "All"
     assert circe["EndStrategy"]["DateOffset"]["Offset"] == 1
-    assert len(circe["InclusionRules"]) == 1
+    assert len(circe["InclusionRules"]) == 0
 
 
 def test_confirmed_provided_concept_set_returns_validated_artifacts():
@@ -90,12 +91,99 @@ def test_confirmed_provided_concept_set_returns_validated_artifacts():
     assert result["capr"]["entry_point"] == "phenotype_make_computable_definition"
 
 
+class _VisitUnionMcp(_Mcp):
+    def call_tool(self, name, arguments):
+        if name == "vocab_search_standard":
+            query = arguments["query"]
+            rows = {
+                "Stevens-Johnson syndrome, Toxic epidermal necrolysis spectrum": [{"conceptId": 35625857, "conceptName": "SJS/TEN", "domainId": "Condition", "standardConcept": "S"}],
+                "Emergency room or Inpatient Visit": [],
+                "Emergency room": [
+                    {"conceptId": 262, "conceptName": "Emergency Room and Inpatient Visit", "domainId": "Visit", "standardConcept": "S"},
+                    {"conceptId": 9203, "conceptName": "Emergency Room Visit", "domainId": "Visit", "standardConcept": "S"},
+                ],
+                "Inpatient Visit": [
+                    {"conceptId": 262, "conceptName": "Emergency Room and Inpatient Visit", "domainId": "Visit", "standardConcept": "S"},
+                    {"conceptId": 9201, "conceptName": "Inpatient Visit", "domainId": "Visit", "standardConcept": "S"},
+                ],
+            }[query]
+            return {"concepts": rows}
+        return super().call_tool(name, arguments)
+
+
+def test_visit_or_criterion_expands_to_named_union_lane():
+    scope = {
+        "index_event": "Stevens-Johnson syndrome, Toxic epidermal necrolysis spectrum",
+        "criterion_domains": {
+            "Stevens-Johnson syndrome, Toxic epidermal necrolysis spectrum": "Condition",
+            "Emergency room or Inpatient Visit": "Visit",
+        },
+    }
+    candidates, provenance, _ = StudyAgent(mcp_client=_VisitUnionMcp())._retrieve_phenotype_concept_lanes(scope)
+    visit_rows = [row for row in candidates if row["conceptSetName"] == "Emergency room or Inpatient Visit"]
+    assert {row["conceptId"] for row in visit_rows} == {262, 9201, 9203}
+    assert {row["sourceTerm"] for row in visit_rows} >= {"Emergency room", "Inpatient Visit"}
+    visit_runs = [run for run in provenance["search_runs"] if run["concept_set_name"] == "Emergency room or Inpatient Visit"]
+    assert [run["query"] for run in visit_runs] == ["Emergency room or Inpatient Visit", "Emergency room", "Inpatient Visit"]
+
+
 def test_required_concept_review_returns_vocab_candidates():
     scope = {"index_event": "Cirrhosis", "criterion_domains": {"Cirrhosis": "Condition"}, "entry_limit": "First", "prior_observation": "0", "index_day_boundary": "included", "windows": "none", "exit_strategy": "observation"}
     result = StudyAgent(mcp_client=_Mcp()).run_phenotype_make_computable_flow("earliest cirrhosis", True, scope)
     assert result["status"] == "needs_concept_review"
     assert result["concept_candidates"][0]["conceptId"] == 4064161
     assert result["concept_provenance"]["tool"] == "vocab_search_standard"
+
+
+def test_required_drug_concept_review_uses_drug_lane_and_fixed_exit():
+    class DrugMcp(_Mcp):
+        def call_tool(self, name, arguments):
+            if name == "vocab_search_standard":
+                assert arguments == {"query": "Warfarin", "domains": ["Drug"], "vocabulary_ids": ["RxNorm"], "limit": 20}
+                return {
+                    "concepts": [{
+                        "conceptId": 1310149,
+                        "conceptName": "Warfarin",
+                        "domainId": "Drug",
+                        "standardConcept": "S",
+                    }],
+                    "returned_count": 1,
+                    "matched_count": 5652,
+                    "matched_count_status": "exact",
+                    "limit": 20,
+                    "truncated": True,
+                    "ordering": "concept_name_ascending",
+                    "vocabulary_filter_status": "database_filter",
+                }
+            return super().call_tool(name, arguments)
+
+    scope = {
+        "index_event": "Warfarin",
+        "criterion_domains": {"Warfarin": "Drug"},
+        "criterion_vocabularies": {"Warfarin": ["RxNorm"]},
+        "entry_limit": "First",
+        "prior_observation": 365,
+        "index_day_boundary": "included",
+        "windows": "none",
+        "exit_strategy": {"type": "fixed", "index": "endDate", "offset_days": 30},
+        "visit_overlap": False,
+    }
+    result = StudyAgent(mcp_client=DrugMcp()).run_phenotype_make_computable_flow(
+        "Earliest exposure to warfarin.", True, scope, "required", review_delivery="inline"
+    )
+    assert result["status"] == "needs_concept_review"
+    assert result["review_delivery"] == "inline"
+    assert result["candidate_count"] == 1
+    assert result["concept_candidates"][0]["conceptSetName"] == "Warfarin"
+    assert result["concept_candidates"][0]["domainId"] == "Drug"
+    assert result["scope"]["exit_strategy"] == {"type": "fixed", "index": "endDate", "offset_days": 30}
+    assert result["concept_provenance"]["truncated"] is True
+    assert result["concept_provenance"]["search_runs"][0]["matched_count"] == 5652
+    assert result["concept_provenance"]["search_runs"][0]["vocabulary_ids"] == ["RxNorm"]
+    assert result["concept_provenance"]["search_runs"][0]["vocabulary_filter_status"] == "database_filter"
+    assert result["concept_provenance"]["large_result_guidance"]["lanes"] == [
+        {"concept_set_name": "Warfarin", "matched_count": 5652, "returned_count": 1}
+    ]
 
 
 def test_propose_mode_returns_llm_plan_for_review():
@@ -311,8 +399,8 @@ def test_supported_training_cases_compile_with_reviewed_policies():
     cases = [
         ("710", {"index_event": "Cirrhosis", "entry_limit": "First", "exit_strategy": "observation"}),
         ("794", {"index_event": "Digestive hemorrhage", "entry_limit": "All", "exit_strategy": {"type": "fixed", "offset_days": 14}}),
-        ("743", {"index_event": "Diabetic ketoacidosis", "entry_limit": "All", "visit_overlap": True, "exit_strategy": {"type": "fixed", "offset_days": 30}}),
-        ("222", {"index_event": "SJS/TEN", "entry_limit": "All", "visit_overlap": True, "exit_strategy": {"type": "fixed", "offset_days": 1}}),
+        ("743", {"index_event": "Diabetic ketoacidosis", "entry_limit": "All", "visit_overlap": True, "visit_overlap_mode": "entry", "exit_strategy": {"type": "fixed", "offset_days": 30}}),
+        ("222", {"index_event": "SJS/TEN", "entry_limit": "All", "visit_overlap": True, "visit_overlap_mode": "attrition", "exit_strategy": {"type": "fixed", "offset_days": 1}}),
         ("1340", {"index_event": "Anorexia nervosa", "entry_limit": "All", "exit_strategy": {"type": "fixed", "offset_days": 30}, "era_days": 365}),
         ("1341", {"index_event": "Eating disorders", "entry_limit": "All", "exit_strategy": {"type": "fixed", "offset_days": 30}, "era_days": 365}),
         ("1345", {"index_event": "Personality disorders", "entry_limit": "All", "exit_strategy": {"type": "fixed", "offset_days": 30}, "era_days": 365}),
@@ -335,9 +423,6 @@ def test_era_days_becomes_circe_collapse_settings():
     emitted = emit_capr({"index_event": "Anorexia", "entry_limit": "All", "exit_strategy": {"type": "fixed", "offset_days": 30}, "era_days": 365}, _policy_concept_sets("1340"))
     circe = validate_capr_source(emitted["capr_code"])["circe_json"]
     assert circe["CollapseSettings"] == {"CollapseType": "ERA", "EraPad": 365}
-
-
-import pytest
 
 
 @pytest.mark.parametrize(("domain", "constructor", "circe_key"), [
@@ -433,8 +518,27 @@ def test_single_condition_prior_observation_scope_is_preserved_in_circe():
     assert circe["PrimaryCriteria"]["ObservationWindow"] == {"PriorDays": 365, "PostDays": 0}
 
 
+def test_visit_overlap_requires_explicit_mode_before_emission():
+    scope = {
+        "index_event": "SJS/TEN",
+        "criterion_domains": {"SJS/TEN": "Condition", "Emergency room or Inpatient Visit": "Visit"},
+        "entry_limit": "First",
+        "prior_observation": 0,
+        "index_day_boundary": "included",
+        "windows": "none",
+        "exit_strategy": {"type": "fixed", "offset_days": 1},
+        "visit_overlap": True,
+    }
+    result = StudyAgent(mcp_client=_Mcp()).run_phenotype_make_computable_flow(
+        "SJS/TEN with visit overlap", True, scope, "provided_only", _policy_concept_sets("222")
+    )
+    assert result["status"] == "needs_clarification"
+    assert result["missing_scope_fields"] == ["visit_overlap_mode"]
+    assert emit_capr({"index_event": "SJS/TEN", "entry_limit": "First", "visit_overlap": True, "exit_strategy": {"type": "fixed", "offset_days": 1}}, _policy_concept_sets("222"))["status"] == "failed"
+
+
 def test_visit_overlap_prior_observation_scope_is_preserved_in_circe():
-    scope = {"index_event": "SJS/TEN", "entry_limit": "All", "prior_observation": 365, "visit_overlap": True, "exit_strategy": {"type": "fixed", "offset_days": 1}}
+    scope = {"index_event": "SJS/TEN", "entry_limit": "All", "prior_observation": 365, "visit_overlap": True, "visit_overlap_mode": "entry", "exit_strategy": {"type": "fixed", "offset_days": 1}}
     emitted = emit_capr(scope, _policy_concept_sets("222"))
     circe = validate_capr_source(emitted["capr_code"])["circe_json"]
     assert circe["PrimaryCriteria"]["ObservationWindow"] == {"PriorDays": 365, "PostDays": 0}

@@ -19,7 +19,7 @@ SPEC.loader.exec_module(MODULE)
 
 def _write_review_csv(path, rows):
     fields = [
-        "concept_set_name", "concept_id", "concept_name", "domain", "assessment_status", "relationship_evidence",
+        "concept_set_name", "concept_id", "concept_name", "domain", "standard_concept", "standard_concept_status", "assessment_status", "relationship_evidence",
         "review_include_concept", "review_include_descendants", "review_include_mapped",
         "review_exclude_concepts", "review_exclude_descendants", "review_exclude_mapped",
     ]
@@ -34,9 +34,9 @@ def test_review_csv_builds_policy_items_and_flags_unassessed_inclusions(tmp_path
     manifest_path = tmp_path / "review_manifest.json"
     manifest_path.write_text(json.dumps({"schema_version": 1, "scope": {"index_event": "Cystitis"}}), encoding="utf-8")
     _write_review_csv(csv_path, [
-        {"concept_id": "194081", "concept_name": "Acute cystitis", "domain": "Condition", "assessment_status": "assessed", "review_include_concept": "x", "review_include_descendants": "x"},
-        {"concept_id": "37018854", "concept_name": "Hematuria due to cystitis", "domain": "Condition", "assessment_status": "not_assessed_retrieval_context", "relationship_evidence": "Patient context", "review_include_concept": "X"},
-        {"concept_id": "198809", "concept_name": "Acute cholecystitis", "domain": "Condition", "assessment_status": "assessed", "review_exclude_concepts": "x"},
+        {"concept_id": "194081", "concept_name": "Acute cystitis", "domain": "Condition", "standard_concept": "S", "standard_concept_status": "Standard", "assessment_status": "assessed", "review_include_concept": "x", "review_include_descendants": "x"},
+        {"concept_id": "37018854", "concept_name": "Hematuria due to cystitis", "domain": "Condition", "standard_concept": "S", "standard_concept_status": "Standard", "assessment_status": "not_assessed_retrieval_context", "relationship_evidence": "Patient context", "review_include_concept": "X"},
+        {"concept_id": "198809", "concept_name": "Acute cholecystitis", "domain": "Condition", "standard_concept": "S", "standard_concept_status": "Standard", "assessment_status": "assessed", "review_exclude_concepts": "x"},
     ])
 
     result = MODULE.parse_review_csv(csv_path, "Cystitis", manifest_path)
@@ -49,9 +49,9 @@ def test_review_csv_builds_policy_items_and_flags_unassessed_inclusions(tmp_path
     ]
     assert result["review_summary"]["unassessed_manually_included"][0]["concept_id"] == 37018854
     assert result["approval_preview"] == [
-        {"concept_set_name": "Cystitis", "concept_id": 194081, "concept_name": "Acute cystitis", "domain": "Condition", "policy": "Include + descendants", "assessment_status": "assessed", "precision_eligible": "", "relationship_evidence": ""},
-        {"concept_set_name": "Cystitis", "concept_id": 37018854, "concept_name": "Hematuria due to cystitis", "domain": "Condition", "policy": "Include", "assessment_status": "not_assessed_retrieval_context", "precision_eligible": "", "relationship_evidence": "Patient context"},
-        {"concept_set_name": "Cystitis", "concept_id": 198809, "concept_name": "Acute cholecystitis", "domain": "Condition", "policy": "Exclude", "assessment_status": "assessed", "precision_eligible": "", "relationship_evidence": ""},
+        {"concept_set_name": "Cystitis", "concept_id": 194081, "concept_name": "Acute cystitis", "domain": "Condition", "standard_concept": "S", "standard_concept_status": "Standard", "policy": "Include + descendants", "assessment_status": "assessed", "precision_eligible": "", "relationship_evidence": ""},
+        {"concept_set_name": "Cystitis", "concept_id": 37018854, "concept_name": "Hematuria due to cystitis", "domain": "Condition", "standard_concept": "S", "standard_concept_status": "Standard", "policy": "Include", "assessment_status": "not_assessed_retrieval_context", "precision_eligible": "", "relationship_evidence": "Patient context"},
+        {"concept_set_name": "Cystitis", "concept_id": 198809, "concept_name": "Acute cholecystitis", "domain": "Condition", "standard_concept": "S", "standard_concept_status": "Standard", "policy": "Exclude", "assessment_status": "assessed", "precision_eligible": "", "relationship_evidence": ""},
     ]
 
 
@@ -79,10 +79,23 @@ def test_review_csv_groups_explicit_lanes_into_two_concept_sets(tmp_path):
     assert validate_capr_source(emitted["capr_code"])["status"] == "passed"
 
 
+def test_review_csv_writes_hashable_approval_artifacts(tmp_path):
+    csv_path = tmp_path / "review.csv"
+    _write_review_csv(csv_path, [
+        {"concept_set_name": "Warfarin", "concept_id": "1310149", "concept_name": "warfarin", "domain": "Drug", "review_include_concept": "x", "review_include_descendants": "x"},
+    ])
+    result = MODULE.parse_review_csv(csv_path)
+    metadata = MODULE.write_approval_artifacts(result, tmp_path / "approval.json", tmp_path / "approval.csv")
+    assert metadata["selected_item_count"] == 1
+    assert len(metadata["sha256"]) == 64
+    assert json.loads((tmp_path / "approval.json").read_text()) == {"concept_sets": result["concept_sets"]}
+    assert "warfarin" in (tmp_path / "approval.csv").read_text()
+
+
 def test_review_csv_rejects_descendant_without_matching_root(tmp_path):
     csv_path = tmp_path / "review.csv"
     _write_review_csv(csv_path, [
-        {"concept_id": "194081", "concept_name": "Acute cystitis", "domain": "Condition", "assessment_status": "assessed", "review_include_descendants": "x"},
+        {"concept_id": "194081", "concept_name": "Acute cystitis", "domain": "Condition", "standard_concept": "S", "standard_concept_status": "Standard", "assessment_status": "assessed", "review_include_descendants": "x"},
     ])
 
     with pytest.raises(ValueError, match="requires_include_concept"):

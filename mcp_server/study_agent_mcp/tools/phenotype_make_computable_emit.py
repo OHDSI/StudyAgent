@@ -144,7 +144,7 @@ Capr::cohort(
             return {"status": "failed", "messages": [condition_error or visit_error]}
         limit = str(scope.get("entry_limit") or "All")
         exit_strategy = scope.get("exit_strategy") or {}
-        overlap_mode = str(scope.get("visit_overlap_mode") or "attrition")
+        overlap_mode = str(scope.get("visit_overlap_mode") or "")
         if limit not in {"First", "All"} or not isinstance(exit_strategy, dict) or exit_strategy.get("type") != "fixed" or overlap_mode not in {"entry", "attrition"}:
             return {"status": "failed", "messages": ["visit_overlap_requires_supported_limit_mode_and_fixed_exit"]}
         offset = int(exit_strategy.get("offset_days", 0))

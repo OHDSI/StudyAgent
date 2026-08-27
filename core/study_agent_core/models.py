@@ -375,6 +375,7 @@ class PhenotypeMakeComputableScope(BaseModel):
 
     index_event: Optional[str] = None
     criterion_domains: Dict[str, str] = Field(default_factory=dict)
+    criterion_vocabularies: Dict[str, List[str]] = Field(default_factory=dict)
     entry_limit: Optional[Literal["First", "All"]] = None
     prior_observation: Optional[int | PhenotypePriorObservationScope] = None
     index_day_boundary: Optional[Literal["included", "excluded"]] = None
@@ -483,4 +484,5 @@ class PhenotypeMakeComputableInput(BaseModel):
     concept_review_mode: ConceptReviewMode = "required"
     concept_build_mode: ConceptBuildMode = "search_only"
     review_delivery: ReviewDelivery = "auto"
+    candidate_limit: int = Field(default=20, ge=1, le=100)
     concept_sets: List[PhenotypeReviewedConceptSet] = Field(default_factory=list)

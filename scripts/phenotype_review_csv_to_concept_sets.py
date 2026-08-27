@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -89,6 +90,8 @@ def parse_review_csv(csv_path: Path, concept_set_name: str = "", manifest_path: 
                 "concept_id": concept_id,
                 "concept_name": row.get("concept_name") or "",
                 "domain": domain,
+                "standard_concept": row.get("standard_concept") or "",
+                "standard_concept_status": row.get("standard_concept_status") or "Unknown",
                 "policy": policy,
                 "assessment_status": row.get("assessment_status") or "",
                 "precision_eligible": row.get("precision_eligible") or "",
@@ -117,16 +120,36 @@ def parse_review_csv(csv_path: Path, concept_set_name: str = "", manifest_path: 
     }
 
 
+def write_approval_artifacts(result: dict[str, Any], approval_json: Path, approval_csv: Path) -> dict[str, Any]:
+    """Write the exact policy object and a human-readable preview for approval."""
+    payload = {"concept_sets": result["concept_sets"]}
+    encoded = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    approval_json.write_bytes(encoded)
+    preview = result["approval_preview"]
+    fields = ["concept_set_name", "concept_id", "concept_name", "domain", "standard_concept", "standard_concept_status", "policy", "assessment_status", "precision_eligible", "relationship_evidence"]
+    with approval_csv.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(preview)
+    return {"approval_json": str(approval_json), "approval_csv": str(approval_csv), "sha256": hashlib.sha256(encoded).hexdigest(), "selected_item_count": result["review_summary"]["selected_item_count"]}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--csv", required=True, type=Path)
     parser.add_argument("--concept-set-name", default="", help="Fallback name for selected rows with no concept_set_name")
     parser.add_argument("--manifest", type=Path)
+    parser.add_argument("--approval-json", type=Path, help="Write exact policy-bearing concept_sets JSON")
+    parser.add_argument("--approval-csv", type=Path, help="Write a human-readable approval preview CSV")
     args = parser.parse_args()
+    if bool(args.approval_json) != bool(args.approval_csv):
+        parser.error("--approval-json and --approval-csv must be provided together")
     try:
         result = parse_review_csv(args.csv, args.concept_set_name, args.manifest)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         parser.error(str(exc))
+    if args.approval_json:
+        result["approval_artifacts"] = write_approval_artifacts(result, args.approval_json, args.approval_csv)
     print(json.dumps(result, indent=2))
     return 0
 
