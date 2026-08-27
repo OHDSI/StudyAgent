@@ -20,6 +20,9 @@ mcp:
   transport: http
   bind: {host: 127.0.0.1, port: 8790}
   path: /mcp
+  r:
+    rscript: Rscript
+    # library: /absolute/path/to/renv/library/<platform>/<R-version>/<architecture>
 
 llm:
   api_url: http://localhost:3000/api/chat/completions

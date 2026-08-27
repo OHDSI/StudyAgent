@@ -214,10 +214,7 @@ There are two real gaps in the current R shell design.
 
 Relevant evidence:
 
-- The incidence shell has explicit source-mode selection and DB cohort import helpers in `R/slashOhdsiStrategusAssistant/R/strategus_incidence_shell.R`.
-- The CohortMethod shell currently validates target, comparator, and outcome cohort IDs only against local index-backed cohort JSONs in `R/slashOhdsiStrategusAssistant/R/strategus_cohort_methods_shell.R`.
-- Shared DB cohort import helpers already exist in `R/slashOhdsiStrategusAssistant/R/cohort_definition_import.R`.
-- Shared Strategus DB connection creation currently centers on a single `strategus-db-details.json` via `createStrategusConnectionDetails()` in `R/slashOhdsiStrategusAssistant/R/db_details.R`.
+- Strategus shell implementation is owned by the external [`SlashOhdsiStrategusAssistant`](https://github.com/OHDSI/SlashOhdsiStrategusAssistant) package; track shell changes and their source-level tests there.
 
 ### Additional deployment requirement
 

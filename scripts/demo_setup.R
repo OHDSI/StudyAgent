@@ -12,8 +12,8 @@ locate_study_agent_repo_root <- function(start = getwd()) {
 
   for (candidate in candidates) {
     if (
-      dir.exists(file.path(candidate, "R", "slashOhdsiAcpClient")) &&
-      dir.exists(file.path(candidate, "R", "slashOhdsiStrategusAssistant")) &&
+      dir.exists(file.path(candidate, "acp_agent")) &&
+      dir.exists(file.path(candidate, "mcp_server")) &&
       dir.exists(file.path(candidate, "scripts"))
     ) {
       return(normalizePath(candidate, winslash = "/", mustWork = TRUE))
@@ -42,16 +42,10 @@ repo_file <- function(...) {
 }
 
 load_study_agent_package <- function(package_name, quiet = TRUE) {
-  package_dir <- repo_file("R", package_name)
-  if (requireNamespace("devtools", quietly = TRUE)) {
-    devtools::load_all(package_dir, quiet = quiet)
-    return(invisible(TRUE))
-  }
   if (!requireNamespace(package_name, quietly = TRUE)) {
     stop(sprintf(
-      "Package '%s' is not installed and devtools is unavailable to load '%s'.",
-      package_name,
-      package_dir
+      "Install the external R package '%s' before running this demo. See https://github.com/OHDSI/SlashOhdsiStrategusAssistant and https://github.com/OHDSI/SlashOhdsiAcpClient.",
+      package_name
     ))
   }
   invisible(TRUE)

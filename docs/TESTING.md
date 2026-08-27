@@ -23,8 +23,7 @@ For uv, include the optional development tools for test commands and run every p
 ```powershell
 uv run --extra dev python -m pytest -q tests/test_config_deployment.py
 uv run --extra dev doit test_all
-doit test_r_shells
-doit test_r_integration
+uv run --extra dev doit test_r_client_compatibility
 uv run study-agent-mcp --config .\config.yaml --profile native
 uv run study-agent-acp --config .\config.yaml --profile native
 ```
@@ -114,11 +113,13 @@ doit test_all
 Task dependencies:
 
 - `test_unit` depends on `test_core`, `test_acp`, and `test_mcp`.
-- `test_all` and `run_all` are the deterministic native Python ACP/MCP test gate; they exclude R-package tests and do not make live service calls.
-- `test_r_shells` runs the static checks for the in-repository R shells and R client wrappers.
-- `test_r_integration` runs the opt-in Rscript checks; it requires Rscript and the relevant optional R packages.
+- `test_all` and `run_all` are the deterministic native Python ACP/MCP test gate; they exclude the opt-in companion R-client compatibility test and do not make live service calls.
+- `test_r_client_compatibility` verifies the installed external `slashOhdsiAcpClient` and `slashOhdsiStrategusAssistant` packages, their public contract, and the Strategus runtime report using the same configured R library as ACP validation.
+  It is also available from `GET /health?deep=1` as `mcp_r_client`; use that report only for packages installed in the ACP/MCP service R library, not a remote user's R client.
 - `run_smoke_suite` runs every configured local ACP/MCP smoke flow, including the cohort-method, phenotype-validation, and Keeper flows. It requires the LLM, embedding, phenotype-index, and any configured Keeper dependencies.
 - `run_external_smoke_suite` runs `run_smoke_suite` plus the real Hecate/PHOEBE endpoint smoke test.
+- `smoke_phenotype_make_computable_flow` is a retained ACP/MCP/R workflow test for all 11 training cohorts: nine supported definitions, corrected cohort 63 (temporal follow-up with 365-day observation), and cohort 858 (intentional mixed-domain clarification). It uses reviewed reference-set policies and does not call the LLM.
+- `smoke_phenotype_make_computable_proposal_flow` is a separate slow ACP/MCP/LLM workflow test. It uses synthetic text, runs the opt-in grounded concept-build path (LLM search terms plus vocabulary standardization/hydration), and verifies that the LLM returns a schema-compliant, evidence-bounded proposal for human review. It deliberately does not emit Capr from that proposal.
 
 Smoke tasks own temporary ACP and MCP processes. Stop any long-lived Study Agent services using ports 8765 or 8790 before running either smoke suite. Missing `LLM_API_KEY` fails an LLM-backed smoke task when `llm.authentication` is `required` (the default); keyless shims should set `llm.authentication: none` in `config.yaml`.
 
@@ -126,10 +127,11 @@ Run the suites explicitly:
 
 ```bash
 uv run --extra dev doit run_all
-uv run --extra dev doit test_r_shells
-uv run --extra dev doit test_r_integration
+uv run --extra dev doit test_r_client_compatibility
 uv run --extra dev doit run_smoke_suite
 uv run --extra dev doit run_external_smoke_suite
+uv run --extra dev doit smoke_phenotype_make_computable_flow
+uv run --extra dev doit smoke_phenotype_make_computable_proposal_flow
 ```
 
 ## ACP smoke test (core fallback)

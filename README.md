@@ -55,8 +55,8 @@ The project separates orchestration from deterministic tooling:
 - `acp_agent/`: [Agent Client Protocol](https://agentclientprotocol.com/get-started/introduction) (ACP) server that exposes the flow endpoints and handles LLM orchestration
 - `mcp_server/`: [Model Context Protocol](https://modelcontextprotocol.io/docs/getting-started/intro) (MCP) server that exposes retrieval, prompt, vocabulary, concept search, case validateion, and numerous other tools. Many of the tools reside in the project but others do not. ACP specification and tool registration allows for extension beyond this project. 
 - `core/`: pure validation and business logic shared by ACP and MCP
-- `R/slashOhdsiStrategusAssistant/`: R-side Strategus workflow package and canonical shell entrypoints. This will likely eventually evolve to become a separate R HADES package.
-- `R/slashOhdsiAcpClient/' : R-side interface to connect R with the ACP using REST calls. This will likely eventually evolve to become a separate R HADES package.
+- [`slashOhdsiStrategusAssistant`](https://github.com/OHDSI/SlashOhdsiStrategusAssistant): separately maintained R package for Strategus workflow shells.
+- [`slashOhdsiAcpClient`](https://github.com/OHDSI/SlashOhdsiAcpClient): separately maintained R package for connecting R clients to ACP.
 
 ## What problems this project solves
 
@@ -140,7 +140,7 @@ Primary references:
 ### Workflow A:  HADES real-world evidence generation using incidence rate analysis
 
 1. Start MCP and ACP
-2. In R, install slashOhdsiStrategusAssistant and continue through `slashOhdsiStrategusAssistant::runStrategusIncidenceShell()`
+2. In R, install [`slashOhdsiStrategusAssistant`](https://github.com/OHDSI/SlashOhdsiStrategusAssistant) and continue through `slashOhdsiStrategusAssistant::runStrategusIncidenceShell()`
 
 See scripts/demo_strategus_incidence_rate.R
 
@@ -149,7 +149,7 @@ See scripts/demo_strategus_incidence_rate.R
 Use this when you need a practical validation loop around a phenotype.
 
 1. Start MCP and ACP
-2. install slashOhdsiStrategusAssistant and Continue through `slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell()`
+2. install [`slashOhdsiStrategusAssistant`](https://github.com/OHDSI/SlashOhdsiStrategusAssistant) and continue through `slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell()`
 
 scripts/demo_strategus_cohort_method.R
 

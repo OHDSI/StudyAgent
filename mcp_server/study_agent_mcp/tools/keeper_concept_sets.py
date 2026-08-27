@@ -352,6 +352,50 @@ def _iter_generic_result_rows(payload: Any) -> List[Dict[str, Any]]:
     return []
 
 
+
+def _search_standard_via_db(query: str, domains: List[str] | None, concept_classes: List[str] | None, limit: int, vocabulary_ids: List[str] | None = None) -> Dict[str, Any]:
+    engine_name = _resolve_vocab_engine_name()
+    schema = _safe_identifier(os.getenv("VOCAB_DATABASE_SCHEMA", "vocabulary"), "vocab_database_schema")
+    table = _safe_identifier(os.getenv("VOCAB_CONCEPT_TABLE", "concept"), "vocab_concept_table")
+    conditions = ["lower(concept_name) LIKE lower(:query)", "standard_concept = 'S'", "invalid_reason IS NULL"]
+    requested_limit = max(1, min(int(limit), 100))
+    params: Dict[str, Any] = {"query": f"%{query.strip()}%", "limit": requested_limit}
+    binds = []
+    if domains:
+        conditions.append("domain_id IN :domains")
+        params["domains"] = list(domains)
+        binds.append(sa.bindparam("domains", expanding=True))
+    if concept_classes:
+        conditions.append("concept_class_id IN :classes")
+        params["classes"] = list(concept_classes)
+        binds.append(sa.bindparam("classes", expanding=True))
+    if vocabulary_ids:
+        conditions.append("vocabulary_id IN :vocabulary_ids")
+        params["vocabulary_ids"] = list(vocabulary_ids)
+        binds.append(sa.bindparam("vocabulary_ids", expanding=True))
+    where_clause = " AND ".join(conditions)
+    sql = sa.text(f"SELECT concept_id, concept_name, vocabulary_id, domain_id, concept_class_id, standard_concept FROM {schema}.{table} WHERE {where_clause} ORDER BY concept_name LIMIT :limit").bindparams(*binds)
+    count_sql = sa.text(f"SELECT COUNT(*) AS matched_count FROM {schema}.{table} WHERE {where_clause}").bindparams(*binds)
+    engine = create_engine_with_dependencies(engine_name, future=True)
+    with engine.connect() as connection:
+        matched_count = int(connection.execute(count_sql, params).scalar_one())
+        rows = connection.execute(sql, params).mappings().all()
+    concepts = [{"conceptId": row["concept_id"], "conceptName": row["concept_name"], "vocabularyId": row["vocabulary_id"], "domainId": row["domain_id"], "conceptClassId": row["concept_class_id"], "standardConcept": row["standard_concept"]} for row in rows]
+    returned_count = len(concepts)
+    return {
+        "concepts": concepts,
+        "count": returned_count,
+        "returned_count": returned_count,
+        "matched_count": matched_count,
+        "matched_count_status": "exact",
+        "limit": requested_limit,
+        "truncated": matched_count > returned_count,
+        "ordering": "concept_name_ascending",
+        "vocabulary_ids": list(vocabulary_ids or []),
+        "vocabulary_filter_status": "database_filter" if vocabulary_ids else "not_requested",
+        "provider": "db",
+    }
+
 def _search_standard_via_generic_api(
     query: str,
     domains: List[str] | None,
@@ -740,6 +784,7 @@ def register(mcp: object) -> None:
         query: str,
         domains: List[str] | None = None,
         concept_classes: List[str] | None = None,
+        vocabulary_ids: List[str] | None = None,
         limit: int = 20,
         provider: str = "",
         results: List[Dict[str, Any]] | None = None,
@@ -751,11 +796,29 @@ def register(mcp: object) -> None:
                 for concept in concepts
                 if (not domains or concept.get("domainId") in domains)
                 and (not concept_classes or concept.get("conceptClassId") in concept_classes)
+                and (not vocabulary_ids or concept.get("vocabularyId") in vocabulary_ids)
             ]
             return with_meta(
-                {"concepts": filtered, "count": len(filtered), "provider": provider or "inline_results"},
+                {"concepts": filtered, "count": len(filtered), "returned_count": len(filtered), "matched_count": None, "matched_count_status": "not_available", "limit": limit, "truncated": None, "ordering": "provider_defined", "vocabulary_ids": list(vocabulary_ids or []), "vocabulary_filter_status": "inline_filter" if vocabulary_ids else "not_requested", "provider": provider or "inline_results"},
                 "vocab_search_standard",
             )
+        def apply_vocabulary_filter(payload: Dict[str, Any]) -> Dict[str, Any]:
+            if not vocabulary_ids:
+                payload.setdefault("vocabulary_ids", [])
+                payload.setdefault("vocabulary_filter_status", "not_requested")
+                return payload
+            concepts = [row for row in payload.get("concepts", []) if row.get("vocabularyId") in vocabulary_ids]
+            filtered = dict(payload)
+            filtered["concepts"] = concepts
+            filtered["count"] = len(concepts)
+            filtered["returned_count"] = len(concepts)
+            filtered["matched_count"] = None
+            filtered["matched_count_status"] = "not_available"
+            filtered["truncated"] = None
+            filtered["vocabulary_ids"] = list(vocabulary_ids)
+            filtered["vocabulary_filter_status"] = "post_retrieval_filter"
+            return filtered
+
         selected_provider = _provider_value(provider, "VOCAB_SEARCH_PROVIDER")
         if not selected_provider:
             return with_meta(
@@ -764,6 +827,11 @@ def register(mcp: object) -> None:
             )
         if selected_provider == "none":
             return with_meta({"concepts": [], "count": 0, "provider": selected_provider}, "vocab_search_standard")
+        if selected_provider == "db":
+            try:
+                return with_meta(_search_standard_via_db(query, domains, concept_classes, limit, vocabulary_ids), "vocab_search_standard")
+            except Exception as exc:
+                return with_meta({"error": "vocab_search_standard_failed", "provider": "db", "details": str(exc), "concepts": [], "count": 0}, "vocab_search_standard")
         if selected_provider == "hecate_api":
             try:
                 payload = _search_standard_via_hecate(query, domains, concept_classes, limit)
@@ -778,7 +846,7 @@ def register(mcp: object) -> None:
                     },
                     "vocab_search_standard",
                 )
-            return with_meta(payload, "vocab_search_standard")
+            return with_meta(apply_vocabulary_filter(payload), "vocab_search_standard")
         if selected_provider == "generic_search_api":
             try:
                 payload = _search_standard_via_generic_api(query, domains, concept_classes, limit)
@@ -793,7 +861,7 @@ def register(mcp: object) -> None:
                     },
                     "vocab_search_standard",
                 )
-            return with_meta(payload, "vocab_search_standard")
+            return with_meta(apply_vocabulary_filter(payload), "vocab_search_standard")
         return with_meta(
             {
                 "error": "vocab_search_provider_not_implemented",

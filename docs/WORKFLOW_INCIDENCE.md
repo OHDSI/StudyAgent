@@ -1,5 +1,7 @@
 **Incidence Workflow**
 
+Implementation lives in the external [`SlashOhdsiStrategusAssistant`](https://github.com/OHDSI/SlashOhdsiStrategusAssistant) R package; this document describes its integration with Study Agent.
+
 This document captures the current incidence-rate workflow implemented by
 `slashOhdsiStrategusAssistant::runStrategusIncidenceShell()` and how it fits into a broader
 Strategus execution pipeline.

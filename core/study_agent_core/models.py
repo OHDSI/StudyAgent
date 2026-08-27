@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ConceptSetDiffInput(BaseModel):
@@ -339,3 +339,169 @@ class CohortMethodSpecsRecommendationOutput(BaseModel):
 
 class LLMAuditEnvelope(BaseModel):
     records: List[LLMAuditRecord] = Field(default_factory=list)
+
+ConceptReviewMode = Literal["required", "propose", "provided_only"]
+ConceptBuildMode = Literal["search_only", "grounded"]
+ReviewDelivery = Literal["auto", "inline", "session"]
+
+
+class PhenotypePriorObservationScope(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    days: int = Field(ge=0)
+
+
+class PhenotypeFixedExitScope(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["fixed"]
+    index: Literal["startDate", "endDate"] = "endDate"
+    offset_days: int = 0
+
+
+class PhenotypeTemporalFollowupScope(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    index_concept_set: str = ""
+    trigger_concept_set: str = ""
+    followup_days: int = Field(default=30, ge=0)
+    washout_days: int = Field(default=365, ge=1)
+
+
+class PhenotypeSupportingConditionOccurrenceScope(BaseModel):
+    """A reviewed Condition occurrence used as supporting evidence for a direct entry event."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    concept_set: str = Field(min_length=1)
+    start_days: int = Field(le=0)
+    end_days: int = Field(default=0, le=0)
+    anchor: Literal["index_start"] = "index_start"
+
+    @model_validator(mode="after")
+    def validate_interval(self) -> "PhenotypeSupportingConditionOccurrenceScope":
+        if self.start_days > self.end_days:
+            raise ValueError("supporting_condition_occurrence_start_must_not_exceed_end")
+        return self
+
+
+class PhenotypeMakeComputableScope(BaseModel):
+    """Declared v1 scope surface accepted by the computable phenotype flow."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    index_event: Optional[str] = None
+    criterion_domains: Dict[str, str] = Field(default_factory=dict)
+    criterion_vocabularies: Dict[str, List[str]] = Field(default_factory=dict)
+    entry_limit: Optional[Literal["First", "All"]] = None
+    prior_observation: Optional[int | PhenotypePriorObservationScope] = None
+    index_day_boundary: Optional[Literal["included", "excluded"]] = None
+    windows: Optional[Literal["none"] | Dict[str, Any] | List[Any]] = None
+    exit_strategy: Optional[Literal["observation", "end_of_observation"] | PhenotypeFixedExitScope] = None
+    era_days: int = Field(default=0, ge=0)
+    visit_overlap: bool = False
+    visit_overlap_mode: Optional[Literal["entry", "attrition"]] = None
+    temporal_followup: Optional[PhenotypeTemporalFollowupScope] = None
+    supporting_condition_occurrence: Optional[PhenotypeSupportingConditionOccurrenceScope] = None
+    multi_domain_entry_policy: Optional[Literal["diagnosis_only", "any_qualifying_domain", "supporting_evidence_only"]] = None
+
+
+class PhenotypeReviewedConceptItem(BaseModel):
+    """One user-reviewed vocabulary item and its inclusion policy."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    concept_id: int = Field(alias="conceptId")
+    domain: Optional[str] = Field(default=None, alias="domainId")
+    include_descendants: bool = Field(default=False, alias="includeDescendants")
+    include_mapped: bool = Field(default=False, alias="includeMapped")
+    is_excluded: bool = Field(default=False, alias="isExcluded")
+
+
+class PhenotypeReviewedConceptSet(BaseModel):
+    """A reviewed set represented by policy-bearing items or direct concept IDs."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    name: str = ""
+    domain: Optional[str] = Field(default=None, alias="domainId")
+    items: List[PhenotypeReviewedConceptItem] = Field(default_factory=list)
+    concept_ids: List[int] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_ohdsi_aliases(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+        if "concepts" in normalized and "items" not in normalized:
+            normalized["items"] = normalized.pop("concepts")
+        if "conceptIds" in normalized and "concept_ids" not in normalized:
+            normalized["concept_ids"] = normalized.pop("conceptIds")
+        return normalized
+
+    @model_validator(mode="after")
+    def require_one_concept_representation(self) -> "PhenotypeReviewedConceptSet":
+        if bool(self.items) == bool(self.concept_ids):
+            raise ValueError("concept_set_requires_exactly_one_of_items_or_concept_ids")
+        return self
+
+
+class PhenotypeMakeComputableProposalPlan(BaseModel):
+    """Machine-checkable plan returned by proposal mode before human review."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Optional[Literal["condition_entry", "domain_entry", "visit_overlap", "temporal_followup", "supporting_condition_occurrence", "mixed_domain_clarification"]] = None
+    entry_limit: Optional[Literal["First", "All"]] = None
+    prior_observation_days: Optional[int] = Field(default=None, ge=0)
+    exit_strategy: Optional[Literal["observation", "end_of_observation"] | PhenotypeFixedExitScope] = None
+    era_days: Optional[int] = Field(default=None, ge=0)
+    visit_overlap_mode: Optional[Literal["entry", "attrition"]] = None
+    temporal_followup: Optional[PhenotypeTemporalFollowupScope] = None
+    supporting_condition_occurrence: Optional[PhenotypeSupportingConditionOccurrenceScope] = None
+    multi_domain_entry_policy: Optional[Literal["diagnosis_only", "any_qualifying_domain", "supporting_evidence_only"]] = None
+
+
+class PhenotypeCandidateAssessment(BaseModel):
+    """Review-oriented eligibility assessment for a retrieved vocabulary option."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    concept_id: int
+    precision_eligible: bool
+    rationale: str = Field(min_length=1, max_length=500)
+
+
+class PhenotypeMakeComputableProposal(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["ok", "needs_clarification", "not_expressible"]
+    scope_check: Dict[str, Any]
+    candidate_assessments: List[PhenotypeCandidateAssessment] = Field(default_factory=list)
+    concept_sets: List[PhenotypeReviewedConceptSet] = Field(default_factory=list)
+    cohort_plan: PhenotypeMakeComputableProposalPlan
+    assumptions: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+
+
+class PhenotypeConceptTermProposal(BaseModel):
+    # Bounded clinical search terms proposed before vocabulary retrieval.
+    model_config = ConfigDict(extra="forbid")
+
+    terms: List[str] = Field(default_factory=list, max_length=5)
+
+
+class PhenotypeMakeComputableInput(BaseModel):
+    """Stateless direct-narrative request for a computable cohort definition."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    narrative_statement: str
+    confirmed_scope: bool = False
+    scope: PhenotypeMakeComputableScope = Field(default_factory=PhenotypeMakeComputableScope)
+    concept_review_mode: ConceptReviewMode = "required"
+    concept_build_mode: ConceptBuildMode = "search_only"
+    review_delivery: ReviewDelivery = "auto"
+    candidate_limit: int = Field(default=20, ge=1, le=100)
+    concept_sets: List[PhenotypeReviewedConceptSet] = Field(default_factory=list)

@@ -15,6 +15,7 @@ from .mcp_client import HttpMCPClient, HttpMCPClientConfig, StdioMCPClient, Stdi
 SERVICES = [
     {"name": "phenotype_recommendation", "endpoint": "/flows/phenotype_recommendation"},
     {"name": "phenotype_definition", "endpoint": "/flows/phenotype_definition"},
+    {"name": "phenotype_make_computable", "endpoint": "/flows/phenotype_make_computable"},
     {"name": "phenotype_improvements", "endpoint": "/flows/phenotype_improvements"},
     {"name": "concept_sets_review", "endpoint": "/flows/concept_sets_review"},
     {"name": "cohort_critique_general_design", "endpoint": "/flows/cohort_critique_general_design"},
@@ -126,6 +127,25 @@ def _write_json(handler: BaseHTTPRequestHandler, status: int, payload: Dict[str,
             logger.debug("response write failed: client disconnected")
 
 
+def _write_text(handler: BaseHTTPRequestHandler, status: int, body: str, content_type: str, filename: Optional[str] = None) -> None:
+    encoded = body.encode("utf-8")
+    handler.send_response(status)
+    handler.send_header("Content-Type", content_type)
+    handler.send_header("Content-Length", str(len(encoded)))
+    if filename:
+        # `filename` may be derived from a URL path segment. A response header
+        # must never contain CR/LF supplied by a request, since that could inject
+        # a second header or response body.
+        safe_filename = filename.replace("\r", "").replace("\n", "").replace('"', "")
+        handler.send_header("Content-Disposition", f'attachment; filename="{safe_filename}"')
+    handler.end_headers()
+    try:
+        handler.wfile.write(encoded)
+    except BrokenPipeError:
+        if getattr(handler, "debug", False):
+            logger.debug("response write failed: client disconnected")
+
+
 def _load_registry_services() -> tuple[list[Dict[str, Any]], list[str]]:
     warnings: list[str] = []
     try:
@@ -186,6 +206,47 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
 
         parsed = urlsplit(self.path)
 
+        review_prefix = "/flows/phenotype_make_computable/reviews/"
+        if parsed.path.startswith(review_prefix):
+            suffix = parsed.path[len(review_prefix):]
+            parts = suffix.split("/")
+            if len(parts) == 2 and parts[0] and parts[1] in {"candidates", "candidates.csv", "proposal", "manifest"}:
+                review_id, resource = parts
+                if resource == "candidates":
+                    params = parse_qs(parsed.query)
+                    try:
+                        offset = int(params.get("offset", ["0"])[0])
+                        limit = int(params.get("limit", ["100"])[0])
+                    except ValueError:
+                        _write_json(self, 400, {"error": "invalid_review_page"})
+                        return
+                    result = self.agent.get_phenotype_review_candidates(review_id, offset=offset, limit=limit)
+                    if result is None:
+                        _write_json(self, 410, {"error": "review_not_found_or_expired"})
+                    else:
+                        _write_json(self, 200, result)
+                    return
+                if resource == "proposal":
+                    result = self.agent.get_phenotype_review_proposal(review_id)
+                    if result is None:
+                        _write_json(self, 410, {"error": "review_not_found_or_expired"})
+                    else:
+                        _write_json(self, 200, result)
+                    return
+                if resource == "manifest":
+                    result = self.agent.get_phenotype_review_manifest(review_id)
+                    if result is None:
+                        _write_json(self, 410, {"error": "review_not_found_or_expired"})
+                    else:
+                        _write_json(self, 200, result)
+                    return
+                csv_text = self.agent.get_phenotype_review_csv(review_id)
+                if csv_text is None:
+                    _write_json(self, 410, {"error": "review_not_found_or_expired"})
+                else:
+                    _write_text(self, 200, csv_text, "text/csv; charset=utf-8", filename=f"phenotype_review_{review_id}.csv")
+                return
+
         if parsed.path == "/health":
             payload = {
                 "status": "ok",
@@ -209,9 +270,20 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
                         )
                     except Exception as exc:
                         payload["mcp_index"] = {"error": str(exc)}
+                payload["mcp_r_client"] = {"skipped": not deep}
+                if deep and payload["mcp"].get("ok"):
+                    try:
+                        payload["mcp_r_client"] = _call_mcp_tool_with_retry(
+                            self.mcp_client,
+                            "r_client_compatibility",
+                            {},
+                        )
+                    except Exception as exc:
+                        payload["mcp_r_client"] = {"error": str(exc)}
             else:
                 payload["mcp"] = {"ok": False, "configured": False, "error": "mcp_not_configured"}
                 payload["mcp_index"] = {"skipped": True, "reason": "mcp_not_configured"}
+                payload["mcp_r_client"] = {"skipped": True, "reason": "mcp_not_configured"}
 
             _write_json(self, 200, payload)
             return
@@ -270,6 +342,16 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             _write_json(self, status, result)
             return
 
+        if self.path == "/flows/phenotype_make_computable":
+            try:
+                from study_agent_core.models import PhenotypeMakeComputableInput
+                payload = PhenotypeMakeComputableInput(**_read_json(self))
+            except Exception as exc:
+                _write_json(self, 422, {"error": f"invalid_payload: {exc}"})
+                return
+            result = self.agent.run_phenotype_make_computable_flow(**payload.model_dump())
+            _write_json(self, 200 if result.get("status") != "error" else 400, result)
+            return
         if self.path == "/flows/phenotype_definition":
             try:
                 body = _read_json(self)

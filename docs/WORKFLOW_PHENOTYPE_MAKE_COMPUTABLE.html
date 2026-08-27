@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+<title>WORKFLOW_PHENOTYPE_MAKE_COMPUTABLE.html</title>
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+
+</head>
+
+<body>
+
+<h1 id="phenotype-make-computable">Phenotype Make Computable</h1>
+<p><code>POST /flows/phenotype_make_computable</code> translates a
+confirmed, reviewed cohort scope into a pure function-form Capr R
+artifact and validated Circe JSON. It is a direct-narrative flow;
+integration from <code>phenotype_definition</code> is not
+implemented.</p>
+<h2 id="request-lifecycle">Request lifecycle</h2>
+<ol type="1">
+<li>Submit a narrative statement with
+<code>confirmed_scope: false</code> to receive the required scope
+checklist.</li>
+<li>Submit a confirmed structured scope. With
+<code>concept_review_mode: required</code>, the flow returns vocabulary
+candidates for review.</li>
+<li>Resubmit selected concept sets with
+<code>concept_review_mode: provided_only</code>. The flow emits Capr,
+invokes the generated function in controlled validation, and returns
+Circe JSON.</li>
+</ol>
+<p><code>propose</code> uses the configured LLM only to prepare a
+reviewable cohort-plan proposal. It does not bypass concept review or
+deterministic validation.</p>
+<h2 id="example">Example</h2>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;narrative_statement&quot;</span><span class="fu">:</span> <span class="st">&quot;Earliest event of cirrhosis of liver. Persons exit on end of observation period.&quot;</span><span class="fu">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;confirmed_scope&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;scope&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;index_event&quot;</span><span class="fu">:</span> <span class="st">&quot;Cirrhosis of liver&quot;</span><span class="fu">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;criterion_domains&quot;</span><span class="fu">:</span> <span class="fu">{</span><span class="dt">&quot;Cirrhosis of liver&quot;</span><span class="fu">:</span> <span class="st">&quot;Condition&quot;</span><span class="fu">},</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;entry_limit&quot;</span><span class="fu">:</span> <span class="st">&quot;First&quot;</span><span class="fu">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;prior_observation&quot;</span><span class="fu">:</span> <span class="dv">0</span><span class="fu">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;index_day_boundary&quot;</span><span class="fu">:</span> <span class="st">&quot;included&quot;</span><span class="fu">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;windows&quot;</span><span class="fu">:</span> <span class="st">&quot;none&quot;</span><span class="fu">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;exit_strategy&quot;</span><span class="fu">:</span> <span class="st">&quot;observation&quot;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;concept_review_mode&quot;</span><span class="fu">:</span> <span class="st">&quot;provided_only&quot;</span><span class="fu">,</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;concept_sets&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="fu">{</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;name&quot;</span><span class="fu">:</span> <span class="st">&quot;Cirrhosis of liver&quot;</span><span class="fu">,</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;domain&quot;</span><span class="fu">:</span> <span class="st">&quot;Condition&quot;</span><span class="fu">,</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;items&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="fu">{</span><span class="dt">&quot;concept_id&quot;</span><span class="fu">:</span> <span class="dv">4064161</span><span class="fu">,</span> <span class="dt">&quot;domain&quot;</span><span class="fu">:</span> <span class="st">&quot;Condition&quot;</span><span class="fu">,</span> <span class="dt">&quot;include_descendants&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span> <span class="dt">&quot;include_mapped&quot;</span><span class="fu">:</span> <span class="kw">false</span><span class="fu">,</span> <span class="dt">&quot;is_excluded&quot;</span><span class="fu">:</span> <span class="kw">false</span><span class="fu">}</span><span class="ot">]</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span><span class="ot">]</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>A successful response contains <code>capr.filename</code>
+(<code>phenotype_definition.R</code>), <code>capr.entry_point</code>
+(<code>phenotype_make_computable_definition</code>),
+<code>capr.source</code>, inline <code>circe_json</code>, and technical
+validation status. Sourcing the R file has no side effects; the function
+returns a Capr cohort object. The caller owns artifact persistence.</p>
+<h2 id="current-supported-surface">Current supported surface</h2>
+<ul>
+<li>One Condition-domain concept set, with first/all entry, configurable
+prior continuous observation, observation or fixed exit, and optional
+era collapse.</li>
+<li>Condition entry overlapping a reviewed Visit concept set, with
+explicit <code>visit_overlap_mode</code> (<code>entry</code> or
+<code>attrition</code>) and configurable fixed-exit anchor.</li>
+<li>The explicit <code>temporal_followup</code> pattern used by the
+corrected development variant of cohort 63: a direct diagnosis or
+trigger event followed by diagnosis, a clean window, continuous
+observation, fixed exit, and zero-day era padding.</li>
+</ul>
+<p>Concept-item descendant, mapped, and exclusion policies are preserved
+in generated Circe concept sets.</p>
+<h2 id="clarification-and-failure-states">Clarification and failure
+states</h2>
+<p>The flow returns <code>needs_clarification</code> for an unconfirmed
+or incomplete scope. It also returns a mixed-domain clarification card
+when reviewed items span multiple event domains without
+<code>multi_domain_entry_policy</code>; the flow does not silently emit
+a Condition-only approximation.</p>
+<p>Only <code>index_day_boundary: "included"</code> and
+<code>windows: "none"</code> are supported outside explicit emitter
+modes. Other values fail closed. Unsupported concept/domain combinations
+or temporal forms return structured emitter diagnostics rather than an
+approximate definition.</p>
+<h2 id="validation-boundary">Validation boundary</h2>
+<p>Validation confirms that generated R can be sourced, the known
+function returns a Capr cohort, Circe JSON is produced, and CirceR
+generates SQL. It is technical validation only: it does not establish
+clinical validity, patient-level behavior, or equivalence to a reference
+cohort. Generated R source is screened before execution, but deployment
+should still provide process-level isolation appropriate to its threat
+model.</p>
+
+</body>
+</html>

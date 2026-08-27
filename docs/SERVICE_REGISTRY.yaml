@@ -30,6 +30,26 @@ services:
       - core.phenotype_recommendations filters to allowed cohortIds
       - user confirmation before any writes
 
+  phenotype_make_computable:
+    endpoint: /flows/phenotype_make_computable
+    mcp_tools:
+      - phenotype_make_computable_prompt_bundle
+      - phenotype_make_computable_emit
+      - phenotype_make_computable_validate
+    input:
+      - narrative_statement
+      - confirmed_scope
+      - scope
+      - concept_review_mode
+      - concept_sets
+    output:
+      - status
+      - capr: filename, entry_point, source
+      - circe_json
+      - validation
+    validation:
+      - Capr function invocation and CirceR SQL generation for supported deterministic emitters
+      - no server-side persistence of caller artifacts
   phenotype_improvements:
     endpoint: /flows/phenotype_improvements
     mcp_tools:

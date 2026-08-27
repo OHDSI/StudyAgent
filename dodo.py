@@ -69,6 +69,8 @@ LOCAL_SMOKE_TASKS = [
     "smoke_cohort_methods_specs_recommend_flow",
     "smoke_phenotype_validation_review_flow",
     "smoke_keeper_concept_sets_generate_flow",
+    "smoke_phenotype_make_computable_flow",
+    "smoke_phenotype_make_computable_proposal_flow",
 ]
 
 
@@ -219,23 +221,15 @@ def task_test_unit():
 def task_test_all():
     """Run the native Python ACP/MCP test gate, excluding R packages."""
     return {
-        "actions": [_pytest_cmd("not r_shell")],
+        "actions": [_pytest_cmd("not r_client_compatibility")],
         "verbosity": 2,
     }
 
 
-def task_test_r_shells():
-    """Run static checks for the in-repository R shells and wrappers."""
+def task_test_r_client_compatibility():
+    """Check external companion R-client packages in the configured R library."""
     return {
-        "actions": [_pytest_cmd("r_shell and not r_integration")],
-        "verbosity": 2,
-    }
-
-
-def task_test_r_integration():
-    """Run opt-in Rscript tests that require optional R packages."""
-    return {
-        "actions": [_pytest_cmd("r_integration")],
+        "actions": [_pytest_cmd("r_client_compatibility")],
         "verbosity": 2,
     }
 
@@ -503,6 +497,119 @@ def task_smoke_phenotype_recommend_flow():
         "actions": [_run_smoke],
         "verbosity": 2,
     }
+
+
+def task_smoke_phenotype_make_computable_flow():
+    """Exercise ACP routing, MCP transport, Capr emission, and R/Circe validation."""
+
+    def _run_smoke() -> None:
+        env = _runtime_env()
+        if not env.get("STUDY_AGENT_MCP_URL"):
+            env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
+            env.setdefault("STUDY_AGENT_MCP_ARGS", "")
+        env["ACP_URL"] = _flow_url(env, "phenotype_make_computable")
+
+        acp_stdout = _runtime_file(env, "ACP_STDOUT", "study_agent_acp_stdout.log")
+        acp_stderr = _runtime_file(env, "ACP_STDERR", "study_agent_acp_stderr.log")
+        mcp_proc = _start_mcp_http_if_needed(env)
+        print("Starting ACP...")
+        with (
+            open(acp_stdout, "w", encoding="utf-8") as out,
+            open(acp_stderr, "w", encoding="utf-8") as err,
+        ):
+            acp_proc = subprocess.Popen(
+                ["study-agent-acp"], env=env, stdout=out, stderr=err
+            )
+        try:
+            print("Waiting for ACP health endpoint...")
+            require_mcp = bool(
+                env.get("STUDY_AGENT_MCP_URL") or env.get("STUDY_AGENT_MCP_COMMAND")
+            )
+            _wait_for_acp(_health_url(env), timeout_s=30, require_mcp=require_mcp)
+            print("Running computable phenotype workflow smoke test...")
+            subprocess.run(
+                [sys.executable, "tests/smoke_phenotype_make_computable_flow.py"],
+                check=True,
+                env=env,
+            )
+            print(f"ACP logs: {acp_stdout} {acp_stderr}")
+        finally:
+            print("Stopping ACP...")
+            acp_proc.terminate()
+            try:
+                acp_proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                acp_proc.kill()
+            if mcp_proc is not None:
+                print("Stopping MCP...")
+                mcp_proc.terminate()
+                try:
+                    mcp_proc.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    mcp_proc.kill()
+
+    return {
+        "actions": [_run_smoke],
+        "verbosity": 2,
+    }
+
+
+
+def task_smoke_phenotype_make_computable_proposal_flow():
+    """Exercise vocabulary retrieval and the live LLM proposal contract."""
+
+    def _run_smoke() -> None:
+        env = _runtime_env()
+        _require_llm_api_key(env)
+        if not env.get("STUDY_AGENT_MCP_URL"):
+            env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
+            env.setdefault("STUDY_AGENT_MCP_ARGS", "")
+        env["ACP_URL"] = _flow_url(env, "phenotype_make_computable")
+
+        acp_stdout = _runtime_file(env, "ACP_STDOUT", "study_agent_acp_stdout.log")
+        acp_stderr = _runtime_file(env, "ACP_STDERR", "study_agent_acp_stderr.log")
+        mcp_proc = _start_mcp_http_if_needed(env)
+        print("Starting ACP...")
+        with (
+            open(acp_stdout, "w", encoding="utf-8") as out,
+            open(acp_stderr, "w", encoding="utf-8") as err,
+        ):
+            acp_proc = subprocess.Popen(
+                ["study-agent-acp"], env=env, stdout=out, stderr=err
+            )
+        try:
+            print("Waiting for ACP health endpoint...")
+            require_mcp = bool(
+                env.get("STUDY_AGENT_MCP_URL") or env.get("STUDY_AGENT_MCP_COMMAND")
+            )
+            _wait_for_acp(_health_url(env), timeout_s=30, require_mcp=require_mcp)
+            print("Running computable phenotype proposal smoke test...")
+            subprocess.run(
+                [sys.executable, "tests/smoke_phenotype_make_computable_proposal_flow.py"],
+                check=True,
+                env=env,
+            )
+            print(f"ACP logs: {acp_stdout} {acp_stderr}")
+        finally:
+            print("Stopping ACP...")
+            acp_proc.terminate()
+            try:
+                acp_proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                acp_proc.kill()
+            if mcp_proc is not None:
+                print("Stopping MCP...")
+                mcp_proc.terminate()
+                try:
+                    mcp_proc.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    mcp_proc.kill()
+
+    return {
+        "actions": [_run_smoke],
+        "verbosity": 2,
+    }
+
 
 
 def task_smoke_cohort_methods_specs_recommend_flow():

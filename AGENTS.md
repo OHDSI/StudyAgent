@@ -19,8 +19,6 @@ The repo is intentionally split into orchestration, tool serving, deterministic 
 - `acp_agent/`: ACP server and user-facing flow orchestration
 - `mcp_server/`: MCP tool server, prompt bundles, retrieval, vocabulary, and Keeper tooling
 - `core/`: deterministic shared logic, validation, logging helpers, and networking helpers
-- `R/slashOhdsiAcpClient/`: R ACP client package and thin flow/action wrappers
-- `R/slashOhdsiStrategusAssistant/`: R Strategus workflow package and shell entrypoints
 - `docs/`: maintained documentation and architecture notes
 - `scripts/`: manual demos and test entrypoints
 - `tests/`: Python tests, smoke tests, and static assertions
@@ -66,8 +64,6 @@ Start here before making architectural or behavioral changes:
 - [docs/WORKFLOW_CONTEXT_DIALOGUE_SLASH_OHDSI.md](docs/WORKFLOW_CONTEXT_DIALOGUE_SLASH_OHDSI.md)
 - [docs/PHENOTYPE_VALIDATION_REVIEW.md](docs/PHENOTYPE_VALIDATION_REVIEW.md)
 - [docs/SPEC_KEEPER_INTERFACE.md](docs/SPEC_KEEPER_INTERFACE.md)
-- [docs/R_STRATEGUS_INCIDENCE_SHELL.md](docs/R_STRATEGUS_INCIDENCE_SHELL.md)
-- [docs/R_STRATEGUS_COHORT_METHODS_SHELL.md](docs/R_STRATEGUS_COHORT_METHODS_SHELL.md)
 - [docs/WORKFLOW_INCIDENCE.md](docs/WORKFLOW_INCIDENCE.md)
 - [docs/WORKFLOW_COHORT_METHODS.md](docs/WORKFLOW_COHORT_METHODS.md)
 - [docs/PHENOTYPE_INDEXING.md](docs/PHENOTYPE_INDEXING.md)
@@ -153,17 +149,53 @@ Python packaging and development:
 
 Do not rely on bare python, pytest, doit, study-agent-mcp, or study-agent-acp commands when using uv.
 
-Useful manual R entrypoints include:
+For MCP tools and ACP flows that use R note the following:
 
-- `scripts/test_strategus_incidence_plus_keeper.R`
-- `scripts/demo_strategus_cohort_method.R`
-- `scripts/demo_ohdsi_dialogue.R`
+Before diagnosing dependency failures or running package checks,
+verify that R is using that library rather than an empty renv cache.
+
+1. Locate the project-specific R library under `renv/library/` for the active platform,
+   R version, and architecture. It may be a symbolic link to a shared HADES library.
+2. Use it explicitly through `R_LIBS_USER` and start ad-hoc R commands with `--vanilla`.
+3. Confirm availability before testing. The key packages include `Strategus`,
+   `CohortGenerator`, `CohortIncidence`, `CohortMethod`, `DatabaseConnector`, and
+   `PhenotypeLibrary`.
+
+Use a placeholder such as `<renv-library>` rather than assuming a machine-specific path:
+
+```sh
+R_LIBS_USER=<renv-library> Rscript --vanilla -e   'stopifnot(requireNamespace("Strategus", quietly = TRUE))'
+```
+
+The project `.Rprofile` activates renv. If it redirects R away from the intended working
+library during `R CMD build` or `R CMD check`, disable the user profile for that command
+and retain the explicit library:
+
+```sh
+R_PROFILE_USER=/dev/null R_ENVIRON_USER=/dev/null R_LIBS_USER=<renv-library>   R CMD check --no-manual <package-tarball>
+```
+
+Do not run `renv::restore()` or modify the lockfile merely to make a check pass unless the
+user explicitly asks to change dependency state.
+
+## Testing
+
+- Use the standard `testthat` entrypoint while developing:
+
+  ```sh
+  R_LIBS_USER=<renv-library> Rscript --vanilla -e 'testthat::test_local(".")'
+  ```
+
+- Build first, then run `R CMD check --no-manual` against the tarball for an installed
+  package test.
 
 ## Testing Guidance
 
 Primary testing guide:
 
 - [docs/TESTING.md](docs/TESTING.md)
+- If testing R-based code used by some MCPs or the ACP, Keep the test suite in `tests/testthat/` and use `tests/testthat.R` as the test runner.
+
 
 Useful broad commands:
 

@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "phenotype_make_computable_plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "scope_check",
+    "candidate_assessments",
+    "concept_sets",
+    "cohort_plan",
+    "assumptions",
+    "warnings"
+  ],
+  "properties": {
+    "status": {
+      "enum": [
+        "ok",
+        "needs_clarification",
+        "not_expressible"
+      ]
+    },
+    "scope_check": {
+      "type": "object"
+    },
+    "concept_sets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "domain",
+          "items"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "domain": {
+            "type": "string",
+            "minLength": 1
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "concept_id",
+                "domain",
+                "include_descendants",
+                "include_mapped",
+                "is_excluded"
+              ],
+              "properties": {
+                "concept_id": {
+                  "type": "integer"
+                },
+                "domain": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "include_descendants": {
+                  "type": "boolean"
+                },
+                "include_mapped": {
+                  "type": "boolean"
+                },
+                "is_excluded": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "cohort_plan": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "enum": [
+            "condition_entry",
+            "domain_entry",
+            "visit_overlap",
+            "temporal_followup",
+            "mixed_domain_clarification"
+          ]
+        },
+        "entry_limit": {
+          "enum": [
+            "First",
+            "All"
+          ]
+        },
+        "prior_observation_days": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "exit_strategy": {
+          "oneOf": [
+            {
+              "enum": [
+                "observation",
+                "end_of_observation"
+              ]
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "type"
+              ],
+              "properties": {
+                "type": {
+                  "const": "fixed"
+                },
+                "index": {
+                  "enum": [
+                    "startDate",
+                    "endDate"
+                  ]
+                },
+                "offset_days": {
+                  "type": "integer"
+                }
+              }
+            }
+          ]
+        },
+        "era_days": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "visit_overlap_mode": {
+          "enum": [
+            "entry",
+            "attrition"
+          ]
+        },
+        "temporal_followup": {
+          "type": "object"
+        },
+        "multi_domain_entry_policy": {
+          "enum": [
+            "diagnosis_only",
+            "any_qualifying_domain",
+            "supporting_evidence_only"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "candidate_assessments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "concept_id",
+          "precision_eligible",
+          "rationale"
+        ],
+        "properties": {
+          "concept_id": {
+            "type": "integer"
+          },
+          "precision_eligible": {
+            "type": "boolean"
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        }
+      }
+    }
+  }
+}

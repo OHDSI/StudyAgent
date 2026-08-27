@@ -110,7 +110,47 @@ def test_health_reports_mcp_not_configured():
         "service_version": "0.1.0",
         "mcp": {"ok": False, "configured": False, "error": "mcp_not_configured"},
         "mcp_index": {"skipped": True, "reason": "mcp_not_configured"},
+        "mcp_r_client": {"skipped": True, "reason": "mcp_not_configured"},
     }
+
+
+@pytest.mark.acp
+def test_deep_health_reports_companion_r_client_compatibility():
+    class Client:
+        def health_check(self):
+            return {"ok": True}
+
+        def call_tool(self, name, arguments):
+            assert arguments == {}
+            if name == "phenotype_index_status":
+                return {"status": "ok"}
+            if name == "r_client_compatibility":
+                return {"status": "passed"}
+            raise AssertionError(name)
+
+    handler = acp_server.ACPRequestHandler.__new__(acp_server.ACPRequestHandler)
+    handler.path = "/health?deep=1"
+    handler.headers = {}
+    handler.debug = False
+    handler.agent = StudyAgent(mcp_client=None)
+    handler.mcp_client = Client()
+    handler.wfile = None
+    handler.rfile = None
+    captured = {}
+
+    def fake_write_json(_handler, status, payload):
+        captured["status"] = status
+        captured["payload"] = payload
+
+    original = acp_server._write_json
+    acp_server._write_json = fake_write_json
+    try:
+        handler.do_GET()
+    finally:
+        acp_server._write_json = original
+
+    assert captured["status"] == 200
+    assert captured["payload"]["mcp_r_client"] == {"status": "passed"}
 
 
 class StubMCPClient:

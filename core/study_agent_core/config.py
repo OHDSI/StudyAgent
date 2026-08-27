@@ -131,10 +131,16 @@ class ACPConfig(StrictModel):
     service_registry: Path = Path("docs/SERVICE_REGISTRY.yaml")
 
 
+class MCPRConfig(StrictModel):
+    rscript: str = "Rscript"
+    library: Path | None = None
+
+
 class MCPConfig(StrictModel):
     bind: BindConfig = Field(default_factory=lambda: BindConfig(port=8790))
     transport: Literal["http", "stdio", "sse"] = "http"
     path: str = "/mcp"
+    r: MCPRConfig = Field(default_factory=MCPRConfig)
 
 
 class LLMConfig(StrictModel):
@@ -315,6 +321,13 @@ def _resolve_paths(config: StudyAgentConfig, source: Path) -> StudyAgentConfig:
                 "service_registry": resolve(config.acp.service_registry),
             }
         ),
+        "mcp": config.mcp.model_copy(
+            update={
+                "r": config.mcp.r.model_copy(
+                    update={"library": resolve(config.mcp.r.library)}
+                )
+            }
+        ),
         "logging": config.logging.model_copy(
             update={
                 "acp_file": resolve(config.logging.acp_file),
@@ -412,6 +425,8 @@ def project_to_environment(config: StudyAgentConfig) -> dict[str, str]:
         "MCP_HOST": config.mcp.bind.host,
         "MCP_PORT": config.mcp.bind.port,
         "MCP_PATH": config.mcp.path,
+        "R_SCRIPT": config.mcp.r.rscript,
+        "R_LIBS_USER": config.mcp.r.library,
         "LLM_API_URL": config.llm.api_url,
         "LLM_MODEL": config.llm.model,
         "LLM_AUTHENTICATION": config.llm.authentication,

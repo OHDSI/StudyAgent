@@ -58,4 +58,8 @@ def test_register_all_tools() -> None:
         "vocab_fetch_concepts",
         "cohort_methods_prompt_bundle",
         "workflow_context_dialogue",
+        "phenotype_make_computable_prompt_bundle",
+        "phenotype_make_computable_emit",
+        "phenotype_make_computable_validate",
+        "r_client_compatibility",
     }

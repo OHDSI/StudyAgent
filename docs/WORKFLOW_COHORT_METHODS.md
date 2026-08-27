@@ -1,5 +1,7 @@
 **Cohort Methods Workflow**
 
+Implementation lives in the external [`SlashOhdsiStrategusAssistant`](https://github.com/OHDSI/SlashOhdsiStrategusAssistant) R package; this document describes its integration with Study Agent.
+
 This document captures the current cohort-methods workflow implemented by `slashOhdsiStrategusAssistant::runStrategusCohortMethodsShell()` and how it fits into a broader Strategus execution pipeline.
 
 ## Shell Workflow (Target/Comparator/Outcome + Analytic Settings)
