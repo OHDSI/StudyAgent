@@ -23,6 +23,8 @@ Read [What about agent skills (e.g., SKILL.md)?](https://github.com/OHDSI/StudyA
 - **[Set up Study Agent phenotype indexing](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=9d82b4fb-ef65-47a0-a9f9-b4a6010a72e7)**  
   Prepare phenotype indexes used by Study Agent for recommendations.
 
+### Agent Skills
+Check out a [demo agent skill](https://github.com/rkboyce/AgentPlayGround) that uses a running OHDSI [Study Agent](https://github.com/OHDSI/StudyAgent) to convert a narrative cohort description to Capr and Circe computable artifacts. See [the video](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=f81e51be-0d4d-4c73-b47d-b4b3014d3efe)
 
 ### Study Agent with R for real-world evidence generation
 
