@@ -433,7 +433,7 @@ class PhenotypeMakeComputableProposalPlan(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    mode: Optional[Literal["condition_entry", "visit_overlap", "temporal_followup", "mixed_domain_clarification"]] = None
+    mode: Optional[Literal["condition_entry", "domain_entry", "visit_overlap", "temporal_followup", "mixed_domain_clarification"]] = None
     entry_limit: Optional[Literal["First", "All"]] = None
     prior_observation_days: Optional[int] = Field(default=None, ge=0)
     exit_strategy: Optional[Literal["observation", "end_of_observation"] | PhenotypeFixedExitScope] = None

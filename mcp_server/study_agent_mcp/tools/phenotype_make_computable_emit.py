@@ -6,6 +6,19 @@ from ._common import with_meta
 
 ENTRY_POINT = "phenotype_make_computable_definition"
 
+# Deliberately conservative direct-entry surface. Each mapping uses the event-record
+# constructor (not an era or value-constrained variant); richer semantics remain explicit
+# emitter modes rather than silent approximations.
+_ENTRY_QUERY_BY_DOMAIN = {
+    "Condition": "conditionOccurrence",
+    "Drug": "drugExposure",
+    "Procedure": "procedure",
+    "Measurement": "measurement",
+    "Observation": "observation",
+    "Visit": "visit",
+    "Device": "deviceExposure",
+}
+
 
 def _r_string(value: Any) -> str:
     return str(value or "").replace('"', "'")
@@ -161,10 +174,48 @@ Capr::cohort(
     # The public review model permits policy-bearing item domains without a redundant
     # set-level domain. Infer that unambiguous domain before applying v1 restrictions.
     domain = declared_domain or (next(iter(member_domains)) if len(member_domains) == 1 else "")
-    if domain != "Condition":
-        return {"status": "failed", "messages": ["v1_emitter_supports_condition_entry_only"]}
     if len(member_domains) > 1:
+        if (
+            len(concept_sets) == 1
+            and member_domains == {"Condition", "Observation"}
+            and scope.get("multi_domain_entry_policy") == "any_qualifying_domain"
+        ):
+            expression, error = _concept_set_expression(item)
+            era_days, era_error = _era_days(scope)
+            prior_days, prior_error = _prior_observation_days(scope)
+            if error or era_error or prior_error:
+                return {"status": "failed", "messages": [error or era_error or prior_error]}
+            limit = str(scope.get("entry_limit") or "First")
+            if limit not in {"First", "All"}:
+                return {"status": "failed", "messages": ["unsupported_entry_limit"]}
+            exit_strategy = scope.get("exit_strategy") or "observation"
+            if isinstance(exit_strategy, dict) and exit_strategy.get("type") == "fixed":
+                exit_index = str(exit_strategy.get("index") or "endDate")
+                if exit_index not in {"startDate", "endDate"}:
+                    return {"status": "failed", "messages": ["unsupported_fixed_exit_index"]}
+                exit_code = f'Capr::fixedExit(index = "{exit_index}", offsetDays = {int(exit_strategy.get("offset_days", 0))}L)'
+            elif exit_strategy in {"observation", "end_of_observation"}:
+                exit_code = "Capr::observationExit()"
+            else:
+                return {"status": "failed", "messages": ["unsupported_exit_strategy"]}
+            name = _r_string(item.get("name") or "Entry concept set")
+            body = f'''entryCs <- Capr::cs({expression}, name = "{name}")
+Capr::cohort(
+  entry = Capr::entry(
+    Capr::conditionOccurrence(entryCs),
+    Capr::observation(entryCs),
+    observationWindow = Capr::continuousObservation({prior_days}L, 0L),
+    primaryCriteriaLimit = "{limit}"
+  ),
+  attrition = Capr::attrition(expressionLimit = "{limit}"),
+  exit = Capr::exit(endStrategy = {exit_code}), era = Capr::era(eraDays = {era_days}L)
+)'''
+            comment = f"index={scope.get('index_event', '')}; domains=conditionOccurrence OR observation; policy=any_qualifying_domain; limit={limit}; exit={exit_strategy}; era_days={era_days}"
+            return {"status": "passed", "capr_code": _function_source(comment, body), "entry_point": ENTRY_POINT, "messages": []}
         return {"status": "failed", "messages": ["mixed_domain_concept_set_requires_explicit_multi_domain_plan"]}
+    query_constructor = _ENTRY_QUERY_BY_DOMAIN.get(domain)
+    if query_constructor is None:
+        return {"status": "failed", "messages": ["unsupported_direct_entry_domain"]}
     expression, error = _concept_set_expression(item)
     era_days, era_error = _era_days(scope)
     prior_days, prior_error = _prior_observation_days(scope)
@@ -188,11 +239,11 @@ Capr::cohort(
     name = _r_string(item.get("name") or "Entry concept set")
     body = f'''entryCs <- Capr::cs({expression}, name = "{name}")
 Capr::cohort(
-  entry = Capr::entry(Capr::conditionOccurrence(entryCs), observationWindow = Capr::continuousObservation({prior_days}L, 0L), primaryCriteriaLimit = "{limit}"),
+  entry = Capr::entry(Capr::{query_constructor}(entryCs), observationWindow = Capr::continuousObservation({prior_days}L, 0L), primaryCriteriaLimit = "{limit}"),
   attrition = Capr::attrition(expressionLimit = "{limit}"),
   exit = Capr::exit(endStrategy = {exit_code}), era = Capr::era(eraDays = {era_days}L)
 )'''
-    comment = f"index={scope.get('index_event', '')}; domain=conditionOccurrence; limit={limit}; exit={exit_strategy}; era_days={era_days}"
+    comment = f"index={scope.get('index_event', '')}; domain={query_constructor}; limit={limit}; exit={exit_strategy}; era_days={era_days}"
     return {"status": "passed", "capr_code": _function_source(comment, body), "entry_point": ENTRY_POINT, "messages": []}
 
 

@@ -60,6 +60,10 @@ def test_710_simple_condition_fixture():
     validated = validate_capr_source(emitted["capr_code"])
     assert validated["status"] == "passed"
     circe = validated["circe_json"]
+    environment = validated["r_environment"]
+    assert environment["r_version"]
+    assert environment["validation_packages"]["Capr"] != "not_installed"
+    assert environment["validation_packages"]["CirceR"] != "not_installed"
     assert len(circe["ConceptSets"]) == 1
     assert circe["PrimaryCriteria"]["PrimaryCriteriaLimit"]["Type"] == "First"
     assert "EndStrategy" not in circe
@@ -232,10 +236,11 @@ def test_grounded_propose_rejects_redundant_descendant_covered_by_included_ances
     result = agent.run_phenotype_make_computable_flow("earliest parent condition", True, scope, "propose", concept_build_mode="grounded")
 
     assert result["status"] == "needs_concept_review"
-    assert result["proposal_validation_status"] == "requires_review"
+    assert result["proposal_validation_status"] == "passed"
     assert result["concept_provenance"]["relationship_expansion"]["related_candidate_count"] == 1
     assert {row["conceptId"] for row in result["concept_candidates"]} == {1, 2}
-    assert any(error["msg"] == "redundant_descendant_covered_by_included_ancestor" for error in result["proposal_validation_errors"])
+    assert any(advisory["msg"] == "explicit_child_covered_by_included_ancestor" for advisory in result["proposal_advisories"])
+    assert not result["proposal_validation_errors"]
 
 
 def test_grounded_propose_allows_ineligible_descendant_as_explicit_exclusion():
@@ -332,6 +337,36 @@ def test_era_days_becomes_circe_collapse_settings():
     assert circe["CollapseSettings"] == {"CollapseType": "ERA", "EraPad": 365}
 
 
+import pytest
+
+
+@pytest.mark.parametrize(("domain", "constructor", "circe_key"), [
+    ("Drug", "drugExposure", "DrugExposure"),
+    ("Procedure", "procedure", "ProcedureOccurrence"),
+    ("Measurement", "measurement", "Measurement"),
+    ("Observation", "observation", "Observation"),
+    ("Visit", "visit", "VisitOccurrence"),
+    ("Device", "deviceExposure", "DeviceExposure"),
+])
+def test_supported_noncondition_direct_entry_domains_compile(domain, constructor, circe_key):
+    emitted = emit_capr(
+        {"index_event": f"{domain} event", "entry_limit": "First", "exit_strategy": "observation"},
+        [{"name": f"{domain} entry", "domain": domain, "items": [{"concept_id": 1, "domain": domain, "include_descendants": False, "include_mapped": False, "is_excluded": False}]}],
+    )
+    assert emitted["status"] == "passed"
+    assert f"Capr::{constructor}(entryCs)" in emitted["capr_code"]
+    circe = validate_capr_source(emitted["capr_code"])["circe_json"]
+    assert circe["PrimaryCriteria"]["CriteriaList"] == [{circe_key: {"CodesetId": 0}}]
+
+
+def test_unsupported_direct_entry_domain_fails_closed():
+    emitted = emit_capr(
+        {"index_event": "Death", "entry_limit": "First", "exit_strategy": "observation"},
+        [{"name": "Death", "domain": "Death", "items": [{"concept_id": 1, "domain": "Death", "include_descendants": False, "include_mapped": False, "is_excluded": False}]}],
+    )
+    assert emitted["messages"] == ["unsupported_direct_entry_domain"]
+
+
 def test_mixed_domain_concept_set_fails_closed():
     emitted = emit_capr({"index_event": "Rheumatoid arthritis", "entry_limit": "First", "exit_strategy": "observation"}, _policy_concept_sets("858"))
     assert emitted["status"] == "failed"
@@ -345,6 +380,41 @@ def test_mixed_domain_concept_set_returns_clarification_card_before_emission():
     assert result["clarification_type"] == "mixed_domain_entry"
     assert result["detected_concept_sets"][0]["domains"] == ["Condition", "Observation"]
     assert result["clarification_provenance"]["detected_from"] == "reviewed_concept_sets"
+
+
+def test_confirmed_condition_or_observation_entry_compiles_for_858():
+    scope = {
+        "index_event": "Rheumatoid arthritis",
+        "criterion_domains": {"Rheumatoid arthritis": "Condition or Observation"},
+        "entry_limit": "First",
+        "prior_observation": 0,
+        "index_day_boundary": "included",
+        "windows": "none",
+        "exit_strategy": "observation",
+        "multi_domain_entry_policy": "any_qualifying_domain",
+    }
+    result = StudyAgent(mcp_client=_Mcp()).run_phenotype_make_computable_flow(
+        "Earliest rheumatoid arthritis diagnosis by condition or observation date.",
+        True,
+        scope,
+        "provided_only",
+        _policy_concept_sets("858"),
+    )
+    assert result["status"] == "ok"
+    criteria = result["circe_json"]["PrimaryCriteria"]["CriteriaList"]
+    assert {next(iter(item)) for item in criteria} == {"ConditionOccurrence", "Observation"}
+    assert result["circe_json"]["PrimaryCriteria"]["PrimaryCriteriaLimit"] == {"Type": "First"}
+
+
+def test_mixed_domain_policy_fails_closed_for_unsupported_domain_combinations():
+    emitted = emit_capr(
+        {"index_event": "Mixed", "entry_limit": "First", "exit_strategy": "observation", "multi_domain_entry_policy": "any_qualifying_domain"},
+        [{"name": "Mixed", "items": [
+            {"concept_id": 1, "domain": "Condition", "include_descendants": False, "include_mapped": False, "is_excluded": False},
+            {"concept_id": 2, "domain": "Drug", "include_descendants": False, "include_mapped": False, "is_excluded": False},
+        ]}],
+    )
+    assert emitted["messages"] == ["mixed_domain_concept_set_requires_explicit_multi_domain_plan"]
 
 
 def test_temporal_followup_with_continuous_observation_compiles():

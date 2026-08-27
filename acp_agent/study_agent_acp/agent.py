@@ -197,6 +197,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
             "proposed_plan": response.get("proposed_plan"),
             "proposal_validation_status": response.get("proposal_validation_status"),
             "proposal_validation_errors": response.get("proposal_validation_errors") or [],
+            "proposal_advisories": response.get("proposal_advisories") or [],
             "concept_build": response.get("concept_build") or {},
             "concept_provenance": response.get("concept_provenance") or {},
             "diagnostics": response.get("diagnostics") or {},
@@ -265,7 +266,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
             assessment = assessments.get(concept_id) or {}
             proposed = proposed_items.get(concept_id) or {}
             writer.writerow({
-                "concept_set_name": proposed_set_names.get(concept_id, ""),
+                "concept_set_name": proposed_set_names.get(concept_id, candidate.get("conceptSetName") or ""),
                 "concept_id": concept_id,
                 "concept_name": self._csv_cell(candidate.get("conceptName")),
                 "domain": self._csv_cell(candidate.get("domainId")),
@@ -3360,6 +3361,85 @@ class StudyAgent(PhenotypeRecommendationMixin):
             "diagnostics": diagnostics,
         }
 
+    @staticmethod
+    def _phenotype_concept_set_requests(scope_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Turn explicit criterion-domain declarations into independently reviewable lanes.
+
+        A scope may name an index criterion and supporting criteria such as an inpatient/ER
+        visit restriction.  Keeping the lanes separate prevents a review CSV from silently
+        combining concepts from different OMOP domains into one concept set.
+        """
+        declared = scope_data.get("criterion_domains") or {}
+        requests: List[Dict[str, Any]] = []
+        seen: set[tuple[str, str]] = set()
+        for label, domain in declared.items():
+            name = str(label or "").strip()
+            normalized_domain = str(domain or "").strip()
+            if not name or not normalized_domain:
+                continue
+            key = (name.casefold(), normalized_domain.casefold())
+            if key in seen:
+                continue
+            seen.add(key)
+            requests.append({"name": name, "query": name, "domains": [normalized_domain]})
+        if not requests:
+            query = str(scope_data.get("index_event") or "").strip()
+            if query:
+                requests.append({"name": query, "query": query, "domains": []})
+        return requests
+
+    def _retrieve_phenotype_concept_lanes(self, scope_data: Dict[str, Any]) -> tuple[List[Dict[str, Any]], Dict[str, Any], set[int]]:
+        """Retrieve and hydrate candidates while retaining their explicit review lane."""
+        requests = self._phenotype_concept_set_requests(scope_data)
+        raw_candidates: List[Dict[str, Any]] = []
+        search_runs: List[Dict[str, Any]] = []
+        for request in requests:
+            result = self.call_tool(
+                "vocab_search_standard",
+                {"query": request["query"], "domains": request["domains"] or None, "limit": 20},
+            )
+            payload = result.get("full_result") or {}
+            rows = payload.get("concepts") or []
+            search_runs.append({
+                "concept_set_name": request["name"],
+                "query": request["query"],
+                "domains": request["domains"],
+                "count": len(rows),
+                "status": result.get("status"),
+            })
+            for row in rows:
+                candidate = dict(row)
+                candidate["conceptSetName"] = request["name"]
+                candidate["conceptSetDomain"] = request["domains"][0] if request["domains"] else ""
+                candidate["sourceTerm"] = request["query"]
+                candidate["sourceStage"] = "criterion_domain_search"
+                raw_candidates.append(candidate)
+        concept_ids = [int(row["conceptId"]) for row in raw_candidates if row.get("conceptId") not in (None, "")]
+        hydrated = self.call_tool("vocab_fetch_concepts", {"concept_ids": concept_ids, "concepts": raw_candidates}) if concept_ids else None
+        hydrated_payload = (hydrated or {}).get("full_result") or {}
+        hydrated_rows = hydrated_payload.get("concepts", raw_candidates)
+        # Preserve lane provenance even when a metadata provider returns only canonical fields.
+        lane_by_key = {
+            (int(row["conceptId"]), str(row.get("conceptSetName") or "")): row
+            for row in raw_candidates if row.get("conceptId") not in (None, "")
+        }
+        candidate_list: List[Dict[str, Any]] = []
+        for candidate in hydrated_rows:
+            concept_id = candidate.get("conceptId")
+            matching = next((row for (candidate_id, _), row in lane_by_key.items() if concept_id not in (None, "") and candidate_id == int(concept_id)), None)
+            candidate_list.append({**(matching or {}), **candidate})
+        direct_candidate_ids = {int(row["conceptId"]) for row in candidate_list if row.get("conceptId") not in (None, "")}
+        provenance = {
+            "tool": "vocab_search_standard",
+            "query": str(scope_data.get("index_event") or ""),
+            "search_runs": search_runs,
+            "domains": sorted({domain for request in requests for domain in request["domains"]}),
+            "tool_status": "ok" if all(run["status"] == "ok" for run in search_runs) else "unavailable",
+            "metadata_tool": "vocab_fetch_concepts",
+            "metadata_status": (hydrated or {}).get("status"),
+        }
+        return candidate_list, provenance, direct_candidate_ids
+
     def run_phenotype_make_computable_flow(
         self,
         narrative_statement: str,
@@ -3400,18 +3480,9 @@ class StudyAgent(PhenotypeRecommendationMixin):
         if request.concept_review_mode == "required" and not concept_set_data:
             if self._mcp_client is None:
                 return {"status": "error", "error": "MCP client unavailable"}
-            domains = sorted({str(value) for value in scope_data.get("criterion_domains", {}).values() if value})
-            query = str(scope_data.get("index_event") or narrative)
-            candidates = self.call_tool("vocab_search_standard", {"query": query, "domains": domains or None, "limit": 20})
-            payload = candidates.get("full_result") or {}
-            raw_candidates = payload.get("concepts", [])
-            concept_ids = [int(row.get("conceptId")) for row in raw_candidates if row.get("conceptId") not in (None, "")]
-            hydrated = self.call_tool("vocab_fetch_concepts", {"concept_ids": concept_ids, "concepts": raw_candidates}) if concept_ids else None
-            hydrated_payload = (hydrated or {}).get("full_result") or {}
-            candidate_list = hydrated_payload.get("concepts", raw_candidates)
-            direct_candidate_ids = {int(row["conceptId"]) for row in candidate_list if row.get("conceptId") not in (None, "")}
+            candidate_list, concept_provenance, direct_candidate_ids = self._retrieve_phenotype_concept_lanes(scope_data)
             return self._deliver_phenotype_review(
-                {"status": "needs_concept_review", "narrative_statement": narrative, "scope": scope_data, "concept_review_mode": request.concept_review_mode, "concept_candidates": candidate_list, "concept_provenance": {"tool": "vocab_search_standard", "query": query, "domains": domains, "tool_status": candidates.get("status"), "metadata_tool": "vocab_fetch_concepts", "metadata_status": (hydrated or {}).get("status")}},
+                {"status": "needs_concept_review", "narrative_statement": narrative, "scope": scope_data, "concept_review_mode": request.concept_review_mode, "concept_candidates": candidate_list, "concept_provenance": concept_provenance},
                 review_delivery=request.review_delivery,
                 direct_candidate_ids=direct_candidate_ids,
             )
@@ -3629,6 +3700,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
                 llm_result = self._call_llm(prompt, required_keys=["status", "scope_check", "candidate_assessments", "concept_sets", "cohort_plan", "assumptions", "warnings"])
             proposed_plan = None
             proposal_errors: List[Dict[str, Any]] = []
+            proposal_advisories: List[Dict[str, Any]] = []
             if llm_result.status == "ok":
                 try:
                     proposed_plan = PhenotypeMakeComputableProposal.model_validate(llm_result.parsed_content).model_dump(exclude_none=True)
@@ -3715,18 +3787,20 @@ class StudyAgent(PhenotypeRecommendationMixin):
                         )
                         deduped_payload = deduped.get("full_result") or {}
                         if deduped.get("status") != "ok" or deduped_payload.get("error"):
-                            proposal_errors.append({
+                            proposal_advisories.append({
                                 "loc": ("concept_sets", set_index),
                                 "msg": "hierarchy_redundancy_check_unavailable",
-                                "type": "value_error",
+                                "type": "advisory",
+                                "detail": "No hierarchy simplification was applied; every explicit reviewed policy is retained.",
                             })
                         else:
                             for concept_id in deduped_payload.get("removed_concept_ids") or []:
-                                proposal_errors.append({
+                                proposal_advisories.append({
                                     "loc": ("concept_sets", set_index, "items"),
-                                    "msg": "redundant_descendant_covered_by_included_ancestor",
-                                    "type": "value_error",
+                                    "msg": "explicit_child_covered_by_included_ancestor",
+                                    "type": "advisory",
                                     "concept_id": concept_id,
+                                    "detail": "Covered by an included-descendants ancestor under the current vocabulary hierarchy; retained as an explicit reviewed policy.",
                                 })
                 fatal_error_messages = {
                     "assessment_concept_not_in_candidates",
@@ -3752,6 +3826,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
                     "proposal_validation_status": proposal_validation_status,
                     "llm_status": llm_result.status,
                     "proposal_validation_errors": proposal_errors,
+                    "proposal_advisories": proposal_advisories,
                     "diagnostics": self._llm_diagnostics(llm_result, include_response_content=False),
                 },
                 review_delivery=request.review_delivery,
@@ -3777,7 +3852,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
         result = validated.get("full_result") or {}
         if validated.get("status") != "ok" or result.get("status") != "passed":
             return {"status": "unavailable", "error": "capr_validation_failed", "validation": result}
-        return {"status": "ok", "narrative_statement": narrative, "capr": {"filename": "phenotype_definition.R", "entry_point": entry_point, "source": source}, "circe_json": result.get("circe_json"), "validation": {"status": "passed", "messages": result.get("messages", [])}}
+        return {"status": "ok", "narrative_statement": narrative, "capr": {"filename": "phenotype_definition.R", "entry_point": entry_point, "source": source}, "circe_json": result.get("circe_json"), "validation": {"status": "passed", "messages": result.get("messages", []), "r_environment": result.get("r_environment")}}
     def _wrap_result(self, name: str, result: Dict[str, Any], warnings: List[str]) -> Dict[str, Any]:
         safe_summary = self._safe_summary(result)
         return {

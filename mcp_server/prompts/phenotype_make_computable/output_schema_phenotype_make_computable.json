@@ -84,6 +84,7 @@
         "mode": {
           "enum": [
             "condition_entry",
+            "domain_entry",
             "visit_overlap",
             "temporal_followup",
             "mixed_domain_clarification"

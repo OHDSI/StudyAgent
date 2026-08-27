@@ -9,10 +9,14 @@ _ROOT = Path("sandbox/reference_set/training_cohorts")
 
 
 CASES = {
+    # The StudyAgent development variant intentionally adds 365 days continuous
+    # observation; this structural comparison does not assert that semantic delta.
+    "63": {"index_event": "Transverse myelitis", "entry_limit": "All", "prior_observation": 365, "exit_strategy": {"type": "fixed", "index": "startDate", "offset_days": 1}, "temporal_followup": {"index_concept_set": "Transverse Myelitis", "trigger_concept_set": "Symptoms for Transverse Myelitis", "followup_days": 30, "washout_days": 365}},
     "710": {"index_event": "Cirrhosis", "entry_limit": "First", "exit_strategy": "observation"},
     "794": {"index_event": "Digestive hemorrhage", "entry_limit": "All", "exit_strategy": {"type": "fixed", "offset_days": 14}},
     "743": {"index_event": "Diabetic ketoacidosis", "entry_limit": "All", "visit_overlap": True, "visit_overlap_mode": "entry", "exit_strategy": {"type": "fixed", "index": "startDate", "offset_days": 30}},
     "222": {"index_event": "SJS/TEN", "entry_limit": "All", "visit_overlap": True, "exit_strategy": {"type": "fixed", "offset_days": 1}},
+    "858": {"index_event": "Rheumatoid arthritis", "entry_limit": "First", "exit_strategy": "observation", "multi_domain_entry_policy": "any_qualifying_domain"},
     "1340": {"index_event": "Anorexia nervosa", "entry_limit": "All", "exit_strategy": {"type": "fixed", "offset_days": 30}, "era_days": 365},
     "1341": {"index_event": "Eating disorders", "entry_limit": "All", "exit_strategy": {"type": "fixed", "offset_days": 30}, "era_days": 365},
     "1345": {"index_event": "Personality disorders", "entry_limit": "All", "exit_strategy": {"type": "fixed", "offset_days": 30}, "era_days": 365},

@@ -145,3 +145,10 @@ After direct narrative generation is stable, update phenotype_definition so a se
 - Preserve the retained cohort-63 reference unchanged. It encodes a 365-day clean window without requiring 365 days of continuous observation.
 - The StudyAgent development variant requires both: 365 days of continuous observation before index and no qualifying direct-diagnosis or symptom-follow-up pathway in days -365 through -1.
 - This is a deliberate semantic correction requested during sprint review, so reference comparison must report the observation-window difference rather than overwrite the original artifact.
+
+## Implemented incremental extension: multi-set review and direct clinical-domain entry
+
+- Review retrieval now preserves each explicit `criterion_domains` entry as a named concept-set lane. A single CSV/manifest package can therefore carry separately adjudicated Condition and Visit sets for the cohort-222 visit-overlap pattern; the deterministic reader groups selected rows by their frozen lane name and domain.
+- The deterministic direct-entry emitter now technically validates record-level entry for `Condition`, `Drug` (exposure), `Procedure`, `Measurement` (without value predicates), `Observation`, `Visit`, and `Device`. Eras, values, attributes, and arbitrary boolean logic remain unsupported. `Specimen` remains unavailable because the installed Capr version does not export `specimen()`.
+- A single reviewed set spanning `Condition` and `Observation` is supported only with the explicit `multi_domain_entry_policy: "any_qualifying_domain"`. It produces earliest qualifying entry across both record domains and otherwise fails closed. This supports the retained cohort-858 pattern without generalizing mixed-domain semantics.
+- Retained-reference structural evaluation now covers all 11 development cases. Cohort 63 is retained as a documented development variant: StudyAgent intentionally adds 365 days of continuous observation, so that semantic difference is not overwritten by reference comparison.
