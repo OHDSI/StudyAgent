@@ -266,9 +266,20 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
                         )
                     except Exception as exc:
                         payload["mcp_index"] = {"error": str(exc)}
+                payload["mcp_r_client"] = {"skipped": not deep}
+                if deep and payload["mcp"].get("ok"):
+                    try:
+                        payload["mcp_r_client"] = _call_mcp_tool_with_retry(
+                            self.mcp_client,
+                            "r_client_compatibility",
+                            {},
+                        )
+                    except Exception as exc:
+                        payload["mcp_r_client"] = {"error": str(exc)}
             else:
                 payload["mcp"] = {"ok": False, "configured": False, "error": "mcp_not_configured"}
                 payload["mcp_index"] = {"skipped": True, "reason": "mcp_not_configured"}
+                payload["mcp_r_client"] = {"skipped": True, "reason": "mcp_not_configured"}
 
             _write_json(self, 200, payload)
             return

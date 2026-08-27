@@ -221,23 +221,15 @@ def task_test_unit():
 def task_test_all():
     """Run the native Python ACP/MCP test gate, excluding R packages."""
     return {
-        "actions": [_pytest_cmd("not r_shell")],
+        "actions": [_pytest_cmd("not r_client_compatibility")],
         "verbosity": 2,
     }
 
 
-def task_test_r_shells():
-    """Run static checks for the in-repository R shells and wrappers."""
+def task_test_r_client_compatibility():
+    """Check external companion R-client packages in the configured R library."""
     return {
-        "actions": [_pytest_cmd("r_shell and not r_integration")],
-        "verbosity": 2,
-    }
-
-
-def task_test_r_integration():
-    """Run opt-in Rscript tests that require optional R packages."""
-    return {
-        "actions": [_pytest_cmd("r_integration")],
+        "actions": [_pytest_cmd("r_client_compatibility")],
         "verbosity": 2,
     }
 

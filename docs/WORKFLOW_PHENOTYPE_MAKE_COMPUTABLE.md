@@ -57,6 +57,7 @@ For a session response, retrieve candidate pages with `GET /flows/phenotype_make
 - One Condition-domain concept set, with first/all entry, configurable prior continuous observation, observation or fixed exit, and optional era collapse.
 - Condition entry overlapping a reviewed Visit concept set, with required explicit `visit_overlap_mode` (`entry` or `attrition`) and configurable fixed-exit anchor; the emitter never defaults a missing mode.
 - The explicit `temporal_followup` pattern used by the corrected development variant of cohort 63: a direct diagnosis or trigger event followed by diagnosis, a clean window, continuous observation, fixed exit, and zero-day era padding.
+- A direct entry event in any supported direct-entry domain with one reviewed supporting Condition occurrence in an explicit on/before-index window. This is an attrition/supporting-evidence mode (`multi_domain_entry_policy: "supporting_evidence_only"`), so `First` means the first raw direct-entry record, not the first record that satisfies the Condition criterion.
 
 Concept-item descendant, mapped, and exclusion policies are preserved in generated Circe concept sets.
 
@@ -64,7 +65,7 @@ Concept-item descendant, mapped, and exclusion policies are preserved in generat
 
 The flow returns `needs_clarification` for an unconfirmed or incomplete scope. It also returns a mixed-domain clarification card when reviewed items span multiple event domains without `multi_domain_entry_policy`; the flow does not silently emit a Condition-only approximation.
 
-Only `index_day_boundary: "included"` and `windows: "none"` are supported outside explicit emitter modes. Other values fail closed. Unsupported concept/domain combinations or temporal forms return structured emitter diagnostics rather than an approximate definition.
+Only `index_day_boundary: "included"` and `windows: "none"` are supported outside explicit emitter modes. The supporting-condition mode keeps `windows: "none"` and instead uses typed `supporting_condition_occurrence: {concept_set, start_days, end_days, anchor: "index_start"}` alongside `multi_domain_entry_policy: "supporting_evidence_only"`. Other values fail closed. Unsupported concept/domain combinations or temporal forms return structured emitter diagnostics rather than an approximate definition.
 
 Reviewed concept sets must contain exactly one of `items` (each with `concept_id`/`conceptId` and descendant, mapped, and exclusion policies) or `concept_ids`/`conceptIds`. The flow also accepts `concepts` as an item-list alias and normalizes OMOP-style camelCase item fields. Malformed review input returns `needs_clarification` with `invalid_concept_sets` before emission.
 

@@ -368,6 +368,23 @@ class PhenotypeTemporalFollowupScope(BaseModel):
     washout_days: int = Field(default=365, ge=1)
 
 
+class PhenotypeSupportingConditionOccurrenceScope(BaseModel):
+    """A reviewed Condition occurrence used as supporting evidence for a direct entry event."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    concept_set: str = Field(min_length=1)
+    start_days: int = Field(le=0)
+    end_days: int = Field(default=0, le=0)
+    anchor: Literal["index_start"] = "index_start"
+
+    @model_validator(mode="after")
+    def validate_interval(self) -> "PhenotypeSupportingConditionOccurrenceScope":
+        if self.start_days > self.end_days:
+            raise ValueError("supporting_condition_occurrence_start_must_not_exceed_end")
+        return self
+
+
 class PhenotypeMakeComputableScope(BaseModel):
     """Declared v1 scope surface accepted by the computable phenotype flow."""
 
@@ -385,6 +402,7 @@ class PhenotypeMakeComputableScope(BaseModel):
     visit_overlap: bool = False
     visit_overlap_mode: Optional[Literal["entry", "attrition"]] = None
     temporal_followup: Optional[PhenotypeTemporalFollowupScope] = None
+    supporting_condition_occurrence: Optional[PhenotypeSupportingConditionOccurrenceScope] = None
     multi_domain_entry_policy: Optional[Literal["diagnosis_only", "any_qualifying_domain", "supporting_evidence_only"]] = None
 
 
@@ -434,13 +452,14 @@ class PhenotypeMakeComputableProposalPlan(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    mode: Optional[Literal["condition_entry", "domain_entry", "visit_overlap", "temporal_followup", "mixed_domain_clarification"]] = None
+    mode: Optional[Literal["condition_entry", "domain_entry", "visit_overlap", "temporal_followup", "supporting_condition_occurrence", "mixed_domain_clarification"]] = None
     entry_limit: Optional[Literal["First", "All"]] = None
     prior_observation_days: Optional[int] = Field(default=None, ge=0)
     exit_strategy: Optional[Literal["observation", "end_of_observation"] | PhenotypeFixedExitScope] = None
     era_days: Optional[int] = Field(default=None, ge=0)
     visit_overlap_mode: Optional[Literal["entry", "attrition"]] = None
     temporal_followup: Optional[PhenotypeTemporalFollowupScope] = None
+    supporting_condition_occurrence: Optional[PhenotypeSupportingConditionOccurrenceScope] = None
     multi_domain_entry_policy: Optional[Literal["diagnosis_only", "any_qualifying_domain", "supporting_evidence_only"]] = None
 
 

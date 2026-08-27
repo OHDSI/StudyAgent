@@ -89,11 +89,76 @@ def _function_source(scope_comment: str, body: str) -> str:
 '''
 
 
+def _emit_supporting_condition_occurrence(scope: Dict[str, Any], concept_sets: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Emit a direct-entry cohort with a reviewed Condition occurrence in an index-anchored window."""
+    supporting = scope.get("supporting_condition_occurrence")
+    if not isinstance(supporting, dict):
+        return {"status": "failed", "messages": ["supporting_condition_occurrence_must_be_object"]}
+    if scope.get("windows") not in (None, "none", {}, []):
+        return {"status": "failed", "messages": ["supporting_condition_occurrence_requires_windows_none"]}
+    if scope.get("multi_domain_entry_policy") != "supporting_evidence_only":
+        return {"status": "failed", "messages": ["supporting_condition_occurrence_requires_supporting_evidence_policy"]}
+    support_name = str(supporting.get("concept_set") or "")
+    try:
+        start_days, end_days = int(supporting.get("start_days")), int(supporting.get("end_days", 0))
+    except (TypeError, ValueError):
+        return {"status": "failed", "messages": ["supporting_condition_occurrence_days_must_be_integers"]}
+    if start_days > end_days or end_days > 0:
+        return {"status": "failed", "messages": ["supporting_condition_occurrence_window_must_end_on_or_before_index"]}
+    if str(supporting.get("anchor") or "index_start") != "index_start":
+        return {"status": "failed", "messages": ["unsupported_supporting_condition_occurrence_anchor"]}
+    by_name = {str(row.get("name") or ""): row for row in concept_sets}
+    support_set = by_name.get(support_name)
+    entry_sets = [row for row in concept_sets if str(row.get("name") or "") != support_name]
+    if len(concept_sets) != 2 or support_set is None or len(entry_sets) != 1:
+        return {"status": "failed", "messages": ["supporting_condition_occurrence_requires_two_named_concept_sets"]}
+    entry_set = entry_sets[0]
+    support_domain = str(support_set.get("domain") or support_set.get("domainId") or "")
+    entry_domain = str(entry_set.get("domain") or entry_set.get("domainId") or "")
+    query_constructor = _ENTRY_QUERY_BY_DOMAIN.get(entry_domain)
+    if support_domain != "Condition" or query_constructor is None:
+        return {"status": "failed", "messages": ["supporting_condition_occurrence_requires_condition_support_and_direct_entry_domain"]}
+    entry_expression, entry_error = _concept_set_expression(entry_set)
+    support_expression, support_error = _concept_set_expression(support_set)
+    era_days, era_error = _era_days(scope)
+    prior_days, prior_error = _prior_observation_days(scope)
+    if entry_error or support_error or era_error or prior_error:
+        return {"status": "failed", "messages": [entry_error or support_error or era_error or prior_error]}
+    limit = str(scope.get("entry_limit") or "First")
+    if limit not in {"First", "All"}:
+        return {"status": "failed", "messages": ["unsupported_entry_limit"]}
+    exit_strategy = scope.get("exit_strategy") or "observation"
+    if isinstance(exit_strategy, dict) and exit_strategy.get("type") == "fixed":
+        exit_index = str(exit_strategy.get("index") or "endDate")
+        if exit_index not in {"startDate", "endDate"}:
+            return {"status": "failed", "messages": ["unsupported_fixed_exit_index"]}
+        exit_code = f'Capr::fixedExit(index = "{exit_index}", offsetDays = {int(exit_strategy.get("offset_days", 0))}L)'
+    elif exit_strategy in {"observation", "end_of_observation"}:
+        exit_code = "Capr::observationExit()"
+    else:
+        return {"status": "failed", "messages": ["unsupported_exit_strategy"]}
+    entry_name = _r_string(entry_set.get("name") or "Entry concept set")
+    support_name_r = _r_string(support_set.get("name") or "Supporting condition")
+    supporting_group = f'Capr::atLeast(1L, Capr::conditionOccurrence(supportCs), Capr::duringInterval(startWindow = Capr::eventStarts({start_days}, {end_days}, index = "startDate")))'
+    body = f"""entryCs <- Capr::cs({entry_expression}, name = \"{entry_name}\")
+supportCs <- Capr::cs({support_expression}, name = \"{support_name_r}\")
+supportingCondition <- {supporting_group}
+Capr::cohort(
+  entry = Capr::entry(Capr::{query_constructor}(entryCs), observationWindow = Capr::continuousObservation({prior_days}L, 0L), primaryCriteriaLimit = \"{limit}\"),
+  attrition = Capr::attrition(\"Supporting condition occurrence in index window\" = Capr::withAll(supportingCondition), expressionLimit = \"{limit}\"),
+  exit = Capr::exit(endStrategy = {exit_code}), era = Capr::era(eraDays = {era_days}L)
+)"""
+    comment = f"index={scope.get('index_event', '')}; supporting_condition={support_name_r}; supporting_window=[{start_days},{end_days}] from index start; policy=supporting_evidence_only; limit={limit}; exit={exit_strategy}; era_days={era_days}"
+    return {"status": "passed", "capr_code": _function_source(comment, body), "entry_point": ENTRY_POINT, "messages": []}
+
+
 def emit_capr(scope: Dict[str, Any], concept_sets: List[Dict[str, Any]]) -> Dict[str, Any]:
     temporal = scope.get("temporal_followup") or {}
     index_day_boundary = scope.get("index_day_boundary")
     if index_day_boundary not in (None, "included"):
         return {"status": "failed", "messages": ["unsupported_index_day_boundary"]}
+    if scope.get("supporting_condition_occurrence"):
+        return _emit_supporting_condition_occurrence(scope, concept_sets)
     windows = scope.get("windows")
     if windows not in (None, "none", {}, []):
         return {"status": "failed", "messages": ["unsupported_temporal_windows_require_explicit_emitter_mode"]}

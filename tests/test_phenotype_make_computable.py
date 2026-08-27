@@ -7,6 +7,7 @@ from study_agent_acp.agent import StudyAgent
 from study_agent_mcp.tools.phenotype_make_computable_emit import emit_capr
 from study_agent_mcp.tools.phenotype_make_computable_validate import _r_library_path, validate_capr_source
 from study_agent_mcp.tools.phenotype_make_computable import _load_bundle
+from study_agent_core.models import PhenotypeMakeComputableInput
 
 
 class _Mcp:
@@ -606,3 +607,88 @@ def test_unsupported_scope_semantics_fail_closed():
     windows = emit_capr({"index_event": "Cirrhosis", "entry_limit": "First", "windows": {"start": -30, "end": 0}, "exit_strategy": "observation"}, concepts)
     assert boundary["messages"] == ["unsupported_index_day_boundary"]
     assert windows["messages"] == ["unsupported_temporal_windows_require_explicit_emitter_mode"]
+
+
+def test_drug_entry_with_supporting_condition_occurrence_compiles():
+    scope = {
+        "index_event": "esketamine",
+        "criterion_domains": {"esketamine": "Drug", "Major depressive disorder": "Condition"},
+        "entry_limit": "First",
+        "prior_observation": 365,
+        "index_day_boundary": "included",
+        "windows": "none",
+        "supporting_condition_occurrence": {
+            "concept_set": "Major depressive disorder",
+            "start_days": -180,
+            "end_days": 0,
+            "anchor": "index_start",
+        },
+        "multi_domain_entry_policy": "supporting_evidence_only",
+        "exit_strategy": {"type": "fixed", "index": "endDate", "offset_days": 30},
+    }
+    concept_sets = [
+        {
+            "name": "esketamine",
+            "domain": "Drug",
+            "items": [{"concept_id": 1366610, "domain": "Drug", "include_descendants": True, "include_mapped": False, "is_excluded": False}],
+        },
+        {
+            "name": "Major depressive disorder",
+            "domain": "Condition",
+            "items": [{"concept_id": 201820, "domain": "Condition", "include_descendants": True, "include_mapped": False, "is_excluded": False}],
+        },
+    ]
+
+    emitted = emit_capr(scope, concept_sets)
+
+    assert emitted["status"] == "passed"
+    assert 'Capr::drugExposure(entryCs)' in emitted["capr_code"]
+    assert 'Capr::conditionOccurrence(supportCs)' in emitted["capr_code"]
+    assert 'Capr::eventStarts(-180, 0, index = "startDate")' in emitted["capr_code"]
+    assert 'Supporting condition occurrence in index window' in emitted["capr_code"]
+    validated = validate_capr_source(emitted["capr_code"])
+    assert validated["status"] == "passed", validated
+    assert len(validated["circe_json"]["ConceptSets"]) == 2
+    assert len(validated["circe_json"]["InclusionRules"]) == 1
+
+
+def test_supporting_condition_occurrence_requires_explicit_supporting_evidence_policy():
+    scope = {
+        "index_event": "esketamine",
+        "entry_limit": "First",
+        "windows": "none",
+        "supporting_condition_occurrence": {"concept_set": "Major depressive disorder", "start_days": -180},
+        "exit_strategy": {"type": "fixed", "index": "endDate", "offset_days": 30},
+    }
+    concept_sets = [
+        {"name": "esketamine", "domain": "Drug", "items": [{"concept_id": 1366610, "domain": "Drug"}]},
+        {"name": "Major depressive disorder", "domain": "Condition", "items": [{"concept_id": 201820, "domain": "Condition"}]},
+    ]
+
+    assert emit_capr(scope, concept_sets)["messages"] == ["supporting_condition_occurrence_requires_supporting_evidence_policy"]
+
+
+def test_supporting_condition_occurrence_scope_is_typed_and_rejects_an_inverted_window():
+    payload = {
+        "narrative_statement": "First drug exposure with supporting condition",
+        "confirmed_scope": True,
+        "scope": {
+            "index_event": "esketamine",
+            "criterion_domains": {"esketamine": "Drug", "Major depressive disorder": "Condition"},
+            "entry_limit": "First",
+            "prior_observation": 365,
+            "index_day_boundary": "included",
+            "windows": "none",
+            "supporting_condition_occurrence": {"concept_set": "Major depressive disorder", "start_days": -180, "end_days": 0},
+            "multi_domain_entry_policy": "supporting_evidence_only",
+            "exit_strategy": {"type": "fixed", "index": "endDate", "offset_days": 30},
+        },
+    }
+
+    parsed = PhenotypeMakeComputableInput.model_validate(payload)
+
+    assert parsed.scope.supporting_condition_occurrence.start_days == -180
+    invalid = dict(payload)
+    invalid["scope"] = dict(payload["scope"], supporting_condition_occurrence={"concept_set": "Major depressive disorder", "start_days": 0, "end_days": -180})
+    with pytest.raises(ValueError, match="supporting_condition_occurrence_start_must_not_exceed_end"):
+        PhenotypeMakeComputableInput.model_validate(invalid)

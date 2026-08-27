@@ -111,11 +111,11 @@ Supported values:
 
 Example definition and validation in:
 
-- [R/slashOhdsiStrategusAssistant/R/workflow_stage_context.R](R/slashOhdsiStrategusAssistant/R/workflow_stage_context.R)
+- [workflow_stage_context.R](https://github.com/OHDSI/SlashOhdsiStrategusAssistant/blob/main/R/workflow_stage_context.R)
 
 Example normalization from shell-local names in:
 
-- [R/slashOhdsiStrategusAssistant/R/workflow_dialogue_mapping.R](R/slashOhdsiStrategusAssistant/R/workflow_dialogue_mapping.R)
+- [workflow_dialogue_mapping.R](https://github.com/OHDSI/SlashOhdsiStrategusAssistant/blob/main/R/workflow_dialogue_mapping.R)
 
 ## `workflow_type`
 
@@ -126,7 +126,7 @@ Although any client could leverage this (e.g., `study-agent-demo-shell`, a Pytho
 
 These are assigned in:
 
-- [R/slashOhdsiStrategusAssistant/R/workflow_dialogue_mapping.R](R/slashOhdsiStrategusAssistant/R/workflow_dialogue_mapping.R)
+- [workflow_dialogue_mapping.R](https://github.com/OHDSI/SlashOhdsiStrategusAssistant/blob/main/R/workflow_dialogue_mapping.R)
 
 ## Stage Context on the R Side
 
@@ -150,7 +150,7 @@ list(
 
 Builder and validator:
 
-- [R/slashOhdsiStrategusAssistant/R/workflow_stage_context.R](R/slashOhdsiStrategusAssistant/R/workflow_stage_context.R)
+- [workflow_stage_context.R](https://github.com/OHDSI/SlashOhdsiStrategusAssistant/blob/main/R/workflow_stage_context.R)
 
 ## Important `stage_context` Substructures
 
@@ -198,7 +198,7 @@ The R ACP wrapper flattens the richer stage context into the simpler request bod
 
 Flattening happens in:
 
-- [R/slashOhdsiAcpClient/R/flows.R](R/slashOhdsiAcpClient/R/flows.R)
+- [flows.R](https://github.com/OHDSI/SlashOhdsiAcpClient/blob/main/R/flows.R)
 
 Key behavior:
 
@@ -385,10 +385,10 @@ The interactive R shells create a dialogue session object that:
 
 Key implementation:
 
-- [R/slashOhdsiStrategusAssistant/R/workflow_dialogue.R](R/slashOhdsiStrategusAssistant/R/workflow_dialogue.R)
-- [R/slashOhdsiStrategusAssistant/R/slash_ohdsi_runtime.R](R/slashOhdsiStrategusAssistant/R/slash_ohdsi_runtime.R)
-- [R/slashOhdsiStrategusAssistant/R/strategus_incidence_shell.R](R/slashOhdsiStrategusAssistant/R/strategus_incidence_shell.R)
-- [R/slashOhdsiStrategusAssistant/R/strategus_cohort_methods_shell.R](R/slashOhdsiStrategusAssistant/R/strategus_cohort_methods_shell.R)
+- [workflow_dialogue.R](https://github.com/OHDSI/SlashOhdsiStrategusAssistant/blob/main/R/workflow_dialogue.R)
+- [slash_ohdsi_runtime.R](https://github.com/OHDSI/SlashOhdsiStrategusAssistant/blob/main/R/slash_ohdsi_runtime.R)
+- [strategus_incidence_shell.R](https://github.com/OHDSI/SlashOhdsiStrategusAssistant/blob/main/R/strategus_incidence_shell.R)
+- [strategus_cohort_methods_shell.R](https://github.com/OHDSI/SlashOhdsiStrategusAssistant/blob/main/R/strategus_cohort_methods_shell.R)
 
 ## Mermaid Sequence Diagram
 
@@ -428,11 +428,11 @@ sequenceDiagram
 If you need the shortest possible map of the `/ohdsi` architecture, start here:
 
 - R-side stage context definition:
-  - [R/slashOhdsiStrategusAssistant/R/workflow_stage_context.R](R/slashOhdsiStrategusAssistant/R/workflow_stage_context.R)
+  - [workflow_stage_context.R](https://github.com/OHDSI/SlashOhdsiStrategusAssistant/blob/main/R/workflow_stage_context.R)
 - R-side workflow mapping and context construction:
-  - [R/slashOhdsiStrategusAssistant/R/workflow_dialogue_mapping.R](R/slashOhdsiStrategusAssistant/R/workflow_dialogue_mapping.R)
+  - [workflow_dialogue_mapping.R](https://github.com/OHDSI/SlashOhdsiStrategusAssistant/blob/main/R/workflow_dialogue_mapping.R)
 - R-to-ACP payload flattening:
-  - [R/slashOhdsiAcpClient/R/flows.R](R/slashOhdsiAcpClient/R/flows.R)
+  - [flows.R](https://github.com/OHDSI/SlashOhdsiAcpClient/blob/main/R/flows.R)
 - ACP HTTP endpoint:
   - [acp_agent/study_agent_acp/server.py](acp_agent/study_agent_acp/server.py)
 - ACP workflow-dialogue flow:

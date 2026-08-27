@@ -61,4 +61,5 @@ def test_register_all_tools() -> None:
         "phenotype_make_computable_prompt_bundle",
         "phenotype_make_computable_emit",
         "phenotype_make_computable_validate",
+        "r_client_compatibility",
     }
