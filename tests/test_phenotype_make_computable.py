@@ -5,7 +5,7 @@ from pathlib import Path
 from study_agent_acp.llm_client import LLMCallResult
 from study_agent_acp.agent import StudyAgent
 from study_agent_mcp.tools.phenotype_make_computable_emit import emit_capr
-from study_agent_mcp.tools.phenotype_make_computable_validate import _r_library_path, validate_capr_source
+from study_agent_mcp.tools.phenotype_make_computable_validate import _r_library_path, _r_script_path, validate_capr_source
 from study_agent_mcp.tools.phenotype_make_computable import _load_bundle
 from study_agent_core.models import PhenotypeMakeComputableInput
 
@@ -381,6 +381,28 @@ def test_propose_mode_rejects_a_plan_with_an_unsupported_exit_strategy():
 def test_validator_prefers_explicit_r_library_environment(monkeypatch):
     monkeypatch.setenv("R_LIBS_USER", "/configured/r/library")
     assert _r_library_path() == "/configured/r/library"
+
+
+def test_validator_reads_mcp_r_runtime_from_config_when_environment_is_unset(tmp_path, monkeypatch):
+    r_library = tmp_path / "renv" / "library" / "linux-amzn-2023" / "R-4.5" / "aarch64-amazon-linux-gnu"
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "\n".join([
+            "version: 1",
+            "mcp:",
+            "  r:",
+            "    rscript: /usr/bin/Rscript",
+            f"    library: {r_library}",
+            "",
+        ]),
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("R_LIBS_USER", raising=False)
+    monkeypatch.delenv("R_SCRIPT", raising=False)
+    monkeypatch.setenv("STUDY_AGENT_CONFIG", str(config_path))
+
+    assert _r_library_path() == str(r_library)
+    assert _r_script_path() == "/usr/bin/Rscript"
 
 
 def test_validator_rejects_indirect_process_execution():
