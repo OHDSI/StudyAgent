@@ -1,0 +1,15 @@
+gold_codeset_id,concept_set_name,concept_id,concept_name,domain_id,vocabulary_id,include_descendants,include_mapped,is_excluded
+0,Rheumatoid arthritis,80809,Rheumatoid arthritis,Condition,SNOMED,true,false,false
+0,Rheumatoid arthritis,2107558,"Rheumatoid arthritis (RA) disease activity, low (RA)",Observation,CPT4,true,false,false
+0,Rheumatoid arthritis,2107559,"Rheumatoid arthritis (RA) disease activity, moderate (RA)",Observation,CPT4,true,false,false
+0,Rheumatoid arthritis,2107560,"Rheumatoid arthritis (RA) disease activity, high (RA)",Observation,CPT4,true,false,false
+0,Rheumatoid arthritis,2107561,"Disease prognosis for rheumatoid arthritis assessed, poor prognosis documented (RA)",Observation,CPT4,true,false,false
+0,Rheumatoid arthritis,2107572,"Disease prognosis for rheumatoid arthritis assessed, good prognosis documented (RA)",Observation,CPT4,true,false,false
+0,Rheumatoid arthritis,2108721,Patient receiving first-time biologic disease modifying anti-rheumatic drug therapy for rheumatoid arthritis (RA),Observation,CPT4,true,false,false
+0,Rheumatoid arthritis,4035611,Seropositive rheumatoid arthritis,Condition,SNOMED,true,false,false
+0,Rheumatoid arthritis,4083556,Seronegative rheumatoid arthritis,Condition,SNOMED,true,false,false
+0,Rheumatoid arthritis,4102493,Polyneuropathy in rheumatoid arthritis,Condition,SNOMED,true,false,false
+0,Rheumatoid arthritis,4107913,Myopathy due to rheumatoid arthritis,Condition,SNOMED,true,false,false
+0,Rheumatoid arthritis,4297650,Cutaneous atrophy due to rheumatoid arthritis,Condition,SNOMED,true,false,false
+0,Rheumatoid arthritis,4334806,Deformity of foot due to rheumatoid arthritis,Condition,SNOMED,true,false,false
+0,Rheumatoid arthritis,46273442,Deformity of hand due to rheumatoid arthritis,Condition,SNOMED,true,false,false

@@ -1,0 +1,1 @@
+events with a diagnosis of transverse myelitis indexed on diagnosis of transverse myelitis, related spinal disease or symptoms of transverse myelitis, followed by a diagnosis of transverse myelitis within 30 days. Events have a 365 days washout period. The events persist for 1 day. Symptoms of Transverse Myelitis included asthenia, muscle weakness, myelitis, paresthesia

@@ -22,7 +22,7 @@ TIMEOUT_SECONDS = int(os.getenv("ACP_TIMEOUT", "360"))
 
 
 def _reviewed_concept_sets(case_id: str) -> list[dict[str, Any]]:
-    path = REPO_ROOT / "sandbox" / "reference_set" / "training_cohorts" / case_id / "concept_roots.csv"
+    path = REPO_ROOT / "docs" / "evaluation" / "phenotype_make_computable" / "reference_set" / "training_cohorts" / case_id / "concept_roots.csv"
     grouped: dict[str, dict[str, Any]] = {}
     with path.open(encoding="utf-8") as handle:
         for row in csv.DictReader(handle):

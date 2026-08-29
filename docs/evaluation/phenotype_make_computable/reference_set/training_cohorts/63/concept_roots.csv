@@ -1,0 +1,7 @@
+gold_codeset_id,concept_set_name,concept_id,concept_name,domain_id,vocabulary_id,include_descendants,include_mapped,is_excluded
+4,Transverse Myelitis,443904,Transverse myelopathy syndrome,Condition,SNOMED,true,false,false
+5,Symptoms for Transverse Myelitis,79908,Muscle weakness,Condition,SNOMED,true,false,false
+5,Symptoms for Transverse Myelitis,135526,Spinal cord disease,Condition,SNOMED,true,false,false
+5,Symptoms for Transverse Myelitis,138965,Myelitis,Condition,SNOMED,true,false,false
+5,Symptoms for Transverse Myelitis,437113,Asthenia,Condition,SNOMED,true,false,false
+5,Symptoms for Transverse Myelitis,4236484,Paresthesia,Condition,SNOMED,true,false,false

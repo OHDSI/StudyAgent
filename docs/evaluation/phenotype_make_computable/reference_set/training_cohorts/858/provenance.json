@@ -1,0 +1,31 @@
+{
+  "cohort_id": 858,
+  "corpus_label": "AI-screened development reference corpus",
+  "independent_human_annotation": false,
+  "patient_reference_artifact_bundled": false,
+  "patient_reference_metadata": {
+    "artifact_path": "../gold_patient_execution_2026-07-11_v1/webapi_sets/gold_858.json",
+    "format": "webapi-cache-subjects-v1",
+    "person_count": 3447,
+    "sha256": "ea49a8ae39d1a5669d4a06d2a38949dfb90399c25e4adb8df1dbae564f6ef16f"
+  },
+  "peer_reviewer_count": 0,
+  "reference_circe_sha256": "8ed32daad40d078171aad5b9fe7586e093ef41a0ff6d9fd90831bf870767cd58",
+  "resolver_construction": "prefer expert isReferent active-standard root leaves; otherwise expert active-standard roots",
+  "review_disposition": "include",
+  "review_flags": [
+    "pending_reference_maturity_review"
+  ],
+  "schema_version": "sal-circe-27-reference-v1",
+  "source_files": {
+    "gold_set_path": "docs/paper/plan/aim1/artifacts/generic_v3_ai_screened_2026-07-11_v2/gold_set.jsonl",
+    "gold_set_sha256": "87b58d0879a8e2cabf8f2245843a3bc00fe409b8960cbaa2a776ccfd73450873",
+    "resolver_gold_path": "docs/paper/AMIA_submission_2026-07-16/SAL_MANUSCRIPT-20260803T123614Z-1-001/SAL_MANUSCRIPT/code/evaluation/aim1/exploratory_resolver_gold_2026-07-11_v1/resolver_gold.jsonl",
+    "resolver_gold_sha256": "66f0409c3759452b96ccf00dd89960acbc1f3bc0c9578da57c4661ed9b913f71",
+    "sampling_manifest_path": "docs/paper/plan/aim1/artifacts/generic_v3_ai_screened_2026-07-11_v2/sampling_manifest.json",
+    "sampling_manifest_sha256": "e2bd10a73e10ee0c09b32da6ebbda8e35336db735022d51385d83a99111f507a"
+  },
+  "source_release": "3.36.0",
+  "source_row_sha256": "805304847860d74b1bc3526d056bb6546ff6c38563c84ef7d89bf5cc06443031",
+  "source_status": "Pending peer review"
+}
