@@ -11,7 +11,6 @@ The current implementation provides:
 
 This project is in beta testing. The videos below provide an overview of the project and how to install and set up the index needed for `phenotype_recommendation`. For now, links to videos showing use by the SlashOhdsiStrategusAssistant package are shown but these will eventually move to that package. 
 
-Read [What about agent skills (e.g., SKILL.md)?](https://github.com/OHDSI/StudyAgent/blob/main/docs/WHAT-ABOUT-AGENT-SKILLS.md) to understand how this project will likely eventually be used with coding agents like Codex and Claude.
 
 ## Videos
 
@@ -24,7 +23,7 @@ Read [What about agent skills (e.g., SKILL.md)?](https://github.com/OHDSI/StudyA
   Prepare phenotype indexes used by Study Agent for recommendations.
 
 ### Agent Skills
-Check out a [demo agent skill](https://github.com/rkboyce/AgentPlayGround) that uses a running OHDSI [Study Agent](https://github.com/OHDSI/StudyAgent) to convert a narrative cohort description to Capr and Circe computable artifacts. See [the video](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=f81e51be-0d4d-4c73-b47d-b4b3014d3efe)
+We got a skill! Check out a [demo agent skill](https://github.com/rkboyce/AgentPlayGround) that uses a running OHDSI [Study Agent](https://github.com/OHDSI/StudyAgent) to convert a narrative cohort description to Capr and Circe computable artifacts. See [the video](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=f81e51be-0d4d-4c73-b47d-b4b3014d3efe)
 
 ### Study Agent with R for real-world evidence generation
 
