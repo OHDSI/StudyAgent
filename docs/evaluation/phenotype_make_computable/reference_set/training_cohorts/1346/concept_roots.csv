@@ -1,0 +1,2 @@
+gold_codeset_id,concept_set_name,concept_id,concept_name,domain_id,vocabulary_id,include_descendants,include_mapped,is_excluded
+2,Attention-Deficit Hyperactivity Disorder,438409,Attention deficit hyperactivity disorder,Condition,SNOMED,true,false,false

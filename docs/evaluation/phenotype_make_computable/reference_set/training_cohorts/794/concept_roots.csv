@@ -1,0 +1,2 @@
+gold_codeset_id,concept_set_name,concept_id,concept_name,domain_id,vocabulary_id,include_descendants,include_mapped,is_excluded
+0,Hemorrhage of digestive system,37311947,Hemorrhage of digestive system,Condition,SNOMED,true,false,false

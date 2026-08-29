@@ -8,7 +8,7 @@ from threading import Lock
 from typing import Any, Dict
 
 from ._common import with_meta
-from .phenotype_make_computable_validate import _r_library_path
+from .phenotype_make_computable_validate import _r_library_path, _r_script_path
 
 _R_CLIENT_LOCK = Lock()
 _REQUIRED_PACKAGES = {
@@ -127,7 +127,7 @@ if (inherits(runtime, "error")) {
     with _R_CLIENT_LOCK:
         try:
             process = subprocess.run(
-                [os.getenv("R_SCRIPT", "Rscript"), "--vanilla", "-e", runner, package_contract],
+                [_r_script_path(), "--vanilla", "-e", runner, package_contract],
                 env=env,
                 text=True,
                 capture_output=True,

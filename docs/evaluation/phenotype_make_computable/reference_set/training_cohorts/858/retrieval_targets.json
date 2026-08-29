@@ -1,0 +1,174 @@
+{
+  "cohort_id": 858,
+  "schema_version": "sal-circe-27-reference-v1",
+  "targets": [
+    {
+      "concept_set_name": "Rheumatoid arthritis",
+      "exploratory_reason": null,
+      "fallback_root_cap": null,
+      "gold_codeset_id": 0,
+      "gold_codeset_stable_id": "gold-codeset-858-0",
+      "independent_annotation": false,
+      "primary_retrieval_eligible": true,
+      "referent_source": "expert_active_standard_roots_fallback",
+      "relevant_concept_ids": [
+        80809,
+        2107558,
+        2107559,
+        2107560,
+        2107561,
+        2107572,
+        2108721,
+        4035611,
+        4083556,
+        4102493,
+        4107913,
+        4297650,
+        4334806,
+        46273442
+      ],
+      "relevant_concepts": [
+        {
+          "concept_id": 80809,
+          "concept_name": "Rheumatoid arthritis",
+          "domain_id": "Condition",
+          "include_descendants": true,
+          "include_mapped": false,
+          "is_excluded": false,
+          "vocabulary_id": "SNOMED"
+        },
+        {
+          "concept_id": 2107558,
+          "concept_name": "Rheumatoid arthritis (RA) disease activity, low (RA)",
+          "domain_id": "Observation",
+          "include_descendants": true,
+          "include_mapped": false,
+          "is_excluded": false,
+          "vocabulary_id": "CPT4"
+        },
+        {
+          "concept_id": 2107559,
+          "concept_name": "Rheumatoid arthritis (RA) disease activity, moderate (RA)",
+          "domain_id": "Observation",
+          "include_descendants": true,
+          "include_mapped": false,
+          "is_excluded": false,
+          "vocabulary_id": "CPT4"
+        },
+        {
+          "concept_id": 2107560,
+          "concept_name": "Rheumatoid arthritis (RA) disease activity, high (RA)",
+          "domain_id": "Observation",
+          "include_descendants": true,
+          "include_mapped": false,
+          "is_excluded": false,
+          "vocabulary_id": "CPT4"
+        },
+        {
+          "concept_id": 2107561,
+          "concept_name": "Disease prognosis for rheumatoid arthritis assessed, poor prognosis documented (RA)",
+          "domain_id": "Observation",
+          "include_descendants": true,
+          "include_mapped": false,
+          "is_excluded": false,
+          "vocabulary_id": "CPT4"
+        },
+        {
+          "concept_id": 2107572,
+          "concept_name": "Disease prognosis for rheumatoid arthritis assessed, good prognosis documented (RA)",
+          "domain_id": "Observation",
+          "include_descendants": true,
+          "include_mapped": false,
+          "is_excluded": false,
+          "vocabulary_id": "CPT4"
+        },
+        {
+          "concept_id": 2108721,
+          "concept_name": "Patient receiving first-time biologic disease modifying anti-rheumatic drug therapy for rheumatoid arthritis (RA)",
+          "domain_id": "Observation",
+          "include_descendants": true,
+          "include_mapped": false,
+          "is_excluded": false,
+          "vocabulary_id": "CPT4"
+        },
+        {
+          "concept_id": 4035611,
+          "concept_name": "Seropositive rheumatoid arthritis",
+          "domain_id": "Condition",
+          "include_descendants": true,
+          "include_mapped": false,
+          "is_excluded": false,
+          "vocabulary_id": "SNOMED"
+        },
+        {
+          "concept_id": 4083556,
+          "concept_name": "Seronegative rheumatoid arthritis",
+          "domain_id": "Condition",
+          "include_descendants": true,
+          "include_mapped": false,
+          "is_excluded": false,
+          "vocabulary_id": "SNOMED"
+        },
+        {
+          "concept_id": 4102493,
+          "concept_name": "Polyneuropathy in rheumatoid arthritis",
+          "domain_id": "Condition",
+          "include_descendants": true,
+          "include_mapped": false,
+          "is_excluded": false,
+          "vocabulary_id": "SNOMED"
+        },
+        {
+          "concept_id": 4107913,
+          "concept_name": "Myopathy due to rheumatoid arthritis",
+          "domain_id": "Condition",
+          "include_descendants": true,
+          "include_mapped": false,
+          "is_excluded": false,
+          "vocabulary_id": "SNOMED"
+        },
+        {
+          "concept_id": 4297650,
+          "concept_name": "Cutaneous atrophy due to rheumatoid arthritis",
+          "domain_id": "Condition",
+          "include_descendants": true,
+          "include_mapped": false,
+          "is_excluded": false,
+          "vocabulary_id": "SNOMED"
+        },
+        {
+          "concept_id": 4334806,
+          "concept_name": "Deformity of foot due to rheumatoid arthritis",
+          "domain_id": "Condition",
+          "include_descendants": true,
+          "include_mapped": false,
+          "is_excluded": false,
+          "vocabulary_id": "SNOMED"
+        },
+        {
+          "concept_id": 46273442,
+          "concept_name": "Deformity of hand due to rheumatoid arthritis",
+          "domain_id": "Condition",
+          "include_descendants": true,
+          "include_mapped": false,
+          "is_excluded": false,
+          "vocabulary_id": "SNOMED"
+        }
+      ],
+      "retrieval_intent_id": "gold-intent-749c8f87c92153de98a9",
+      "structural_positions": [
+        {
+          "json_pointer": "/PrimaryCriteria/CriteriaList/0/ConditionOccurrence/CodesetId",
+          "position_id": "pos-04562afba60fa182"
+        },
+        {
+          "json_pointer": "/PrimaryCriteria/CriteriaList/1/Observation/CodesetId",
+          "position_id": "pos-90f8593e8bbe581b"
+        }
+      ],
+      "unavailable_in_common_active_standard_space": [],
+      "uncapped_eligible_root_count": 14
+    }
+  ],
+  "unscorable": []
+}

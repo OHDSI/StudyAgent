@@ -1,0 +1,5 @@
+gold_codeset_id,concept_set_name,concept_id,concept_name,domain_id,vocabulary_id,include_descendants,include_mapped,is_excluded
+2,Stevens-Johnson syndrome or TEN,35625857,"Stevens-Johnson syndrome, toxic epidermal necrolysis spectrum",Condition,SNOMED,true,false,false
+3,Emergency room or Inpatient Visit,262,Emergency Room and Inpatient Visit,Visit,Visit,true,false,false
+3,Emergency room or Inpatient Visit,9201,Inpatient Visit,Visit,Visit,true,false,false
+3,Emergency room or Inpatient Visit,9203,Emergency Room Visit,Visit,Visit,true,false,false

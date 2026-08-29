@@ -1,0 +1,4 @@
+gold_codeset_id,concept_set_name,concept_id,concept_name,domain_id,vocabulary_id,include_descendants,include_mapped,is_excluded
+0,Cirrhosis of liver,196463,Alcoholic cirrhosis,Condition,SNOMED,true,false,false
+0,Cirrhosis of liver,4064161,Cirrhosis of liver,Condition,SNOMED,true,false,false
+0,Cirrhosis of liver,46269816,Ascites due to alcoholic cirrhosis,Condition,SNOMED,true,false,false

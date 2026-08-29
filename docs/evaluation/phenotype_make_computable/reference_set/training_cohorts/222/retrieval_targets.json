@@ -1,0 +1,93 @@
+{
+  "cohort_id": 222,
+  "schema_version": "sal-circe-27-reference-v1",
+  "targets": [
+    {
+      "concept_set_name": "Stevens-Johnson syndrome or TEN",
+      "exploratory_reason": null,
+      "fallback_root_cap": null,
+      "gold_codeset_id": 2,
+      "gold_codeset_stable_id": "gold-codeset-222-2",
+      "independent_annotation": false,
+      "primary_retrieval_eligible": true,
+      "referent_source": "expert_active_standard_roots_fallback",
+      "relevant_concept_ids": [
+        35625857
+      ],
+      "relevant_concepts": [
+        {
+          "concept_id": 35625857,
+          "concept_name": "Stevens-Johnson syndrome, toxic epidermal necrolysis spectrum",
+          "domain_id": "Condition",
+          "include_descendants": true,
+          "include_mapped": false,
+          "is_excluded": false,
+          "vocabulary_id": "SNOMED"
+        }
+      ],
+      "retrieval_intent_id": "gold-intent-df91ddb4b25b4e5b755c",
+      "structural_positions": [
+        {
+          "json_pointer": "/PrimaryCriteria/CriteriaList/0/ConditionOccurrence/CodesetId",
+          "position_id": "pos-04562afba60fa182"
+        }
+      ],
+      "unavailable_in_common_active_standard_space": [],
+      "uncapped_eligible_root_count": 1
+    },
+    {
+      "concept_set_name": "Emergency room or Inpatient Visit",
+      "exploratory_reason": null,
+      "fallback_root_cap": null,
+      "gold_codeset_id": 3,
+      "gold_codeset_stable_id": "gold-codeset-222-3",
+      "independent_annotation": false,
+      "primary_retrieval_eligible": true,
+      "referent_source": "expert_active_standard_roots_fallback",
+      "relevant_concept_ids": [
+        262,
+        9201,
+        9203
+      ],
+      "relevant_concepts": [
+        {
+          "concept_id": 262,
+          "concept_name": "Emergency Room and Inpatient Visit",
+          "domain_id": "Visit",
+          "include_descendants": true,
+          "include_mapped": false,
+          "is_excluded": false,
+          "vocabulary_id": "Visit"
+        },
+        {
+          "concept_id": 9201,
+          "concept_name": "Inpatient Visit",
+          "domain_id": "Visit",
+          "include_descendants": true,
+          "include_mapped": false,
+          "is_excluded": false,
+          "vocabulary_id": "Visit"
+        },
+        {
+          "concept_id": 9203,
+          "concept_name": "Emergency Room Visit",
+          "domain_id": "Visit",
+          "include_descendants": true,
+          "include_mapped": false,
+          "is_excluded": false,
+          "vocabulary_id": "Visit"
+        }
+      ],
+      "retrieval_intent_id": "gold-intent-2d25524ea666fe9a7f1c",
+      "structural_positions": [
+        {
+          "json_pointer": "/InclusionRules/0/expression/CriteriaList/0/Criteria/VisitOccurrence/CodesetId",
+          "position_id": "pos-30f9760928e0edd4"
+        }
+      ],
+      "unavailable_in_common_active_standard_space": [],
+      "uncapped_eligible_root_count": 3
+    }
+  ],
+  "unscorable": []
+}
