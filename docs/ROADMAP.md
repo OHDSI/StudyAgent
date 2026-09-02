@@ -12,10 +12,6 @@ Interpret Data Quality Dashboard, Achilles Heel, and Achilles characterization o
 
 Guide users through building a new phenotype definition for a target or outcome cohort, including concept selection, concept-set organization, and cohort-definition logic assembly.
 
-## Longer Term
-
-Build out the broader service set, then evaluate and user-test each service as part of a larger study-agent workflow.
-
 ## Broader Future-Service Catalog
 
 These items are directional and should not be read as fully implemented.
@@ -35,9 +31,6 @@ These items are directional and should not be read as fully implemented.
 
 ### Improving and validating search and suggest services
 
-- `phenotype_recommendations`
-- `phenotype_improvements`
-- `concept_set_recommendations`
 - `propose_negative_control_outcomes`
 - `propose_comparator`
 - `propose_adjustment_set`
