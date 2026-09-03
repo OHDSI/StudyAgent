@@ -1651,3 +1651,49 @@ def test_http_mcp_client_uses_one_shot_sessions(monkeypatch):
         "arguments": {"query": "bleed"},
     }
     assert client.close() is None
+
+
+@pytest.mark.acp
+def test_missing_database_connection_warning_names_affected_flows(monkeypatch, caplog):
+    monkeypatch.delenv("OMOP_DB_ENGINE", raising=False)
+    monkeypatch.delenv("ENGINE", raising=False)
+
+    with caplog.at_level("WARNING", logger="study_agent.acp"):
+        acp_server._warn_on_missing_database_connection()
+
+    assert "NOTE: no database connection set" in caplog.text
+    assert "keeper_*" in caplog.text
+    assert "phenotype_make_computable" in caplog.text
+
+
+@pytest.mark.acp
+def test_database_connection_warning_is_suppressed_when_engine_is_configured(monkeypatch, caplog):
+    monkeypatch.setenv("OMOP_DB_ENGINE", "postgresql")
+
+    with caplog.at_level("WARNING", logger="study_agent.acp"):
+        acp_server._warn_on_missing_database_connection()
+
+    assert "no database connection set" not in caplog.text
+
+
+def test_mcp_preflight_warns_when_database_connection_is_unconfigured(monkeypatch):
+    from study_agent_mcp import server as mcp_server
+
+    messages = []
+    monkeypatch.delenv("OMOP_DB_ENGINE", raising=False)
+    monkeypatch.delenv("ENGINE", raising=False)
+    monkeypatch.setattr(
+        mcp_server,
+        "index_status",
+        lambda: {"index_dir": "/tmp/index", "exists": True, "files": {"catalog": {"exists": True}}},
+    )
+    monkeypatch.setattr(mcp_server, "_log", lambda level, message: messages.append((level, message)))
+
+    mcp_server._preflight()
+
+    assert any(
+        level == "WARN"
+        and "NOTE: no database connection set" in message
+        and "phenotype_make_computable" in message
+        for level, message in messages
+    )

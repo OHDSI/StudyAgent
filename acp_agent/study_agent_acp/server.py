@@ -85,6 +85,15 @@ def _warn_on_inconsistent_llm_config() -> None:
         )
 
 
+def _warn_on_missing_database_connection() -> None:
+    if os.getenv("OMOP_DB_ENGINE") or os.getenv("ENGINE"):
+        return
+    logger.warning(
+        "NOTE: no database connection set (OMOP_DB_ENGINE/ENGINE). "
+        "This may affect certain flows such as keeper_* and phenotype_make_computable."
+    )
+
+
 def _resolve_mcp_url_from_env() -> Optional[str]:
     explicit = os.getenv("STUDY_AGENT_MCP_URL")
     if explicit:
@@ -826,6 +835,7 @@ def main(host: str = "127.0.0.1", port: int = 8765) -> None:
     mcp_command = os.getenv("STUDY_AGENT_MCP_COMMAND")
     mcp_args = os.getenv("STUDY_AGENT_MCP_ARGS", "")
     allow_core_fallback = os.getenv("STUDY_AGENT_ALLOW_CORE_FALLBACK", "1") == "1"
+    _warn_on_missing_database_connection()
     debug = os.getenv("STUDY_AGENT_DEBUG", "0") == "1"
     threaded = os.getenv("STUDY_AGENT_THREADING", "1") == "1"
     mcp_cwd = os.getenv("STUDY_AGENT_MCP_CWD") or os.getcwd()
