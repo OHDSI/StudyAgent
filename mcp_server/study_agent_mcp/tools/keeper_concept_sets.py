@@ -382,6 +382,10 @@ def _search_standard_via_db(query: str, domains: List[str] | None, concept_class
         rows = connection.execute(sql, params).mappings().all()
     concepts = [{"conceptId": row["concept_id"], "conceptName": row["concept_name"], "vocabularyId": row["vocabulary_id"], "domainId": row["domain_id"], "conceptClassId": row["concept_class_id"], "standardConcept": row["standard_concept"]} for row in rows]
     returned_count = len(concepts)
+    logger.info(
+        "vocab_search provider=db query_len=%s query_sha=%s domains=%s concept_classes=%s vocabulary_ids=%s limit=%s matched_count=%s returned_count=%s",
+        len(query or ""), _text_fingerprint(query), domains or [], concept_classes or [], vocabulary_ids or [], requested_limit, matched_count, returned_count,
+    )
     return {
         "concepts": concepts,
         "count": returned_count,

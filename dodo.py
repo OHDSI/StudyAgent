@@ -156,6 +156,12 @@ def _start_mcp_http_if_needed(env: dict) -> subprocess.Popen | None:
     while time.time() < deadline:
         try:
             with socket.create_connection((host, port), timeout=1):
+                time.sleep(0.5)
+                if proc.poll() is not None:
+                    raise RuntimeError(
+                        f"MCP exited during startup; inspect {mcp_stdout} and {mcp_stderr}. "
+                        "The requested MCP port may already be in use."
+                    )
                 return proc
         except OSError:
             time.sleep(0.5)
@@ -584,6 +590,12 @@ def task_smoke_phenotype_make_computable_proposal_flow():
             )
             _wait_for_acp(_health_url(env), timeout_s=30, require_mcp=require_mcp)
             print("Running computable phenotype proposal smoke test...")
+            time.sleep(0.5)
+            if acp_proc.poll() is not None:
+                raise RuntimeError(
+                    f"ACP exited during startup; inspect {acp_stdout} and {acp_stderr}. "
+                    "The requested ACP port may already be in use."
+                )
             subprocess.run(
                 [sys.executable, "tests/smoke_phenotype_make_computable_proposal_flow.py"],
                 check=True,
@@ -604,6 +616,13 @@ def task_smoke_phenotype_make_computable_proposal_flow():
                     mcp_proc.wait(timeout=10)
                 except subprocess.TimeoutExpired:
                     mcp_proc.kill()
+            print(f"ACP logs: {acp_stdout} {acp_stderr}")
+            if mcp_proc is not None:
+                print(
+                    "MCP logs: "
+                    f"{_runtime_file(env, 'MCP_STDOUT', 'study_agent_mcp_stdout.log')} "
+                    f"{_runtime_file(env, 'MCP_STDERR', 'study_agent_mcp_stderr.log')}"
+                )
 
     return {
         "actions": [_run_smoke],
