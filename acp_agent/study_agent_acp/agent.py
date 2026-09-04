@@ -3544,6 +3544,14 @@ class StudyAgent(PhenotypeRecommendationMixin):
         concept_set_data = [concept_set.model_dump(exclude_none=True) for concept_set in request.concept_sets]
         if not narrative:
             return {"status": "error", "error": "missing_narrative_statement"}
+        if request.concept_review_mode == "propose" and request.candidate_limit > 100:
+            return {
+                "status": "needs_clarification",
+                "clarification_type": "proposal_candidate_limit_too_large",
+                "questions": [
+                    "LLM proposal mode is limited to 100 candidates per request. Use required review for a larger deterministic CSV session, or narrow the clinical search frame."
+                ],
+            }
         required_scope = ["index_event", "criterion_domains", "entry_limit", "prior_observation", "index_day_boundary", "windows", "exit_strategy"]
         missing = [key for key in required_scope if scope_data.get(key) in (None, "", [], {})]
         if not request.confirmed_scope or missing:

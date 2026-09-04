@@ -94,4 +94,6 @@ flowchart TD
   T --> U[Incidence Rate Results]
 ```
 
+Keeper sequencing note: inline Keeper concept-set preparation may occur during build, but row-level Keeper case review is deferred until cohort generation has completed and rows are available. The shell records `deferred_pending_cohort_generation`; run `03_generate_cohorts.R` before `05_keeper_case_review.R`.
+
 Execution note: `07_incidence_spec.R` depends on the cohort-selection outputs and time-at-risk settings, not on Keeper or diagnostics completion. Keeper and diagnostics remain optional review/enrichment steps that can be run before or after the main incidence specification, or explicitly skipped in the execution menu when that is the intentional workflow choice.
