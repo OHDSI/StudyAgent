@@ -503,5 +503,9 @@ class PhenotypeMakeComputableInput(BaseModel):
     concept_review_mode: ConceptReviewMode = "required"
     concept_build_mode: ConceptBuildMode = "search_only"
     review_delivery: ReviewDelivery = "auto"
-    candidate_limit: int = Field(default=20, ge=1, le=100)
+    # Required-review sessions are stored server-side and returned compactly, so
+    # they can safely carry a larger deterministic vocabulary slice. Proposal
+    # mode remains separately bounded before any candidate material reaches an
+    # LLM (see StudyAgent.run_phenotype_make_computable_flow).
+    candidate_limit: int = Field(default=20, ge=1, le=500)
     concept_sets: List[PhenotypeReviewedConceptSet] = Field(default_factory=list)

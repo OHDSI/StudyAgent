@@ -35,7 +35,7 @@ class _Mcp:
 
 
 def _concept_sets(case_id: str):
-    path = Path("sandbox/reference_set/training_cohorts") / case_id / "concept_roots.csv"
+    path = Path("docs/evaluation/phenotype_make_computable/reference_set/training_cohorts") / case_id / "concept_roots.csv"
     grouped = {}
     for row in csv.DictReader(path.open(encoding="utf-8")):
         grouped.setdefault(row["concept_set_name"], {"name": row["concept_set_name"], "domain": row["domain_id"], "concept_ids": []})["concept_ids"].append(int(row["concept_id"]))
@@ -43,7 +43,7 @@ def _concept_sets(case_id: str):
 
 
 def _policy_concept_sets(case_id: str):
-    path = Path("sandbox/reference_set/training_cohorts") / case_id / "concept_roots.csv"
+    path = Path("docs/evaluation/phenotype_make_computable/reference_set/training_cohorts") / case_id / "concept_roots.csv"
     grouped = {}
     for row in csv.DictReader(path.open(encoding="utf-8")):
         item = grouped.setdefault(row["concept_set_name"], {"name": row["concept_set_name"], "domain": row["domain_id"], "items": []})

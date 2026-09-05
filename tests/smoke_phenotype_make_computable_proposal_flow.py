@@ -18,6 +18,14 @@ FLOW_URL = os.getenv(
 TIMEOUT_SECONDS = int(os.getenv("ACP_TIMEOUT", "360"))
 
 
+
+def _response_summary(result: dict) -> str:
+    fields = (
+        "status", "llm_status", "review_delivery", "review_id", "candidate_count",
+        "assessment_count", "concept_build", "concept_provenance", "warnings",
+        "proposal_validation_status", "proposal_validation_errors", "proposal_advisories",
+    )
+    return json.dumps({key: result.get(key) for key in fields}, sort_keys=True, default=str)
 def main() -> int:
     payload = {
         "narrative_statement": (
@@ -37,6 +45,7 @@ def main() -> int:
         "concept_review_mode": "propose",
         "concept_build_mode": "grounded",
         "concept_sets": [],
+        "review_delivery": "inline",
     }
     request = urllib.request.Request(
         FLOW_URL,
@@ -55,11 +64,25 @@ def main() -> int:
     if result.get("status") != "needs_concept_review" or result.get("llm_status") != "ok":
         raise AssertionError(f"expected successful proposal for review, got {result}")
     if not result.get("concept_candidates") or not isinstance(plan, dict):
-        raise AssertionError("expected vocabulary candidates and a structured LLM proposal")
-    candidate_ids = {int(candidate["conceptId"]) for candidate in result["concept_candidates"] if candidate.get("conceptId") not in (None, "")}
-    assessed_ids = {int(assessment["concept_id"]) for assessment in plan.get("candidate_assessments") or []}
-    if candidate_ids != assessed_ids:
-        raise AssertionError("expected one eligibility assessment for every retrieved candidate")
+        raise AssertionError(
+            "expected vocabulary candidates and a structured LLM proposal; "
+            f"response summary={_response_summary(result)}"
+        )
+    direct_candidate_ids = {
+        int(candidate["conceptId"])
+        for candidate in result["concept_candidates"]
+        if candidate.get("conceptId") not in (None, "")
+        and candidate.get("sourceStage") != "phoebe_related_concepts"
+    }
+    assessed_ids = {
+        int(assessment["concept_id"])
+        for assessment in plan.get("candidate_assessments") or []
+    }
+    if direct_candidate_ids != assessed_ids:
+        raise AssertionError(
+            "expected one eligibility assessment for every direct retrieved candidate; "
+            f"response summary={_response_summary(result)}"
+        )
     if result.get("concept_build", {}).get("mode") != "grounded":
         raise AssertionError(f"expected grounded concept-build evidence, got {result.get('concept_build')}")
     provenance = result.get("concept_provenance") or {}

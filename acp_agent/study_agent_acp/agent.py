@@ -2579,6 +2579,13 @@ class StudyAgent(PhenotypeRecommendationMixin):
             parsed.setdefault("llm_used", llm_payload is not None)
             parsed.setdefault("llm_status", llm_result.status)
             parsed.setdefault("diagnostics", self._llm_diagnostics(llm_result))
+            parsed_full = parsed.get("full_result") or {}
+            if parsed.get("status") != "ok" or parsed_full.get("error"):
+                return {
+                    "status": "error",
+                    "error": "keeper_validation_response_invalid",
+                    "details": parsed,
+                }
         return parsed
 
 
@@ -2971,6 +2978,23 @@ class StudyAgent(PhenotypeRecommendationMixin):
                 "error": "keeper_profile_extract_failed",
                 "details": extract_result,
             }
+        required_extract_fields = {
+            "profile_records",
+            "record_count",
+            "sample_size_requested",
+            "sample_size_returned",
+            "sampling_mode",
+            "connection_identity",
+            "cohort_source",
+        }
+        missing_extract_fields = sorted(required_extract_fields - set(extract_full))
+        if missing_extract_fields:
+            return {
+                "status": "error",
+                "error": "keeper_profile_extract_incomplete_response",
+                "missing_fields": missing_extract_fields,
+                "details": extract_result,
+            }
 
         rows_result = self.call_tool(
             name="keeper_profile_to_rows",
@@ -2997,6 +3021,11 @@ class StudyAgent(PhenotypeRecommendationMixin):
             "diagnostics": {
                 "record_count": int(extract_full.get("record_count") or 0),
                 "sampling_mode": extract_full.get("sampling_mode") or "",
+                "connection_identity": extract_full.get("connection_identity") or {},
+                "cohort_source": extract_full.get("cohort_source") or {},
+                "input_concept_set_count": int(extract_full.get("input_concept_set_count") or 0),
+                "input_concept_set_counts_by_lane": extract_full.get("input_concept_set_counts_by_lane") or {},
+                "elapsed_seconds": extract_full.get("elapsed_seconds"),
             },
         }
 
@@ -3544,6 +3573,14 @@ class StudyAgent(PhenotypeRecommendationMixin):
         concept_set_data = [concept_set.model_dump(exclude_none=True) for concept_set in request.concept_sets]
         if not narrative:
             return {"status": "error", "error": "missing_narrative_statement"}
+        if request.concept_review_mode == "propose" and request.candidate_limit > 100:
+            return {
+                "status": "needs_clarification",
+                "clarification_type": "proposal_candidate_limit_too_large",
+                "questions": [
+                    "LLM proposal mode is limited to 100 candidates per request. Use required review for a larger deterministic CSV session, or narrow the clinical search frame."
+                ],
+            }
         required_scope = ["index_event", "criterion_domains", "entry_limit", "prior_observation", "index_day_boundary", "windows", "exit_strategy"]
         missing = [key for key in required_scope if scope_data.get(key) in (None, "", [], {})]
         if not request.confirmed_scope or missing:

@@ -5,7 +5,7 @@ from pathlib import Path
 from study_agent_mcp.tools.phenotype_make_computable_emit import emit_capr
 from study_agent_mcp.tools.phenotype_make_computable_validate import validate_capr_source
 
-_ROOT = Path("sandbox/reference_set/training_cohorts")
+_ROOT = Path("docs/evaluation/phenotype_make_computable/reference_set/training_cohorts")
 
 
 CASES = {

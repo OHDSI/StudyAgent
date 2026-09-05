@@ -82,6 +82,44 @@ def _assert_validated(case_id: str, result: dict[str, Any], concept_sets: int, l
         raise AssertionError(f"{case_id}: missing function-form Capr artifact")
 
 
+
+def _database_backed_concept_review_smoke() -> str:
+    """Exercise live vocabulary retrieval when a database engine is configured."""
+    if not os.getenv("OMOP_DB_ENGINE", "").strip():
+        return "database-backed concept review skipped: OMOP_DB_ENGINE is not set"
+
+    result = _post(
+        {
+            "narrative_statement": "New users of warfarin.",
+            "confirmed_scope": True,
+            "scope": {
+                "index_event": "warfarin",
+                "criterion_domains": {"warfarin": "Drug"},
+                "criterion_vocabularies": {"warfarin": ["RxNorm"]},
+                "entry_limit": "First",
+                "prior_observation": 0,
+                "index_day_boundary": "included",
+                "windows": "none",
+                "exit_strategy": "observation",
+                "visit_overlap": False,
+            },
+            "concept_review_mode": "required",
+            "review_delivery": "session",
+            "candidate_limit": 20,
+            "concept_sets": [],
+        }
+    )
+    if result.get("status") != "needs_concept_review":
+        raise AssertionError(
+            "database-backed concept review: expected needs_concept_review, got "
+            f"{result}"
+        )
+    if int(result.get("candidate_count") or 0) < 1:
+        raise AssertionError(
+            "database-backed concept review: OMOP_DB_ENGINE is set but no "
+            "Warfarin RxNorm Drug candidates were returned"
+        )
+    return "database-backed concept review passed"
 def main() -> int:
     simple = _request(
         "710",
@@ -275,6 +313,7 @@ def main() -> int:
         raise AssertionError(f"858: expected mixed-domain clarification, got {mixed}")
 
     print("phenotype_make_computable workflow smoke passed: 9 validated reference cases, corrected 63, and 858 clarification")
+    print(_database_backed_concept_review_smoke())
     return 0
 
 

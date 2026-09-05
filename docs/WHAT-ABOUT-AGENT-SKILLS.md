@@ -1,5 +1,7 @@
 ## How does Study Agent relate to Agent Skills (e.g., SKILL.md)?
 
+Reader - You can see an example skill using the ACP this project provides [here](https://github.com/rkboyce/AgentPlayGround/blob/main/.agents/skills/phenotype-make-computable/SKILL.md). Below is a short dialogue with Codex that I think helps summarize the architecture of agent skills in relationship to the ACP and MCP tooling of StudyAgent...
+
 Codex, I have a question - this project is build with an ACP/MCP
 architecture to provide both the flexibility of organizing MCP tools
 into different ACP managed agentic flows. However, many folks are

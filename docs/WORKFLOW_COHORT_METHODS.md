@@ -125,6 +125,8 @@ flowchart TD
   AA --> AB["CohortMethod Results + Strategus Execute Result"]
 ```
 
+Keeper sequencing note: inline Keeper concept-set preparation may occur during build, but row-level Keeper case review is deferred until cohort generation has completed and rows are available. The shell records `deferred_pending_cohort_generation`; run `03_generate_cohorts.R` before `05_keeper_case_review.R`. If profile extraction returns no cohort rows, the saved case-review state reports a non-secret MCP target fingerprint and the schema/table/cohort ID queried; compare those with the R execution database before retrying. The complete generated/approved artifact is retained, but profile extraction defaults to a safe five approved items per frozen Keeper lane and writes the exact bounded input as `keeper-case-review/rows/<role>_<cohort-id>_profile_input.json`.
+
 Execution note: `07_cm_spec.R` depends on the cohort-selection and analytic-settings outputs, not on Keeper or diagnostics completion. Keeper and diagnostics remain optional review/enrichment steps that can be run before or after the main CohortMethod specification, or explicitly skipped in the execution menu when that is the intentional workflow choice.
 
 ## Current Explicit Limitations
