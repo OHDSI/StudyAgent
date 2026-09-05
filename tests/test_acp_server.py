@@ -595,6 +595,30 @@ def test_flow_phenotype_validation_review(monkeypatch):
 
 
 @pytest.mark.acp
+def test_flow_phenotype_validation_review_rejects_blank_rationale(monkeypatch):
+    import study_agent_acp.agent as agent_module
+
+    def fake_llm(prompt):
+        return {"label": "unknown", "rationale": ""}
+
+    class BlankRationaleMCP(StubMCPClient):
+        def call_tool(self, name, arguments):
+            if name == "keeper_parse_response":
+                return {"error": "missing_rationale", "label": "unknown"}
+            return super().call_tool(name, arguments)
+
+    monkeypatch.setattr(agent_module, "call_llm", fake_llm)
+    agent = StudyAgent(mcp_client=BlankRationaleMCP())
+    result = agent.run_phenotype_validation_review_flow(
+        keeper_row={"age": 44, "gender": "Male"},
+        disease_name="GI bleed",
+    )
+    assert result["status"] == "error"
+    assert result["error"] == "keeper_validation_response_invalid"
+    assert result["details"]["full_result"]["error"] == "missing_rationale"
+
+
+@pytest.mark.acp
 def test_flow_keeper_concept_sets_generate(monkeypatch):
     import study_agent_acp.agent as agent_module
 

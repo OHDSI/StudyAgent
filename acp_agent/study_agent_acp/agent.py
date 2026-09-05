@@ -2579,6 +2579,13 @@ class StudyAgent(PhenotypeRecommendationMixin):
             parsed.setdefault("llm_used", llm_payload is not None)
             parsed.setdefault("llm_status", llm_result.status)
             parsed.setdefault("diagnostics", self._llm_diagnostics(llm_result))
+            parsed_full = parsed.get("full_result") or {}
+            if parsed.get("status") != "ok" or parsed_full.get("error"):
+                return {
+                    "status": "error",
+                    "error": "keeper_validation_response_invalid",
+                    "details": parsed,
+                }
         return parsed
 
 
