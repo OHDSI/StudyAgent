@@ -712,6 +712,26 @@ def test_flow_keeper_profiles_generate():
 
 
 @pytest.mark.acp
+def test_flow_keeper_profiles_rejects_incomplete_extract_response():
+    class IncompleteMCPClient:
+        def call_tool(self, name, arguments):
+            if name == "keeper_profile_extract":
+                return {"status": "ok", "full_result": {"profile_records": []}}
+            raise AssertionError(f"unexpected tool call: {name}")
+
+    result = StudyAgent(mcp_client=IncompleteMCPClient()).run_keeper_profiles_generate_flow(
+        cohort_database_schema="results",
+        cohort_table="cohort",
+        cohort_definition_id=123,
+        cdm_database_schema="cdm",
+        keeper_concept_sets=[{"conceptId": 100, "conceptSetName": "doi"}],
+    )
+    assert result["status"] == "error"
+    assert result["error"] == "keeper_profile_extract_incomplete_response"
+    assert "sample_size_returned" in result["missing_fields"]
+
+
+@pytest.mark.acp
 def test_extract_keeper_concept_ids_handles_scalar_and_top_level_array():
     from study_agent_acp.agent import StudyAgent
     from study_agent_acp.llm_client import LLMCallResult

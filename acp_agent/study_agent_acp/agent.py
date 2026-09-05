@@ -2971,6 +2971,23 @@ class StudyAgent(PhenotypeRecommendationMixin):
                 "error": "keeper_profile_extract_failed",
                 "details": extract_result,
             }
+        required_extract_fields = {
+            "profile_records",
+            "record_count",
+            "sample_size_requested",
+            "sample_size_returned",
+            "sampling_mode",
+            "connection_identity",
+            "cohort_source",
+        }
+        missing_extract_fields = sorted(required_extract_fields - set(extract_full))
+        if missing_extract_fields:
+            return {
+                "status": "error",
+                "error": "keeper_profile_extract_incomplete_response",
+                "missing_fields": missing_extract_fields,
+                "details": extract_result,
+            }
 
         rows_result = self.call_tool(
             name="keeper_profile_to_rows",
@@ -2999,6 +3016,9 @@ class StudyAgent(PhenotypeRecommendationMixin):
                 "sampling_mode": extract_full.get("sampling_mode") or "",
                 "connection_identity": extract_full.get("connection_identity") or {},
                 "cohort_source": extract_full.get("cohort_source") or {},
+                "input_concept_set_count": int(extract_full.get("input_concept_set_count") or 0),
+                "input_concept_set_counts_by_lane": extract_full.get("input_concept_set_counts_by_lane") or {},
+                "elapsed_seconds": extract_full.get("elapsed_seconds"),
             },
         }
 

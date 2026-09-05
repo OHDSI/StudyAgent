@@ -70,3 +70,14 @@ def test_connection_identity_is_non_secret_and_stable_for_a_target() -> None:
     assert identity["target_hash"]
     assert "password" not in identity
     assert "username" not in identity
+
+
+@pytest.mark.mcp
+def test_concept_set_counts_by_lane_handles_missing_lane() -> None:
+    assert keeper_profiles._concept_set_counts_by_lane(
+        [
+            {"conceptSetName": "doi"},
+            {"conceptSetName": "doi"},
+            {},
+        ]
+    ) == {"doi": 2, "unlabeled": 1}

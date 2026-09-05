@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 import hashlib
 import logging
+import time
 from datetime import date
 from typing import Any, Dict, Iterable, List, Tuple
 
@@ -64,6 +65,14 @@ def _resolve_engine_name() -> str:
         or os.getenv("ENGINE")
         or ""
     ).strip()
+
+
+def _concept_set_counts_by_lane(keeper_concept_sets: List[Dict[str, Any]]) -> Dict[str, int]:
+    counts: Dict[str, int] = {}
+    for item in keeper_concept_sets:
+        lane = str(item.get("conceptSetName") or "unlabeled")
+        counts[lane] = counts.get(lane, 0) + 1
+    return counts
 
 
 def _connection_identity(connection: sa.Connection) -> Dict[str, Any]:
@@ -742,31 +751,82 @@ def register(mcp: object) -> None:
         engine_name = _resolve_engine_name()
         if not engine_name:
             return with_meta({"error": "omop_db_engine_unconfigured"}, "keeper_profile_extract")
-        with connect(engine_name) as connection:
-            connection_identity = _connection_identity(connection)
-            cohort_rows = _cohort_rows(
-                connection=connection,
-                cohort_database_schema=cohort_database_schema,
-                cohort_table=cohort_table,
-                cohort_definition_id=cohort_definition_id,
-                sample_size=sample_size,
-                person_ids=person_ids,
+        started = time.perf_counter()
+        stage = "connect"
+        lane_counts = _concept_set_counts_by_lane(keeper_concept_sets)
+        logger.info(
+            "keeper_profile_extract start cohort=%s.%s id=%s sample_size=%s concept_items=%s lanes=%s descendants=%s",
+            cohort_database_schema,
+            cohort_table,
+            cohort_definition_id,
+            sample_size,
+            len(keeper_concept_sets),
+            lane_counts,
+            use_descendants,
+        )
+        try:
+            with connect(engine_name) as connection:
+                connection_identity = _connection_identity(connection)
+                stage = "cohort_sampling"
+                cohort_rows = _cohort_rows(
+                    connection=connection,
+                    cohort_database_schema=cohort_database_schema,
+                    cohort_table=cohort_table,
+                    cohort_definition_id=cohort_definition_id,
+                    sample_size=sample_size,
+                    person_ids=person_ids,
+                )
+                logger.info(
+                    "keeper_profile_extract sampled target_hash=%s rows=%s seconds=%.2f",
+                    connection_identity["target_hash"],
+                    len(cohort_rows),
+                    time.perf_counter() - started,
+                )
+                stage = "concept_expansion"
+                concept_lookup = _expand_concept_sets(
+                    connection=connection,
+                    cdm_database_schema=cdm_database_schema,
+                    keeper_concept_sets=keeper_concept_sets,
+                    use_descendants=use_descendants,
+                )
+                logger.info(
+                    "keeper_profile_extract expanded target_hash=%s concepts=%s seconds=%.2f",
+                    connection_identity["target_hash"],
+                    len(concept_lookup),
+                    time.perf_counter() - started,
+                )
+                stage = "record_extraction"
+                records = _extract_records(
+                    connection=connection,
+                    cdm_database_schema=cdm_database_schema,
+                    cohort_rows=cohort_rows,
+                    concept_lookup=concept_lookup,
+                    phenotype_name=phenotype_name,
+                    remove_pii=remove_pii,
+                )
+        except Exception:
+            logger.exception(
+                "keeper_profile_extract failed stage=%s cohort=%s.%s id=%s concept_items=%s lanes=%s seconds=%.2f",
+                stage,
+                cohort_database_schema,
+                cohort_table,
+                cohort_definition_id,
+                len(keeper_concept_sets),
+                lane_counts,
+                time.perf_counter() - started,
             )
-            concept_lookup = _expand_concept_sets(
-                connection=connection,
-                cdm_database_schema=cdm_database_schema,
-                keeper_concept_sets=keeper_concept_sets,
-                use_descendants=use_descendants,
-            )
-            records = _extract_records(
-                connection=connection,
-                cdm_database_schema=cdm_database_schema,
-                cohort_rows=cohort_rows,
-                concept_lookup=concept_lookup,
-                phenotype_name=phenotype_name,
-                remove_pii=remove_pii,
-            )
-        logger.info("keeper_profile_extract target_hash=%s host=%s port=%s database=%s cohort=%s.%s id=%s sampled=%s records=%s", connection_identity["target_hash"], connection_identity["host"], connection_identity["port"], connection_identity["database"], cohort_database_schema, cohort_table, cohort_definition_id, len(cohort_rows), len(records))
+            raise
+        elapsed = time.perf_counter() - started
+        logger.info(
+            "keeper_profile_extract complete target_hash=%s cohort=%s.%s id=%s sampled=%s records=%s seconds=%.2f",
+            connection_identity["target_hash"],
+            cohort_database_schema,
+            cohort_table,
+            cohort_definition_id,
+            len(cohort_rows),
+            len(records),
+            elapsed,
+        )
         return with_meta(
             {
                 "profile_records": records,
@@ -775,7 +835,14 @@ def register(mcp: object) -> None:
                 "sample_size_returned": len(cohort_rows),
                 "sampling_mode": "ordered_head",
                 "connection_identity": connection_identity,
-                "cohort_source": {"schema": cohort_database_schema, "table": cohort_table, "cohort_definition_id": int(cohort_definition_id)},
+                "cohort_source": {
+                    "schema": cohort_database_schema,
+                    "table": cohort_table,
+                    "cohort_definition_id": int(cohort_definition_id),
+                },
+                "input_concept_set_count": len(keeper_concept_sets),
+                "input_concept_set_counts_by_lane": lane_counts,
+                "elapsed_seconds": elapsed,
             },
             "keeper_profile_extract",
         )
