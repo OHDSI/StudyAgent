@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from collections import defaultdict
+import hashlib
+import logging
 from datetime import date
 from typing import Any, Dict, Iterable, List, Tuple
 
@@ -8,6 +10,9 @@ import sqlalchemy as sa
 
 from ._common import with_meta
 from ._omop import connect, safe_identifier
+
+
+logger = logging.getLogger(__name__)
 
 
 def _target_to_numeric(target: str) -> int:
@@ -59,6 +64,21 @@ def _resolve_engine_name() -> str:
         or os.getenv("ENGINE")
         or ""
     ).strip()
+
+
+def _connection_identity(connection: sa.Connection) -> Dict[str, Any]:
+    """Return non-secret connection identity for cross-process diagnostics."""
+    url = connection.engine.url
+    identity = {
+        "dialect": str(url.get_backend_name() or ""),
+        "driver": str(url.get_driver_name() or ""),
+        "host": str(url.host or ""),
+        "port": int(url.port) if url.port is not None else None,
+        "database": str(url.database or ""),
+    }
+    material = "|".join(str(identity[key] or "") for key in ("dialect", "driver", "host", "port", "database"))
+    identity["target_hash"] = hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
+    return identity
 
 
 def _cohort_rows(
@@ -723,6 +743,7 @@ def register(mcp: object) -> None:
         if not engine_name:
             return with_meta({"error": "omop_db_engine_unconfigured"}, "keeper_profile_extract")
         with connect(engine_name) as connection:
+            connection_identity = _connection_identity(connection)
             cohort_rows = _cohort_rows(
                 connection=connection,
                 cohort_database_schema=cohort_database_schema,
@@ -745,6 +766,7 @@ def register(mcp: object) -> None:
                 phenotype_name=phenotype_name,
                 remove_pii=remove_pii,
             )
+        logger.info("keeper_profile_extract target_hash=%s host=%s port=%s database=%s cohort=%s.%s id=%s sampled=%s records=%s", connection_identity["target_hash"], connection_identity["host"], connection_identity["port"], connection_identity["database"], cohort_database_schema, cohort_table, cohort_definition_id, len(cohort_rows), len(records))
         return with_meta(
             {
                 "profile_records": records,
@@ -752,6 +774,8 @@ def register(mcp: object) -> None:
                 "sample_size_requested": int(sample_size),
                 "sample_size_returned": len(cohort_rows),
                 "sampling_mode": "ordered_head",
+                "connection_identity": connection_identity,
+                "cohort_source": {"schema": cohort_database_schema, "table": cohort_table, "cohort_definition_id": int(cohort_definition_id)},
             },
             "keeper_profile_extract",
         )

@@ -58,3 +58,15 @@ def test_keeper_profile_to_rows_includes_optional_pii_fields_only_when_requested
     row = result["rows"][0]
     assert row["personId"] == "123"
     assert row["cohortStartDate"] == "2026-04-01"
+
+
+@pytest.mark.mcp
+def test_connection_identity_is_non_secret_and_stable_for_a_target() -> None:
+    sqlalchemy = pytest.importorskip("sqlalchemy")
+    engine = sqlalchemy.create_engine("sqlite:///:memory:")
+    with engine.connect() as connection:
+        identity = keeper_profiles._connection_identity(connection)
+    assert identity["dialect"] == "sqlite"
+    assert identity["target_hash"]
+    assert "password" not in identity
+    assert "username" not in identity

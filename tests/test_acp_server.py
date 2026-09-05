@@ -417,6 +417,8 @@ class StubMCPClient:
                 "sample_size_requested": 2,
                 "sample_size_returned": 1,
                 "sampling_mode": "ordered_head",
+                "connection_identity": {"dialect": "postgresql", "driver": "psycopg", "host": "example", "port": 5432, "database": "omop", "target_hash": "abc123"},
+                "cohort_source": {"schema": "results", "table": "cohort", "cohort_definition_id": 123},
             }
         if name == "keeper_profile_to_rows":
             return {
@@ -705,6 +707,8 @@ def test_flow_keeper_profiles_generate():
     assert result["row_count"] == 1
     assert result["sample_size_requested"] == 2
     assert result["sample_size_returned"] == 1
+    assert result["diagnostics"]["connection_identity"]["target_hash"] == "abc123"
+    assert result["diagnostics"]["cohort_source"] == {"schema": "results", "table": "cohort", "cohort_definition_id": 123}
 
 
 @pytest.mark.acp

@@ -2997,6 +2997,8 @@ class StudyAgent(PhenotypeRecommendationMixin):
             "diagnostics": {
                 "record_count": int(extract_full.get("record_count") or 0),
                 "sampling_mode": extract_full.get("sampling_mode") or "",
+                "connection_identity": extract_full.get("connection_identity") or {},
+                "cohort_source": extract_full.get("cohort_source") or {},
             },
         }
 
