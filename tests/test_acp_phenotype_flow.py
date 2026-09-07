@@ -672,6 +672,7 @@ def test_ace_cough_composition_seed_is_explicitly_unconfirmed():
         {"title": "ACE Inhibitor Induced Cough", "source_payload": {"algorithm": {"algorithmDesc": "Cases have cough after ACE inhibitor exposure."}}},
         {"plain_language_summary": "Cough after ACE inhibitor exposure."},
     )
+    assert seed["emitter_support"]["status"] == "supported"
     assert seed is not None
     assert seed["composition_type"] == "exposure_followed_by_outcome"
     assert seed["status"] == "unconfirmed"
@@ -696,3 +697,24 @@ def test_conversion_prepare_includes_review_only_mapping_evidence(monkeypatch):
     assert result["mapping_evidence"]["status"] == "ok"
     assert "human review" in result["mapping_evidence"]["selection_guardrail"]
     assert result["review_required"] is True
+
+@pytest.mark.acp
+def test_conversion_prepare_returns_bounded_follow_on_candidates(monkeypatch):
+    payloads = {
+        "phenotype_fetch_source_snapshot": {"snapshot": {"title": "ACE inhibitor induced cough", "source_payload": {"algorithm": {"algorithmDesc": "Cough after ACE inhibitor exposure."}}}},
+        "phenotype_present": {"presentation": {"plain_language_summary": "Cough after ACE inhibitor exposure."}},
+        "phenotype_conversion_readiness": {"readiness": {"action_class": "source_informed_review"}},
+        "phenotype_code_mapping_evidence": {"mapping_evidence": {"status": "not_applicable"}},
+        "phenotype_search": {"results": [{"phenotype_id": "ohdsi:925", "name": "Cough", "source_dataset": "ohdsi_phenotype_library", "executable_definition_status": "native_ohdsi", "short_description": "Cough condition."}]},
+    }
+
+    def fake_call(self, name, arguments, confirm=False):
+        return {"status": "ok", "full_result": payloads[name]}
+
+    monkeypatch.setattr(StudyAgent, "call_tool", fake_call)
+    result = StudyAgent(mcp_client=object()).run_phenotype_conversion_prepare_flow("cipher:29197")
+
+    group = result["component_recommendations"][0]
+    assert group["role"] == "follow_on_condition"
+    assert group["query"] == "Cough"
+    assert group["candidates"] == [{"phenotype_id": "ohdsi:925", "phenotype_name": "Cough", "source_dataset": "ohdsi_phenotype_library", "computability_status": "circe_available", "short_description": "Cough condition."}]

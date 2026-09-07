@@ -1917,16 +1917,34 @@ class StudyAgent(PhenotypeRecommendationMixin):
         if "ace" not in text or "cough" not in text:
             return None
         return {
-            "composition_type": "exposure_followed_by_outcome",
-            "status": "unconfirmed",
-            "components": [
-                {"role": "index_exposure", "label": "ACE inhibitor exposure", "evidence_source": "selected phenotype narrative"},
-                {"role": "follow_on_condition", "label": "Cough", "evidence_source": "selected phenotype narrative"},
-            ],
+            "composition_type": "exposure_followed_by_outcome", "status": "unconfirmed",
+            "components": [{"role": "index_exposure", "label": "ACE inhibitor exposure", "evidence_source": "selected phenotype narrative"}, {"role": "follow_on_condition", "label": "Cough", "evidence_source": "selected phenotype narrative"}],
             "relationship": {"type": "follows", "anchor": "index_exposure", "target": "follow_on_condition", "window": "requires_user_confirmation"},
             "unresolved_decisions": ["ACE inhibitor concept policy", "post-exposure risk window", "baseline cough exclusion", "outcome occurrence rule", "case-only versus comparative design"],
+            "emitter_support": {"status": "supported", "reason": "The deterministic emitter supports a reviewed Drug exposure followed by a reviewed Condition outcome within a confirmed window."},
             "guardrail": "This is review guidance only. It does not select concepts, merge Circe definitions, or emit a cohort definition.",
         }
+
+    def _composition_component_recommendations(self, source_phenotype_id: str, composition_seed: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        if not isinstance(composition_seed, dict):
+            return []
+        output: List[Dict[str, Any]] = []
+        for component in composition_seed.get("components") or []:
+            if not isinstance(component, dict) or component.get("role") != "follow_on_condition":
+                continue
+            query = str(component.get("label") or "").strip()
+            if not query:
+                continue
+            result = self.call_tool("phenotype_search", {"query": query, "top_k": 3, "offset": 0})
+            full = result.get("full_result") or {}
+            candidates = []
+            if result.get("status") == "ok" and not full.get("error"):
+                for row in full.get("results") or []:
+                    if isinstance(row, dict) and row.get("phenotype_id") != source_phenotype_id:
+                        candidates.append({"phenotype_id": row.get("phenotype_id"), "phenotype_name": row.get("name") or row.get("phenotype_name") or "", "source_dataset": row.get("source_dataset") or "", "computability_status": self._recommendation_computability_status(row), "short_description": row.get("short_description") or ""})
+            output.append({"role": component["role"], "query": query, "candidates": candidates[:3], "status": "ok" if result.get("status") == "ok" and not full.get("error") else "unavailable"})
+        return output
+
     def run_phenotype_conversion_prepare_flow(
         self,
         phenotype_id: str,
@@ -1954,18 +1972,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
         readiness = payloads["readiness"]
         action_class = str(readiness.get("action_class") or "not_supported")
         composition_seed = self._composition_seed(payloads["snapshot"], payloads["presentation"])
-        return {
-            "status": "ok",
-            "phenotype_id": phenotype_id,
-            "recommendation_context": recommendation_context if isinstance(recommendation_context, dict) else {},
-            "review_required": action_class != "direct",
-            "source_snapshot": payloads["snapshot"],
-            "presentation": payloads["presentation"],
-            "readiness": readiness,
-            "mapping_evidence": payloads["mapping_evidence"],
-            "composition_seed": composition_seed,
-            "next_action": "use_directly" if action_class == "direct" else "start_review_gated_conversion" if action_class != "not_supported" else "inspect_evidence_or_create",
-        }
+        return {"status": "ok", "phenotype_id": phenotype_id, "recommendation_context": recommendation_context if isinstance(recommendation_context, dict) else {}, "review_required": action_class != "direct", "source_snapshot": payloads["snapshot"], "presentation": payloads["presentation"], "readiness": readiness, "mapping_evidence": payloads["mapping_evidence"], "composition_seed": composition_seed, "component_recommendations": self._composition_component_recommendations(phenotype_id, composition_seed), "next_action": "use_directly" if action_class == "direct" else "start_review_gated_conversion" if action_class != "not_supported" else "inspect_evidence_or_create"}
 
     def run_phenotype_definition_flow(
         self,
