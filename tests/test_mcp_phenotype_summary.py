@@ -6,6 +6,7 @@ import pytest
 from study_agent_mcp.retrieval.index import PhenotypeIndex
 from study_agent_mcp.tools.phenotype_present import build_presentation
 from study_agent_mcp.tools.phenotype_conversion_readiness import assess_readiness
+from study_agent_mcp.tools.phenotype_code_mapping_evidence import summarize_mapping
 
 
 @pytest.mark.mcp
@@ -128,3 +129,19 @@ def test_conversion_readiness_is_source_and_deployment_aware() -> None:
     assert supported["code_systems"][0]["mapping_support"] == "available"
     assert unavailable["action_class"] == "source_informed_review"
     assert text_only["action_class"] == "source_informed_review"
+
+@pytest.mark.mcp
+def test_mapping_evidence_is_exact_and_never_selects_concepts() -> None:
+    lanes = [{"source_system": "ICD-10 Diagnostic Codes", "vocabulary_id": "ICD10CM", "codes": ["I25.1", "R79.81", "missing"], "source_code_count": 3, "truncated": False}]
+    rows = [
+        {"vocabulary_id": "ICD10CM", "concept_code": "I25.1", "standard_concept_id": 101, "standard_concept_name": "Atherosclerotic heart disease", "standard_vocabulary_id": "SNOMED", "standard_domain_id": "Condition"},
+        {"vocabulary_id": "ICD10CM", "concept_code": "R79.81", "standard_concept_id": 102, "standard_concept_name": "Abnormal blood-gas level", "standard_vocabulary_id": "SNOMED", "standard_domain_id": "Condition"},
+        {"vocabulary_id": "ICD10CM", "concept_code": "R79.81", "standard_concept_id": 103, "standard_concept_name": "Hypoxemia", "standard_vocabulary_id": "SNOMED", "standard_domain_id": "Condition"},
+    ]
+
+    evidence = summarize_mapping(lanes, rows)
+
+    assert evidence["coverage"] == {"requested_code_count": 3, "matched_source_code_count": 2, "mapped_code_count": 1, "ambiguous_mapping_count": 1, "no_standard_mapping_count": 0, "unmatched_source_code_count": 1}
+    assert evidence["code_results"][0]["status"] == "mapped"
+    assert evidence["code_results"][1]["status"] == "ambiguous_mapping"
+    assert evidence["code_results"][2]["status"] == "unmatched_source_code"

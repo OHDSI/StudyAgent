@@ -664,3 +664,35 @@ def test_phenotype_definition_fails_closed_for_conversion_and_malformed_payload(
     assert malformed["status"] == "unavailable"
     assert malformed["error"] == "malformed_circe_definition"
     assert "circe_json" not in malformed
+
+
+@pytest.mark.acp
+def test_ace_cough_composition_seed_is_explicitly_unconfirmed():
+    seed = StudyAgent._composition_seed(
+        {"title": "ACE Inhibitor Induced Cough", "source_payload": {"algorithm": {"algorithmDesc": "Cases have cough after ACE inhibitor exposure."}}},
+        {"plain_language_summary": "Cough after ACE inhibitor exposure."},
+    )
+    assert seed is not None
+    assert seed["composition_type"] == "exposure_followed_by_outcome"
+    assert seed["status"] == "unconfirmed"
+    assert "does not select concepts" in seed["guardrail"]
+
+@pytest.mark.acp
+def test_conversion_prepare_includes_review_only_mapping_evidence(monkeypatch):
+    payloads = {
+        "phenotype_fetch_source_snapshot": {"snapshot": {"title": "Abnormal arterial blood gases", "source_payload": {"algorithm": {"algorithmDesc": "Use two events."}}}},
+        "phenotype_present": {"presentation": {"plain_language_summary": "A coded phenotype."}},
+        "phenotype_conversion_readiness": {"readiness": {"action_class": "conversion_candidate"}},
+        "phenotype_code_mapping_evidence": {"mapping_evidence": {"status": "ok", "coverage": {"mapped_code_count": 1}, "selection_guardrail": "Mapping results are evidence for human review only."}},
+    }
+
+    def fake_call(self, name, arguments, confirm=False):
+        return {"status": "ok", "full_result": payloads[name]}
+
+    monkeypatch.setattr(StudyAgent, "call_tool", fake_call)
+    result = StudyAgent(mcp_client=object()).run_phenotype_conversion_prepare_flow("cipher:17527")
+
+    assert result["status"] == "ok"
+    assert result["mapping_evidence"]["status"] == "ok"
+    assert "human review" in result["mapping_evidence"]["selection_guardrail"]
+    assert result["review_required"] is True

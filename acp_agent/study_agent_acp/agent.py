@@ -1908,6 +1908,25 @@ class StudyAgent(PhenotypeRecommendationMixin):
             "diagnostics": diagnostics,
         }
 
+    @staticmethod
+    def _composition_seed(snapshot: Dict[str, Any], presentation: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Return narrowly recognized, unconfirmed composition guidance only."""
+        source = snapshot.get("source_payload") if isinstance(snapshot.get("source_payload"), dict) else {}
+        algorithm = source.get("algorithm") if isinstance(source.get("algorithm"), dict) else {}
+        text = " ".join(str(value or "") for value in (snapshot.get("title"), source.get("description"), algorithm.get("algorithmDesc"), presentation.get("plain_language_summary"))).lower()
+        if "ace" not in text or "cough" not in text:
+            return None
+        return {
+            "composition_type": "exposure_followed_by_outcome",
+            "status": "unconfirmed",
+            "components": [
+                {"role": "index_exposure", "label": "ACE inhibitor exposure", "evidence_source": "selected phenotype narrative"},
+                {"role": "follow_on_condition", "label": "Cough", "evidence_source": "selected phenotype narrative"},
+            ],
+            "relationship": {"type": "follows", "anchor": "index_exposure", "target": "follow_on_condition", "window": "requires_user_confirmation"},
+            "unresolved_decisions": ["ACE inhibitor concept policy", "post-exposure risk window", "baseline cough exclusion", "outcome occurrence rule", "case-only versus comparative design"],
+            "guardrail": "This is review guidance only. It does not select concepts, merge Circe definitions, or emit a cohort definition.",
+        }
     def run_phenotype_conversion_prepare_flow(
         self,
         phenotype_id: str,
@@ -1920,21 +1939,21 @@ class StudyAgent(PhenotypeRecommendationMixin):
             return {"status": "error", "error": "missing_phenotype_id"}
         if self._mcp_client is None:
             return {"status": "error", "error": "mcp_client_unavailable"}
-
         payloads: Dict[str, Dict[str, Any]] = {}
         for tool_name, arguments, key in (
             ("phenotype_fetch_source_snapshot", {"phenotype_id": phenotype_id}, "snapshot"),
             ("phenotype_present", {"phenotype_id": phenotype_id}, "presentation"),
             ("phenotype_conversion_readiness", {"phenotype_id": phenotype_id, "check_vocabulary_database": bool(check_vocabulary_database)}, "readiness"),
+            ("phenotype_code_mapping_evidence", {"phenotype_id": phenotype_id}, "mapping_evidence"),
         ):
             result = self.call_tool(name=tool_name, arguments=arguments)
             full = result.get("full_result") or {}
             if result.get("status") != "ok" or full.get("error") or not isinstance(full.get(key), dict):
                 return {"status": "error", "error": "conversion_prepare_tool_failed", "tool": tool_name, "details": result}
             payloads[key] = dict(full[key])
-
         readiness = payloads["readiness"]
         action_class = str(readiness.get("action_class") or "not_supported")
+        composition_seed = self._composition_seed(payloads["snapshot"], payloads["presentation"])
         return {
             "status": "ok",
             "phenotype_id": phenotype_id,
@@ -1943,8 +1962,11 @@ class StudyAgent(PhenotypeRecommendationMixin):
             "source_snapshot": payloads["snapshot"],
             "presentation": payloads["presentation"],
             "readiness": readiness,
+            "mapping_evidence": payloads["mapping_evidence"],
+            "composition_seed": composition_seed,
             "next_action": "use_directly" if action_class == "direct" else "start_review_gated_conversion" if action_class != "not_supported" else "inspect_evidence_or_create",
         }
+
     def run_phenotype_definition_flow(
         self,
         phenotype_id: str,

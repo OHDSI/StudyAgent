@@ -12,6 +12,7 @@ TOOL_MODULES: list[str] = [
     "study_agent_mcp.tools.phenotype_recommendations",
     "study_agent_mcp.tools.phenotype_improvements",
     "study_agent_mcp.tools.phenotype_fetch_source_snapshot",
+    "study_agent_mcp.tools.phenotype_code_mapping_evidence",
     "study_agent_mcp.tools.phenotype_intent_split",
     "study_agent_mcp.tools.phenotype_search",
     "study_agent_mcp.tools.phenotype_fetch_summary",
