@@ -19,6 +19,14 @@ _SOURCE_VOCABULARIES = {
     "Read Codes v2": "Read",
     "Read Code": "Read",
     "OXMIS Codes": "OXMIS",
+    "SNOMED": "SNOMED",
+    "RxNorm": "RxNorm",
+    "RxNorm Extension": "RxNorm Extension",
+    "CVX": "CVX",
+    "CPT": "CPT4",
+    "CPT4": "CPT4",
+    "HCPCS": "HCPCS",
+    "LOINC": "LOINC",
 }
 
 

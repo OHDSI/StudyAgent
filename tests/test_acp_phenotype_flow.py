@@ -717,4 +717,45 @@ def test_conversion_prepare_returns_bounded_follow_on_candidates(monkeypatch):
     group = result["component_recommendations"][0]
     assert group["role"] == "follow_on_condition"
     assert group["query"] == "Cough"
-    assert group["candidates"] == [{"phenotype_id": "ohdsi:925", "phenotype_name": "Cough", "source_dataset": "ohdsi_phenotype_library", "computability_status": "circe_available", "short_description": "Cough condition."}]
+    candidate = group["candidates"][0]
+    assert candidate["phenotype_id"] == "ohdsi:925"
+    assert candidate["computability_status"] == "circe_available"
+    assert candidate["presentation"]["plain_language_summary"] == "Cough after ACE inhibitor exposure."
+
+@pytest.mark.acp
+def test_component_recommendations_distinguish_empty_search_from_unavailable(monkeypatch):
+    def empty_call(self, name, arguments, confirm=False):
+        return {"status": "ok", "full_result": {"results": []}}
+
+    monkeypatch.setattr(StudyAgent, "call_tool", empty_call)
+    seed = {"components": [{"role": "follow_on_condition", "label": "Cough"}]}
+    empty = StudyAgent(mcp_client=object())._composition_component_recommendations("cipher:29197", seed)
+    assert empty == [{"role": "follow_on_condition", "query": "Cough", "candidates": [], "status": "no_candidates"}]
+
+    def unavailable_call(self, name, arguments, confirm=False):
+        return {"status": "error", "full_result": {"error": "index unavailable"}}
+
+    monkeypatch.setattr(StudyAgent, "call_tool", unavailable_call)
+    unavailable = StudyAgent(mcp_client=object())._composition_component_recommendations("cipher:29197", seed)
+    assert unavailable == [{"role": "follow_on_condition", "query": "Cough", "candidates": [], "status": "unavailable"}]
+
+@pytest.mark.acp
+def test_conversion_prepare_disables_all_vocabulary_database_calls(monkeypatch):
+    calls = []
+    payloads = {
+        "phenotype_fetch_source_snapshot": {"snapshot": {"title": "Example", "source_payload": {}}},
+        "phenotype_present": {"presentation": {"plain_language_summary": "Example."}},
+        "phenotype_conversion_readiness": {"readiness": {"action_class": "source_informed_review"}},
+        "phenotype_code_mapping_evidence": {"mapping_evidence": {"status": "not_requested"}},
+    }
+
+    def fake_call(self, name, arguments, confirm=False):
+        calls.append((name, arguments))
+        return {"status": "ok", "full_result": payloads[name]}
+
+    monkeypatch.setattr(StudyAgent, "call_tool", fake_call)
+    result = StudyAgent(mcp_client=object()).run_phenotype_conversion_prepare_flow("cipher:1", check_vocabulary_database=False)
+
+    assert result["mapping_evidence"]["status"] == "not_requested"
+    assert dict(calls)["phenotype_conversion_readiness"]["check_vocabulary_database"] is False
+    assert dict(calls)["phenotype_code_mapping_evidence"]["check_vocabulary_database"] is False

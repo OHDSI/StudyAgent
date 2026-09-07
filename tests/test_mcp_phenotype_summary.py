@@ -145,3 +145,37 @@ def test_mapping_evidence_is_exact_and_never_selects_concepts() -> None:
     assert evidence["code_results"][0]["status"] == "mapped"
     assert evidence["code_results"][1]["status"] == "ambiguous_mapping"
     assert evidence["code_results"][2]["status"] == "unmatched_source_code"
+
+@pytest.mark.mcp
+def test_mapping_policy_requires_confirmed_domain_and_accepts_standard_targets() -> None:
+    lanes = [{"source_system": "ICD-10 Diagnostic Codes", "vocabulary_id": "ICD10CM", "codes": ["I25.1"], "source_code_count": 1, "truncated": False}]
+    rows = [{"vocabulary_id": "ICD10CM", "concept_code": "I25.1", "standard_concept_id": 101, "standard_concept_name": "Atherosclerotic heart disease", "standard_vocabulary_id": "SNOMED", "standard_domain_id": "Condition"}]
+
+    pending = summarize_mapping(lanes, rows)
+    eligible = summarize_mapping(lanes, rows, expected_domains=["Condition"])
+    wrong_domain = summarize_mapping(lanes, rows, expected_domains=["Drug"])
+
+    assert pending["code_results"][0]["standard_candidates"][0]["domain_policy_status"] == "expected_domain_required"
+    assert eligible["code_results"][0]["standard_candidates"][0]["domain_policy_status"] == "eligible_for_review"
+    assert wrong_domain["code_results"][0]["standard_candidates"][0]["domain_policy_status"] == "wrong_domain"
+    assert eligible["domain_mapping_policy"]["references"]["vocabulary_wiki"].endswith("/wiki")
+
+
+@pytest.mark.mcp
+def test_mapping_policy_accepts_a_standard_source_concept_without_maps_to() -> None:
+    lanes = [{"source_system": "CVX", "vocabulary_id": "CVX", "codes": ["208"], "source_code_count": 1, "truncated": False}]
+    rows = [{"vocabulary_id": "CVX", "concept_code": "208", "source_concept_id": 200, "source_concept_name": "COVID-19 vaccine", "source_domain_id": "Drug", "source_standard_concept": "S"}]
+
+    evidence = summarize_mapping(lanes, rows, expected_domains=["Drug"])
+    candidate = evidence["code_results"][0]["standard_candidates"][0]
+
+    assert candidate["mapping_method"] == "source_standard"
+    assert candidate["domain_policy_status"] == "eligible_for_review"
+
+@pytest.mark.mcp
+def test_source_lanes_recognize_standard_drug_and_measurement_vocabularies() -> None:
+    from study_agent_mcp.tools.phenotype_code_mapping_evidence import _source_lanes
+
+    lanes = _source_lanes({"code_systems": [{"system_name": "RxNorm", "codes": ["123"]}, {"system_name": "CVX", "codes": ["208"]}, {"system_name": "LOINC", "codes": ["1234-5"]}]}, 10)
+
+    assert [lane["vocabulary_id"] for lane in lanes] == ["RxNorm", "CVX", "LOINC"]

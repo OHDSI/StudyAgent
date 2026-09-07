@@ -16,5 +16,8 @@ def test_mapping_evidence_handoff_remains_explicitly_review_gated() -> None:
     assert 'type APPROVE' in acquisition
     assert 'concept_review_mode = "provided_only"' in review
     assert 'Use the prepared exposure-followed-by-outcome relationship as a scope template?' in acquisition
+    assert 'conversion-provenance.json' in review
+    assert 'conversion_source_provenance' in review
+    assert 'source_payload_sha256' in review
     assert 'scope$temporal_followup <- list' in acquisition
     assert 'Concept review source [mapping=review mapped candidates, search=run ACP vocabulary search]' in acquisition

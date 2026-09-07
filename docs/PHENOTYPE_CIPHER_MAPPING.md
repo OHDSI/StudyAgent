@@ -924,3 +924,29 @@ Implement this as a second offline cached LLM pass in `build_phenotype_index.py`
 - update the two-pass recommendation flow to use these fields during planning and final recommendation
 
 This should be attempted before adding brittle deterministic phenotype-role heuristics.
+
+## Runtime Domain-Aware Mapping Evidence
+
+The conversion-preparation mapper performs an exact lookup of recognized source
+vocabulary/code pairs in the deployment's OMOP vocabulary. It accepts either a
+valid `Maps to` target or a source concept that is itself standard. Each target
+is then classified against a small, explicit policy after the user confirms the
+intended OMOP domain:
+
+- Condition: SNOMED or ICDO3
+- Drug: RxNorm, RxNorm Extension, or CVX
+- Procedure: SNOMED, CPT4, HCPCS, ICD10PCS, ICD9Proc, or OPCS4
+- Measurement: LOINC or SNOMED
+- Device: SNOMED
+
+Until that domain is supplied, targets are `expected_domain_required`, not
+eligible for use. The other possible review signals include `wrong_domain`,
+`unexpected_standard_vocabulary`, `policy_not_defined`, and
+`eligible_for_review`. These are mapping-review signals only: they do not
+select concepts or establish any descendant, mapped, exclusion, or cohort-logic
+policy.
+
+The policy cites the [OHDSI Standardized Vocabularies wiki](https://github.com/OHDSI/Vocabulary-v5.0/wiki)
+and [Vocabulary release history](https://github.com/OHDSI/Vocabulary-v5.0/releases).
+A deployment must retain the vocabulary version/release metadata used for a
+review because mappings and standard-concept status can change between releases.

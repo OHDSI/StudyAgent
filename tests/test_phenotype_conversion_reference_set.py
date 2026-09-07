@@ -25,6 +25,12 @@ def test_conversion_reference_set_has_unique_complete_cases() -> None:
         assert case["phenotype_id"].startswith("cipher:")
         assert case["expected_action_class"] in _ALLOWED_ACTIONS
         assert isinstance(case["circe_prohibited"], bool)
+        composition = case.get("expected_composition")
+        if composition is not None:
+            assert composition["template"] == "exposure_followed_by_outcome"
+            assert composition["index_domain"] == "Drug"
+            assert composition["outcome_domain"] == "Condition"
+            assert composition["requires_explicit_approval"] is True
         assert isinstance(case["required_human_decisions"], list)
         assert case["notes"].strip()
 
@@ -36,5 +42,8 @@ def test_conversion_reference_set_preserves_safety_examples() -> None:
     assert cases["cipher:30687"]["circe_prohibited"] is True
     assert cases["cipher:29197"]["expected_action_class"] == "source_informed_review"
     assert cases["cipher:29197"]["circe_prohibited"] is True
+    composition = cases["cipher:29197"]["expected_composition"]
+    assert composition["follow_on_query"] == "Cough"
+    assert composition["requires_explicit_approval"] is True
     for phenotype_id in ("cipher:17527", "cipher:14189"):
         assert "PheCode map/version" in cases[phenotype_id]["required_human_decisions"]

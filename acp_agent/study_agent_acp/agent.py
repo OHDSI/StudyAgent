@@ -1942,7 +1942,13 @@ class StudyAgent(PhenotypeRecommendationMixin):
                 for row in full.get("results") or []:
                     if isinstance(row, dict) and row.get("phenotype_id") != source_phenotype_id:
                         candidates.append({"phenotype_id": row.get("phenotype_id"), "phenotype_name": row.get("name") or row.get("phenotype_name") or "", "source_dataset": row.get("source_dataset") or "", "computability_status": self._recommendation_computability_status(row), "short_description": row.get("short_description") or ""})
-            output.append({"role": component["role"], "query": query, "candidates": candidates[:3], "status": "ok" if result.get("status") == "ok" and not full.get("error") else "unavailable"})
+            for candidate in candidates[:3]:
+                presented = self.call_tool("phenotype_present", {"phenotype_id": candidate["phenotype_id"]})
+                presented_full = presented.get("full_result") or {}
+                if presented.get("status") == "ok" and isinstance(presented_full.get("presentation"), dict):
+                    candidate["presentation"] = dict(presented_full["presentation"])
+            search_ok = result.get("status") == "ok" and not full.get("error")
+            output.append({"role": component["role"], "query": query, "candidates": candidates[:3], "status": "ok" if search_ok and candidates else "no_candidates" if search_ok else "unavailable"})
         return output
 
     def run_phenotype_conversion_prepare_flow(
@@ -1962,7 +1968,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
             ("phenotype_fetch_source_snapshot", {"phenotype_id": phenotype_id}, "snapshot"),
             ("phenotype_present", {"phenotype_id": phenotype_id}, "presentation"),
             ("phenotype_conversion_readiness", {"phenotype_id": phenotype_id, "check_vocabulary_database": bool(check_vocabulary_database)}, "readiness"),
-            ("phenotype_code_mapping_evidence", {"phenotype_id": phenotype_id}, "mapping_evidence"),
+            ("phenotype_code_mapping_evidence", {"phenotype_id": phenotype_id, "check_vocabulary_database": bool(check_vocabulary_database)}, "mapping_evidence"),
         ):
             result = self.call_tool(name=tool_name, arguments=arguments)
             full = result.get("full_result") or {}

@@ -49,6 +49,7 @@ services:
       - composition_seed
       - next_action
     validation:
+      - component_recommendations
       - source snapshots and mapping evidence are review input only
       - no concept-set selection, Capr emission, or Circe definition is produced
 

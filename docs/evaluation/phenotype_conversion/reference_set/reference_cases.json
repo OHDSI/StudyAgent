@@ -15,6 +15,13 @@
       "expected_action_class": "source_informed_review",
       "circe_prohibited": true,
       "required_human_decisions": ["ACE inhibitor exposure concept policy", "post-exposure risk window", "baseline cough exclusion", "outcome occurrence rule", "case-only versus comparative design"],
+      "expected_composition": {
+        "template": "exposure_followed_by_outcome",
+        "index_domain": "Drug",
+        "outcome_domain": "Condition",
+        "follow_on_query": "Cough",
+        "requires_explicit_approval": true
+      },
       "notes": "Text snippets and narrative seed an exposure-followed-by-outcome composition; they are not concept sets."
     },
     {
