@@ -17,6 +17,7 @@ TOOL_MODULES: list[str] = [
     "study_agent_mcp.tools.phenotype_fetch_summary",
     "study_agent_mcp.tools.phenotype_present",
     "study_agent_mcp.tools.phenotype_fetch_definition",
+    "study_agent_mcp.tools.phenotype_conversion_readiness",
     "study_agent_mcp.tools.phenotype_list_similar",
     "study_agent_mcp.tools.phenotype_reindex",
     "study_agent_mcp.tools.phenotype_index_status",

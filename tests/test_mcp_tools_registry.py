@@ -32,6 +32,7 @@ def test_register_all_tools() -> None:
         "phenotype_fetch_source_snapshot",
         "phenotype_present",
         "phenotype_list_similar",
+        "phenotype_conversion_readiness",
         "phenotype_reindex",
         "phenotype_index_status",
         "phenotype_prompt_bundle",

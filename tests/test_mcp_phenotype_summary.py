@@ -5,6 +5,7 @@ import pytest
 
 from study_agent_mcp.retrieval.index import PhenotypeIndex
 from study_agent_mcp.tools.phenotype_present import build_presentation
+from study_agent_mcp.tools.phenotype_conversion_readiness import assess_readiness
 
 
 @pytest.mark.mcp
@@ -114,3 +115,16 @@ def test_build_presentation_distinguishes_circe_and_cipher_evidence() -> None:
     assert "Text snippets are narrative evidence, not an OMOP concept set." in cipher["important_gaps"]
     assert circe["use_mode"] == "direct"
     assert circe["available_actions"] == ["use_directly", "inspect_circe_definition"]
+
+
+@pytest.mark.mcp
+def test_conversion_readiness_is_source_and_deployment_aware() -> None:
+    snapshot = {"source_dataset": "va_cipher", "source_payload": {"algorithm": {"algorithmDesc": "Use first qualifying event."}}}
+    supported = assess_readiness(snapshot, {"source_dataset": "va_cipher", "code_systems": [{"system_name": "ICD-10 Diagnostic Codes", "codes": ["I25.1"]}]}, {"ICD10CM"})
+    unavailable = assess_readiness(snapshot, {"source_dataset": "va_cipher", "code_systems": [{"system_name": "ICD-10 Diagnostic Codes", "codes": ["I25.1"]}]}, set())
+    text_only = assess_readiness(snapshot, {"source_dataset": "va_cipher", "code_systems": [{"system_name": "Text snippets", "codes": ["cough"]}]}, set())
+
+    assert supported["action_class"] == "conversion_candidate"
+    assert supported["code_systems"][0]["mapping_support"] == "available"
+    assert unavailable["action_class"] == "source_informed_review"
+    assert text_only["action_class"] == "source_informed_review"
