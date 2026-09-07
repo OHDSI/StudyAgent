@@ -61,6 +61,7 @@ Start here before making architectural or behavioral changes:
 - [docs/TESTING.md](docs/TESTING.md)
 - [docs/SERVICE_REGISTRY.yaml](docs/SERVICE_REGISTRY.yaml)
 - [docs/WORKFLOW_PHENOTYPE_RECOMMENDATION.md](docs/WORKFLOW_PHENOTYPE_RECOMMENDATION.md)
+- [docs/WORKFLOW_PHENOTYPE_MAKE_COMPUTABLE.md](docs/WORKFLOW_PHENOTYPE_MAKE_COMPUTABLE.md)
 - [docs/WORKFLOW_CONTEXT_DIALOGUE_SLASH_OHDSI.md](docs/WORKFLOW_CONTEXT_DIALOGUE_SLASH_OHDSI.md)
 - [docs/PHENOTYPE_VALIDATION_REVIEW.md](docs/PHENOTYPE_VALIDATION_REVIEW.md)
 - [docs/SPEC_KEEPER_INTERFACE.md](docs/SPEC_KEEPER_INTERFACE.md)
@@ -76,6 +77,7 @@ Treat the following as implemented, developer-relevant ACP flows:
 - `phenotype_recommendation_advice`
 - `phenotype_improvements`
 - `phenotype_intent_split`
+- `phenotype_make_computable`
 - `cohort_methods_intent_split`
 - `workflow_context_dialogue`
 - `keeper_concept_sets_generate`
@@ -83,6 +85,16 @@ Treat the following as implemented, developer-relevant ACP flows:
 - `phenotype_validation_review`
 
 There are additional support surfaces and execution helpers, but do not expand docs or summaries beyond what is actually implemented and testable.
+
+## Narrative-To-Computable Cohort Guardrails
+
+`phenotype_make_computable` is a review-gated flow used by the Strategus shells' `create` acquisition branch. Preserve these boundaries when changing ACP, MCP, or R-shell code:
+
+- Scope confirmation, candidate retrieval, and explicit concept-set approval are separate stages. Never infer a clinical scope decision, concept selection, descendant policy, mapped policy, or exclusion policy.
+- A candidate limit is a retrieval bound, not evidence that a concept set is complete. Required review sessions may return up to 500 candidates; proposal-mode limits remain lower and are not a shortcut around review.
+- Review CSV/manifest artifacts and the exact approved policy object are durable resume state. Preserve their provenance and do not silently replace a reviewed policy.
+- Do not emit Capr/Circe artifacts until explicit concept-set approval. Successful ACP validation is technical only: it does not establish clinical validity or database-level cohort validity.
+- Shell-facing state must retain a human-readable target/comparator/outcome label. Keeper adjudication must fail closed if no non-generic clinical label can be recovered; never substitute `Cohort <id>`.
 
 ## Prompting Convention
 
@@ -229,6 +241,8 @@ When editing R scripts, R shell code, or generated-script emitters:
 
 If you update documentation, verify that examples, env vars, and file references match the current code.
 
+For live-smoke changes involving OMOP vocabulary or Keeper profile extraction, test both states explicitly: report that the database-backed smoke is skipped when `OMOP_DB_ENGINE` is absent, and run it when configured. Do not interpret a lexical candidate count or a successful R compilation as clinical validation.
+
 ## Implementation Guidance
 
 - Prefer documenting implemented behavior over speculative future services.
@@ -258,3 +272,4 @@ These constraints are not optional:
 - The user may validate R workflows from a parent `renv` one level above the repo; do not modify or replace that parent `renv`.
 - For shell test scripts, prefer the shared helper in `scripts/demo_setup.R` rather than ad hoc destructive reset logic.
 - When docs drift, prefer consolidating references into maintained docs under `docs/` rather than expanding many local READMEs.
+- For a release or evaluation that depends on an LLM, record the model identifier, immutable digest/version when available, serving stack, and relevant inference settings. Do not treat a mutable `:latest` label as reproducible provenance.

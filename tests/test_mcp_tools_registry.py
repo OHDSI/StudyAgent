@@ -29,6 +29,8 @@ def test_register_all_tools() -> None:
         "phenotype_search",
         "phenotype_fetch_summary",
         "phenotype_fetch_definition",
+        "phenotype_fetch_source_snapshot",
+        "phenotype_present",
         "phenotype_list_similar",
         "phenotype_reindex",
         "phenotype_index_status",

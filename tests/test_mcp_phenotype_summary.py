@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from study_agent_mcp.retrieval.index import PhenotypeIndex
+from study_agent_mcp.tools.phenotype_present import build_presentation
 
 
 @pytest.mark.mcp
@@ -56,3 +57,60 @@ def test_fetch_summary_exposes_retrieval_fields(tmp_path) -> None:
     assert summary["phenotype_role"] == "diagnosis"
     assert summary["care_setting_scope"] == "outpatient"
     assert summary["recommendation_metadata_source"] == "llm_cached"
+
+
+@pytest.mark.mcp
+def test_fetch_source_snapshot_uses_indexed_copy_and_canonical_hash(tmp_path) -> None:
+    index_dir = tmp_path / "index"
+    definitions_dir = index_dir / "definitions"
+    definitions_dir.mkdir(parents=True)
+    payload = {"algorithm": {"algorithmDesc": "Use two qualifying events."}, "id": 42}
+    (definitions_dir / "cipher__42.json").write_text(json.dumps(payload), encoding="utf-8")
+    row = {
+        "phenotype_id": "cipher:42",
+        "source_dataset": "va_cipher",
+        "source_record_type": "disease_phenotype",
+        "name": "Example CIPHER phenotype",
+        "definition_ref": "cipher__42.json",
+        "provenance": {"version": "v7", "modified_at": "2026-09-01"},
+    }
+    (index_dir / "catalog.jsonl").write_text(json.dumps(row) + "\n", encoding="utf-8")
+    (index_dir / "meta.json").write_text(json.dumps({"catalog_count": 1}), encoding="utf-8")
+
+    index = PhenotypeIndex(str(index_dir), allow_dense=False, allow_sparse=False).load()
+    snapshot = index.fetch_source_snapshot("cipher:42")
+
+    assert snapshot is not None
+    assert snapshot["source_payload"] == payload
+    assert snapshot["source_revision"] == "v7"
+    assert snapshot["source_modified_at"] == "2026-09-01"
+    assert snapshot["source_payload_sha256"] == "5b909a1b85b9527d17fad18e679ce57e085796e886ddbbcdccd0910f99f1f742"
+
+
+@pytest.mark.mcp
+def test_build_presentation_distinguishes_circe_and_cipher_evidence() -> None:
+    cipher = build_presentation(
+        {
+            "phenotype_id": "cipher:29197",
+            "source_dataset": "va_cipher",
+            "title": "ACE Inhibitor Induced Cough",
+            "source_payload_sha256": "source-hash",
+            "source_payload": {"algorithm": {"algorithmDesc": "Cases have cough after ACE inhibitor exposure."}},
+        },
+        {"source_dataset": "va_cipher", "code_systems": [{"system_name": "Text snippets", "codes": ["cough"]}]},
+    )
+    circe = build_presentation(
+        {
+            "phenotype_id": "ohdsi:925",
+            "source_dataset": "ohdsi_phenotype_library",
+            "title": "Cough",
+            "source_payload": {"PrimaryCriteria": {"CriteriaList": [{}]}, "ConceptSets": [{"name": "Cough"}]},
+        },
+        {"source_dataset": "ohdsi_phenotype_library", "code_systems": []},
+    )
+
+    assert cipher["use_mode"] == "requires_readiness_assessment"
+    assert cipher["clinical_pattern"]["algorithm_description"].startswith("Cases have cough")
+    assert "Text snippets are narrative evidence, not an OMOP concept set." in cipher["important_gaps"]
+    assert circe["use_mode"] == "direct"
+    assert circe["available_actions"] == ["use_directly", "inspect_circe_definition"]

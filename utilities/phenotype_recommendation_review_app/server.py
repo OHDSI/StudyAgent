@@ -33,7 +33,7 @@ def _post_json(url: str, payload: dict) -> dict:
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with urlopen(request, timeout=120) as response:
+    with urlopen(request, timeout=240) as response:
         body = response.read().decode("utf-8")
         return json.loads(body)
 
