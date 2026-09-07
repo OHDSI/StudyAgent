@@ -759,3 +759,23 @@ def test_conversion_prepare_disables_all_vocabulary_database_calls(monkeypatch):
     assert result["mapping_evidence"]["status"] == "not_requested"
     assert dict(calls)["phenotype_conversion_readiness"]["check_vocabulary_database"] is False
     assert dict(calls)["phenotype_code_mapping_evidence"]["check_vocabulary_database"] is False
+
+@pytest.mark.acp
+def test_conversion_prepare_forwards_only_explicit_expected_domains(monkeypatch):
+    calls = []
+    payloads = {
+        "phenotype_fetch_source_snapshot": {"snapshot": {"title": "Example", "source_payload": {}}},
+        "phenotype_present": {"presentation": {"plain_language_summary": "Example."}},
+        "phenotype_conversion_readiness": {"readiness": {"action_class": "source_informed_review"}},
+        "phenotype_code_mapping_evidence": {"mapping_evidence": {"status": "ok", "domain_mapping_policy": {"expected_domains": ["Condition"]}}},
+    }
+
+    def fake_call(self, name, arguments, confirm=False):
+        calls.append((name, arguments))
+        return {"status": "ok", "full_result": payloads[name]}
+
+    monkeypatch.setattr(StudyAgent, "call_tool", fake_call)
+    result = StudyAgent(mcp_client=object()).run_phenotype_conversion_prepare_flow("cipher:1", expected_domains=["Condition"])
+
+    assert result["mapping_evidence"]["domain_mapping_policy"]["expected_domains"] == ["Condition"]
+    assert dict(calls)["phenotype_code_mapping_evidence"]["expected_domains"] == ["Condition"]

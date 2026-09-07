@@ -41,6 +41,7 @@ services:
       - phenotype_id
       - recommendation_context
       - check_vocabulary_database
+      - expected_domains (optional; only user-confirmed OMOP domains)
     output:
       - source_snapshot
       - presentation
@@ -51,6 +52,7 @@ services:
     validation:
       - component_recommendations
       - source snapshots and mapping evidence are review input only
+      - mapping eligibility is unavailable until expected_domains is supplied
       - no concept-set selection, Capr emission, or Circe definition is produced
 
   phenotype_make_computable:

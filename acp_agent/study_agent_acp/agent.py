@@ -1956,6 +1956,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
         phenotype_id: str,
         recommendation_context: Optional[Dict[str, Any]] = None,
         check_vocabulary_database: bool = True,
+        expected_domains: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """Assemble immutable source evidence for a review-gated conversion or composition."""
         phenotype_id = str(phenotype_id or "").strip()
@@ -1968,7 +1969,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
             ("phenotype_fetch_source_snapshot", {"phenotype_id": phenotype_id}, "snapshot"),
             ("phenotype_present", {"phenotype_id": phenotype_id}, "presentation"),
             ("phenotype_conversion_readiness", {"phenotype_id": phenotype_id, "check_vocabulary_database": bool(check_vocabulary_database)}, "readiness"),
-            ("phenotype_code_mapping_evidence", {"phenotype_id": phenotype_id, "check_vocabulary_database": bool(check_vocabulary_database)}, "mapping_evidence"),
+            ("phenotype_code_mapping_evidence", {"phenotype_id": phenotype_id, "check_vocabulary_database": bool(check_vocabulary_database), "expected_domains": [str(domain).strip() for domain in expected_domains or [] if str(domain).strip()]}, "mapping_evidence"),
         ):
             result = self.call_tool(name=tool_name, arguments=arguments)
             full = result.get("full_result") or {}
