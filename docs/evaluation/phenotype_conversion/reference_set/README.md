@@ -20,5 +20,8 @@ set, not a clinical validation set.
   approved concept set without review.
 - A `circe_prohibited` case never produces executable Circe JSON.
 
-Use `reference_cases.json` as the machine-readable expectation surface. Add an
+Use `reference_cases.json` as the machine-readable CIPHER expectation surface.
+`mapping_policy_cases.json` is a synthetic deterministic regression matrix for
+source/target vocabulary and confirmed-domain policy behavior; it contains no
+clinical source data and does not validate the clinical correctness of a map.
 anonymized fixture only where the source license and repository data policy permit it.

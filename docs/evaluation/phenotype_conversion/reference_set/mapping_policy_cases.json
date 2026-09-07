@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "purpose": "Synthetic deterministic mapping-policy regression matrix; not clinical validation or source-code fixtures.",
+  "cases": [
+    {"label": "ICD-10 condition maps to SNOMED", "source_vocabulary_id": "ICD10CM", "source_code": "I25.1", "target_vocabulary_id": "SNOMED", "target_domain": "Condition", "expected_domains": ["Condition"], "expected_policy_status": "eligible_for_review"},
+    {"label": "ICD-10 condition cannot seed a drug set", "source_vocabulary_id": "ICD10CM", "source_code": "I25.1", "target_vocabulary_id": "SNOMED", "target_domain": "Condition", "expected_domains": ["Drug"], "expected_policy_status": "wrong_domain"},
+    {"label": "RxNorm drug remains valid", "source_vocabulary_id": "RxNorm", "source_code": "123", "target_vocabulary_id": "RxNorm", "target_domain": "Drug", "expected_domains": ["Drug"], "expected_policy_status": "eligible_for_review"},
+    {"label": "CVX vaccine remains a drug-domain standard", "source_vocabulary_id": "CVX", "source_code": "208", "target_vocabulary_id": "CVX", "target_domain": "Drug", "expected_domains": ["Drug"], "expected_policy_status": "eligible_for_review"},
+    {"label": "CPT4 procedure remains a procedure-domain standard", "source_vocabulary_id": "CPT4", "source_code": "99213", "target_vocabulary_id": "CPT4", "target_domain": "Procedure", "expected_domains": ["Procedure"], "expected_policy_status": "eligible_for_review"},
+    {"label": "HCPCS procedure remains a procedure-domain standard", "source_vocabulary_id": "HCPCS", "source_code": "G0463", "target_vocabulary_id": "HCPCS", "target_domain": "Procedure", "expected_domains": ["Procedure"], "expected_policy_status": "eligible_for_review"},
+    {"label": "LOINC measurement remains a measurement-domain standard", "source_vocabulary_id": "LOINC", "source_code": "718-7", "target_vocabulary_id": "LOINC", "target_domain": "Measurement", "expected_domains": ["Measurement"], "expected_policy_status": "eligible_for_review"},
+    {"label": "Confirmed domain is mandatory", "source_vocabulary_id": "ICD10CM", "source_code": "R79.81", "target_vocabulary_id": "SNOMED", "target_domain": "Condition", "expected_domains": [], "expected_policy_status": "expected_domain_required"}
+  ]
+}

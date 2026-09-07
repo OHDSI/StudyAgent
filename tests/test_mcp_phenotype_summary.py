@@ -7,6 +7,7 @@ from study_agent_mcp.retrieval.index import PhenotypeIndex
 from study_agent_mcp.tools.phenotype_present import build_presentation
 from study_agent_mcp.tools.phenotype_conversion_readiness import assess_readiness
 from study_agent_mcp.tools.phenotype_code_mapping_evidence import summarize_mapping
+from study_agent_mcp.tools.phenotype_code_mapping_evidence import build_vocabulary_release_provenance
 
 
 @pytest.mark.mcp
@@ -179,3 +180,18 @@ def test_source_lanes_recognize_standard_drug_and_measurement_vocabularies() -> 
     lanes = _source_lanes({"code_systems": [{"system_name": "RxNorm", "codes": ["123"]}, {"system_name": "CVX", "codes": ["208"]}, {"system_name": "LOINC", "codes": ["1234-5"]}]}, 10)
 
     assert [lane["vocabulary_id"] for lane in lanes] == ["RxNorm", "CVX", "LOINC"]
+
+@pytest.mark.mcp
+def test_mapping_evidence_records_installed_vocabulary_versions() -> None:
+    provenance = build_vocabulary_release_provenance(
+        ["ICD10CM", "SNOMED", "missing"],
+        [{"vocabulary_id": "ICD10CM", "vocabulary_version": "2026-02-01"}, {"vocabulary_id": "SNOMED", "vocabulary_version": "2026-03-01"}],
+    )
+
+    assert provenance["status"] == "checked"
+    assert provenance["vocabularies"] == [
+        {"vocabulary_id": "ICD10CM", "vocabulary_version": "2026-02-01"},
+        {"vocabulary_id": "SNOMED", "vocabulary_version": "2026-03-01"},
+        {"vocabulary_id": "missing", "vocabulary_version": "not_found"},
+    ]
+    assert provenance["release_notes"].endswith("/releases")

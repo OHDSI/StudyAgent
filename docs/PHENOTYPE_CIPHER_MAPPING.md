@@ -948,5 +948,8 @@ policy.
 
 The policy cites the [OHDSI Standardized Vocabularies wiki](https://github.com/OHDSI/Vocabulary-v5.0/wiki)
 and [Vocabulary release history](https://github.com/OHDSI/Vocabulary-v5.0/releases).
-A deployment must retain the vocabulary version/release metadata used for a
-review because mappings and standard-concept status can change between releases.
+The mapping package records the installed `vocabulary_version` for every source
+and returned target vocabulary (or an explicit unavailable/not-found status),
+so that review evidence can be tied to the actual local vocabulary release. A
+deployment must retain that metadata because mappings and standard-concept
+status can change between releases.

@@ -138,6 +138,29 @@ def _query_rows(lanes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         return [dict(row) for row in connection.execute(sql, params).mappings()]
 
 
+
+def build_vocabulary_release_provenance(vocabulary_ids: Iterable[str], rows: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
+    versions = {str(row.get("vocabulary_id") or ""): str(row.get("vocabulary_version") or "") for row in rows}
+    requested = sorted({str(vocabulary_id) for vocabulary_id in vocabulary_ids if str(vocabulary_id)})
+    return {
+        "status": "checked",
+        "release_notes": MAPPING_POLICY_REFERENCES["vocabulary_releases"],
+        "vocabularies": [
+            {"vocabulary_id": vocabulary_id, "vocabulary_version": versions.get(vocabulary_id) or "not_found"}
+            for vocabulary_id in requested
+        ],
+    }
+
+
+def _query_vocabulary_versions(vocabulary_ids: Iterable[str]) -> List[Dict[str, Any]]:
+    ids = sorted({str(vocabulary_id) for vocabulary_id in vocabulary_ids if str(vocabulary_id)})
+    if not ids:
+        return []
+    schema = _safe_identifier(os.getenv("VOCAB_DATABASE_SCHEMA", "vocabulary"), "vocab_database_schema")
+    engine = create_engine_with_dependencies(_resolve_vocab_engine_name(), future=True)
+    query = sa.text(f"SELECT vocabulary_id, vocabulary_version FROM {schema}.vocabulary WHERE vocabulary_id IN :ids").bindparams(sa.bindparam("ids", expanding=True))
+    with engine.connect() as connection:
+        return [dict(row) for row in connection.execute(query, {"ids": ids}).mappings()]
 def register(mcp: object) -> None:
     @mcp.tool(name="phenotype_code_mapping_evidence")
     def phenotype_code_mapping_evidence_tool(phenotype_id: str, maximum_codes_per_system: int = 250, check_vocabulary_database: bool = True, expected_domains: List[str] | None = None) -> Dict[str, Any]:
@@ -152,7 +175,13 @@ def register(mcp: object) -> None:
             evidence = {"status": "not_requested", "reason": "Vocabulary database mapping was disabled for this preparation request.", "coverage": {"requested_code_count": sum(len(lane["codes"]) for lane in lanes), "checked_code_count": 0}, "selection_guardrail": "No OMOP mapping lookup was performed; source codes remain review evidence only."}
             return with_meta({"mapping_evidence": evidence}, "phenotype_code_mapping_evidence")
         try:
-            evidence = summarize_mapping(lanes, _query_rows(lanes), expected_domains=expected_domains)
+            mapping_rows = _query_rows(lanes)
+            evidence = summarize_mapping(lanes, mapping_rows, expected_domains=expected_domains)
+            vocabulary_ids = [lane["vocabulary_id"] for lane in lanes] + [str(row.get("standard_vocabulary_id") or "") for row in mapping_rows]
+            try:
+                evidence["deployment_vocabulary_release"] = build_vocabulary_release_provenance(vocabulary_ids, _query_vocabulary_versions(vocabulary_ids))
+            except Exception as exc:
+                evidence["deployment_vocabulary_release"] = {"status": "unavailable", "reason": f"vocabulary_release_lookup_failed:{type(exc).__name__}", "release_notes": MAPPING_POLICY_REFERENCES["vocabulary_releases"]}
             evidence.update({"status": "ok", "mapping_relationship": {"relationship_id": "Maps to", "relationship_concept_id": 44818977}, "selection_guardrail": "Mapping results are evidence for human review only; they are not an approved concept set."})
         except Exception as exc:
             evidence = {"status": "unavailable", "reason": f"vocabulary_database_unavailable:{type(exc).__name__}", "coverage": {"requested_code_count": sum(len(lane["codes"]) for lane in lanes)}}

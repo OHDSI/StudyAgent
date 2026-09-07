@@ -2,9 +2,11 @@ import json
 from pathlib import Path
 
 import pytest
+from study_agent_mcp.tools.phenotype_code_mapping_evidence import summarize_mapping
 
 
 _REFERENCE_PATH = Path("docs/evaluation/phenotype_conversion/reference_set/reference_cases.json")
+_MAPPING_POLICY_REFERENCE_PATH = Path("docs/evaluation/phenotype_conversion/reference_set/mapping_policy_cases.json")
 _ALLOWED_ACTIONS = {
     "not_supported",
     "source_informed_review",
@@ -47,3 +49,16 @@ def test_conversion_reference_set_preserves_safety_examples() -> None:
     assert composition["requires_explicit_approval"] is True
     for phenotype_id in ("cipher:17527", "cipher:14189"):
         assert "PheCode map/version" in cases[phenotype_id]["required_human_decisions"]
+
+@pytest.mark.mcp
+def test_mapping_policy_reference_matrix_covers_supported_domains() -> None:
+    payload = json.loads(_MAPPING_POLICY_REFERENCE_PATH.read_text(encoding="utf-8"))
+    assert payload["schema_version"] == 1
+    cases = payload["cases"]
+    assert {"Condition", "Drug", "Procedure", "Measurement"}.issubset({case["target_domain"] for case in cases})
+
+    for index, case in enumerate(cases, start=1):
+        lanes = [{"source_system": case["source_vocabulary_id"], "vocabulary_id": case["source_vocabulary_id"], "codes": [case["source_code"]], "source_code_count": 1, "truncated": False}]
+        rows = [{"vocabulary_id": case["source_vocabulary_id"], "concept_code": case["source_code"], "standard_concept_id": index, "standard_concept_name": case["label"], "standard_vocabulary_id": case["target_vocabulary_id"], "standard_domain_id": case["target_domain"]}]
+        evidence = summarize_mapping(lanes, rows, expected_domains=case["expected_domains"])
+        assert evidence["code_results"][0]["standard_candidates"][0]["domain_policy_status"] == case["expected_policy_status"]

@@ -24,4 +24,6 @@ def test_mapping_evidence_handoff_remains_explicitly_review_gated() -> None:
     assert 'not eligible for the confirmed-domain mapping review' in review
     assert 'mapping-evidence-confirmed-domains.json' in acquisition
     assert 'expected_domains = confirmed_domains' in acquisition
-    assert 'Concept review source [mapping=review mapped candidates, search=run ACP vocabulary search]' in acquisition
+    assert 'atlas=import in Atlas and return corrected JSON' in acquisition
+    assert 'More than 500 mapping candidates were returned' in acquisition
+    assert 'More than 100 mapping candidates were returned' in acquisition
