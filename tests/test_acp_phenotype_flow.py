@@ -626,3 +626,41 @@ def test_acp_flow_comparator_without_direct_match_returns_no_recommendations(mon
     assert result["diagnostics"]["role_match_gate"]["matched_candidate_ids"] == []
     assert result["diagnostics"]["role_match_gate"]["skip_reason"] == "no_direct_role_match"
     assert len(llm_calls) == 2
+
+
+@pytest.mark.acp
+def test_phenotype_definition_returns_direct_circe_with_canonical_hash(monkeypatch):
+    circe = {"PrimaryCriteria": {"CriteriaList": []}, "ConceptSets": []}
+
+    def fake_call_tool(self, name, arguments, confirm=False):
+        payload = {"summary": {"phenotype_id": "ohdsi:1", "name": "Example", "executable_definition_status": "native_ohdsi"}} if name == "phenotype_fetch_summary" else {"definition": circe}
+        return {"status": "ok", "full_result": payload}
+
+    monkeypatch.setattr(StudyAgent, "call_tool", fake_call_tool)
+    result = StudyAgent(mcp_client=object()).run_phenotype_definition_flow("ohdsi:1")
+
+    assert result["status"] == "ok"
+    assert result["circe_json"] == circe
+    assert result["definition_sha256"] == "12546c717038cc6907449066226ed2646533f5b9c1ae63f4ada8cf35c5521c5c"
+
+
+@pytest.mark.acp
+def test_phenotype_definition_fails_closed_for_conversion_and_malformed_payload(monkeypatch):
+    def conversion_call(self, name, arguments, confirm=False):
+        return {"status": "ok", "full_result": {"summary": {"phenotype_id": "cipher:1", "name": "Narrative", "executable_definition_status": "codes_only"}}}
+
+    monkeypatch.setattr(StudyAgent, "call_tool", conversion_call)
+    conversion = StudyAgent(mcp_client=object()).run_phenotype_definition_flow("cipher:1", allow_make_computable=False)
+    assert conversion["status"] == "unavailable"
+    assert conversion["computability_status"] == "conversion_required"
+    assert "circe_json" not in conversion
+
+    def malformed_call(self, name, arguments, confirm=False):
+        payload = {"summary": {"phenotype_id": "ohdsi:1", "name": "Broken", "executable_definition_status": "native_ohdsi"}} if name == "phenotype_fetch_summary" else {"definition": {"ConceptSets": []}}
+        return {"status": "ok", "full_result": payload}
+
+    monkeypatch.setattr(StudyAgent, "call_tool", malformed_call)
+    malformed = StudyAgent(mcp_client=object()).run_phenotype_definition_flow("ohdsi:1")
+    assert malformed["status"] == "unavailable"
+    assert malformed["error"] == "malformed_circe_definition"
+    assert "circe_json" not in malformed

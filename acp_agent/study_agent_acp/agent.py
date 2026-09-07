@@ -1,4 +1,5 @@
 import csv
+import hashlib
 from datetime import datetime
 import io
 import json
@@ -1339,6 +1340,15 @@ class StudyAgent(PhenotypeRecommendationMixin):
             return "Selected from the top reranked shortlisted candidates as a clinically aligned match."
         return justification
 
+    @staticmethod
+    def _recommendation_computability_status(row: Dict[str, Any]) -> str:
+        status = str(row.get("executable_definition_status") or "").strip().lower()
+        if status == "native_ohdsi":
+            return "circe_available"
+        if status in {"codes_only", "narrative_only", "non_ohdsi_logic_only"}:
+            return "conversion_required"
+        return "not_computable"
+
     def _build_deterministic_final_payload(
         self,
         llm_payload: Optional[Dict[str, Any]],
@@ -1394,6 +1404,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
                     "phenotype_name": row.get("phenotype_name") or row.get("name") or "",
                     "justification": justification[:200],
                     "confidence": float(confidence) if isinstance(confidence, (int, float)) else None,
+                    "computability_status": self._recommendation_computability_status(row),
                 }
             )
 
@@ -1897,71 +1908,86 @@ class StudyAgent(PhenotypeRecommendationMixin):
             "diagnostics": diagnostics,
         }
 
-    def run_phenotype_definition_flow(
+    def run_phenotype_conversion_prepare_flow(
         self,
         phenotype_id: str,
+        recommendation_context: Optional[Dict[str, Any]] = None,
+        check_vocabulary_database: bool = True,
     ) -> Dict[str, Any]:
+        """Assemble immutable source evidence for a review-gated conversion or composition."""
         phenotype_id = str(phenotype_id or "").strip()
         if not phenotype_id:
-            return {"status": "error", "error": "missing phenotype_id"}
+            return {"status": "error", "error": "missing_phenotype_id"}
         if self._mcp_client is None:
-            return {"status": "error", "error": "MCP client unavailable"}
+            return {"status": "error", "error": "mcp_client_unavailable"}
 
-        summary_result = self.call_tool(
-            name="phenotype_fetch_summary",
-            arguments={"phenotype_id": phenotype_id},
-        )
-        summary_full = summary_result.get("full_result") or {}
-        summary_payload: Dict[str, Any] = {}
-        if isinstance(summary_full.get("summary"), dict):
-            summary_payload = dict(summary_full.get("summary") or {})
-        elif isinstance(summary_full.get("content"), dict):
-            summary_payload = dict(summary_full.get("content") or {})
-        elif isinstance(summary_full, dict) and summary_full.get("phenotype_id") == phenotype_id:
-            summary_payload = dict(summary_full)
+        payloads: Dict[str, Dict[str, Any]] = {}
+        for tool_name, arguments, key in (
+            ("phenotype_fetch_source_snapshot", {"phenotype_id": phenotype_id}, "snapshot"),
+            ("phenotype_present", {"phenotype_id": phenotype_id}, "presentation"),
+            ("phenotype_conversion_readiness", {"phenotype_id": phenotype_id, "check_vocabulary_database": bool(check_vocabulary_database)}, "readiness"),
+        ):
+            result = self.call_tool(name=tool_name, arguments=arguments)
+            full = result.get("full_result") or {}
+            if result.get("status") != "ok" or full.get("error") or not isinstance(full.get(key), dict):
+                return {"status": "error", "error": "conversion_prepare_tool_failed", "tool": tool_name, "details": result}
+            payloads[key] = dict(full[key])
 
-        definition_result = self.call_tool(
-            name="phenotype_fetch_definition",
-            arguments={"phenotype_id": phenotype_id, "truncate": False},
-        )
-        definition_full = definition_result.get("full_result") or {}
-        definition_payload: Dict[str, Any] = {}
-        if isinstance(definition_full.get("definition"), dict):
-            definition_payload = dict(definition_full.get("definition") or {})
-        elif isinstance(definition_full.get("content"), dict):
-            definition_payload = dict(definition_full.get("content") or {})
-        elif isinstance(definition_full, dict) and definition_full:
-            definition_payload = dict(definition_full)
-
-        if definition_result.get("status") != "ok" or definition_full.get("error") or not definition_payload:
-            return {
-                "status": "error",
-                "error": "phenotype_definition_fetch_failed",
-                "details": definition_result,
-            }
-        if summary_result.get("status") != "ok" or summary_full.get("error"):
-            return {
-                "status": "error",
-                "error": "phenotype_summary_fetch_failed",
-                "details": summary_result,
-            }
-
-        document = {
-            "phenotype_id": phenotype_id,
-            "phenotype_name": summary_payload.get("name") or summary_payload.get("phenotype_name") or phenotype_id,
-            "source_dataset": summary_payload.get("source_dataset") or "",
-            "source_record_type": summary_payload.get("source_record_type") or "",
-            "catalog_metadata": summary_payload,
-            "definition": definition_payload,
-            "assembled_from": {
-                "catalog_metadata_source": "catalog.jsonl via phenotype_fetch_summary",
-                "definition_source": "definitions/ via phenotype_fetch_definition",
-            },
-        }
+        readiness = payloads["readiness"]
+        action_class = str(readiness.get("action_class") or "not_supported")
         return {
             "status": "ok",
             "phenotype_id": phenotype_id,
-            "document": document,
+            "recommendation_context": recommendation_context if isinstance(recommendation_context, dict) else {},
+            "review_required": action_class != "direct",
+            "source_snapshot": payloads["snapshot"],
+            "presentation": payloads["presentation"],
+            "readiness": readiness,
+            "next_action": "use_directly" if action_class == "direct" else "start_review_gated_conversion" if action_class != "not_supported" else "inspect_evidence_or_create",
+        }
+    def run_phenotype_definition_flow(
+        self,
+        phenotype_id: str,
+        allow_make_computable: bool = True,
+        recommendation_context: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        phenotype_id = str(phenotype_id or "").strip()
+        if not phenotype_id:
+            return {"status": "error", "error": "missing_phenotype_id"}
+        if self._mcp_client is None:
+            return {"status": "error", "error": "mcp_client_unavailable"}
+
+        summary_result = self.call_tool(name="phenotype_fetch_summary", arguments={"phenotype_id": phenotype_id})
+        summary_full = summary_result.get("full_result") or {}
+        summary = summary_full.get("summary") if isinstance(summary_full.get("summary"), dict) else summary_full.get("content") if isinstance(summary_full.get("content"), dict) else summary_full
+        if summary_result.get("status") != "ok" or not isinstance(summary, dict) or summary_full.get("error"):
+            return {"status": "error", "error": "phenotype_summary_fetch_failed", "details": summary_result}
+        source_status = self._recommendation_computability_status(summary)
+        name = summary.get("name") or summary.get("phenotype_name") or phenotype_id
+        if source_status != "circe_available":
+            return {
+                "status": "unavailable",
+                "phenotype_id": phenotype_id,
+                "phenotype_name": name,
+                "computability_status": source_status,
+                "error": "conversion_required" if source_status == "conversion_required" else "conversion_not_available",
+                "message": "ACP cannot return a validated executable Circe definition without the review-gated conversion workflow.",
+                "conversion": {"performed": False, "recommendation_context": recommendation_context if isinstance(recommendation_context, dict) else {}},
+            }
+        definition_result = self.call_tool(name="phenotype_fetch_definition", arguments={"phenotype_id": phenotype_id, "truncate": False})
+        definition_full = definition_result.get("full_result") or {}
+        circe_json = definition_full.get("definition") if isinstance(definition_full.get("definition"), dict) else definition_full.get("content") if isinstance(definition_full.get("content"), dict) else definition_full
+        if definition_result.get("status") != "ok" or not isinstance(circe_json, dict) or definition_full.get("error"):
+            return {"status": "error", "error": "phenotype_definition_fetch_failed", "details": definition_result}
+        if not isinstance(circe_json.get("PrimaryCriteria"), dict) or not isinstance(circe_json.get("ConceptSets"), list):
+            return {"status": "unavailable", "phenotype_id": phenotype_id, "phenotype_name": name, "computability_status": "not_computable", "error": "malformed_circe_definition", "message": "Indexed provider data is not a complete Circe definition.", "conversion": {"performed": False}}
+        canonical = json.dumps(circe_json, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
+        return {
+            "status": "ok", "phenotype_id": phenotype_id, "phenotype_name": name,
+            "computability_status": "circe_available", "definition_source": "phenotype_library",
+            "definition_revision": "indexed_artifact", "definition_sha256": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+            "circe_json": circe_json,
+            "conversion": {"performed": False, "source_phenotype_id": phenotype_id, "capr_code": None, "validation": {"status": "structural_passed", "messages": []}},
         }
 
     def run_cohort_methods_specs_recommendation_flow(
