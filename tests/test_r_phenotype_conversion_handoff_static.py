@@ -32,6 +32,10 @@ def test_mapping_evidence_handoff_remains_explicitly_review_gated() -> None:
     assert 'expected_domains = as.list(expected_domains)' in (ROOT / "sandbox" / "slashOhdsiAcpClient" / "R" / "flows.R").read_text(encoding="utf-8")
     assert ".studyAgentSlashPreviewPhenotypeCandidate <- function" in review
     assert "Source algorithm narrative (evidence only" in review
+    assert "Source-informed scope suggestions (unconfirmed; nothing is prefilled)" in acquisition
+    assert "Mapping reconciliation:" in acquisition
+    assert "This only updates the review evidence; no concepts have been selected." in acquisition
+    assert "cohortPrintFriendly(source_payload)" in review
     assert "Working local OMOP cohort statement" in acquisition
 
 
@@ -39,9 +43,9 @@ def test_incidence_recommendation_selection_routes_non_computable_items_to_revie
     incidence = INCIDENCE.read_text(encoding="utf-8")
 
     assert "prepare_recommended_phenotype <- function" in incidence
-    assert ".studyAgentSlashPreparePhenotypeConversion(" in incidence
+    assert "== Creating candidate definition preview ==" in incidence
     assert ".studyAgentSlashCreateComputableRoleSelection(" in incidence
-    assert "== Candidate definition preview ==" in incidence
+    assert "type USE; /back returns to cohort-source selection" in incidence
     assert "type USE; /back returns to cohort-source selection" in incidence
     assert 'prepare_recommended_phenotype(selected_rec, "target")' in incidence
     assert 'prepare_recommended_phenotype(recommendations_outcome[[idx]], "outcome")' in incidence
@@ -61,7 +65,7 @@ def test_incidence_advice_does_not_end_the_session() -> None:
 def test_cohort_methods_recommendation_selection_routes_non_computable_items_to_review() -> None:
     cohort_methods = COHORT_METHODS.read_text(encoding="utf-8")
     assert ".studyAgentSlashPreviewPhenotypeCandidate(" in cohort_methods
-    assert "== Candidate definition preview ==" in cohort_methods
+    assert "== Creating candidate definition preview ==" in cohort_methods
     assert "type USE; /back returns to cohort-source selection" in cohort_methods
 
     assert "collect_recommendation_selection <- function" in cohort_methods
