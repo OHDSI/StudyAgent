@@ -64,6 +64,27 @@ def _source_lanes(summary: Dict[str, Any], maximum_codes: int) -> List[Dict[str,
 
 
 
+def _atlas_concept(row: Dict[str, Any], prefix: str) -> Dict[str, Any]:
+    """Return the fully hydrated WebAPI v2 concept object for an Atlas expression item."""
+    field = lambda name, default=None: row.get(f"{prefix}_{name}", default)
+    standard_concept = field("standard_concept") or ""
+    invalid_reason = field("invalid_reason")
+    return {
+        "CONCEPT_CLASS_ID": str(field("concept_class_id") or ""),
+        "CONCEPT_CODE": str(field("concept_code") or ""),
+        "CONCEPT_ID": int(field("concept_id")),
+        "CONCEPT_NAME": str(field("concept_name") or ""),
+        "DOMAIN_ID": str(field("domain_id") or ""),
+        "INVALID_REASON": invalid_reason,
+        "INVALID_REASON_CAPTION": "Valid" if not invalid_reason else str(invalid_reason),
+        "STANDARD_CONCEPT": str(standard_concept),
+        "STANDARD_CONCEPT_CAPTION": "Standard" if standard_concept == "S" else "Classification" if standard_concept == "C" else "Non-standard",
+        "VOCABULARY_ID": str(field("vocabulary_id") or ""),
+        "VALID_START_DATE": str(field("valid_start_date") or ""),
+        "VALID_END_DATE": str(field("valid_end_date") or ""),
+    }
+
+
 def summarize_mapping(
     lanes: Iterable[Dict[str, Any]], rows: Iterable[Dict[str, Any]], expected_domains: Sequence[str] | None = None
 ) -> Dict[str, Any]:
@@ -75,10 +96,14 @@ def summarize_mapping(
         key = (vocabulary_id, code)
         found.add(key)
         if str(row.get("source_standard_concept") or "") == "S":
-            targets[key].append({"concept_id": int(row["source_concept_id"]), "concept_name": str(row.get("source_concept_name") or ""), "vocabulary_id": vocabulary_id, "domain_id": str(row.get("source_domain_id") or ""), "mapping_method": "source_standard"})
+            source_candidate = {"concept_id": int(row["source_concept_id"]), "concept_name": str(row.get("source_concept_name") or ""), "vocabulary_id": vocabulary_id, "domain_id": str(row.get("source_domain_id") or ""), "mapping_method": "source_standard"}
+            source_candidate["atlas_concept"] = _atlas_concept(row, "source")
+            targets[key].append(source_candidate)
         standard_id = row.get("standard_concept_id")
         if standard_id is not None:
-            targets[key].append({"concept_id": int(standard_id), "concept_name": str(row.get("standard_concept_name") or ""), "vocabulary_id": str(row.get("standard_vocabulary_id") or ""), "domain_id": str(row.get("standard_domain_id") or ""), "mapping_method": "Maps to"})
+            standard_candidate = {"concept_id": int(standard_id), "concept_name": str(row.get("standard_concept_name") or ""), "vocabulary_id": str(row.get("standard_vocabulary_id") or ""), "domain_id": str(row.get("standard_domain_id") or ""), "mapping_method": "Maps to"}
+            standard_candidate["atlas_concept"] = _atlas_concept(row, "standard")
+            targets[key].append(standard_candidate)
     domains = _normalize_expected_domains(expected_domains)
     code_results: List[Dict[str, Any]] = []
     for lane in lanes:
@@ -117,9 +142,15 @@ def _query_rows(lanes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         WITH requested(vocabulary_id, concept_code) AS (VALUES {values})
         SELECT source.vocabulary_id, source.concept_code,
           source.concept_id AS source_concept_id, source.concept_name AS source_concept_name,
+          source.vocabulary_id AS source_vocabulary_id, source.concept_code AS source_concept_code,
           source.domain_id AS source_domain_id, source.standard_concept AS source_standard_concept,
+          source.concept_class_id AS source_concept_class_id, source.invalid_reason AS source_invalid_reason,
+          source.valid_start_date AS source_valid_start_date, source.valid_end_date AS source_valid_end_date,
           standard.concept_id AS standard_concept_id, standard.concept_name AS standard_concept_name,
-          standard.vocabulary_id AS standard_vocabulary_id, standard.domain_id AS standard_domain_id
+          standard.vocabulary_id AS standard_vocabulary_id, standard.domain_id AS standard_domain_id,
+          standard.concept_code AS standard_concept_code, standard.concept_class_id AS standard_concept_class_id,
+          standard.standard_concept AS standard_standard_concept, standard.invalid_reason AS standard_invalid_reason,
+          standard.valid_start_date AS standard_valid_start_date, standard.valid_end_date AS standard_valid_end_date
         FROM requested
         JOIN {schema}.{concept_table} source
           ON source.vocabulary_id = requested.vocabulary_id

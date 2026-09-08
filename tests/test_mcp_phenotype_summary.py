@@ -195,3 +195,17 @@ def test_mapping_evidence_records_installed_vocabulary_versions() -> None:
         {"vocabulary_id": "missing", "vocabulary_version": "not_found"},
     ]
     assert provenance["release_notes"].endswith("/releases")
+
+@pytest.mark.mcp
+def test_mapping_candidates_include_atlas_webapi_concept_metadata() -> None:
+    lanes = [{"source_system": "ICD-10 Diagnostic Codes", "vocabulary_id": "ICD10CM", "codes": ["I25.1"], "source_code_count": 1, "truncated": False}]
+    rows = [{"vocabulary_id": "ICD10CM", "concept_code": "I25.1", "standard_concept_id": 101, "standard_concept_name": "Atherosclerotic heart disease", "standard_vocabulary_id": "SNOMED", "standard_domain_id": "Condition", "standard_concept_code": "194828000", "standard_concept_class_id": "Clinical Finding", "standard_standard_concept": "S", "standard_invalid_reason": None, "standard_valid_start_date": "1970-01-01", "standard_valid_end_date": "2099-12-31"}]
+
+    candidate = summarize_mapping(lanes, rows, expected_domains=["Condition"])["code_results"][0]["standard_candidates"][0]
+
+    assert candidate["atlas_concept"] == {
+        "CONCEPT_CLASS_ID": "Clinical Finding", "CONCEPT_CODE": "194828000", "CONCEPT_ID": 101,
+        "CONCEPT_NAME": "Atherosclerotic heart disease", "DOMAIN_ID": "Condition", "INVALID_REASON": None,
+        "INVALID_REASON_CAPTION": "Valid", "STANDARD_CONCEPT": "S", "STANDARD_CONCEPT_CAPTION": "Standard",
+        "VOCABULARY_ID": "SNOMED", "VALID_START_DATE": "1970-01-01", "VALID_END_DATE": "2099-12-31",
+    }

@@ -37,6 +37,11 @@ def test_mapping_evidence_handoff_remains_explicitly_review_gated() -> None:
     assert "This only updates the review evidence; no concepts have been selected." in acquisition
     assert "cohortPrintFriendly(source_payload)" in review
     assert "Working local OMOP cohort statement" in acquisition
+    assert review.count(".studyAgentSlashPrintPhenotypePresentation <- function") == 1
+    assert "write_json(list(items = items), path)" in review
+    assert "CONCEPT_CLASS_ID" in review
+    assert "conceptId" not in review[review.index(".studyAgentSlashPmcWriteAtlasMappingExports"):review.index(".studyAgentSlashPmcWriteMappingEvidenceReview")]
+    assert "Mapping evidence: %s mapped" in review
 
 
 def test_incidence_recommendation_selection_routes_non_computable_items_to_review() -> None:
