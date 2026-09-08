@@ -190,6 +190,16 @@ R_PROFILE_USER=/dev/null R_ENVIRON_USER=/dev/null R_LIBS_USER=<renv-library>   R
 Do not run `renv::restore()` or modify the lockfile merely to make a check pass unless the
 user explicitly asks to change dependency state.
 
+## Manual testing deployment refresh
+
+Before asking for or performing manual testing, determine whether the changes affect either linked R package or ACP/MCP runtime behavior. When they do, explicitly remind the tester to complete the applicable refresh first:
+
+- Reinstall `slashOhdsiAcpClient` and/or `slashOhdsiStrategusAssistant` after changes to either package source, then restart the R session so it loads the installed changes.
+- Restart MCP after MCP tool, retrieval/index, prompt, or MCP configuration changes.
+- Restart ACP after ACP flow/server/client-contract changes, and restart it after MCP when ACP uses a managed MCP process or cached MCP service inventory.
+
+Do not treat source-tree edits, an already-running R session, or already-running ACP/MCP processes as evidence that a manual test is exercising the new behavior. State the required refresh actions in the manual-test handoff.
+
 ## Testing
 
 - Use the standard `testthat` entrypoint while developing:
