@@ -48,6 +48,26 @@ def test_mapping_evidence_handoff_remains_explicitly_review_gated() -> None:
     assert "Mapping evidence: %s mapped" in review
 
 
+def test_scope_defaults_and_shell_recovery_guards_are_present() -> None:
+    acquisition = ACQUISITION.read_text(encoding="utf-8")
+    incidence = INCIDENCE.read_text(encoding="utf-8")
+    cohort_methods = COHORT_METHODS.read_text(encoding="utf-8")
+
+    assert 'Required prior continuous observation days [0]:' in acquisition
+    assert 'Enter a non-negative whole number, or press Enter to use 0.' in acquisition
+    assert 'checkpoint_matches_statement <- function' in incidence
+    assert 'Saved target advice belongs to a different or older target statement' in incidence
+    assert 'Saved outcome advice belongs to a different or older outcome statement' in incidence
+    assert 'role_statement = target_statement' in incidence
+    assert 'role_statement = outcome_statement' in incidence
+    assert 'Pre-build recovery note:' in incidence
+    assert 'cached_recommendation_matches_statement <- function' in cohort_methods
+    assert 'Saved %s recommendations belong to a different or older cohort statement' in cohort_methods
+    assert 'write_recommendation <- function' in cohort_methods
+    assert 'Could not create artifact directory: %s' in incidence
+    assert 'Could not create artifact directory: %s' in cohort_methods
+
+
 def test_incidence_recommendation_selection_routes_non_computable_items_to_review() -> None:
     incidence = INCIDENCE.read_text(encoding="utf-8")
 
