@@ -27,7 +27,6 @@ We got a skill! Check out a [demo agent skill](https://github.com/rkboyce/AgentP
 
 ### Study Agent with R for real-world evidence generation
 
-
 - **[Overview — AI-assisted real-world evidence generation with Study Agent](https://www.youtube.com/watch?v=rMxnmEGWoO4)**
 
 A step-by-step demonstration of using Study Agent with an R and Strategus workflow:
@@ -35,16 +34,18 @@ A step-by-step demonstration of using Study Agent with an R and Strategus workfl
 > [!NOTE]
 > The workflow in R now requires you install [SlashOhdsiAcpClient](https://github.com/OHDSI/SlashOhdsiAcpClient) and [SlashOhdsiStrategusAssistant](https://github.com/OHDSI/SlashOhdsiStrategusAssistant) in your R environment along with their requirements. 
 
-1. **[Part 1 — Define the study and select phenotypes](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=eef98905-e9eb-497f-8d07-b46e00c3702d)**  
+1. **[Define the study and select phenotypes](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=eef98905-e9eb-497f-8d07-b46e00c3702d)**
    Introduces the Strategus CohortMethod workflow, study intent, phenotype selection, and the interactive runner shell.
+   
+2. **[Reuse phenotype definitions, even if they start out non-computable](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=00c9b9aa-5fb3-4d55-a0f5-b4bf010da1a5)** 
 
-2. **[Part 2 — Inspect cohorts and create a keeper concept set](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=8f719cc9-08f4-4bea-9091-b46e00cf641e)**
+3. **[Inspect cohorts and create a keeper concept set](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=8f719cc9-08f4-4bea-9091-b46e00cf641e)**
 
-3. **[Part 3 — Run and inspect the keeper concept set](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=c3ab5141-d7cb-4bd6-b3ec-b46f00d8f83d)**
+4. **[Run and inspect the keeper concept set](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=c3ab5141-d7cb-4bd6-b3ec-b46f00d8f83d)**
 
-4. **[Part 4 — Review keeper cases](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=7bd986fa-960c-493a-8417-b470001e542f)**
+5. **[Review keeper cases](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=7bd986fa-960c-493a-8417-b470001e542f)**
 
-5. **[Part 5 — Run diagnostics and CohortMethod](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=f0f50c8d-765e-4c36-97ec-b47100dfc516)**
+6. **[Run diagnostics and CohortMethod](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=f0f50c8d-765e-4c36-97ec-b47100dfc516)**
 
 **Bonus:** **[Generate cohorts with `/ohdsi` and ATLAS/WebAPI](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=f0df2da7-86ee-4f4e-8f65-b4790179fc70)**
 
