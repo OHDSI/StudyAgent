@@ -17,7 +17,7 @@ def test_mapping_evidence_handoff_remains_explicitly_review_gated() -> None:
     assert '"mapping-concept-set-approval.json"' in acquisition
     assert 'type APPROVE' in acquisition
     assert 'concept_review_mode = "provided_only"' in review
-    assert 'Use the prepared exposure-followed-by-outcome relationship as a scope template?' in acquisition
+    assert 'Use the proposed exposure-followed-by-outcome template?' in acquisition
     assert 'conversion-provenance.json' in review
     assert 'conversion_source_provenance' in review
     assert 'source_payload_sha256' in review
@@ -43,6 +43,7 @@ def test_mapping_evidence_handoff_remains_explicitly_review_gated() -> None:
     assert "write_json(list(items = items), path)" in review
     assert "CONCEPT_CLASS_ID" in review
     assert "conceptId" not in review[review.index(".studyAgentSlashPmcWriteAtlasMappingExports"):review.index(".studyAgentSlashPmcWriteMappingEvidenceReview")]
+    assert ".studyAgentSlashPmcApprovedConceptSetPrintFriendly <- function" in review
     assert "else NA_character_" in review
     assert "Mapping evidence: %s mapped" in review
 
