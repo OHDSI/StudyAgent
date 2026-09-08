@@ -39,6 +39,7 @@ def test_mapping_evidence_handoff_remains_explicitly_review_gated() -> None:
     assert "conceptSetListPrintFriendly(cohort$ConceptSets" in review
     assert "Working local OMOP cohort statement" in acquisition
     assert review.count(".studyAgentSlashPrintPhenotypePresentation <- function") == 1
+    assert ".studyAgentSlashPrintPhenotypeSourceEvidence <- function" in review
     assert "write_json(list(items = items), path)" in review
     assert "CONCEPT_CLASS_ID" in review
     assert "conceptId" not in review[review.index(".studyAgentSlashPmcWriteAtlasMappingExports"):review.index(".studyAgentSlashPmcWriteMappingEvidenceReview")]
@@ -52,8 +53,8 @@ def test_incidence_recommendation_selection_routes_non_computable_items_to_revie
     assert "prepare_recommended_phenotype <- function" in incidence
     assert "== Creating candidate definition preview ==" in incidence
     assert ".studyAgentSlashCreateComputableRoleSelection(" in incidence
-    assert "type USE; /back returns to cohort-source selection" in incidence
-    assert "type USE; /back returns to cohort-source selection" in incidence
+    assert "USE; codes=list source code/text evidence; /back" in incidence
+    assert "USE; codes=list source code/text evidence; /back" in incidence
     assert 'prepare_recommended_phenotype(selected_rec, "target")' in incidence
     assert 'prepare_recommended_phenotype(recommendations_outcome[[idx]], "outcome")' in incidence
     assert "ACP recommendation did not include a computable Circe JSON definition." not in incidence
@@ -73,7 +74,7 @@ def test_cohort_methods_recommendation_selection_routes_non_computable_items_to_
     cohort_methods = COHORT_METHODS.read_text(encoding="utf-8")
     assert ".studyAgentSlashPreviewPhenotypeCandidate(" in cohort_methods
     assert "== Creating candidate definition preview ==" in cohort_methods
-    assert "type USE; /back returns to cohort-source selection" in cohort_methods
+    assert "USE; codes=list source code/text evidence; /back" in cohort_methods
 
     assert "collect_recommendation_selection <- function" in cohort_methods
     assert ".studyAgentSlashPreparePhenotypeConversion(" in cohort_methods

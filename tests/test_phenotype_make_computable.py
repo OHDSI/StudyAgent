@@ -738,3 +738,22 @@ def test_drug_exposure_followed_by_condition_compiles():
     assert "Capr::drugExposure(drugCs" in emitted["capr_code"]
     circe = validate_capr_source(emitted["capr_code"])["circe_json"]
     assert circe["PrimaryCriteria"]["ObservationWindow"] == {"PriorDays": 365, "PostDays": 0}
+
+
+def test_required_review_uses_classification_ancestor_fallback_for_zero_drug_search():
+    class ClassificationMcp(_Mcp):
+        def call_tool(self, name, arguments):
+            if name == "vocab_search_standard":
+                return {"concepts": [], "returned_count": 0, "matched_count": 0, "matched_count_status": "exact", "limit": 20, "truncated": False}
+            if name == "vocab_search_classification_ancestors":
+                assert arguments == {"query": "ACE inhibitor", "domains": ["Drug"], "limit": 20}
+                return {"concepts": [{"conceptId": 21601784, "conceptName": "ACE inhibitors, plain", "domainId": "Drug", "vocabularyId": "ATC", "conceptClassId": "ATC 4th", "standardConcept": "C", "classificationAncestor": True, "includeDescendantsSuggested": True}], "returned_count": 1, "matched_count": 1, "matched_count_status": "exact", "limit": 20, "truncated": False}
+            return super().call_tool(name, arguments)
+
+    scope = {"index_event": "ACE inhibitor", "criterion_domains": {"ACE inhibitor": "Drug"}}
+    candidates, provenance, _ = StudyAgent(mcp_client=ClassificationMcp())._retrieve_phenotype_concept_lanes(scope)
+
+    assert candidates[0]["conceptId"] == 21601784
+    assert candidates[0]["sourceStage"] == "classification_ancestor_fallback"
+    assert candidates[0]["classificationAncestor"] is True
+    assert any(run.get("candidate_kind") == "classification_ancestor" for run in provenance["search_runs"])

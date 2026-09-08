@@ -120,6 +120,20 @@ def test_vocab_search_standard_reports_unconfigured_provider(monkeypatch) -> Non
     assert result["count"] == 0
 
 
+
+
+@pytest.mark.mcp
+def test_vocab_search_classification_ancestors_requires_database_provider(monkeypatch) -> None:
+    monkeypatch.delenv("VOCAB_SEARCH_PROVIDER", raising=False)
+    tools = _registered_tools()
+    result = tools["vocab_search_classification_ancestors"](
+        query="ACE inhibitor",
+        domains=["Drug"],
+        limit=20,
+    )
+
+    assert result["error"] == "classification_ancestor_search_requires_db"
+    assert result["concepts"] == []
 @pytest.mark.mcp
 def test_phoebe_related_concepts_reports_unconfigured_provider(monkeypatch) -> None:
     monkeypatch.delenv("PHOEBE_PROVIDER", raising=False)

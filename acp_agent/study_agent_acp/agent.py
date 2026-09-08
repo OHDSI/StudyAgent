@@ -3543,6 +3543,53 @@ class StudyAgent(PhenotypeRecommendationMixin):
                 candidate["sourceTerm"] = request["query"]
                 candidate["sourceStage"] = "criterion_domain_search"
                 raw_candidates.append(candidate)
+            # A zero-result standard-concept search can still have a useful, valid
+            # classification ancestor (for example ATC or MedDRA).  It is a
+            # review-only fallback for Condition/Drug, never a mapped result or
+            # automatic concept-set policy.
+            if (
+                not rows
+                and not request["vocabulary_ids"]
+                and len(request["domains"]) == 1
+                and request["domains"][0] in {"Condition", "Drug"}
+            ):
+                classification_result = self.call_tool(
+                    "vocab_search_classification_ancestors",
+                    {"query": request["query"], "domains": request["domains"], "limit": candidate_limit},
+                )
+                classification_payload = classification_result.get("full_result") or {}
+                classification_rows = classification_payload.get("concepts") or []
+                classification_returned = int(classification_payload.get("returned_count", len(classification_rows)) or 0)
+                classification_matched = classification_payload.get("matched_count")
+                classification_matched = int(classification_matched) if classification_matched not in (None, "") else None
+                classification_truncated = classification_payload.get("truncated")
+                if classification_truncated is None and classification_matched is not None:
+                    classification_truncated = classification_matched > classification_returned
+                search_runs.append({
+                    "concept_set_name": request["name"],
+                    "query": request["query"],
+                    "domains": request["domains"],
+                    "vocabulary_ids": [],
+                    "count": classification_returned,
+                    "returned_count": classification_returned,
+                    "matched_count": classification_matched,
+                    "matched_count_status": classification_payload.get("matched_count_status", "not_available"),
+                    "limit": int(classification_payload.get("limit", candidate_limit) or candidate_limit),
+                    "truncated": classification_truncated,
+                    "ordering": classification_payload.get("ordering", "provider_defined"),
+                    "vocabulary_filter_status": "classification_fallback",
+                    "candidate_kind": "classification_ancestor",
+                    "status": classification_result.get("status"),
+                })
+                for row in classification_rows:
+                    candidate = dict(row)
+                    candidate["conceptSetName"] = request["name"]
+                    candidate["conceptSetDomain"] = request["domains"][0]
+                    candidate["sourceTerm"] = request["query"]
+                    candidate["sourceStage"] = "classification_ancestor_fallback"
+                    candidate["classificationAncestor"] = True
+                    candidate["includeDescendantsSuggested"] = True
+                    raw_candidates.append(candidate)
         # A concept can be found by several union terms. Keep one row per
         # (concept, review lane), recording all lexical evidence rather than creating
         # duplicate rows that could receive contradictory review policies.

@@ -59,6 +59,7 @@ def test_register_all_tools() -> None:
         "vocab_filter_standard_concepts",
         "vocab_remove_descendants",
         "vocab_add_nonchildren",
+        "vocab_search_classification_ancestors",
         "vocab_fetch_concepts",
         "cohort_methods_prompt_bundle",
         "workflow_context_dialogue",
