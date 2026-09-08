@@ -367,7 +367,8 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
                 body = _read_json(self)
                 phenotype_id = str(body.get("phenotype_id") or "").strip()
                 context = body.get("recommendation_context") or {}
-                expected_domains = body.get("expected_domains") or []
+                raw_expected_domains = body.get("expected_domains", [])
+                expected_domains = [raw_expected_domains] if isinstance(raw_expected_domains, str) else raw_expected_domains
                 if not phenotype_id or not isinstance(context, dict) or not isinstance(expected_domains, list) or not all(isinstance(domain, str) for domain in expected_domains) or not isinstance(body.get("check_vocabulary_database", True), bool):
                     raise ValueError("phenotype_id_required_and_context_must_be_object")
             except Exception as exc:

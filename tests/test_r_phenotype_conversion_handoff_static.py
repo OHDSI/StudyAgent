@@ -29,6 +29,10 @@ def test_mapping_evidence_handoff_remains_explicitly_review_gated() -> None:
     assert 'atlas=import in Atlas and return corrected JSON' in acquisition
     assert 'More than 500 mapping candidates were returned' in acquisition
     assert 'More than 100 mapping candidates were returned' in acquisition
+    assert 'expected_domains = as.list(expected_domains)' in (ROOT / "sandbox" / "slashOhdsiAcpClient" / "R" / "flows.R").read_text(encoding="utf-8")
+    assert ".studyAgentSlashPreviewPhenotypeCandidate <- function" in review
+    assert "Source algorithm narrative (evidence only" in review
+    assert "Working local OMOP cohort statement" in acquisition
 
 
 def test_incidence_recommendation_selection_routes_non_computable_items_to_review() -> None:
@@ -37,6 +41,8 @@ def test_incidence_recommendation_selection_routes_non_computable_items_to_revie
     assert "prepare_recommended_phenotype <- function" in incidence
     assert ".studyAgentSlashPreparePhenotypeConversion(" in incidence
     assert ".studyAgentSlashCreateComputableRoleSelection(" in incidence
+    assert "== Candidate definition preview ==" in incidence
+    assert "type USE; /back returns to cohort-source selection" in incidence
     assert 'prepare_recommended_phenotype(selected_rec, "target")' in incidence
     assert 'prepare_recommended_phenotype(recommendations_outcome[[idx]], "outcome")' in incidence
     assert "ACP recommendation did not include a computable Circe JSON definition." not in incidence
@@ -54,11 +60,13 @@ def test_incidence_advice_does_not_end_the_session() -> None:
 
 def test_cohort_methods_recommendation_selection_routes_non_computable_items_to_review() -> None:
     cohort_methods = COHORT_METHODS.read_text(encoding="utf-8")
+    assert ".studyAgentSlashPreviewPhenotypeCandidate(" in cohort_methods
+    assert "== Candidate definition preview ==" in cohort_methods
+    assert "type USE; /back returns to cohort-source selection" in cohort_methods
 
     assert "collect_recommendation_selection <- function" in cohort_methods
     assert ".studyAgentSlashPreparePhenotypeConversion(" in cohort_methods
-    assert ".studyAgentSlashCreateComputableRoleSelection(" in cohort_methods
-    assert "Continue through the review-gated create workflow." in cohort_methods
+    assert "A local OMOP cohort definition has not been created." in cohort_methods
     assert "Stopping after %s advice" not in cohort_methods
     assert 'identical(target_rec$action %||% "", "retry")' in cohort_methods
     assert 'identical(comparator_rec$action %||% "", "retry")' in cohort_methods
