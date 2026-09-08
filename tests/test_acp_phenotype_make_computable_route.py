@@ -45,6 +45,42 @@ def test_phenotype_make_computable_route_rejects_invalid_payload(monkeypatch):
 
 
 @pytest.mark.acp
+def test_conversion_prepare_route_normalizes_legacy_scalar_expected_domain(monkeypatch):
+    handler = acp_server.ACPRequestHandler.__new__(acp_server.ACPRequestHandler)
+    handler.path = "/flows/phenotype_conversion_prepare"
+    handler.headers = {}
+    handler.debug = False
+    handler.agent = StudyAgent(mcp_client=None)
+    handler.mcp_client = None
+    handler.wfile = None
+    handler.rfile = None
+    captured = {}
+    received = {}
+
+    def fake_flow(self, **kwargs):
+        received.update(kwargs)
+        return {"status": "ok"}
+
+    monkeypatch.setattr(StudyAgent, "run_phenotype_conversion_prepare_flow", fake_flow)
+    monkeypatch.setattr(
+        acp_server,
+        "_read_json",
+        lambda _handler: {
+            "phenotype_id": "cipher:29772",
+            "recommendation_context": {"recommendation_role": "target"},
+            "expected_domains": "Condition",
+            "check_vocabulary_database": True,
+        },
+    )
+    monkeypatch.setattr(acp_server, "_write_json", lambda _handler, status, payload: captured.update(status=status, payload=payload))
+
+    handler.do_POST()
+
+    assert captured == {"status": 200, "payload": {"status": "ok"}}
+    assert received["expected_domains"] == ["Condition"]
+
+
+@pytest.mark.acp
 def test_phenotype_review_session_routes_page_and_download(monkeypatch):
     handler = acp_server.ACPRequestHandler.__new__(acp_server.ACPRequestHandler)
     handler.path = "/flows/phenotype_make_computable/reviews/review123/candidates?offset=2&limit=5"

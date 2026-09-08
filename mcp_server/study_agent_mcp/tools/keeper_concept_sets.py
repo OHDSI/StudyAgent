@@ -400,6 +400,28 @@ def _search_standard_via_db(query: str, domains: List[str] | None, concept_class
         "provider": "db",
     }
 
+def _search_classification_ancestors_via_db(query: str, domains: List[str] | None, limit: int) -> Dict[str, Any]:
+    """Retrieve valid classification ancestors only for explicit review, never selection."""
+    reviewable_domains = [domain for domain in (domains or []) if domain in {"Condition", "Drug"}]
+    if not reviewable_domains:
+        return {"concepts": [], "count": 0, "returned_count": 0, "matched_count": 0, "matched_count_status": "exact", "limit": max(1, min(int(limit), 100)), "truncated": False, "ordering": "concept_name_ascending", "provider": "db"}
+    engine_name = _resolve_vocab_engine_name()
+    schema = _safe_identifier(os.getenv("VOCAB_DATABASE_SCHEMA", "vocabulary"), "vocab_database_schema")
+    table = _safe_identifier(os.getenv("VOCAB_CONCEPT_TABLE", "concept"), "vocab_concept_table")
+    requested_limit = max(1, min(int(limit), 100))
+    conditions = ["lower(concept_name) LIKE lower(:query)", "standard_concept = 'C'", "invalid_reason IS NULL", "domain_id IN :domains"]
+    params: Dict[str, Any] = {"query": f"%{query.strip()}%", "domains": reviewable_domains, "limit": requested_limit}
+    binds = [sa.bindparam("domains", expanding=True)]
+    where_clause = " AND ".join(conditions)
+    sql = sa.text(f"SELECT concept_id, concept_name, vocabulary_id, domain_id, concept_class_id, standard_concept FROM {schema}.{table} WHERE {where_clause} ORDER BY concept_name LIMIT :limit").bindparams(*binds)
+    count_sql = sa.text(f"SELECT COUNT(*) AS matched_count FROM {schema}.{table} WHERE {where_clause}").bindparams(*binds)
+    engine = create_engine_with_dependencies(engine_name, future=True)
+    with engine.connect() as connection:
+        matched_count = int(connection.execute(count_sql, params).scalar_one())
+        rows = connection.execute(sql, params).mappings().all()
+    concepts = [{"conceptId": row["concept_id"], "conceptName": row["concept_name"], "vocabularyId": row["vocabulary_id"], "domainId": row["domain_id"], "conceptClassId": row["concept_class_id"], "standardConcept": row["standard_concept"], "classificationAncestor": True, "includeDescendantsSuggested": True} for row in rows]
+    return {"concepts": concepts, "count": len(concepts), "returned_count": len(concepts), "matched_count": matched_count, "matched_count_status": "exact", "limit": requested_limit, "truncated": matched_count > len(concepts), "ordering": "concept_name_ascending", "provider": "db", "candidate_kind": "classification_ancestor", "selection_guardrail": "Classification ancestors are optional review seeds. They are not standard mapped concepts and are never selected automatically."}
+
 def _search_standard_via_generic_api(
     query: str,
     domains: List[str] | None,
@@ -854,6 +876,7 @@ def register(mcp: object) -> None:
         if selected_provider == "generic_search_api":
             try:
                 payload = _search_standard_via_generic_api(query, domains, concept_classes, limit)
+
             except Exception as exc:
                 return with_meta(
                     {
@@ -876,6 +899,21 @@ def register(mcp: object) -> None:
             "vocab_search_standard",
         )
 
+
+    @mcp.tool(name="vocab_search_classification_ancestors")
+    def vocab_search_classification_ancestors_tool(
+        query: str,
+        domains: List[str] | None = None,
+        limit: int = 20,
+        provider: str = "",
+    ) -> Dict[str, Any]:
+        selected_provider = _provider_value(provider, "VOCAB_SEARCH_PROVIDER")
+        if selected_provider != "db":
+            return with_meta({"error": "classification_ancestor_search_requires_db", "provider": selected_provider or "unconfigured", "concepts": [], "count": 0}, "vocab_search_classification_ancestors")
+        try:
+            return with_meta(_search_classification_ancestors_via_db(query, domains, limit), "vocab_search_classification_ancestors")
+        except Exception as exc:
+            return with_meta({"error": "vocab_search_classification_ancestors_failed", "provider": "db", "details": str(exc), "concepts": [], "count": 0}, "vocab_search_classification_ancestors")
     @mcp.tool(name="phoebe_related_concepts")
     def phoebe_related_concepts_tool(
         concept_ids: List[int],
@@ -889,6 +927,7 @@ def register(mcp: object) -> None:
             if relationships:
                 concepts = [concept for concept in concepts if concept.get("relationshipId") in relationships]
             return with_meta(
+
                 {"concepts": concepts, "count": len(concepts), "provider": provider or "inline_results"},
                 "phoebe_related_concepts",
             )

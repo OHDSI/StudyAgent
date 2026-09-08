@@ -626,3 +626,156 @@ def test_acp_flow_comparator_without_direct_match_returns_no_recommendations(mon
     assert result["diagnostics"]["role_match_gate"]["matched_candidate_ids"] == []
     assert result["diagnostics"]["role_match_gate"]["skip_reason"] == "no_direct_role_match"
     assert len(llm_calls) == 2
+
+
+@pytest.mark.acp
+def test_phenotype_definition_returns_direct_circe_with_canonical_hash(monkeypatch):
+    circe = {"PrimaryCriteria": {"CriteriaList": []}, "ConceptSets": []}
+
+    def fake_call_tool(self, name, arguments, confirm=False):
+        payload = {"summary": {"phenotype_id": "ohdsi:1", "name": "Example", "executable_definition_status": "native_ohdsi"}} if name == "phenotype_fetch_summary" else {"definition": circe}
+        return {"status": "ok", "full_result": payload}
+
+    monkeypatch.setattr(StudyAgent, "call_tool", fake_call_tool)
+    result = StudyAgent(mcp_client=object()).run_phenotype_definition_flow("ohdsi:1")
+
+    assert result["status"] == "ok"
+    assert result["circe_json"] == circe
+    assert result["definition_sha256"] == "12546c717038cc6907449066226ed2646533f5b9c1ae63f4ada8cf35c5521c5c"
+
+
+@pytest.mark.acp
+def test_phenotype_definition_fails_closed_for_conversion_and_malformed_payload(monkeypatch):
+    def conversion_call(self, name, arguments, confirm=False):
+        return {"status": "ok", "full_result": {"summary": {"phenotype_id": "cipher:1", "name": "Narrative", "executable_definition_status": "codes_only"}}}
+
+    monkeypatch.setattr(StudyAgent, "call_tool", conversion_call)
+    conversion = StudyAgent(mcp_client=object()).run_phenotype_definition_flow("cipher:1", allow_make_computable=False)
+    assert conversion["status"] == "unavailable"
+    assert conversion["computability_status"] == "conversion_required"
+    assert "circe_json" not in conversion
+
+    def malformed_call(self, name, arguments, confirm=False):
+        payload = {"summary": {"phenotype_id": "ohdsi:1", "name": "Broken", "executable_definition_status": "native_ohdsi"}} if name == "phenotype_fetch_summary" else {"definition": {"ConceptSets": []}}
+        return {"status": "ok", "full_result": payload}
+
+    monkeypatch.setattr(StudyAgent, "call_tool", malformed_call)
+    malformed = StudyAgent(mcp_client=object()).run_phenotype_definition_flow("ohdsi:1")
+    assert malformed["status"] == "unavailable"
+    assert malformed["error"] == "malformed_circe_definition"
+    assert "circe_json" not in malformed
+
+
+@pytest.mark.acp
+def test_ace_cough_composition_seed_is_explicitly_unconfirmed():
+    seed = StudyAgent._composition_seed(
+        {"title": "ACE Inhibitor Induced Cough", "source_payload": {"algorithm": {"algorithmDesc": "Cases have cough after ACE inhibitor exposure."}}},
+        {"plain_language_summary": "Cough after ACE inhibitor exposure."},
+    )
+    assert seed["emitter_support"]["status"] == "supported"
+    assert seed is not None
+    assert seed["composition_type"] == "exposure_followed_by_outcome"
+    assert seed["status"] == "unconfirmed"
+    assert "does not select concepts" in seed["guardrail"]
+
+@pytest.mark.acp
+def test_conversion_prepare_includes_review_only_mapping_evidence(monkeypatch):
+    payloads = {
+        "phenotype_fetch_source_snapshot": {"snapshot": {"title": "Abnormal arterial blood gases", "source_payload": {"algorithm": {"algorithmDesc": "Use two events."}}}},
+        "phenotype_present": {"presentation": {"plain_language_summary": "A coded phenotype."}},
+        "phenotype_conversion_readiness": {"readiness": {"action_class": "conversion_candidate"}},
+        "phenotype_code_mapping_evidence": {"mapping_evidence": {"status": "ok", "coverage": {"mapped_code_count": 1}, "selection_guardrail": "Mapping results are evidence for human review only."}},
+    }
+
+    def fake_call(self, name, arguments, confirm=False):
+        return {"status": "ok", "full_result": payloads[name]}
+
+    monkeypatch.setattr(StudyAgent, "call_tool", fake_call)
+    result = StudyAgent(mcp_client=object()).run_phenotype_conversion_prepare_flow("cipher:17527")
+
+    assert result["status"] == "ok"
+    assert result["mapping_evidence"]["status"] == "ok"
+    assert "human review" in result["mapping_evidence"]["selection_guardrail"]
+    assert result["review_required"] is True
+
+@pytest.mark.acp
+def test_conversion_prepare_returns_bounded_follow_on_candidates(monkeypatch):
+    payloads = {
+        "phenotype_fetch_source_snapshot": {"snapshot": {"title": "ACE inhibitor induced cough", "source_payload": {"algorithm": {"algorithmDesc": "Cough after ACE inhibitor exposure."}}}},
+        "phenotype_present": {"presentation": {"plain_language_summary": "Cough after ACE inhibitor exposure."}},
+        "phenotype_conversion_readiness": {"readiness": {"action_class": "source_informed_review"}},
+        "phenotype_code_mapping_evidence": {"mapping_evidence": {"status": "not_applicable"}},
+        "phenotype_search": {"results": [{"phenotype_id": "ohdsi:925", "name": "Cough", "source_dataset": "ohdsi_phenotype_library", "executable_definition_status": "native_ohdsi", "short_description": "Cough condition."}]},
+    }
+
+    def fake_call(self, name, arguments, confirm=False):
+        return {"status": "ok", "full_result": payloads[name]}
+
+    monkeypatch.setattr(StudyAgent, "call_tool", fake_call)
+    result = StudyAgent(mcp_client=object()).run_phenotype_conversion_prepare_flow("cipher:29197")
+
+    group = result["component_recommendations"][0]
+    assert group["role"] == "follow_on_condition"
+    assert group["query"] == "Cough"
+    candidate = group["candidates"][0]
+    assert candidate["phenotype_id"] == "ohdsi:925"
+    assert candidate["computability_status"] == "circe_available"
+    assert candidate["presentation"]["plain_language_summary"] == "Cough after ACE inhibitor exposure."
+
+@pytest.mark.acp
+def test_component_recommendations_distinguish_empty_search_from_unavailable(monkeypatch):
+    def empty_call(self, name, arguments, confirm=False):
+        return {"status": "ok", "full_result": {"results": []}}
+
+    monkeypatch.setattr(StudyAgent, "call_tool", empty_call)
+    seed = {"components": [{"role": "follow_on_condition", "label": "Cough"}]}
+    empty = StudyAgent(mcp_client=object())._composition_component_recommendations("cipher:29197", seed)
+    assert empty == [{"role": "follow_on_condition", "query": "Cough", "candidates": [], "status": "no_candidates"}]
+
+    def unavailable_call(self, name, arguments, confirm=False):
+        return {"status": "error", "full_result": {"error": "index unavailable"}}
+
+    monkeypatch.setattr(StudyAgent, "call_tool", unavailable_call)
+    unavailable = StudyAgent(mcp_client=object())._composition_component_recommendations("cipher:29197", seed)
+    assert unavailable == [{"role": "follow_on_condition", "query": "Cough", "candidates": [], "status": "unavailable"}]
+
+@pytest.mark.acp
+def test_conversion_prepare_disables_all_vocabulary_database_calls(monkeypatch):
+    calls = []
+    payloads = {
+        "phenotype_fetch_source_snapshot": {"snapshot": {"title": "Example", "source_payload": {}}},
+        "phenotype_present": {"presentation": {"plain_language_summary": "Example."}},
+        "phenotype_conversion_readiness": {"readiness": {"action_class": "source_informed_review"}},
+        "phenotype_code_mapping_evidence": {"mapping_evidence": {"status": "not_requested"}},
+    }
+
+    def fake_call(self, name, arguments, confirm=False):
+        calls.append((name, arguments))
+        return {"status": "ok", "full_result": payloads[name]}
+
+    monkeypatch.setattr(StudyAgent, "call_tool", fake_call)
+    result = StudyAgent(mcp_client=object()).run_phenotype_conversion_prepare_flow("cipher:1", check_vocabulary_database=False)
+
+    assert result["mapping_evidence"]["status"] == "not_requested"
+    assert dict(calls)["phenotype_conversion_readiness"]["check_vocabulary_database"] is False
+    assert dict(calls)["phenotype_code_mapping_evidence"]["check_vocabulary_database"] is False
+
+@pytest.mark.acp
+def test_conversion_prepare_forwards_only_explicit_expected_domains(monkeypatch):
+    calls = []
+    payloads = {
+        "phenotype_fetch_source_snapshot": {"snapshot": {"title": "Example", "source_payload": {}}},
+        "phenotype_present": {"presentation": {"plain_language_summary": "Example."}},
+        "phenotype_conversion_readiness": {"readiness": {"action_class": "source_informed_review"}},
+        "phenotype_code_mapping_evidence": {"mapping_evidence": {"status": "ok", "domain_mapping_policy": {"expected_domains": ["Condition"]}}},
+    }
+
+    def fake_call(self, name, arguments, confirm=False):
+        calls.append((name, arguments))
+        return {"status": "ok", "full_result": payloads[name]}
+
+    monkeypatch.setattr(StudyAgent, "call_tool", fake_call)
+    result = StudyAgent(mcp_client=object()).run_phenotype_conversion_prepare_flow("cipher:1", expected_domains=["Condition"])
+
+    assert result["mapping_evidence"]["domain_mapping_policy"]["expected_domains"] == ["Condition"]
+    assert dict(calls)["phenotype_code_mapping_evidence"]["expected_domains"] == ["Condition"]

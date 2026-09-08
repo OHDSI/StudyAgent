@@ -9,6 +9,22 @@ The current ACP request accepts these commonly used fields:
 
 
 ```mermaid
+
+## Recommendation computability status
+
+Each final `recommendations.phenotype_recommendations` item includes a deterministic
+`computability_status` alongside its identifier, title, justification, and confidence:
+
+- `circe_available`: the indexed source is a native OHDSI definition and can follow
+  the executable-definition acquisition path.
+- `conversion_required`: the source may provide code or narrative evidence, but needs
+  source preparation, explicit scope confirmation, and reviewed OMOP concept policies.
+- `not_computable`: ACP cannot currently offer a supported executable path for the
+  indexed source in this environment.
+
+This is an acquisition-routing signal, not clinical validation. A conversion status
+never authorizes automatic concept selection or Circe emission.
+
 sequenceDiagram
     autonumber
     actor U as User / Client
