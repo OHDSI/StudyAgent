@@ -46,10 +46,11 @@ def test_mapping_evidence_handoff_remains_explicitly_review_gated() -> None:
     assert ".studyAgentSlashPmcApprovedConceptSetPrintFriendly <- function" in review
     assert "else NA_character_" in review
     assert "Mapping evidence: %s mapped" in review
-    assert "Source terminology unavailable locally" in review
     assert "/back returns to cohort-source selection" in review
     assert '"source-definition.json"' in review
 
+    assert "Source codes are not mappable in this server's local vocabulary" in review
+    assert "Concept-set JSON could not be used" in review
 
 def test_scope_defaults_and_shell_recovery_guards_are_present() -> None:
     acquisition = ACQUISITION.read_text(encoding="utf-8")
@@ -110,4 +111,6 @@ def test_cohort_methods_recommendation_selection_routes_non_computable_items_to_
     assert "Stopping after %s advice" not in cohort_methods
     assert 'identical(target_rec$action %||% "", "retry")' in cohort_methods
     assert 'identical(comparator_rec$action %||% "", "retry")' in cohort_methods
+    assert "Returning to cohort-source selection. You can choose create" in cohort_methods
+    assert "Enter a cohort ID manually if you want to continue" not in cohort_methods
     assert 'vapply(outcome_recs, function(rec) identical(rec$action %||% "", "retry")' in cohort_methods
