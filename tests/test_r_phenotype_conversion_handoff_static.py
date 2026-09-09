@@ -37,6 +37,10 @@ def test_mapping_evidence_handoff_remains_explicitly_review_gated() -> None:
     assert "This only updates the review evidence; no concepts have been selected." in acquisition
     assert ".studyAgentSlashCirceDefinitionPrintFriendly <- function" in review
     assert "conceptSetListPrintFriendly(cohort$ConceptSets" in review
+    assert ".studyAgentSlashCirceDefinitionConsole <- function" in review
+    assert "fixed-width console rendering" in review
+    assert '"cohort-definition-readable.md"' in review
+    assert "Saved Markdown cohort definition" in review
     assert "Working local OMOP cohort statement" in acquisition
     assert review.count(".studyAgentSlashPrintPhenotypePresentation <- function") == 1
     assert ".studyAgentSlashPrintPhenotypeSourceEvidence <- function" in review
@@ -49,7 +53,7 @@ def test_mapping_evidence_handoff_remains_explicitly_review_gated() -> None:
     assert "/back returns to cohort-source selection" in review
     assert '"source-definition.json"' in review
 
-    assert "Source codes are not mappable in this server's local vocabulary" in review
+    assert "The phenotype's source concept codes are not mappable" in review
     assert "Concept-set JSON could not be used" in review
 
 def test_scope_defaults_and_shell_recovery_guards_are_present() -> None:
@@ -112,5 +116,6 @@ def test_cohort_methods_recommendation_selection_routes_non_computable_items_to_
     assert 'identical(target_rec$action %||% "", "retry")' in cohort_methods
     assert 'identical(comparator_rec$action %||% "", "retry")' in cohort_methods
     assert "Returning to cohort-source selection. You can choose create" in cohort_methods
+    assert 'if (!identical(selection$action %||% "", "handled"))' in cohort_methods
     assert "Enter a cohort ID manually if you want to continue" not in cohort_methods
     assert 'vapply(outcome_recs, function(rec) identical(rec$action %||% "", "retry")' in cohort_methods
