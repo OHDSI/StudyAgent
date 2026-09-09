@@ -46,6 +46,9 @@ def test_mapping_evidence_handoff_remains_explicitly_review_gated() -> None:
     assert ".studyAgentSlashPmcApprovedConceptSetPrintFriendly <- function" in review
     assert "else NA_character_" in review
     assert "Mapping evidence: %s mapped" in review
+    assert "Source terminology unavailable locally" in review
+    assert "/back returns to cohort-source selection" in review
+    assert '"source-definition.json"' in review
 
 
 def test_scope_defaults_and_shell_recovery_guards_are_present() -> None:
@@ -77,6 +80,8 @@ def test_incidence_recommendation_selection_routes_non_computable_items_to_revie
     assert "USE; codes=list source code/text evidence; /back" in incidence
     assert "USE; codes=list source code/text evidence; /back" in incidence
     assert 'prepare_recommended_phenotype(selected_rec, "target")' in incidence
+    assert "Enter=direct unchanged" in incidence
+    assert "Exact source Circe JSON saved" in incidence
     assert 'prepare_recommended_phenotype(recommendations_outcome[[idx]], "outcome")' in incidence
     assert "ACP recommendation did not include a computable Circe JSON definition." not in incidence
 
@@ -95,6 +100,8 @@ def test_cohort_methods_recommendation_selection_routes_non_computable_items_to_
     cohort_methods = COHORT_METHODS.read_text(encoding="utf-8")
     assert ".studyAgentSlashPreviewPhenotypeCandidate(" in cohort_methods
     assert "== Creating candidate definition preview ==" in cohort_methods
+    assert "Enter=direct unchanged" in cohort_methods
+    assert "Exact source Circe JSON saved" in cohort_methods
     assert "USE; codes=list source code/text evidence; /back" in cohort_methods
 
     assert "collect_recommendation_selection <- function" in cohort_methods
