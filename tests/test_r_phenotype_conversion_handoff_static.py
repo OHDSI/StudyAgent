@@ -37,6 +37,10 @@ def test_mapping_evidence_handoff_remains_explicitly_review_gated() -> None:
     assert "This only updates the review evidence; no concepts have been selected." in acquisition
     assert ".studyAgentSlashCirceDefinitionPrintFriendly <- function" in review
     assert "conceptSetListPrintFriendly(cohort$ConceptSets" in review
+    assert ".studyAgentSlashCirceDefinitionConsole <- function" in review
+    assert "fixed-width console rendering" in review
+    assert '"cohort-definition-readable.md"' in review
+    assert "Saved Markdown cohort definition" in review
     assert "Working local OMOP cohort statement" in acquisition
     assert review.count(".studyAgentSlashPrintPhenotypePresentation <- function") == 1
     assert ".studyAgentSlashPrintPhenotypeSourceEvidence <- function" in review
@@ -46,6 +50,30 @@ def test_mapping_evidence_handoff_remains_explicitly_review_gated() -> None:
     assert ".studyAgentSlashPmcApprovedConceptSetPrintFriendly <- function" in review
     assert "else NA_character_" in review
     assert "Mapping evidence: %s mapped" in review
+    assert "/back returns to cohort-source selection" in review
+    assert '"source-definition.json"' in review
+
+    assert "The phenotype's source concept codes are not mappable" in review
+    assert "Concept-set JSON could not be used" in review
+
+def test_scope_defaults_and_shell_recovery_guards_are_present() -> None:
+    acquisition = ACQUISITION.read_text(encoding="utf-8")
+    incidence = INCIDENCE.read_text(encoding="utf-8")
+    cohort_methods = COHORT_METHODS.read_text(encoding="utf-8")
+
+    assert 'Required prior continuous observation days [0]:' in acquisition
+    assert 'Enter a non-negative whole number, or press Enter to use 0.' in acquisition
+    assert 'checkpoint_matches_statement <- function' in incidence
+    assert 'Saved target advice belongs to a different or older target statement' in incidence
+    assert 'Saved outcome advice belongs to a different or older outcome statement' in incidence
+    assert 'role_statement = target_statement' in incidence
+    assert 'role_statement = outcome_statement' in incidence
+    assert 'Pre-build recovery note:' in incidence
+    assert 'cached_recommendation_matches_statement <- function' in cohort_methods
+    assert 'Saved %s recommendations belong to a different or older cohort statement' in cohort_methods
+    assert 'write_recommendation <- function' in cohort_methods
+    assert 'Could not create artifact directory: %s' in incidence
+    assert 'Could not create artifact directory: %s' in cohort_methods
 
 
 def test_incidence_recommendation_selection_routes_non_computable_items_to_review() -> None:
@@ -57,6 +85,8 @@ def test_incidence_recommendation_selection_routes_non_computable_items_to_revie
     assert "USE; codes=list source code/text evidence; /back" in incidence
     assert "USE; codes=list source code/text evidence; /back" in incidence
     assert 'prepare_recommended_phenotype(selected_rec, "target")' in incidence
+    assert "Enter=direct unchanged" in incidence
+    assert "Exact source Circe JSON saved" in incidence
     assert 'prepare_recommended_phenotype(recommendations_outcome[[idx]], "outcome")' in incidence
     assert "ACP recommendation did not include a computable Circe JSON definition." not in incidence
 
@@ -75,6 +105,8 @@ def test_cohort_methods_recommendation_selection_routes_non_computable_items_to_
     cohort_methods = COHORT_METHODS.read_text(encoding="utf-8")
     assert ".studyAgentSlashPreviewPhenotypeCandidate(" in cohort_methods
     assert "== Creating candidate definition preview ==" in cohort_methods
+    assert "Enter=direct unchanged" in cohort_methods
+    assert "Exact source Circe JSON saved" in cohort_methods
     assert "USE; codes=list source code/text evidence; /back" in cohort_methods
 
     assert "collect_recommendation_selection <- function" in cohort_methods
@@ -83,4 +115,7 @@ def test_cohort_methods_recommendation_selection_routes_non_computable_items_to_
     assert "Stopping after %s advice" not in cohort_methods
     assert 'identical(target_rec$action %||% "", "retry")' in cohort_methods
     assert 'identical(comparator_rec$action %||% "", "retry")' in cohort_methods
+    assert "Returning to cohort-source selection. You can choose create" in cohort_methods
+    assert 'if (!identical(selection$action %||% "", "handled"))' in cohort_methods
+    assert "Enter a cohort ID manually if you want to continue" not in cohort_methods
     assert 'vapply(outcome_recs, function(rec) identical(rec$action %||% "", "retry")' in cohort_methods
