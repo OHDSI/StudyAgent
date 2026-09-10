@@ -1032,6 +1032,27 @@ def _extract_cipher_code_systems(
     return code_systems, concept_evidence, _dedupe_texts(label_bits)
 
 
+def _infer_ambiguous_cipher_terminology(code_systems: List[Dict[str, Any]], narrative: str) -> None:
+    """Conservatively label CIPHER `Other` groups only when narrative and code shape agree."""
+    text = str(narrative or "").lower()
+    mentions_read, mentions_oxmis = "read code" in text, "oxmis" in text
+    for system in code_systems:
+        if str(system.get("system_name") or "").strip().lower() != "other":
+            continue
+        codes = [str(code).strip() for code in system.get("codes") or [] if str(code).strip()]
+        inferred = ""
+        if mentions_read and codes and any("." in code for code in codes):
+            inferred = "Read Codes v2"
+        elif mentions_oxmis and codes and all("." not in code for code in codes):
+            inferred = "OXMIS Codes"
+        if not inferred:
+            continue
+        system["source_system_name"] = system.get("system_name")
+        system["system_name"] = inferred
+        system["labels"] = list(dict.fromkeys((system.get("labels") or []) + [inferred]))
+        system["terminology_inferred"] = True
+        system["terminology_inference_basis"] = "source_narrative_and_code_shape"
+
 def _infer_cipher_executable_status(description: str, algorithm_desc: str, code_systems: List[Dict[str, Any]]) -> str:
     rich_text = f"{description}\n{algorithm_desc}".lower()
     if any(item.get("codes") for item in code_systems):
@@ -1065,6 +1086,8 @@ def _build_cipher_row(path: str, data: Dict[str, Any], enum_map: Dict[int, Dict[
     )
     methodology_summary = _extract_methodology_summary(description or algorithm_desc)
     methodology_signals = _method_family_signals(tags + raw_keywords + [data.get("fullName") or "", description, algorithm_desc])
+    _infer_ambiguous_cipher_terminology(code_systems, f"{description}\n{algorithm_desc}")
+    retrieval_concept_labels = _dedupe_texts(retrieval_concept_labels + [system.get("system_name") for system in code_systems])
     retrieval_keywords = _derive_retrieval_keywords(
         tags
         + raw_keywords

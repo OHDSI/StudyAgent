@@ -30,6 +30,31 @@ services:
       - core.phenotype_recommendations filters to allowed cohortIds
       - user confirmation before any writes
 
+  phenotype_conversion_prepare:
+    endpoint: /flows/phenotype_conversion_prepare
+    mcp_tools:
+      - phenotype_fetch_source_snapshot
+      - phenotype_present
+      - phenotype_conversion_readiness
+      - phenotype_code_mapping_evidence
+    input:
+      - phenotype_id
+      - recommendation_context
+      - check_vocabulary_database
+      - expected_domains (optional; only user-confirmed OMOP domains)
+    output:
+      - source_snapshot
+      - presentation
+      - readiness
+      - mapping_evidence
+      - composition_seed
+      - next_action
+    validation:
+      - component_recommendations
+      - source snapshots and mapping evidence are review input only
+      - mapping eligibility is unavailable until expected_domains is supplied
+      - no concept-set selection, Capr emission, or Circe definition is produced
+
   phenotype_make_computable:
     endpoint: /flows/phenotype_make_computable
     mcp_tools:

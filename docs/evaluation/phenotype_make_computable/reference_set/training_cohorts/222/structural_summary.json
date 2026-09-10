@@ -1,0 +1,50 @@
+{
+  "cohort_id": 222,
+  "collapsed_complexity_group": "Complex (T3-T5)",
+  "concept_set_names": [
+    "Emergency room or Inpatient Visit",
+    "Stevens-Johnson syndrome or TEN"
+  ],
+  "constraint_ledger": {
+    "concept_sets": 2,
+    "demographic": false,
+    "entry_domains": 3,
+    "entry_events": 1,
+    "exclusion": false,
+    "exit_strategy": "fixed duration relative to initial event",
+    "external_event_cohort": false,
+    "inclusion_rules": 1,
+    "nested_boolean": false,
+    "numeric": false,
+    "source_or_provenance": false,
+    "temporal": true,
+    "washout_or_observation": false
+  },
+  "constructs": {
+    "active_window_count": 1,
+    "concept_sets": 2,
+    "entry_domains": 3,
+    "entry_events": 1,
+    "group_types": [],
+    "has_complex_exit": false,
+    "has_demographics": false,
+    "has_exclusion": false,
+    "has_external_event_cohort": false,
+    "has_nested_group": false,
+    "has_numeric": false,
+    "has_source_or_provenance_restriction": false,
+    "has_temporal": true,
+    "has_washout_or_observation": false,
+    "inclusion_rules": 1
+  },
+  "defined_codeset_ids": [
+    2,
+    3
+  ],
+  "original_tier": "T3",
+  "referenced_codeset_ids": [
+    2,
+    3
+  ],
+  "schema_version": "sal-circe-27-reference-v1"
+}

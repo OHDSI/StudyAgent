@@ -1,0 +1,5 @@
+gold_codeset_id,concept_set_name,concept_id,concept_name,domain_id,vocabulary_id,include_descendants,include_mapped,is_excluded
+2,Inpatient or ER visit,262,Emergency Room and Inpatient Visit,Visit,Visit,true,false,false
+2,Inpatient or ER visit,9201,Inpatient Visit,Visit,Visit,true,false,false
+2,Inpatient or ER visit,9203,Emergency Room Visit,Visit,Visit,true,false,false
+3,Diabetic ketoacidosis,443727,Diabetic ketoacidosis,Condition,SNOMED,true,false,false

@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "phenotype_id": "cipher:30687",
+      "label": "ACE inhibitors (Kontopantelis)",
+      "expected_action_class": "not_supported",
+      "circe_prohibited": true,
+      "required_human_decisions": [],
+      "notes": "GPRD product codes have no supported deterministic OMOP mapping path in the initial implementation."
+    },
+    {
+      "phenotype_id": "cipher:29197",
+      "label": "ACE inhibitor induced cough (PheKB)",
+      "expected_action_class": "source_informed_review",
+      "circe_prohibited": true,
+      "required_human_decisions": ["ACE inhibitor exposure concept policy", "post-exposure risk window", "baseline cough exclusion", "outcome occurrence rule", "case-only versus comparative design"],
+      "expected_composition": {
+        "template": "exposure_followed_by_outcome",
+        "index_domain": "Drug",
+        "outcome_domain": "Condition",
+        "follow_on_query": "Cough",
+        "requires_explicit_approval": true
+      },
+      "notes": "Text snippets and narrative seed an exposure-followed-by-outcome composition; they are not concept sets."
+    },
+    {
+      "phenotype_id": "cipher:29218",
+      "label": "Coronary heart disease (HDR UK)",
+      "expected_action_class": "mapping_and_scope_review",
+      "circe_prohibited": true,
+      "required_human_decisions": ["deployment availability of Read/OXMIS vocabularies", "concept policy", "cohort entry and exit logic"],
+      "notes": "Mapped terminology does not recreate omitted cohort logic."
+    },
+    {
+      "phenotype_id": "cipher:29772",
+      "label": "Coronary heart disease NOS (HDR UK)",
+      "expected_action_class": "conversion_candidate",
+      "circe_prohibited": false,
+      "required_human_decisions": ["primary and secondary care interpretation", "angina and MI exclusions", "first-event rule", "concept policy"],
+      "notes": "The full source algorithm description is required conversion evidence."
+    },
+    {
+      "phenotype_id": "cipher:17527",
+      "label": "Abnormal arterial blood gases (VADC)",
+      "expected_action_class": "conversion_candidate",
+      "circe_prohibited": false,
+      "required_human_decisions": ["PheCode map/version", "two-occurrence rule", "control definition", "exclusion policy", "ICD mapping review"],
+      "notes": "MVP/PheCode provenance must be retained; mappings remain review evidence."
+    },
+    {
+      "phenotype_id": "cipher:14189",
+      "label": "Abnormal arterial blood gases (PheCode)",
+      "expected_action_class": "conversion_candidate",
+      "circe_prohibited": false,
+      "required_human_decisions": ["PheCode map/version", "occurrence rule", "exclusion policy", "ICD mapping review"],
+      "notes": "Do not silently replace source PheCode mapping with a different OMOP expansion."
+    }
+  ]
+}

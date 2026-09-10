@@ -46,6 +46,12 @@ def _preflight() -> None:
         _log("WARN", "EMBED_URL not set; default OpenWebUI embed endpoint will be used.")
     if not embed_model:
         _log("WARN", "EMBED_MODEL not set; default embedding model will be used.")
+    if not (os.getenv("OMOP_DB_ENGINE") or os.getenv("ENGINE")):
+        _log(
+            "WARN",
+            "NOTE: no database connection set (OMOP_DB_ENGINE/ENGINE). "
+            "This may affect certain flows such as keeper_* and phenotype_make_computable.",
+        )
 
 
 def main() -> None:

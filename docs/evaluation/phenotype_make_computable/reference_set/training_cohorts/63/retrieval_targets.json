@@ -1,0 +1,129 @@
+{
+  "cohort_id": 63,
+  "schema_version": "sal-circe-27-reference-v1",
+  "targets": [
+    {
+      "concept_set_name": "Transverse Myelitis",
+      "exploratory_reason": null,
+      "fallback_root_cap": null,
+      "gold_codeset_id": 4,
+      "gold_codeset_stable_id": "gold-codeset-63-4",
+      "independent_annotation": false,
+      "primary_retrieval_eligible": true,
+      "referent_source": "expert_active_standard_roots_fallback",
+      "relevant_concept_ids": [
+        443904
+      ],
+      "relevant_concepts": [
+        {
+          "concept_id": 443904,
+          "concept_name": "Transverse myelopathy syndrome",
+          "domain_id": "Condition",
+          "include_descendants": true,
+          "include_mapped": false,
+          "is_excluded": false,
+          "vocabulary_id": "SNOMED"
+        }
+      ],
+      "retrieval_intent_id": "gold-intent-886ccca8fb32206f97ba",
+      "structural_positions": [
+        {
+          "json_pointer": "/InclusionRules/0/expression/CriteriaList/0/Criteria/ConditionOccurrence/CodesetId",
+          "position_id": "pos-3422aaec30740ff6"
+        },
+        {
+          "json_pointer": "/InclusionRules/0/expression/CriteriaList/1/Criteria/ConditionOccurrence/CorrelatedCriteria/CriteriaList/0/Criteria/ConditionOccurrence/CodesetId",
+          "position_id": "pos-0faf62987ba5e392"
+        },
+        {
+          "json_pointer": "/PrimaryCriteria/CriteriaList/0/ConditionOccurrence/CodesetId",
+          "position_id": "pos-04562afba60fa182"
+        },
+        {
+          "json_pointer": "/PrimaryCriteria/CriteriaList/1/ConditionOccurrence/CorrelatedCriteria/CriteriaList/0/Criteria/ConditionOccurrence/CodesetId",
+          "position_id": "pos-303f76f35f0abfb5"
+        }
+      ],
+      "unavailable_in_common_active_standard_space": [],
+      "uncapped_eligible_root_count": 1
+    },
+    {
+      "concept_set_name": "Symptoms for Transverse Myelitis",
+      "exploratory_reason": null,
+      "fallback_root_cap": null,
+      "gold_codeset_id": 5,
+      "gold_codeset_stable_id": "gold-codeset-63-5",
+      "independent_annotation": false,
+      "primary_retrieval_eligible": true,
+      "referent_source": "expert_active_standard_roots_fallback",
+      "relevant_concept_ids": [
+        79908,
+        135526,
+        138965,
+        437113,
+        4236484
+      ],
+      "relevant_concepts": [
+        {
+          "concept_id": 79908,
+          "concept_name": "Muscle weakness",
+          "domain_id": "Condition",
+          "include_descendants": true,
+          "include_mapped": false,
+          "is_excluded": false,
+          "vocabulary_id": "SNOMED"
+        },
+        {
+          "concept_id": 135526,
+          "concept_name": "Spinal cord disease",
+          "domain_id": "Condition",
+          "include_descendants": true,
+          "include_mapped": false,
+          "is_excluded": false,
+          "vocabulary_id": "SNOMED"
+        },
+        {
+          "concept_id": 138965,
+          "concept_name": "Myelitis",
+          "domain_id": "Condition",
+          "include_descendants": true,
+          "include_mapped": false,
+          "is_excluded": false,
+          "vocabulary_id": "SNOMED"
+        },
+        {
+          "concept_id": 437113,
+          "concept_name": "Asthenia",
+          "domain_id": "Condition",
+          "include_descendants": true,
+          "include_mapped": false,
+          "is_excluded": false,
+          "vocabulary_id": "SNOMED"
+        },
+        {
+          "concept_id": 4236484,
+          "concept_name": "Paresthesia",
+          "domain_id": "Condition",
+          "include_descendants": true,
+          "include_mapped": false,
+          "is_excluded": false,
+          "vocabulary_id": "SNOMED"
+        }
+      ],
+      "retrieval_intent_id": "gold-intent-cb6efddf37ff5d80523e",
+      "structural_positions": [
+        {
+          "json_pointer": "/InclusionRules/0/expression/CriteriaList/1/Criteria/ConditionOccurrence/CodesetId",
+          "position_id": "pos-8a9a92337fdd68dd"
+        },
+        {
+          "json_pointer": "/PrimaryCriteria/CriteriaList/1/ConditionOccurrence/CodesetId",
+          "position_id": "pos-60cfe906d5a06cce"
+        }
+      ],
+      "unavailable_in_common_active_standard_space": [],
+      "uncapped_eligible_root_count": 5
+    }
+  ],
+  "unscorable": []
+}

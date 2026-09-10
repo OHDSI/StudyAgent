@@ -1,0 +1,12 @@
+cohort_id,name,original_tier,collapsed_complexity_group,source_status,review_disposition,independent_human_annotation,concept_sets,retrieval_targets,reference_root_occurrences,inclusion_rules,has_temporal,has_washout_or_observation,has_nested_boolean,case_path
+63,"Transverse myelitis or symptoms indexed on symptoms or diagnosis (1Ps, 0Era, 365W)",T3,Complex (T3-T5),Accepted,include,false,2,2,6,1,true,false,false,training_cohorts/63/
+222,"Stevens-Johnson syndrome, toxic epidermal necrolysis spectrum",T3,Complex (T3-T5),Pending peer review,include,false,2,2,4,1,true,false,false,training_cohorts/222/
+710,Cirrhosis of liver or its sequela,T1,Simple (T1-T2),Pending peer review,include,false,1,1,3,0,false,false,false,training_cohorts/710/
+743,Diabetic ketoacidosis IP-ER (SNOMED concept),T3,Complex (T3-T5),Pending peer review,include,false,2,2,4,0,true,false,false,training_cohorts/743/
+794,Hemorrhage of digestive system,T1,Simple (T1-T2),Pending peer review,include,false,1,1,1,0,false,false,false,training_cohorts/794/
+858,Earliest event of Rheumatoid Arthritis,T2,Simple (T1-T2),Pending peer review,include,false,1,1,14,0,false,false,false,training_cohorts/858/
+1340,Anorexia Nervosa,T1,Simple (T1-T2),Pending peer review,include,false,1,1,1,0,false,false,false,training_cohorts/1340/
+1341,Eating Disorders,T1,Simple (T1-T2),Pending peer review,include,false,1,1,1,0,false,false,false,training_cohorts/1341/
+1345,Personality Disorders,T1,Simple (T1-T2),Pending peer review,include,false,1,1,1,0,false,false,false,training_cohorts/1345/
+1346,Attention-Deficit Hyperactivity Disorder,T1,Simple (T1-T2),Pending peer review,include,false,1,1,1,0,false,false,false,training_cohorts/1346/
+1347,Posttraumatic Stress Disorder,T1,Simple (T1-T2),Pending peer review,include,false,1,1,1,0,false,false,false,training_cohorts/1347/

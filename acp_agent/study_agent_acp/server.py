@@ -15,6 +15,7 @@ from .mcp_client import HttpMCPClient, HttpMCPClientConfig, StdioMCPClient, Stdi
 SERVICES = [
     {"name": "phenotype_recommendation", "endpoint": "/flows/phenotype_recommendation"},
     {"name": "phenotype_definition", "endpoint": "/flows/phenotype_definition"},
+    {"name": "phenotype_conversion_prepare", "endpoint": "/flows/phenotype_conversion_prepare"},
     {"name": "phenotype_make_computable", "endpoint": "/flows/phenotype_make_computable"},
     {"name": "phenotype_improvements", "endpoint": "/flows/phenotype_improvements"},
     {"name": "concept_sets_review", "endpoint": "/flows/concept_sets_review"},
@@ -83,6 +84,15 @@ def _warn_on_inconsistent_llm_config() -> None:
             "LLM_API_URL targets /api/chat/completions while LLM_USE_RESPONSES=1. "
             "Set LLM_USE_RESPONSES=0 for chat-completions compatibility."
         )
+
+
+def _warn_on_missing_database_connection() -> None:
+    if os.getenv("OMOP_DB_ENGINE") or os.getenv("ENGINE"):
+        return
+    logger.warning(
+        "NOTE: no database connection set (OMOP_DB_ENGINE/ENGINE). "
+        "This may affect certain flows such as keeper_* and phenotype_make_computable."
+    )
 
 
 def _resolve_mcp_url_from_env() -> Optional[str]:
@@ -352,6 +362,27 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             result = self.agent.run_phenotype_make_computable_flow(**payload.model_dump())
             _write_json(self, 200 if result.get("status") != "error" else 400, result)
             return
+        if self.path == "/flows/phenotype_conversion_prepare":
+            try:
+                body = _read_json(self)
+                phenotype_id = str(body.get("phenotype_id") or "").strip()
+                context = body.get("recommendation_context") or {}
+                raw_expected_domains = body.get("expected_domains", [])
+                expected_domains = [raw_expected_domains] if isinstance(raw_expected_domains, str) else raw_expected_domains
+                if not phenotype_id or not isinstance(context, dict) or not isinstance(expected_domains, list) or not all(isinstance(domain, str) for domain in expected_domains) or not isinstance(body.get("check_vocabulary_database", True), bool):
+                    raise ValueError("phenotype_id_required_and_context_must_be_object")
+            except Exception as exc:
+                _write_json(self, 422, {"error": f"invalid_payload: {exc}"})
+                return
+            result = self.agent.run_phenotype_conversion_prepare_flow(
+                phenotype_id=phenotype_id,
+                recommendation_context=context,
+                check_vocabulary_database=body.get("check_vocabulary_database", True),
+                expected_domains=expected_domains,
+            )
+            _write_json(self, 200 if result.get("status") != "error" else 500, result)
+            return
+
         if self.path == "/flows/phenotype_definition":
             try:
                 body = _read_json(self)
@@ -359,15 +390,23 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
                 _write_json(self, 400, {"error": f"invalid_json: {exc}"})
                 return
             phenotype_id = body.get("phenotype_id") or ""
+            allow_make_computable = body.get("allow_make_computable", True)
+            recommendation_context = body.get("recommendation_context") or {}
+            if not isinstance(allow_make_computable, bool) or not isinstance(recommendation_context, dict):
+                _write_json(self, 422, {"error": "invalid_payload: allow_make_computable_must_be_boolean_and_recommendation_context_must_be_object"})
+                return
             try:
-                result = self.agent.run_phenotype_definition_flow(phenotype_id=phenotype_id)
+                result = self.agent.run_phenotype_definition_flow(
+                    phenotype_id=phenotype_id,
+                    allow_make_computable=allow_make_computable,
+                    recommendation_context=recommendation_context,
+                )
             except Exception as exc:
                 if self.debug:
                     logger.exception("flow_failed name=phenotype_definition")
                 _write_json(self, 500, {"error": "flow_failed", "detail": str(exc) if self.debug else None})
                 return
-            status = 200 if result.get("status") != "error" else 500
-            _write_json(self, status, result)
+            _write_json(self, 200 if result.get("status") != "error" else 500, result)
             return
 
         if self.path == "/flows/phenotype_recommendation":
@@ -826,6 +865,7 @@ def main(host: str = "127.0.0.1", port: int = 8765) -> None:
     mcp_command = os.getenv("STUDY_AGENT_MCP_COMMAND")
     mcp_args = os.getenv("STUDY_AGENT_MCP_ARGS", "")
     allow_core_fallback = os.getenv("STUDY_AGENT_ALLOW_CORE_FALLBACK", "1") == "1"
+    _warn_on_missing_database_connection()
     debug = os.getenv("STUDY_AGENT_DEBUG", "0") == "1"
     threaded = os.getenv("STUDY_AGENT_THREADING", "1") == "1"
     mcp_cwd = os.getenv("STUDY_AGENT_MCP_CWD") or os.getcwd()

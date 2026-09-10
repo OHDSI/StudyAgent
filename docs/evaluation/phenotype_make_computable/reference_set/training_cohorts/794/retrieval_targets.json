@@ -1,0 +1,40 @@
+{
+  "cohort_id": 794,
+  "schema_version": "sal-circe-27-reference-v1",
+  "targets": [
+    {
+      "concept_set_name": "Hemorrhage of digestive system",
+      "exploratory_reason": null,
+      "fallback_root_cap": null,
+      "gold_codeset_id": 0,
+      "gold_codeset_stable_id": "gold-codeset-794-0",
+      "independent_annotation": false,
+      "primary_retrieval_eligible": true,
+      "referent_source": "expert_active_standard_roots_fallback",
+      "relevant_concept_ids": [
+        37311947
+      ],
+      "relevant_concepts": [
+        {
+          "concept_id": 37311947,
+          "concept_name": "Hemorrhage of digestive system",
+          "domain_id": "Condition",
+          "include_descendants": true,
+          "include_mapped": false,
+          "is_excluded": false,
+          "vocabulary_id": "SNOMED"
+        }
+      ],
+      "retrieval_intent_id": "gold-intent-7240e025e8b7d5151105",
+      "structural_positions": [
+        {
+          "json_pointer": "/PrimaryCriteria/CriteriaList/0/ConditionOccurrence/CodesetId",
+          "position_id": "pos-04562afba60fa182"
+        }
+      ],
+      "unavailable_in_common_active_standard_space": [],
+      "uncapped_eligible_root_count": 1
+    }
+  ],
+  "unscorable": []
+}

@@ -1,0 +1,47 @@
+{
+  "cohort_id": 794,
+  "collapsed_complexity_group": "Simple (T1-T2)",
+  "concept_set_names": [
+    "Hemorrhage of digestive system"
+  ],
+  "constraint_ledger": {
+    "concept_sets": 1,
+    "demographic": false,
+    "entry_domains": 1,
+    "entry_events": 1,
+    "exclusion": false,
+    "exit_strategy": "fixed duration relative to initial event",
+    "external_event_cohort": false,
+    "inclusion_rules": 0,
+    "nested_boolean": false,
+    "numeric": false,
+    "source_or_provenance": false,
+    "temporal": false,
+    "washout_or_observation": false
+  },
+  "constructs": {
+    "active_window_count": 0,
+    "concept_sets": 1,
+    "entry_domains": 1,
+    "entry_events": 1,
+    "group_types": [],
+    "has_complex_exit": false,
+    "has_demographics": false,
+    "has_exclusion": false,
+    "has_external_event_cohort": false,
+    "has_nested_group": false,
+    "has_numeric": false,
+    "has_source_or_provenance_restriction": false,
+    "has_temporal": false,
+    "has_washout_or_observation": false,
+    "inclusion_rules": 0
+  },
+  "defined_codeset_ids": [
+    0
+  ],
+  "original_tier": "T1",
+  "referenced_codeset_ids": [
+    0
+  ],
+  "schema_version": "sal-circe-27-reference-v1"
+}

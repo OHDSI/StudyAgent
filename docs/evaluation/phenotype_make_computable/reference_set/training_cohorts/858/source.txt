@@ -1,0 +1,1 @@
+Earliest occurrence of Rheumatoid Arthritis indexed on diagnosis (condition or observation) date, for the first time in history cohort exit is the end of continuous observation

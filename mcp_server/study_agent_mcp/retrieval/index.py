@@ -224,6 +224,28 @@ class PhenotypeIndex:
         with open(path, "r", encoding="utf-8") as handle:
             return json.load(handle)
 
+    def fetch_source_snapshot(self, phenotype_id: str) -> Optional[Dict[str, Any]]:
+        """Return the indexed source payload with durable, content-addressed provenance."""
+        row = self._catalog_by_id.get(phenotype_id)
+        if not row:
+            return None
+        payload = self.fetch_definition(phenotype_id)
+        if payload is None:
+            return None
+        canonical_payload = json.dumps(payload, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
+        provenance = row.get("provenance") if isinstance(row.get("provenance"), dict) else {}
+        source_meta = row.get("source_meta") if isinstance(row.get("source_meta"), dict) else {}
+        return {
+            "phenotype_id": row.get("phenotype_id"),
+            "source_dataset": row.get("source_dataset") or "",
+            "source_record_type": row.get("source_record_type") or "",
+            "title": row.get("name") or row.get("phenotype_name") or phenotype_id,
+            "source_revision": provenance.get("version") or source_meta.get("revision") or "",
+            "source_modified_at": provenance.get("modified_at") or "",
+            "source_payload_sha256": _hash_text(canonical_payload),
+            "source_payload": payload,
+        }
+
     def search(
         self,
         query: str,

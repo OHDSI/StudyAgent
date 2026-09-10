@@ -309,3 +309,23 @@ def test_main_dense_only_reuses_existing_catalog(monkeypatch, tmp_path) -> None:
     assert (out_dir / "dense.index").exists()
     catalog_text = (out_dir / "catalog.jsonl").read_text(encoding="utf-8")
     assert "text_for_embedding_hash" not in catalog_text or "text_for_embedding" not in catalog_text or isinstance(catalog_text, str)
+
+
+def test_build_cipher_row_conservatively_recovers_read_and_oxmis_from_other_groups() -> None:
+    record = {
+        "id": 29218,
+        "fullName": "Coronary heart disease",
+        "description": "HDR UK phenotype based on Read codes v2 and OXMIS codes.",
+        "algorithm": {"assocCodes": [
+            {"codeType": 519, "codes": [{"code": "G3...00"}]},
+            {"codeType": 519, "codes": [{"code": "4119B"}]},
+        ]},
+    }
+    row = builder._build_cipher_row("fixture.json", record, {519: {"fieldName": "Other"}})
+
+    read, oxmis = row["code_systems"]
+    assert read["system_name"] == "Read Codes v2"
+    assert oxmis["system_name"] == "OXMIS Codes"
+    assert read["terminology_inferred"] is True
+    assert oxmis["terminology_inference_basis"] == "source_narrative_and_code_shape"
+    assert {"Read Codes v2", "OXMIS Codes"} <= set(row["retrieval_concept_labels"])

@@ -11,7 +11,6 @@ The current implementation provides:
 
 This project is in beta testing. The videos below provide an overview of the project and how to install and set up the index needed for `phenotype_recommendation`. For now, links to videos showing use by the SlashOhdsiStrategusAssistant package are shown but these will eventually move to that package. 
 
-Read [What about agent skills (e.g., SKILL.md)?](https://github.com/OHDSI/StudyAgent/blob/main/docs/WHAT-ABOUT-AGENT-SKILLS.md) to understand how this project will likely eventually be used with coding agents like Codex and Claude.
 
 ## Videos
 
@@ -23,9 +22,10 @@ Read [What about agent skills (e.g., SKILL.md)?](https://github.com/OHDSI/StudyA
 - **[Set up Study Agent phenotype indexing](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=9d82b4fb-ef65-47a0-a9f9-b4a6010a72e7)**  
   Prepare phenotype indexes used by Study Agent for recommendations.
 
+### Agent Skills
+We got a skill! Check out a [demo agent skill](https://github.com/rkboyce/AgentPlayGround) that uses a running OHDSI [Study Agent](https://github.com/OHDSI/StudyAgent) to convert a narrative cohort description to Capr and Circe computable artifacts. See [the video](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=f81e51be-0d4d-4c73-b47d-b4b3014d3efe)
 
 ### Study Agent with R for real-world evidence generation
-
 
 - **[Overview — AI-assisted real-world evidence generation with Study Agent](https://www.youtube.com/watch?v=rMxnmEGWoO4)**
 
@@ -34,16 +34,18 @@ A step-by-step demonstration of using Study Agent with an R and Strategus workfl
 > [!NOTE]
 > The workflow in R now requires you install [SlashOhdsiAcpClient](https://github.com/OHDSI/SlashOhdsiAcpClient) and [SlashOhdsiStrategusAssistant](https://github.com/OHDSI/SlashOhdsiStrategusAssistant) in your R environment along with their requirements. 
 
-1. **[Part 1 — Define the study and select phenotypes](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=eef98905-e9eb-497f-8d07-b46e00c3702d)**  
+1. **[Define the study and select phenotypes](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=eef98905-e9eb-497f-8d07-b46e00c3702d)**
    Introduces the Strategus CohortMethod workflow, study intent, phenotype selection, and the interactive runner shell.
+   
+2. **[Reuse phenotype definitions, even if they start out non-computable](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=00c9b9aa-5fb3-4d55-a0f5-b4bf010da1a5)** 
 
-2. **[Part 2 — Inspect cohorts and create a keeper concept set](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=8f719cc9-08f4-4bea-9091-b46e00cf641e)**
+3. **[Inspect cohorts and create a keeper concept set](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=8f719cc9-08f4-4bea-9091-b46e00cf641e)**
 
-3. **[Part 3 — Run and inspect the keeper concept set](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=c3ab5141-d7cb-4bd6-b3ec-b46f00d8f83d)**
+4. **[Run and inspect the keeper concept set](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=c3ab5141-d7cb-4bd6-b3ec-b46f00d8f83d)**
 
-4. **[Part 4 — Review keeper cases](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=7bd986fa-960c-493a-8417-b470001e542f)**
+5. **[Review keeper cases](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=7bd986fa-960c-493a-8417-b470001e542f)**
 
-5. **[Part 5 — Run diagnostics and CohortMethod](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=f0f50c8d-765e-4c36-97ec-b47100dfc516)**
+6. **[Run diagnostics and CohortMethod](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=f0f50c8d-765e-4c36-97ec-b47100dfc516)**
 
 **Bonus:** **[Generate cohorts with `/ohdsi` and ATLAS/WebAPI](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=f0df2da7-86ee-4f4e-8f65-b4790179fc70)**
 

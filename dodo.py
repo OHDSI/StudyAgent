@@ -156,6 +156,12 @@ def _start_mcp_http_if_needed(env: dict) -> subprocess.Popen | None:
     while time.time() < deadline:
         try:
             with socket.create_connection((host, port), timeout=1):
+                time.sleep(0.5)
+                if proc.poll() is not None:
+                    raise RuntimeError(
+                        f"MCP exited during startup; inspect {mcp_stdout} and {mcp_stderr}. "
+                        "The requested MCP port may already be in use."
+                    )
                 return proc
         except OSError:
             time.sleep(0.5)
@@ -584,6 +590,12 @@ def task_smoke_phenotype_make_computable_proposal_flow():
             )
             _wait_for_acp(_health_url(env), timeout_s=30, require_mcp=require_mcp)
             print("Running computable phenotype proposal smoke test...")
+            time.sleep(0.5)
+            if acp_proc.poll() is not None:
+                raise RuntimeError(
+                    f"ACP exited during startup; inspect {acp_stdout} and {acp_stderr}. "
+                    "The requested ACP port may already be in use."
+                )
             subprocess.run(
                 [sys.executable, "tests/smoke_phenotype_make_computable_proposal_flow.py"],
                 check=True,
@@ -604,6 +616,13 @@ def task_smoke_phenotype_make_computable_proposal_flow():
                     mcp_proc.wait(timeout=10)
                 except subprocess.TimeoutExpired:
                     mcp_proc.kill()
+            print(f"ACP logs: {acp_stdout} {acp_stderr}")
+            if mcp_proc is not None:
+                print(
+                    "MCP logs: "
+                    f"{_runtime_file(env, 'MCP_STDOUT', 'study_agent_mcp_stdout.log')} "
+                    f"{_runtime_file(env, 'MCP_STDERR', 'study_agent_mcp_stderr.log')}"
+                )
 
     return {
         "actions": [_run_smoke],
@@ -1071,6 +1090,11 @@ def task_smoke_phenotype_validation_review_flow():
             env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
             env.setdefault("STUDY_AGENT_MCP_ARGS", "")
         env.setdefault("LLM_LOG", "1")
+        # A successful smoke run needs only the structured verdict. Never print the
+        # raw model response or prompt, even when a developer shell has enabled it.
+        env["LLM_LOG_PROMPT"] = "0"
+        env["LLM_LOG_RESPONSE"] = "0"
+        env["LLM_LOG_JSON"] = "0"
 
         acp_stdout = _runtime_file(env, "ACP_STDOUT", "study_agent_acp_stdout.log")
         acp_stderr = _runtime_file(env, "ACP_STDERR", "study_agent_acp_stderr.log")
@@ -1118,12 +1142,42 @@ def task_smoke_phenotype_validation_review_flow():
                 method="POST",
             )
             req.add_header("Content-Type", "application/json")
-            with urllib.request.urlopen(
-                req, timeout=int(env.get("ACP_TIMEOUT", "180"))
-            ) as response:
-                body = response.read().decode("utf-8")
-                print(body)
+            try:
+                with urllib.request.urlopen(
+                    req, timeout=int(env.get("ACP_TIMEOUT", "180"))
+                ) as response:
+                    body = response.read().decode("utf-8")
+            except urllib.error.HTTPError as exc:
+                error_body = exc.read().decode("utf-8", errors="replace")
+                print(error_body)
                 raise
+
+            try:
+                result = json.loads(body)
+            except json.JSONDecodeError as exc:
+                raise AssertionError("phenotype validation review returned invalid JSON") from exc
+            if result.get("status") != "ok":
+                raise AssertionError(
+                    f"phenotype validation review returned status={result.get('status')!r}"
+                )
+            verdict = result.get("full_result") or {}
+            label = verdict.get("label")
+            rationale = verdict.get("rationale")
+            if label not in {"yes", "no", "unknown"}:
+                raise AssertionError(f"unexpected phenotype-validation label: {label!r}")
+            if not isinstance(rationale, str) or not rationale.strip():
+                raise AssertionError("phenotype validation review returned no rationale")
+            print(
+                json.dumps(
+                    {
+                        "status": result["status"],
+                        "label": label,
+                        "rationale_chars": len(rationale),
+                        "llm_status": (result.get("diagnostics") or {}).get("llm_status"),
+                    },
+                    sort_keys=True,
+                )
+            )
             print(f"ACP logs: {acp_stdout} {acp_stderr}")
         finally:
             print("Stopping ACP...")

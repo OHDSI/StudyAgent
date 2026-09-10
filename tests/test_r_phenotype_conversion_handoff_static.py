@@ -1,0 +1,121 @@
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+REVIEW = ROOT / "sandbox" / "slashOhdsiStrategusAssistant" / "R" / "phenotype_make_computable_review.R"
+ACQUISITION = ROOT / "sandbox" / "slashOhdsiStrategusAssistant" / "R" / "cohort_acquisition.R"
+INCIDENCE = ROOT / "sandbox" / "slashOhdsiStrategusAssistant" / "R" / "strategus_incidence_shell.R"
+COHORT_METHODS = ROOT / "sandbox" / "slashOhdsiStrategusAssistant" / "R" / "strategus_cohort_methods_shell.R"
+
+
+def test_mapping_evidence_handoff_remains_explicitly_review_gated() -> None:
+    review = REVIEW.read_text(encoding="utf-8")
+    acquisition = ACQUISITION.read_text(encoding="utf-8")
+
+    assert '"mapping-concept-review.csv"' in review
+    assert "Edit only review_* columns" in review
+    assert '"mapping-concept-set-approval.json"' in acquisition
+    assert 'type APPROVE' in acquisition
+    assert 'concept_review_mode = "provided_only"' in review
+    assert 'Use the proposed exposure-followed-by-outcome template?' in acquisition
+    assert 'conversion-provenance.json' in review
+    assert 'conversion_source_provenance' in review
+    assert 'source_payload_sha256' in review
+    assert 'scope$temporal_followup <- list' in acquisition
+    assert 'eligible_candidate_keys' in review
+    assert 'not eligible for the confirmed-domain mapping review' in review
+    assert 'mapping-evidence-confirmed-domains.json' in acquisition
+    assert 'expected_domains = confirmed_domains' in acquisition
+    assert 'atlas=import in Atlas and return corrected JSON' in acquisition
+    assert 'More than 500 mapping candidates were returned' in acquisition
+    assert 'More than 100 mapping candidates were returned' in acquisition
+    assert 'expected_domains = as.list(expected_domains)' in (ROOT / "sandbox" / "slashOhdsiAcpClient" / "R" / "flows.R").read_text(encoding="utf-8")
+    assert ".studyAgentSlashPreviewPhenotypeCandidate <- function" in review
+    assert "Source algorithm narrative (evidence only" in review
+    assert "Source-informed scope suggestions (unconfirmed; nothing is prefilled)" in acquisition
+    assert "Mapping reconciliation:" in acquisition
+    assert "This only updates the review evidence; no concepts have been selected." in acquisition
+    assert ".studyAgentSlashCirceDefinitionPrintFriendly <- function" in review
+    assert "conceptSetListPrintFriendly(cohort$ConceptSets" in review
+    assert ".studyAgentSlashCirceDefinitionConsole <- function" in review
+    assert "fixed-width console rendering" in review
+    assert '"cohort-definition-readable.md"' in review
+    assert "Saved Markdown cohort definition" in review
+    assert "Working local OMOP cohort statement" in acquisition
+    assert review.count(".studyAgentSlashPrintPhenotypePresentation <- function") == 1
+    assert ".studyAgentSlashPrintPhenotypeSourceEvidence <- function" in review
+    assert "write_json(list(items = items), path)" in review
+    assert "CONCEPT_CLASS_ID" in review
+    assert "conceptId" not in review[review.index(".studyAgentSlashPmcWriteAtlasMappingExports"):review.index(".studyAgentSlashPmcWriteMappingEvidenceReview")]
+    assert ".studyAgentSlashPmcApprovedConceptSetPrintFriendly <- function" in review
+    assert "else NA_character_" in review
+    assert "Mapping evidence: %s mapped" in review
+    assert "/back returns to cohort-source selection" in review
+    assert '"source-definition.json"' in review
+
+    assert "The phenotype's source concept codes are not mappable" in review
+    assert "Concept-set JSON could not be used" in review
+
+def test_scope_defaults_and_shell_recovery_guards_are_present() -> None:
+    acquisition = ACQUISITION.read_text(encoding="utf-8")
+    incidence = INCIDENCE.read_text(encoding="utf-8")
+    cohort_methods = COHORT_METHODS.read_text(encoding="utf-8")
+
+    assert 'Required prior continuous observation days [0]:' in acquisition
+    assert 'Enter a non-negative whole number, or press Enter to use 0.' in acquisition
+    assert 'checkpoint_matches_statement <- function' in incidence
+    assert 'Saved target advice belongs to a different or older target statement' in incidence
+    assert 'Saved outcome advice belongs to a different or older outcome statement' in incidence
+    assert 'role_statement = target_statement' in incidence
+    assert 'role_statement = outcome_statement' in incidence
+    assert 'Pre-build recovery note:' in incidence
+    assert 'cached_recommendation_matches_statement <- function' in cohort_methods
+    assert 'Saved %s recommendations belong to a different or older cohort statement' in cohort_methods
+    assert 'write_recommendation <- function' in cohort_methods
+    assert 'Could not create artifact directory: %s' in incidence
+    assert 'Could not create artifact directory: %s' in cohort_methods
+
+
+def test_incidence_recommendation_selection_routes_non_computable_items_to_review() -> None:
+    incidence = INCIDENCE.read_text(encoding="utf-8")
+
+    assert "prepare_recommended_phenotype <- function" in incidence
+    assert "== Creating candidate definition preview ==" in incidence
+    assert ".studyAgentSlashCreateComputableRoleSelection(" in incidence
+    assert "USE; codes=list source code/text evidence; /back" in incidence
+    assert "USE; codes=list source code/text evidence; /back" in incidence
+    assert 'prepare_recommended_phenotype(selected_rec, "target")' in incidence
+    assert "Enter=direct unchanged" in incidence
+    assert "Exact source Circe JSON saved" in incidence
+    assert 'prepare_recommended_phenotype(recommendations_outcome[[idx]], "outcome")' in incidence
+    assert "ACP recommendation did not include a computable Circe JSON definition." not in incidence
+
+
+def test_incidence_advice_does_not_end_the_session() -> None:
+    incidence = INCIDENCE.read_text(encoding="utf-8")
+
+    assert "Stopping after target advice" not in incidence
+    assert "Stopping after outcome advice" not in incidence
+    assert "rewrite=revise target statement" in incidence
+    assert "rewrite=revise outcome statement" in incidence
+    assert "choose create for Atlas review" in incidence
+
+
+def test_cohort_methods_recommendation_selection_routes_non_computable_items_to_review() -> None:
+    cohort_methods = COHORT_METHODS.read_text(encoding="utf-8")
+    assert ".studyAgentSlashPreviewPhenotypeCandidate(" in cohort_methods
+    assert "== Creating candidate definition preview ==" in cohort_methods
+    assert "Enter=direct unchanged" in cohort_methods
+    assert "Exact source Circe JSON saved" in cohort_methods
+    assert "USE; codes=list source code/text evidence; /back" in cohort_methods
+
+    assert "collect_recommendation_selection <- function" in cohort_methods
+    assert ".studyAgentSlashPreparePhenotypeConversion(" in cohort_methods
+    assert "A local OMOP cohort definition has not been created." in cohort_methods
+    assert "Stopping after %s advice" not in cohort_methods
+    assert 'identical(target_rec$action %||% "", "retry")' in cohort_methods
+    assert 'identical(comparator_rec$action %||% "", "retry")' in cohort_methods
+    assert "Returning to cohort-source selection. You can choose create" in cohort_methods
+    assert 'if (!identical(selection$action %||% "", "handled"))' in cohort_methods
+    assert "Enter a cohort ID manually if you want to continue" not in cohort_methods
+    assert 'vapply(outcome_recs, function(rec) identical(rec$action %||% "", "retry")' in cohort_methods

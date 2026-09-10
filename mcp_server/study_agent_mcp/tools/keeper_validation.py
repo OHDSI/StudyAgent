@@ -110,9 +110,14 @@ def register(mcp: object) -> None:
             label = llm_output.get("label") or "unknown"
             if label not in ("yes", "no", "unknown"):
                 label = "unknown"
-            rationale = llm_output.get("rationale") or ""
+            rationale = str(llm_output.get("rationale") or "").strip()
         else:
             label = _parse_label(str(llm_output))
+        if not rationale:
+            return with_meta(
+                {"error": "missing_rationale", "label": label},
+                "keeper_parse_response",
+            )
         return with_meta({"label": label, "rationale": rationale}, "keeper_parse_response")
 
     return None

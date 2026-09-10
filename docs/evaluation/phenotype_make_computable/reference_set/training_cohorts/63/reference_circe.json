@@ -1,0 +1,298 @@
+{
+  "CensorWindow": {},
+  "CensoringCriteria": [],
+  "CollapseSettings": {
+    "CollapseType": "ERA",
+    "EraPad": 0
+  },
+  "ConceptSets": [
+    {
+      "expression": {
+        "items": [
+          {
+            "concept": {
+              "CONCEPT_CLASS_ID": "Clinical Finding",
+              "CONCEPT_CODE": "16631009",
+              "CONCEPT_ID": 443904,
+              "CONCEPT_NAME": "Transverse myelopathy syndrome",
+              "DOMAIN_ID": "Condition",
+              "INVALID_REASON": "V",
+              "INVALID_REASON_CAPTION": "Valid",
+              "STANDARD_CONCEPT": "S",
+              "STANDARD_CONCEPT_CAPTION": "Standard",
+              "VOCABULARY_ID": "SNOMED"
+            },
+            "includeDescendants": true,
+            "includeMapped": false,
+            "isExcluded": false
+          }
+        ]
+      },
+      "id": 4,
+      "name": "Transverse Myelitis"
+    },
+    {
+      "expression": {
+        "items": [
+          {
+            "concept": {
+              "CONCEPT_CLASS_ID": "Clinical Finding",
+              "CONCEPT_CODE": "13791008",
+              "CONCEPT_ID": 437113,
+              "CONCEPT_NAME": "Asthenia",
+              "DOMAIN_ID": "Condition",
+              "INVALID_REASON": "V",
+              "INVALID_REASON_CAPTION": "Valid",
+              "STANDARD_CONCEPT": "S",
+              "STANDARD_CONCEPT_CAPTION": "Standard",
+              "VOCABULARY_ID": "SNOMED"
+            },
+            "includeDescendants": true,
+            "includeMapped": false,
+            "isExcluded": false
+          },
+          {
+            "concept": {
+              "CONCEPT_CLASS_ID": "Clinical Finding",
+              "CONCEPT_CODE": "26544005",
+              "CONCEPT_ID": 79908,
+              "CONCEPT_NAME": "Muscle weakness",
+              "DOMAIN_ID": "Condition",
+              "INVALID_REASON": "V",
+              "INVALID_REASON_CAPTION": "Valid",
+              "STANDARD_CONCEPT": "S",
+              "STANDARD_CONCEPT_CAPTION": "Standard",
+              "VOCABULARY_ID": "SNOMED"
+            },
+            "includeDescendants": true,
+            "includeMapped": false,
+            "isExcluded": false
+          },
+          {
+            "concept": {
+              "CONCEPT_CLASS_ID": "Clinical Finding",
+              "CONCEPT_CODE": "41370002",
+              "CONCEPT_ID": 138965,
+              "CONCEPT_NAME": "Myelitis",
+              "DOMAIN_ID": "Condition",
+              "INVALID_REASON": "V",
+              "INVALID_REASON_CAPTION": "Valid",
+              "STANDARD_CONCEPT": "S",
+              "STANDARD_CONCEPT_CAPTION": "Standard",
+              "VOCABULARY_ID": "SNOMED"
+            },
+            "includeDescendants": true,
+            "includeMapped": false,
+            "isExcluded": false
+          },
+          {
+            "concept": {
+              "CONCEPT_CLASS_ID": "Clinical Finding",
+              "CONCEPT_CODE": "91019004",
+              "CONCEPT_ID": 4236484,
+              "CONCEPT_NAME": "Paresthesia",
+              "DOMAIN_ID": "Condition",
+              "INVALID_REASON": "V",
+              "INVALID_REASON_CAPTION": "Valid",
+              "STANDARD_CONCEPT": "S",
+              "STANDARD_CONCEPT_CAPTION": "Standard",
+              "VOCABULARY_ID": "SNOMED"
+            },
+            "includeDescendants": true,
+            "includeMapped": false,
+            "isExcluded": false
+          },
+          {
+            "concept": {
+              "CONCEPT_CLASS_ID": "Clinical Finding",
+              "CONCEPT_CODE": "48522003",
+              "CONCEPT_ID": 135526,
+              "CONCEPT_NAME": "Spinal cord disease",
+              "DOMAIN_ID": "Condition",
+              "INVALID_REASON": "V",
+              "INVALID_REASON_CAPTION": "Valid",
+              "STANDARD_CONCEPT": "S",
+              "STANDARD_CONCEPT_CAPTION": "Standard",
+              "VOCABULARY_ID": "SNOMED"
+            },
+            "includeDescendants": true,
+            "includeMapped": false,
+            "isExcluded": false
+          }
+        ]
+      },
+      "id": 5,
+      "name": "Symptoms for Transverse Myelitis"
+    }
+  ],
+  "EndStrategy": {
+    "DateOffset": {
+      "DateField": "StartDate",
+      "Offset": 1
+    }
+  },
+  "ExpressionLimit": {
+    "Type": "All"
+  },
+  "InclusionRules": [
+    {
+      "expression": {
+        "CriteriaList": [
+          {
+            "Criteria": {
+              "ConditionOccurrence": {
+                "CodesetId": 4,
+                "ConditionTypeExclude": false
+              }
+            },
+            "IgnoreObservationPeriod": true,
+            "Occurrence": {
+              "Count": 0,
+              "IsDistinct": false,
+              "Type": 0
+            },
+            "RestrictVisit": false,
+            "StartWindow": {
+              "End": {
+                "Coeff": -1,
+                "Days": 1
+              },
+              "Start": {
+                "Coeff": -1,
+                "Days": 365
+              },
+              "UseEventEnd": false,
+              "UseIndexEnd": false
+            }
+          },
+          {
+            "Criteria": {
+              "ConditionOccurrence": {
+                "CodesetId": 5,
+                "ConditionTypeExclude": false,
+                "CorrelatedCriteria": {
+                  "CriteriaList": [
+                    {
+                      "Criteria": {
+                        "ConditionOccurrence": {
+                          "CodesetId": 4,
+                          "ConditionTypeExclude": false
+                        }
+                      },
+                      "IgnoreObservationPeriod": false,
+                      "Occurrence": {
+                        "Count": 1,
+                        "IsDistinct": false,
+                        "Type": 2
+                      },
+                      "RestrictVisit": false,
+                      "StartWindow": {
+                        "End": {
+                          "Coeff": 1,
+                          "Days": 30
+                        },
+                        "Start": {
+                          "Coeff": 1,
+                          "Days": 0
+                        },
+                        "UseEventEnd": false,
+                        "UseIndexEnd": false
+                      }
+                    }
+                  ],
+                  "DemographicCriteriaList": [],
+                  "Groups": [],
+                  "Type": "ALL"
+                }
+              }
+            },
+            "IgnoreObservationPeriod": true,
+            "Occurrence": {
+              "Count": 0,
+              "IsDistinct": false,
+              "Type": 0
+            },
+            "RestrictVisit": false,
+            "StartWindow": {
+              "End": {
+                "Coeff": -1,
+                "Days": 1
+              },
+              "Start": {
+                "Coeff": -1,
+                "Days": 365
+              },
+              "UseEventEnd": false,
+              "UseIndexEnd": false
+            }
+          }
+        ],
+        "DemographicCriteriaList": [],
+        "Groups": [],
+        "Type": "ALL"
+      },
+      "name": "has no events in prior 'clean window' - 365 days"
+    }
+  ],
+  "PrimaryCriteria": {
+    "CriteriaList": [
+      {
+        "ConditionOccurrence": {
+          "CodesetId": 4,
+          "ConditionTypeExclude": false
+        }
+      },
+      {
+        "ConditionOccurrence": {
+          "CodesetId": 5,
+          "ConditionTypeExclude": false,
+          "CorrelatedCriteria": {
+            "CriteriaList": [
+              {
+                "Criteria": {
+                  "ConditionOccurrence": {
+                    "CodesetId": 4,
+                    "ConditionTypeExclude": false
+                  }
+                },
+                "IgnoreObservationPeriod": false,
+                "Occurrence": {
+                  "Count": 1,
+                  "IsDistinct": false,
+                  "Type": 2
+                },
+                "RestrictVisit": false,
+                "StartWindow": {
+                  "End": {
+                    "Coeff": 1,
+                    "Days": 30
+                  },
+                  "Start": {
+                    "Coeff": 1,
+                    "Days": 0
+                  },
+                  "UseEventEnd": false,
+                  "UseIndexEnd": false
+                }
+              }
+            ],
+            "DemographicCriteriaList": [],
+            "Groups": [],
+            "Type": "ALL"
+          }
+        }
+      }
+    ],
+    "ObservationWindow": {
+      "PostDays": 0,
+      "PriorDays": 0
+    },
+    "PrimaryCriteriaLimit": {
+      "Type": "All"
+    }
+  },
+  "QualifiedLimit": {
+    "Type": "All"
+  },
+  "cdmVersionRange": ">=5.0.0"
+}

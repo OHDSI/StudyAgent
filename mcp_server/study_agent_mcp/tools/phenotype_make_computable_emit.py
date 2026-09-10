@@ -152,6 +152,40 @@ Capr::cohort(
     return {"status": "passed", "capr_code": _function_source(comment, body), "entry_point": ENTRY_POINT, "messages": []}
 
 
+
+def _emit_drug_exposure_followup(scope: Dict[str, Any], concept_sets: List[Dict[str, Any],]) -> Dict[str, Any]:
+    temporal = scope.get("temporal_followup") or {}
+    index_name, trigger_name = str(temporal.get("index_concept_set") or ""), str(temporal.get("trigger_concept_set") or "")
+    by_name = {str(row.get("name") or ""): row for row in concept_sets}
+    index_set, trigger_set = by_name.get(index_name), by_name.get(trigger_name)
+    if len(concept_sets) != 2 or not index_set or not trigger_set or str(index_set.get("domain")) != "Drug" or str(trigger_set.get("domain")) != "Condition":
+        return {"status": "failed", "messages": ["temporal_followup_requires_drug_index_and_condition_trigger"]}
+    index_expression, index_error = _concept_set_expression(index_set)
+    trigger_expression, trigger_error = _concept_set_expression(trigger_set)
+    try:
+        followup_days, washout_days = int(temporal.get("followup_days", 30)), int(temporal.get("washout_days", 365))
+    except (TypeError, ValueError):
+        return {"status": "failed", "messages": ["temporal_followup_days_invalid"]}
+    prior_days, prior_error = _prior_observation_days(scope, default=washout_days)
+    if index_error or trigger_error or prior_error or followup_days < 0 or washout_days < 1 or prior_days != washout_days:
+        return {"status": "failed", "messages": [index_error or trigger_error or prior_error or "temporal_followup_days_invalid"]}
+    limit = str(scope.get("entry_limit") or "All")
+    if limit not in {"First", "All"}:
+        return {"status": "failed", "messages": ["unsupported_entry_limit"]}
+    iname, tname = _r_string(index_name), _r_string(trigger_name)
+    qualified = f"Capr::drugExposure(drugCs, Capr::nestedWithAll(Capr::atLeast(1L, Capr::conditionOccurrence(outcomeCs), aperture = Capr::duringInterval(startWindow = Capr::eventStarts(0, {followup_days}, index = 'startDate')))))"
+    body = f'''drugCs <- Capr::cs({index_expression}, name = "{iname}")
+outcomeCs <- Capr::cs({trigger_expression}, name = "{tname}")
+qualifiedExposure <- {qualified}
+Capr::cohort(
+  entry = Capr::entry(qualifiedExposure, observationWindow = Capr::continuousObservation({washout_days}L, 0L), primaryCriteriaLimit = "{limit}"),
+  attrition = Capr::attrition("No qualifying exposure or outcome in clean window" = Capr::withAll(
+    Capr::exactly(0L, Capr::drugExposure(drugCs), aperture = Capr::duringInterval(startWindow = Capr::eventStarts(-{washout_days}, -1, index = "startDate"))),
+    Capr::exactly(0L, Capr::conditionOccurrence(outcomeCs), aperture = Capr::duringInterval(startWindow = Capr::eventStarts(-{washout_days}, -1, index = "startDate")))
+  ), expressionLimit = "{limit}"),
+  exit = Capr::exit(endStrategy = Capr::fixedExit(index = "startDate", offsetDays = 1L)), era = Capr::era(eraDays = 0L)
+)'''
+    return {"status": "passed", "capr_code": _function_source(f"drug exposure={iname}; outcome={tname} within {followup_days} days; clean window={washout_days} days; exit=startDate+1", body), "entry_point": ENTRY_POINT, "messages": []}
 def emit_capr(scope: Dict[str, Any], concept_sets: List[Dict[str, Any]]) -> Dict[str, Any]:
     temporal = scope.get("temporal_followup") or {}
     index_day_boundary = scope.get("index_day_boundary")
@@ -166,6 +200,8 @@ def emit_capr(scope: Dict[str, Any], concept_sets: List[Dict[str, Any]]) -> Dict
         index_name, trigger_name = temporal.get("index_concept_set"), temporal.get("trigger_concept_set")
         by_name = {row.get("name"): row for row in concept_sets}
         index_set, trigger_set = by_name.get(index_name), by_name.get(trigger_name)
+        if index_set is not None and str(index_set.get("domain") or index_set.get("domainId") or "") == "Drug":
+            return _emit_drug_exposure_followup(scope, concept_sets)
         if len(concept_sets) != 2 or not index_set or not trigger_set or str(index_set.get("domain")) != "Condition" or str(trigger_set.get("domain")) != "Condition":
             return {"status": "failed", "messages": ["temporal_followup_requires_two_named_condition_concept_sets"]}
         index_expression, index_error = _concept_set_expression(index_set)

@@ -1,0 +1,1 @@
+Earliest event of Stevens-Johnson syndrome, Toxic epidermal necrolysis spectrum, indexed on diagnosis of Stevens-Johnson syndrome, Toxic epidermal necrolysis spectrum. Restricting to events overlapping an inpatient or ER visit. Cohort exist is 1 day post cohort end date.

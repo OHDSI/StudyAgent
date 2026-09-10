@@ -5,7 +5,7 @@ from pathlib import Path
 from study_agent_acp.llm_client import LLMCallResult
 from study_agent_acp.agent import StudyAgent
 from study_agent_mcp.tools.phenotype_make_computable_emit import emit_capr
-from study_agent_mcp.tools.phenotype_make_computable_validate import _r_library_path, validate_capr_source
+from study_agent_mcp.tools.phenotype_make_computable_validate import _r_library_path, _r_script_path, validate_capr_source
 from study_agent_mcp.tools.phenotype_make_computable import _load_bundle
 from study_agent_core.models import PhenotypeMakeComputableInput
 
@@ -35,7 +35,7 @@ class _Mcp:
 
 
 def _concept_sets(case_id: str):
-    path = Path("sandbox/reference_set/training_cohorts") / case_id / "concept_roots.csv"
+    path = Path("docs/evaluation/phenotype_make_computable/reference_set/training_cohorts") / case_id / "concept_roots.csv"
     grouped = {}
     for row in csv.DictReader(path.open(encoding="utf-8")):
         grouped.setdefault(row["concept_set_name"], {"name": row["concept_set_name"], "domain": row["domain_id"], "concept_ids": []})["concept_ids"].append(int(row["concept_id"]))
@@ -43,7 +43,7 @@ def _concept_sets(case_id: str):
 
 
 def _policy_concept_sets(case_id: str):
-    path = Path("sandbox/reference_set/training_cohorts") / case_id / "concept_roots.csv"
+    path = Path("docs/evaluation/phenotype_make_computable/reference_set/training_cohorts") / case_id / "concept_roots.csv"
     grouped = {}
     for row in csv.DictReader(path.open(encoding="utf-8")):
         item = grouped.setdefault(row["concept_set_name"], {"name": row["concept_set_name"], "domain": row["domain_id"], "items": []})
@@ -383,6 +383,28 @@ def test_validator_prefers_explicit_r_library_environment(monkeypatch):
     assert _r_library_path() == "/configured/r/library"
 
 
+def test_validator_reads_mcp_r_runtime_from_config_when_environment_is_unset(tmp_path, monkeypatch):
+    r_library = tmp_path / "renv" / "library" / "linux-amzn-2023" / "R-4.5" / "aarch64-amazon-linux-gnu"
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "\n".join([
+            "version: 1",
+            "mcp:",
+            "  r:",
+            "    rscript: /usr/bin/Rscript",
+            f"    library: {r_library}",
+            "",
+        ]),
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("R_LIBS_USER", raising=False)
+    monkeypatch.delenv("R_SCRIPT", raising=False)
+    monkeypatch.setenv("STUDY_AGENT_CONFIG", str(config_path))
+
+    assert _r_library_path() == str(r_library)
+    assert _r_script_path() == "/usr/bin/Rscript"
+
+
 def test_validator_rejects_indirect_process_execution():
     result = validate_capr_source("base::system('echo unsafe')")
     assert result["status"] == "failed"
@@ -692,3 +714,46 @@ def test_supporting_condition_occurrence_scope_is_typed_and_rejects_an_inverted_
     invalid["scope"] = dict(payload["scope"], supporting_condition_occurrence={"concept_set": "Major depressive disorder", "start_days": 0, "end_days": -180})
     with pytest.raises(ValueError, match="supporting_condition_occurrence_start_must_not_exceed_end"):
         PhenotypeMakeComputableInput.model_validate(invalid)
+
+
+def test_drug_exposure_followed_by_condition_compiles():
+    scope = {
+        "index_event": "ACE inhibitor exposure",
+        "entry_limit": "All",
+        "temporal_followup": {
+            "index_concept_set": "ACE inhibitor exposure",
+            "trigger_concept_set": "Cough",
+            "followup_days": 30,
+            "washout_days": 365,
+        },
+    }
+    concept_sets = [
+        {"name": "ACE inhibitor exposure", "domain": "Drug", "items": [{"concept_id": 1, "domain": "Drug", "include_descendants": False, "include_mapped": False, "is_excluded": False}]},
+        {"name": "Cough", "domain": "Condition", "items": [{"concept_id": 2, "domain": "Condition", "include_descendants": False, "include_mapped": False, "is_excluded": False}]},
+    ]
+
+    emitted = emit_capr(scope, concept_sets)
+
+    assert emitted["status"] == "passed"
+    assert "Capr::drugExposure(drugCs" in emitted["capr_code"]
+    circe = validate_capr_source(emitted["capr_code"])["circe_json"]
+    assert circe["PrimaryCriteria"]["ObservationWindow"] == {"PriorDays": 365, "PostDays": 0}
+
+
+def test_required_review_uses_classification_ancestor_fallback_for_zero_drug_search():
+    class ClassificationMcp(_Mcp):
+        def call_tool(self, name, arguments):
+            if name == "vocab_search_standard":
+                return {"concepts": [], "returned_count": 0, "matched_count": 0, "matched_count_status": "exact", "limit": 20, "truncated": False}
+            if name == "vocab_search_classification_ancestors":
+                assert arguments == {"query": "ACE inhibitor", "domains": ["Drug"], "limit": 20}
+                return {"concepts": [{"conceptId": 21601784, "conceptName": "ACE inhibitors, plain", "domainId": "Drug", "vocabularyId": "ATC", "conceptClassId": "ATC 4th", "standardConcept": "C", "classificationAncestor": True, "includeDescendantsSuggested": True}], "returned_count": 1, "matched_count": 1, "matched_count_status": "exact", "limit": 20, "truncated": False}
+            return super().call_tool(name, arguments)
+
+    scope = {"index_event": "ACE inhibitor", "criterion_domains": {"ACE inhibitor": "Drug"}}
+    candidates, provenance, _ = StudyAgent(mcp_client=ClassificationMcp())._retrieve_phenotype_concept_lanes(scope)
+
+    assert candidates[0]["conceptId"] == 21601784
+    assert candidates[0]["sourceStage"] == "classification_ancestor_fallback"
+    assert candidates[0]["classificationAncestor"] is True
+    assert any(run.get("candidate_kind") == "classification_ancestor" for run in provenance["search_runs"])

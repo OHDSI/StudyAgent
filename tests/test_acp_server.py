@@ -417,6 +417,8 @@ class StubMCPClient:
                 "sample_size_requested": 2,
                 "sample_size_returned": 1,
                 "sampling_mode": "ordered_head",
+                "connection_identity": {"dialect": "postgresql", "driver": "psycopg", "host": "example", "port": 5432, "database": "omop", "target_hash": "abc123"},
+                "cohort_source": {"schema": "results", "table": "cohort", "cohort_definition_id": 123},
             }
         if name == "keeper_profile_to_rows":
             return {
@@ -593,6 +595,30 @@ def test_flow_phenotype_validation_review(monkeypatch):
 
 
 @pytest.mark.acp
+def test_flow_phenotype_validation_review_rejects_blank_rationale(monkeypatch):
+    import study_agent_acp.agent as agent_module
+
+    def fake_llm(prompt):
+        return {"label": "unknown", "rationale": ""}
+
+    class BlankRationaleMCP(StubMCPClient):
+        def call_tool(self, name, arguments):
+            if name == "keeper_parse_response":
+                return {"error": "missing_rationale", "label": "unknown"}
+            return super().call_tool(name, arguments)
+
+    monkeypatch.setattr(agent_module, "call_llm", fake_llm)
+    agent = StudyAgent(mcp_client=BlankRationaleMCP())
+    result = agent.run_phenotype_validation_review_flow(
+        keeper_row={"age": 44, "gender": "Male"},
+        disease_name="GI bleed",
+    )
+    assert result["status"] == "error"
+    assert result["error"] == "keeper_validation_response_invalid"
+    assert result["details"]["full_result"]["error"] == "missing_rationale"
+
+
+@pytest.mark.acp
 def test_flow_keeper_concept_sets_generate(monkeypatch):
     import study_agent_acp.agent as agent_module
 
@@ -705,6 +731,28 @@ def test_flow_keeper_profiles_generate():
     assert result["row_count"] == 1
     assert result["sample_size_requested"] == 2
     assert result["sample_size_returned"] == 1
+    assert result["diagnostics"]["connection_identity"]["target_hash"] == "abc123"
+    assert result["diagnostics"]["cohort_source"] == {"schema": "results", "table": "cohort", "cohort_definition_id": 123}
+
+
+@pytest.mark.acp
+def test_flow_keeper_profiles_rejects_incomplete_extract_response():
+    class IncompleteMCPClient:
+        def call_tool(self, name, arguments):
+            if name == "keeper_profile_extract":
+                return {"status": "ok", "full_result": {"profile_records": []}}
+            raise AssertionError(f"unexpected tool call: {name}")
+
+    result = StudyAgent(mcp_client=IncompleteMCPClient()).run_keeper_profiles_generate_flow(
+        cohort_database_schema="results",
+        cohort_table="cohort",
+        cohort_definition_id=123,
+        cdm_database_schema="cdm",
+        keeper_concept_sets=[{"conceptId": 100, "conceptSetName": "doi"}],
+    )
+    assert result["status"] == "error"
+    assert result["error"] == "keeper_profile_extract_incomplete_response"
+    assert "sample_size_returned" in result["missing_fields"]
 
 
 @pytest.mark.acp
@@ -1651,3 +1699,49 @@ def test_http_mcp_client_uses_one_shot_sessions(monkeypatch):
         "arguments": {"query": "bleed"},
     }
     assert client.close() is None
+
+
+@pytest.mark.acp
+def test_missing_database_connection_warning_names_affected_flows(monkeypatch, caplog):
+    monkeypatch.delenv("OMOP_DB_ENGINE", raising=False)
+    monkeypatch.delenv("ENGINE", raising=False)
+
+    with caplog.at_level("WARNING", logger="study_agent.acp"):
+        acp_server._warn_on_missing_database_connection()
+
+    assert "NOTE: no database connection set" in caplog.text
+    assert "keeper_*" in caplog.text
+    assert "phenotype_make_computable" in caplog.text
+
+
+@pytest.mark.acp
+def test_database_connection_warning_is_suppressed_when_engine_is_configured(monkeypatch, caplog):
+    monkeypatch.setenv("OMOP_DB_ENGINE", "postgresql")
+
+    with caplog.at_level("WARNING", logger="study_agent.acp"):
+        acp_server._warn_on_missing_database_connection()
+
+    assert "no database connection set" not in caplog.text
+
+
+def test_mcp_preflight_warns_when_database_connection_is_unconfigured(monkeypatch):
+    from study_agent_mcp import server as mcp_server
+
+    messages = []
+    monkeypatch.delenv("OMOP_DB_ENGINE", raising=False)
+    monkeypatch.delenv("ENGINE", raising=False)
+    monkeypatch.setattr(
+        mcp_server,
+        "index_status",
+        lambda: {"index_dir": "/tmp/index", "exists": True, "files": {"catalog": {"exists": True}}},
+    )
+    monkeypatch.setattr(mcp_server, "_log", lambda level, message: messages.append((level, message)))
+
+    mcp_server._preflight()
+
+    assert any(
+        level == "WARN"
+        and "NOTE: no database connection set" in message
+        and "phenotype_make_computable" in message
+        for level, message in messages
+    )

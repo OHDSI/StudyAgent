@@ -24,26 +24,13 @@ def test_collect_configuration_separates_secret_values_from_yaml() -> None:
     values, secrets, run_style = collect_configuration(
         input_fn=_answers(
             [
-                "native",
-                "",
-                "",
-                "http",
-                "",
-                "",
-                "",
-                "yes",
-                "",
-                "",
-                "yes",
-                "no",
-                "yes",
-                "",
-                "",
-                "",
-                "no",
-                "none",
-                "study-agent-logs",
-                "info",
+                "native",  # run style
+                "", "", "http", "", "", "",  # ACP and HTTP MCP
+                "yes", "", "",  # Capr/Circe R validation
+                "yes", "", "", "yes", "no",  # keyed LLM, not Responses API
+                "yes", "", "", "", "no",  # retrieval; keyless embedding API
+                "none",  # Keeper
+                "study-agent-logs", "info",
             ]
         ),
         output_fn=output.append,
@@ -66,8 +53,13 @@ def test_collect_configuration_supports_keyless_llm(tmp_path, monkeypatch) -> No
     values, secrets, run_style = collect_configuration(
         input_fn=_answers(
             [
-                "native", "", "", "http", "", "", "", "yes", "", "", "no", "no",
-                "no", "none", "study-agent-logs", "info",
+                "native",  # run style
+                "", "", "http", "", "", "",  # ACP and HTTP MCP
+                "yes", "", "",  # Capr/Circe R validation
+                "yes", "", "", "no", "no",  # keyless LLM, not Responses API
+                "no",  # no retrieval
+                "none",  # Keeper
+                "study-agent-logs", "info",
             ]
         ),
         secret_input=lambda _prompt: pytest.fail("a keyless LLM must not prompt for a secret"),

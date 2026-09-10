@@ -8,6 +8,8 @@ from pathlib import Path
 from threading import Lock
 from typing import Any, Dict
 
+from study_agent_core.config import ConfigError, load_config
+
 from ._common import with_meta
 from .phenotype_make_computable_emit import ENTRY_POINT
 
@@ -19,9 +21,24 @@ _FORBIDDEN_NAMESPACE_PREFIXES = ("base::", "utils::", "methods::", "parallel::",
 _R_VALIDATION_LOCK = Lock()
 
 
+def _configured_mcp_r_value(name: str) -> str | None:
+    """Read an MCP R runtime value from validated config for direct tool use."""
+    try:
+        config = load_config()
+    except ConfigError:
+        return None
+    if config is None:
+        return None
+    value = getattr(config.mcp.r, name)
+    return str(value).strip() if value is not None else None
+
+
 def _r_library_path() -> str | None:
-    """Prefer an explicit R library; otherwise locate the project renv library."""
+    """Resolve the R library from environment, config, then local renv."""
     configured = os.getenv("R_LIBS_USER", "").strip()
+    if configured:
+        return configured
+    configured = _configured_mcp_r_value("library")
     if configured:
         return configured
     library_root = _REPO_ROOT / "renv" / "library"
@@ -29,6 +46,14 @@ def _r_library_path() -> str | None:
         path for path in library_root.glob("*/*/*") if path.is_dir()
     )
     return str(candidates[0]) if candidates else None
+
+
+def _r_script_path() -> str:
+    """Resolve Rscript from environment, then validated MCP config."""
+    configured = os.getenv("R_SCRIPT", "").strip()
+    if configured:
+        return configured
+    return _configured_mcp_r_value("rscript") or "Rscript"
 
 
 def _unsafe_r_constructs(capr_code: str) -> list[str]:
@@ -90,7 +115,7 @@ def _validate_capr_source_serialized(capr_code: str, timeout_seconds: int, r_lib
         )
         env = {"PATH": os.environ.get("PATH", ""), "R_PROFILE_USER": "/dev/null", "R_ENVIRON_USER": "/dev/null", "R_LIBS_USER": r_library}
         try:
-            result = subprocess.run([os.getenv("R_SCRIPT", "Rscript"), "--vanilla", "-e", runner, str(script), str(output), str(environment_output)], cwd=root, env=env, text=True, capture_output=True, timeout=max(1, min(timeout_seconds, 120)), check=False)
+            result = subprocess.run([_r_script_path(), "--vanilla", "-e", runner, str(script), str(output), str(environment_output)], cwd=root, env=env, text=True, capture_output=True, timeout=max(1, min(timeout_seconds, 120)), check=False)
         except subprocess.TimeoutExpired:
             return {"status": "failed", "messages": ["r_validation_timeout"]}
         if result.returncode:
