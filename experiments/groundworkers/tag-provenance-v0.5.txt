@@ -1,0 +1,12 @@
+# Exact source-tag commits used to build the published compatible pilot wheels.
+groundworkers v0.5.0 30c250487720316f0768f974e38e1d988bb00bc3
+groundskeeping v0.8.1 76ec4c1682d65a77979ab81bbcb304fe72c8b9c3
+oa-configurator v1.3.0 41d99237a1011960c121f8b13f9a31b3773c1075
+omop-alchemy v1.1.0 3e55fce95277ad4f8637a6719fcb87ccabbace05
+omop-graph v2.1.0 c428b58bb4e1aa922d71e9a410d6ba68c5d2cfba
+omop-emb v2.1.0 9bf922c4af17e5218cb396b22bc6b808ef2c3eb2
+omop-llm v1.0.1 425e529991a4f248d8d794c6e5967e261deab9ad
+orm-loader v1.1.0 2cd99097a04d5c00aa915f8e4e49134c1229235b
+
+# The wheel build source was a local shallow clone at each tag; no mutable
+# branch or released source archive was used for version discovery.

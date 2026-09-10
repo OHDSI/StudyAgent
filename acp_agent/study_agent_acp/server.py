@@ -789,6 +789,9 @@ def _build_agent(
     mcp_url: Optional[str],
     mcp_token: Optional[str],
     mcp_timeout: int,
+    groundworkers_mcp_url: Optional[str] = None,
+    groundworkers_mcp_token: Optional[str] = None,
+    groundworkers_mcp_timeout: int = 30,
 ) -> tuple[StudyAgent, Optional[object]]:
     mcp_client = None
     if mcp_url:
@@ -797,7 +800,16 @@ def _build_agent(
         mcp_client = StdioMCPClient(
             StdioMCPClientConfig(command=mcp_command, args=mcp_args or [], cwd=mcp_cwd),
         )
-    return StudyAgent(mcp_client=mcp_client, allow_core_fallback=allow_core_fallback), mcp_client
+    groundworkers_mcp_client = None
+    if groundworkers_mcp_url:
+        groundworkers_mcp_client = HttpMCPClient(HttpMCPClientConfig(
+            url=groundworkers_mcp_url, token=groundworkers_mcp_token, timeout=groundworkers_mcp_timeout,
+        ))
+    return StudyAgent(
+        mcp_client=mcp_client,
+        groundworkers_mcp_client=groundworkers_mcp_client,
+        allow_core_fallback=allow_core_fallback,
+    ), mcp_client
 
 
 def _cohort_id_from_path(path: str) -> Optional[int]:
@@ -872,6 +884,9 @@ def main(host: str = "127.0.0.1", port: int = 8765) -> None:
     mcp_url = _resolve_mcp_url_from_env()
     mcp_token = os.getenv("STUDY_AGENT_MCP_TOKEN")
     mcp_timeout = int(os.getenv("STUDY_AGENT_MCP_TIMEOUT", "240"))
+    groundworkers_mcp_url = os.getenv("STUDY_AGENT_GROUNDWORKERS_MCP_URL")
+    groundworkers_mcp_token = os.getenv("STUDY_AGENT_GROUNDWORKERS_MCP_TOKEN")
+    groundworkers_mcp_timeout = int(os.getenv("STUDY_AGENT_GROUNDWORKERS_MCP_TIMEOUT", "30"))
     _log_startup_config()
     _warn_on_inconsistent_llm_config()
 
@@ -897,6 +912,9 @@ def main(host: str = "127.0.0.1", port: int = 8765) -> None:
         mcp_url,
         mcp_token,
         mcp_timeout,
+        groundworkers_mcp_url,
+        groundworkers_mcp_token,
+        groundworkers_mcp_timeout,
     )
 
     class Handler(ACPRequestHandler):

@@ -77,10 +77,14 @@ class StudyAgent(PhenotypeRecommendationMixin):
     def __init__(
         self,
         mcp_client: Optional[MCPClient] = None,
+        groundworkers_mcp_client: Optional[MCPClient] = None,
         allow_core_fallback: bool = True,
         confirmation_required_tools: Optional[List[str]] = None,
     ) -> None:
         self._mcp_client = mcp_client
+        # Separately pinned, opt-in candidate provider. It never replaces the
+        # primary StudyAgent MCP client or bypasses review/validation gates.
+        self._groundworkers_mcp_client = groundworkers_mcp_client
         self._allow_core_fallback = allow_core_fallback
         self._confirmation_required = set(confirmation_required_tools or [])
         # The configured chat model can be slow and is shared by threaded ACP
@@ -512,10 +516,14 @@ class StudyAgent(PhenotypeRecommendationMixin):
     def __init__(
         self,
         mcp_client: Optional[MCPClient] = None,
+        groundworkers_mcp_client: Optional[MCPClient] = None,
         allow_core_fallback: bool = True,
         confirmation_required_tools: Optional[List[str]] = None,
     ) -> None:
         self._mcp_client = mcp_client
+        # Separately pinned, opt-in candidate provider. It never replaces the
+        # primary StudyAgent MCP client or bypasses review/validation gates.
+        self._groundworkers_mcp_client = groundworkers_mcp_client
         self._allow_core_fallback = allow_core_fallback
         self._confirmation_required = set(confirmation_required_tools or [])
         # The configured chat model can be slow and is shared by threaded ACP
@@ -3648,6 +3656,39 @@ class StudyAgent(PhenotypeRecommendationMixin):
             }
         return candidate_list, provenance, direct_candidate_ids
 
+    def _retrieve_groundworkers_concept_lanes(
+        self, scope_data: Dict[str, Any], *, candidate_limit: int = 20
+    ) -> tuple[List[Dict[str, Any]], Dict[str, Any], set[int]]:
+        """Return Groundworkers candidates as review evidence, never as policy."""
+        if self._groundworkers_mcp_client is None:
+            return [], {"tool": "groundworkers.concept_ground", "tool_status": "unavailable", "error": "groundworkers_mcp_client_unavailable"}, set()
+        provider_limit = min(int(candidate_limit), 20)
+        candidates: Dict[tuple[int, str], Dict[str, Any]] = {}
+        search_runs: List[Dict[str, Any]] = []
+        for request in self._phenotype_concept_set_requests(scope_data):
+            for vocabulary_id in request["vocabulary_ids"] or [None]:
+                arguments: Dict[str, Any] = {"query": request["query"], "limit": provider_limit, "standard_only": True, "active_only": True}
+                if request["domains"]:
+                    arguments["domain"] = request["domains"][0]
+                if vocabulary_id:
+                    arguments["vocabulary_id"] = vocabulary_id
+                try:
+                    payload = self._groundworkers_mcp_client.call_tool("concept_ground", arguments)
+                except Exception as exc:
+                    search_runs.append({"concept_set_name": request["name"], "query": request["query"], "status": "error", "error": str(exc)})
+                    continue
+                rows = payload.get("results") if isinstance(payload, dict) else []
+                explanation = payload.get("grounding_explanation") if isinstance(payload, dict) else {}
+                rows = rows if isinstance(rows, list) else []
+                search_runs.append({"concept_set_name": request["name"], "query": request["query"], "domains": request["domains"], "vocabulary_ids": request["vocabulary_ids"], "returned_count": len(rows), "count": len(rows), "limit": provider_limit, "ordering": "groundworkers_grounding_score_descending", "status": "ok", "grounding_explanation": explanation if isinstance(explanation, dict) else {}})
+                for row in rows:
+                    if not isinstance(row, dict) or row.get("concept_id") in (None, ""):
+                        continue
+                    candidate = {"conceptId": int(row["concept_id"]), "conceptName": row.get("concept_name") or "", "domainId": row.get("domain_id") or "", "vocabularyId": row.get("vocabulary_id") or "", "standardConcept": "S" if row.get("standard_concept") is True else "", "conceptClassId": row.get("concept_class_id") or "", "conceptSetName": request["name"], "conceptSetDomain": request["domains"][0] if request["domains"] else "", "sourceTerm": request["query"], "sourceStage": "groundworkers_concept_ground", "groundworkersEvidence": {"match_kind": row.get("match_kind"), "total_score": row.get("total_score"), "grounding_explanation": explanation if isinstance(explanation, dict) else {}}}
+                    candidates.setdefault((candidate["conceptId"], candidate["conceptSetName"]), candidate)
+        candidate_list = list(candidates.values())
+        return candidate_list, {"tool": "groundworkers.concept_ground", "provider": "groundworkers", "query": str(scope_data.get("index_event") or ""), "candidate_limit": candidate_limit, "provider_candidate_limit": provider_limit, "provider_limit_applied": candidate_limit > provider_limit, "search_runs": search_runs, "tool_status": "unavailable" if any(run.get("status") != "ok" for run in search_runs) else "ok", "review_guardrail": "Candidates and grounding evidence require explicit human concept-set approval; Groundworkers does not emit or approve cohort logic."}, {int(row["conceptId"]) for row in candidate_list}
+
     def run_phenotype_make_computable_flow(
         self,
         narrative_statement: str,
@@ -3706,9 +3747,14 @@ class StudyAgent(PhenotypeRecommendationMixin):
         if request.concept_review_mode == "required" and not concept_set_data:
             if self._mcp_client is None:
                 return {"status": "error", "error": "MCP client unavailable"}
-            candidate_list, concept_provenance, direct_candidate_ids = self._retrieve_phenotype_concept_lanes(
-                scope_data, candidate_limit=request.candidate_limit
-            )
+            if request.concept_build_mode == "groundworkers":
+                candidate_list, concept_provenance, direct_candidate_ids = self._retrieve_groundworkers_concept_lanes(
+                    scope_data, candidate_limit=request.candidate_limit
+                )
+            else:
+                candidate_list, concept_provenance, direct_candidate_ids = self._retrieve_phenotype_concept_lanes(
+                    scope_data, candidate_limit=request.candidate_limit
+                )
             return self._deliver_phenotype_review(
                 {"status": "needs_concept_review", "narrative_statement": narrative, "scope": scope_data, "concept_review_mode": request.concept_review_mode, "concept_candidates": candidate_list, "concept_provenance": concept_provenance},
                 review_delivery=request.review_delivery,

@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import socket
-import sys
 import subprocess
+import sys
 import time
-from pathlib import Path
 import urllib.error
 import urllib.request
+from pathlib import Path
 from urllib.parse import urlparse
 
 REPO_ROOT = Path(__file__).resolve().parent
@@ -167,6 +168,98 @@ def _start_mcp_http_if_needed(env: dict) -> subprocess.Popen | None:
             time.sleep(0.5)
     print(f"Warning: MCP did not open {host}:{port} within {timeout_s}s")
     return proc
+
+
+def _groundworkers_mcp_url(env: dict[str, str]) -> str:
+    url = env.get("STUDY_AGENT_GROUNDWORKERS_MCP_URL", "").strip()
+    if not url:
+        raise RuntimeError(
+            "STUDY_AGENT_GROUNDWORKERS_MCP_URL is required for "
+            "smoke_groundworkers_readiness (for example "
+            "http://127.0.0.1:8010/mcp)."
+        )
+    return url.rstrip("/")
+
+
+def _start_groundworkers_http_if_needed(
+    env: dict[str, str], url: str
+) -> subprocess.Popen | None:
+    """Start the isolated Groundworkers MCP only for its opt-in smoke task."""
+    if env.get("GROUNDWORKERS_MCP_MANAGED", "1") != "1":
+        return None
+
+    config_path = Path(env.get("GROUNDWORKERS_CONFIG_PATH", ""))
+    if not config_path.is_file():
+        raise RuntimeError(
+            "GROUNDWORKERS_CONFIG_PATH must name the read-only Groundworkers "
+            "TOML configuration when GROUNDWORKERS_MCP_MANAGED=1."
+        )
+    command = env.get("GROUNDWORKERS_COMMAND", "").strip()
+    if not command:
+        raise RuntimeError(
+            "GROUNDWORKERS_COMMAND must name the Groundworkers executable from "
+            "the isolated pilot virtual environment."
+        )
+
+    parsed = urlparse(url)
+    host = parsed.hostname or "127.0.0.1"
+    port = parsed.port
+    if port is None:
+        raise RuntimeError("STUDY_AGENT_GROUNDWORKERS_MCP_URL must include a port.")
+    if host not in {"127.0.0.1", "localhost", "::1"}:
+        raise RuntimeError(
+            "GROUNDWORKERS_MCP_MANAGED=1 only supports a loopback URL; set it "
+            "to 0 to test an already-running remote service."
+        )
+    try:
+        with socket.create_connection((host, port), timeout=1):
+            raise RuntimeError(
+                f"{host}:{port} is already accepting connections. Set "
+                "GROUNDWORKERS_MCP_MANAGED=0 to test that explicitly managed "
+                "service rather than an unknown listener."
+            )
+    except OSError:
+        pass
+
+    stdout = _runtime_file(env, "GROUNDWORKERS_STDOUT", "groundworkers_stdout.log")
+    stderr = _runtime_file(env, "GROUNDWORKERS_STDERR", "groundworkers_stderr.log")
+    args = [
+        *shlex.split(command),
+        "--config-path",
+        str(config_path),
+        "--config-read-only",
+        "--transport",
+        "streamable-http",
+        "--host",
+        host,
+        "--port",
+        str(port),
+    ]
+    print(f"Starting Groundworkers MCP at {host}:{port}{parsed.path or '/mcp'}...")
+    with (
+        open(stdout, "w", encoding="utf-8") as out,
+        open(stderr, "w", encoding="utf-8") as err,
+    ):
+        proc = subprocess.Popen(args, env=env, stdout=out, stderr=err)
+
+    timeout_s = int(env.get("GROUNDWORKERS_START_TIMEOUT", "30"))
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        try:
+            with socket.create_connection((host, port), timeout=1):
+                if proc.poll() is not None:
+                    raise RuntimeError(
+                        "Groundworkers exited during startup; inspect "
+                        f"{stdout} and {stderr}."
+                    )
+                return proc
+        except OSError:
+            time.sleep(0.5)
+    proc.terminate()
+    raise RuntimeError(
+        f"Groundworkers did not open {host}:{port} within {timeout_s}s; inspect "
+        f"{stdout} and {stderr}."
+    )
 
 
 def _wait_for_acp(url: str, timeout_s: int = 30, require_mcp: bool = False) -> None:
@@ -448,6 +541,49 @@ def task_list_services():
         "actions": [_run_list],
         "verbosity": 2,
     }
+
+
+def task_smoke_groundworkers_readiness():
+    """Verify the isolated Groundworkers MCP before configuring ACP to use it.
+
+    This is intentionally excluded from ``run_smoke_suite``: it requires a
+    separately bootstrapped, read-only OMOP vocabulary database and never starts
+    ACP. The invoked smoke validates the exact streamable-HTTP MCP contract ACP
+    will use, including one bounded non-PHI lexical grounding request.
+    """
+
+    def _run_smoke() -> None:
+        env = _runtime_env()
+        url = _groundworkers_mcp_url(env)
+        env["GROUNDWORKERS_MCP_URL"] = url
+        proc = _start_groundworkers_http_if_needed(env, url)
+        source_paths = os.pathsep.join((str(REPO_ROOT), str(REPO_ROOT / "core")))
+        existing_pythonpath = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = (
+            source_paths if not existing_pythonpath else f"{source_paths}{os.pathsep}{existing_pythonpath}"
+        )
+        try:
+            print("Running Groundworkers MCP readiness smoke...")
+            subprocess.run(
+                [sys.executable, "tests/smoke_groundworkers_readiness.py"],
+                check=True,
+                env=env,
+            )
+            if proc is not None:
+                print(
+                    "Groundworkers logs: "
+                    f"{_runtime_file(env, 'GROUNDWORKERS_STDOUT', 'groundworkers_stdout.log')} "
+                    f"{_runtime_file(env, 'GROUNDWORKERS_STDERR', 'groundworkers_stderr.log')}"
+                )
+        finally:
+            if proc is not None:
+                print("Stopping Groundworkers MCP...")
+                proc.terminate()
+                try:
+                    proc.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+    return {"actions": [_run_smoke], "verbosity": 2}
 
 
 def task_smoke_phenotype_recommend_flow():

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Groundworkers pilot embedding corpus manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "created_at", "embedding_model", "selection_rules", "concepts"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "created_at": {"type": "string", "format": "date-time"},
+    "embedding_model": {"type": "object", "additionalProperties": false, "required": ["identifier"], "properties": {"identifier": {"type": "string"}, "revision": {"type": "string"}}},
+    "selection_rules": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "concepts": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["concept_id", "source"], "properties": {"concept_id": {"type": "integer", "minimum": 1}, "source": {"type": "string"}, "ancestor_depth": {"type": "integer", "minimum": 0}}}}
+  }
+}

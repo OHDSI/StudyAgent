@@ -341,7 +341,10 @@ class LLMAuditEnvelope(BaseModel):
     records: List[LLMAuditRecord] = Field(default_factory=list)
 
 ConceptReviewMode = Literal["required", "propose", "provided_only"]
-ConceptBuildMode = Literal["search_only", "grounded"]
+# ``groundworkers`` is an opt-in, separately deployed MCP provider. It only
+# returns review candidates and provenance; it does not bypass the required
+# concept-set approval or deterministic emission stages.
+ConceptBuildMode = Literal["search_only", "grounded", "groundworkers"]
 ReviewDelivery = Literal["auto", "inline", "session"]
 
 

@@ -1,0 +1,9 @@
+# Isolated Groundworkers pilot environment only. Do not merge these into
+# StudyAgent's primary pyproject.toml while the evaluation is in progress.
+groundworkers==0.4.0
+oa-configurator==1.2.1
+omop-alchemy==1.0.0
+orm-loader==1.1.0
+omop-emb==2.1.0
+omop-graph==2.0.0
+omop-llm==1.0.1

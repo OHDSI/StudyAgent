@@ -1,0 +1,43 @@
+# Template for the isolated Groundworkers service. This file contains no
+# secrets and is not a replacement for StudyAgent's config.yaml policy.
+#
+# Provide database credentials only through the pilot service's deployment
+# secret mechanism. Configure the OMOP database identity as read-only.
+
+[connections.omop_readonly]
+# dialect = "postgresql+psycopg"
+# host = "localhost"
+# port = 5432
+# user = "groundworkers_readonly"
+# password = "set outside this committed template"
+# database_name = "omop"
+
+[databases.omop_vocabulary]
+kind = "cdm"
+connection = "omop_readonly"
+# schema_name = "cdm_schema"
+# vocab_schema = "vocabulary_schema"
+
+[tools.groundworkers]
+cdm_db = "omop_vocabulary"
+mcp_transport = "streamable-http"
+mcp_host = "127.0.0.1"
+mcp_port = 8010
+# The lexical checkpoint has no embedding or LLM model configuration.
+grounding_min_fulltext_overlap = 0.0
+grounding_max_depth = 5
+
+# Leave these unset for the lexical-only checkpoint.
+# embedding_model_name = "local_embedding_model"
+# vector_store_name = "groundworkers_pilot_vectors"
+
+# Configure only after the lexical checkpoint passes and a target corpus has
+# been approved. The vector store must be dedicated to this pilot.
+# [vector_stores.groundworkers_pilot_vectors]
+# backend_type = "pgvector"
+# database = "groundworkers_vector_db"
+
+# [tools.omop_emb]
+# cdm_db = "omop_vocabulary"
+# embedding_model_name = "local_embedding_model"
+# vector_store_name = "groundworkers_pilot_vectors"

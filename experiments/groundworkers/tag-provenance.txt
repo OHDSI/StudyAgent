@@ -1,0 +1,8 @@
+# Built from verified GitHub release tags, not codeload source archives.
+groundworkers v0.4.0 b2647f435a111dcbd80aa1eb8e8e09e427351c53
+oa-configurator v1.2.1 c1484ad079be4d1ffc59208b088a558ee13bafdb
+omop-alchemy v1.0.0 a6b899e8a5cb831a84cd12d4cac28dabef820632
+orm-loader v1.1.0 2cd99097a04d5c00aa915f8e4e49134c1229235b
+omop-emb v2.1.0 9bf922c4af17e5218cb396b22bc6b808ef2c3eb2
+omop-graph v2.0.0 2ab826c18e9a83eab5bd9808fb1ecd4a24098662
+omop-llm v1.0.1 425e529991a4f248d8d794c6e5967e261deab9ad
