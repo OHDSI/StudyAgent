@@ -3667,7 +3667,16 @@ class StudyAgent(PhenotypeRecommendationMixin):
         search_runs: List[Dict[str, Any]] = []
         for request in self._phenotype_concept_set_requests(scope_data):
             for vocabulary_id in request["vocabulary_ids"] or [None]:
-                arguments: Dict[str, Any] = {"query": request["query"], "limit": provider_limit, "standard_only": True, "active_only": True}
+                # This pilot is deliberately lexical-only. Embedding fallback
+                # needs its own targeted corpus and evaluation before it can be
+                # used as review evidence in this ACP flow.
+                arguments: Dict[str, Any] = {
+                    "query": request["query"],
+                    "limit": provider_limit,
+                    "standard_only": True,
+                    "active_only": True,
+                    "include_embedding": False,
+                }
                 if request["domains"]:
                     arguments["domain"] = request["domains"][0]
                 if vocabulary_id:

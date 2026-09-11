@@ -757,3 +757,54 @@ def test_required_review_uses_classification_ancestor_fallback_for_zero_drug_sea
     assert candidates[0]["sourceStage"] == "classification_ancestor_fallback"
     assert candidates[0]["classificationAncestor"] is True
     assert any(run.get("candidate_kind") == "classification_ancestor" for run in provenance["search_runs"])
+
+class _GroundworkersMcp:
+    def __init__(self):
+        self.calls = []
+
+    def call_tool(self, name, arguments):
+        self.calls.append((name, arguments))
+        assert name == "concept_ground"
+        return {
+            "results": [
+                {
+                    "concept_id": 201826,
+                    "concept_name": "Type 2 diabetes mellitus",
+                    "domain_id": "Condition",
+                    "vocabulary_id": "SNOMED",
+                    "standard_concept": True,
+                    "concept_class_id": "Clinical Finding",
+                    "match_kind": "EXACT",
+                    "total_score": 1.0,
+                }
+            ],
+            "grounding_explanation": {"mode": "lexical"},
+        }
+
+
+def test_groundworkers_required_review_is_lexical_only():
+    scope = {
+        "index_event": "type 2 diabetes mellitus",
+        "criterion_domains": {"type 2 diabetes mellitus": "Condition"},
+    }
+    provider = _GroundworkersMcp()
+    candidates, provenance, direct_ids = StudyAgent(
+        groundworkers_mcp_client=provider
+    )._retrieve_groundworkers_concept_lanes(scope)
+
+    assert provider.calls == [
+        (
+            "concept_ground",
+            {
+                "query": "type 2 diabetes mellitus",
+                "limit": 20,
+                "standard_only": True,
+                "active_only": True,
+                "include_embedding": False,
+                "domain": "Condition",
+            },
+        )
+    ]
+    assert [row["conceptId"] for row in candidates] == [201826]
+    assert direct_ids == {201826}
+    assert provenance["tool_status"] == "ok"
