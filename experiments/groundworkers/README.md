@@ -36,6 +36,11 @@ Groundworkers returns ranked candidates and provenance only. StudyAgent retains
 scope confirmation, explicit concept-policy approval, Capr emission, and
 Capr/Circe validation.
 
+The frozen lexical results and the staged hierarchy/embedding design are in
+[EVALUATION_PLAN.md](EVALUATION_PLAN.md). The next action is a read-only
+hierarchy tool-contract probe; it does not enable hierarchy or embeddings in
+ACP.
+
 ## Pre-ACP readiness smoke
 
 After the one-time relationship-classification bootstrap, run the opt-in smoke
