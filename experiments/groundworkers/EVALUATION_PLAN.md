@@ -147,6 +147,11 @@ are recorded in [hierarchy-contract-probe-v0.1.0.md](probes/hierarchy-contract-p
 It confirms `parent_ids` constraints plus deterministic ancestor/descendant
 lookups, and also demonstrates why a hierarchy allowlist is required.
 
+
+The proposed v0 boundary is in
+[HIERARCHY_PROVIDER_CONTRACT.md](HIERARCHY_PROVIDER_CONTRACT.md). It requires
+an explicit user-confirmed single anchor per lane and keeps hierarchy evidence
+review-only. Approve or revise that contract before implementation.
 ## Next executable decision
 
 Design the hierarchy provider contract without changing ACP behavior: choose
