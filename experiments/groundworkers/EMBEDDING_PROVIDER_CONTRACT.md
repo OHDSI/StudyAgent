@@ -43,25 +43,30 @@ vocabulary text, patient data, notes, row-level records, or unbounded graph
 expansion. A changed model, rule, concept list, or vocabulary release creates a
 new manifest hash and vector collection.
 
-## Provider capability gap
+## Precision-first provider policy
 
-The pinned Groundworkers service currently places `EmbeddingResolver` after the
-exact-label and full-text tiers. It stops after the first tier yielding results.
-Consequently, `include_embedding: true` means "embedding permitted after lexical
-miss", not "embedding retrieval was performed"; a lexical hit will report
-`used_embedding: false`.
+The pinned Groundworkers service uses the intended precision-first tier order:
+exact label/synonym, full-text label/synonym, embedding, then partial matching
+when the search space is sufficiently narrowed. It stops at the first tier that
+yields candidates. This is appropriate for review-gated phenotype work: a
+terminology-aligned clinical term should first return its closest lexical
+terminology evidence before semantic expansion is considered.
 
-Before ACP integration, choose and verify one of these evaluation modes:
+`include_embedding: true` therefore means "embedding is available as a semantic
+rescue after lexical miss", not "embedding retrieval was performed". A lexical
+hit must report `used_embedding: false`; an embedding-stage result must report
+`used_embedding: true` and identify the corpus/model provenance.
 
-1. **Embedding-required**: a provider-supported embedding-only/tier-selection
-   request that cannot return lexical candidates; preferred for a direct
-   lexical-versus-embedding comparison.
-2. **Lexical-miss fallback**: retain the existing tier order, but evaluate only
-   predeclared cases where the lexical-only run has zero candidates. Provenance
-   must report `used_embedding: true` and the embedding tier/model/corpus.
+The v0 embedding evaluation uses this lexical-miss fallback behavior. Predeclare
+its held-out cases from lexical-only runs that returned zero candidates, then
+compare the precision-first embedding-enabled result with the lexical-only
+result. This evaluates the intended user benefit: a clinically meaningful term
+that is poorly aligned to terminology labels may receive bounded semantic
+candidates without broadening terminology-aligned requests.
 
-Do not add `concept_build_mode: "groundworkers_embedding"` until the chosen mode
-is supported by the pinned provider and represented in response provenance.
+An embedding-only or explicit tier-selection capability may be useful later for
+provider diagnostics, but it is not required for the ACP pilot and must not
+replace the precision-first production policy.
 
 ## Proposed ACP boundary after capability verification
 
