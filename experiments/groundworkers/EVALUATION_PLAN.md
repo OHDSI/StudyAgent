@@ -88,7 +88,8 @@ becomes a concept-set policy.
 ## Phase 3: targeted embedding evaluation
 
 Embeddings are a separate provider mode, not a fallback enabled in lexical or
-hierarchy tests.
+hierarchy tests. The detailed proposed boundary and current provider tier-order
+limitation are in [EMBEDDING_PROVIDER_CONTRACT.md](EMBEDDING_PROVIDER_CONTRACT.md).
 
 ### Required design boundary
 
