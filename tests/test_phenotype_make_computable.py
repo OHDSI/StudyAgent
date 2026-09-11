@@ -808,3 +808,125 @@ def test_groundworkers_required_review_is_lexical_only():
     assert [row["conceptId"] for row in candidates] == [201826]
     assert direct_ids == {201826}
     assert provenance["tool_status"] == "ok"
+
+
+class _HierarchyGroundworkersMcp:
+    def __init__(self, *, ancestor_error=False):
+        self.calls = []
+        self.ancestor_error = ancestor_error
+
+    def call_tool(self, name, arguments):
+        self.calls.append((name, arguments))
+        if name == "concept_get":
+            assert arguments == {"concept_id": 21601784}
+            return {
+                "concept_id": 21601784,
+                "concept_name": "ACE inhibitors, plain",
+                "domain_id": "Drug",
+                "vocabulary_id": "ATC",
+                "standard_concept": False,
+                "classification_concept": True,
+                "is_active": True,
+            }
+        if name == "concept_ground":
+            return {
+                "results": [{
+                    "concept_id": 1308216,
+                    "concept_name": "lisinopril",
+                    "domain_id": "Drug",
+                    "vocabulary_id": "RxNorm",
+                    "standard_concept": True,
+                    "concept_class_id": "Ingredient",
+                    "match_kind": "EXACT",
+                    "total_score": 1.0,
+                }],
+                "grounding_explanation": {
+                    "effective_parent_ids": [21601784],
+                    "used_embedding": False,
+                },
+            }
+        if name == "concept_ancestors":
+            if self.ancestor_error:
+                raise RuntimeError("ancestor service timeout")
+            assert arguments == {"concept_id": 1308216, "max_depth": 1}
+            return {"ancestors": [{"concept_id": 21601784, "depth": 1}]}
+        raise AssertionError(name)
+
+
+def _hierarchy_scope():
+    return {
+        "index_event": "ACE inhibitor",
+        "criterion_domains": {"ACE inhibitor": "Drug"},
+        "entry_limit": "First",
+        "prior_observation": 0,
+        "index_day_boundary": "included",
+        "windows": "none",
+        "exit_strategy": "observation",
+    }
+
+
+def _hierarchy_anchor():
+    return {
+        "concept_set_name": "ACE inhibitor",
+        "concept_id": 21601784,
+        "domain": "Drug",
+        "vocabulary_id": "ATC",
+        "anchor_role": "descendant_constraint",
+    }
+
+
+def test_groundworkers_hierarchy_requires_confirmed_anchor():
+    with pytest.raises(ValueError, match="groundworkers_hierarchy_requires_hierarchy_anchor"):
+        PhenotypeMakeComputableInput.model_validate({
+            "narrative_statement": "First ACE inhibitor exposure",
+            "confirmed_scope": True,
+            "scope": _hierarchy_scope(),
+            "concept_review_mode": "required",
+            "concept_build_mode": "groundworkers_hierarchy",
+        })
+
+
+def test_groundworkers_hierarchy_is_anchored_lexical_only_and_review_only():
+    provider = _HierarchyGroundworkersMcp()
+    candidates, provenance, direct_ids = StudyAgent(
+        groundworkers_mcp_client=provider
+    )._retrieve_groundworkers_hierarchy_concept_lanes(
+        _hierarchy_scope(), [_hierarchy_anchor()]
+    )
+
+    assert provider.calls == [
+        ("concept_get", {"concept_id": 21601784}),
+        ("concept_ground", {
+            "query": "ACE inhibitor",
+            "limit": 20,
+            "parent_ids": [21601784],
+            "standard_only": True,
+            "active_only": True,
+            "include_embedding": False,
+            "domain": "Drug",
+        }),
+        ("concept_ancestors", {"concept_id": 1308216, "max_depth": 1}),
+    ]
+    assert [row["conceptId"] for row in candidates] == [1308216]
+    assert candidates[0]["sourceStage"] == "groundworkers_hierarchy_concept_ground"
+    assert candidates[0]["hierarchyEvidence"]["anchor"] == _hierarchy_anchor()
+    assert candidates[0]["hierarchyEvidence"]["verification"]["matched_ancestor"] == {"concept_id": 21601784, "depth": 1}
+    assert not {"includeDescendants", "includeMapped", "isExcluded"} & set(candidates[0])
+    assert direct_ids == {1308216}
+    assert provenance["mode"] == "hierarchy"
+    assert provenance["tool_status"] == "ok"
+
+
+def test_groundworkers_hierarchy_ancestor_error_is_unavailable_not_empty_success():
+    provider = _HierarchyGroundworkersMcp(ancestor_error=True)
+    candidates, provenance, direct_ids = StudyAgent(
+        groundworkers_mcp_client=provider
+    )._retrieve_groundworkers_hierarchy_concept_lanes(
+        _hierarchy_scope(), [_hierarchy_anchor()]
+    )
+
+    assert candidates == []
+    assert direct_ids == set()
+    assert provenance["tool_status"] == "unavailable"
+    assert provenance["search_runs"][0]["status"] == "error"
+    assert "ancestor service timeout" in provenance["search_runs"][0]["error"]

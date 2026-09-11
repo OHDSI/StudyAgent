@@ -3698,6 +3698,144 @@ class StudyAgent(PhenotypeRecommendationMixin):
         candidate_list = list(candidates.values())
         return candidate_list, {"tool": "groundworkers.concept_ground", "provider": "groundworkers", "query": str(scope_data.get("index_event") or ""), "candidate_limit": candidate_limit, "provider_candidate_limit": provider_limit, "provider_limit_applied": candidate_limit > provider_limit, "search_runs": search_runs, "tool_status": "unavailable" if any(run.get("status") != "ok" for run in search_runs) else "ok", "review_guardrail": "Candidates and grounding evidence require explicit human concept-set approval; Groundworkers does not emit or approve cohort logic."}, {int(row["conceptId"]) for row in candidate_list}
 
+
+    def _retrieve_groundworkers_hierarchy_concept_lanes(
+        self,
+        scope_data: Dict[str, Any],
+        hierarchy_anchors: List[Dict[str, Any]],
+        *,
+        candidate_limit: int = 20,
+    ) -> tuple[List[Dict[str, Any]], Dict[str, Any], set[int]]:
+        """Return ancestor-verified Groundworkers review evidence only."""
+        if self._groundworkers_mcp_client is None:
+            return [], {"tool": "groundworkers.concept_ground", "tool_status": "unavailable", "error": "groundworkers_mcp_client_unavailable"}, set()
+        provider_limit = min(int(candidate_limit), 20)
+        anchors_by_lane = {str(anchor["concept_set_name"]): anchor for anchor in hierarchy_anchors}
+        candidates: Dict[tuple[int, str], Dict[str, Any]] = {}
+        search_runs: List[Dict[str, Any]] = []
+        for request in self._phenotype_concept_set_requests(scope_data):
+            anchor = anchors_by_lane.get(request["name"])
+            run: Dict[str, Any] = {
+                "concept_set_name": request["name"],
+                "query": request["query"],
+                "domains": request["domains"],
+                "vocabulary_ids": request["vocabulary_ids"],
+                "anchor": anchor,
+                "provider_limit": provider_limit,
+                "ancestor_verification_depth": 1,
+            }
+            if anchor is None:
+                run.update(status="error", error="missing_hierarchy_anchor")
+                search_runs.append(run)
+                continue
+            try:
+                anchor_payload = self._groundworkers_mcp_client.call_tool("concept_get", {"concept_id": int(anchor["concept_id"])})
+                anchor_concept = anchor_payload.get("concept", anchor_payload) if isinstance(anchor_payload, dict) else {}
+                if not isinstance(anchor_concept, dict):
+                    raise ValueError("malformed_anchor_response")
+                anchor_domain = str(anchor_concept.get("domain_id") or anchor_concept.get("domain") or "")
+                anchor_vocabulary = str(anchor_concept.get("vocabulary_id") or anchor_concept.get("vocabulary") or "")
+                if anchor_domain != anchor["domain"] or anchor_vocabulary != anchor["vocabulary_id"]:
+                    raise ValueError("anchor_domain_or_vocabulary_mismatch")
+                if anchor_concept.get("is_active") is False:
+                    raise ValueError("inactive_hierarchy_anchor")
+            except Exception as exc:
+                run.update(status="error", error=str(exc))
+                search_runs.append(run)
+                continue
+            arguments: Dict[str, Any] = {
+                "query": request["query"],
+                "limit": provider_limit,
+                "parent_ids": [int(anchor["concept_id"])],
+                "standard_only": True,
+                "active_only": True,
+                "include_embedding": False,
+            }
+            if request["domains"]:
+                arguments["domain"] = request["domains"][0]
+            if request["vocabulary_ids"]:
+                arguments["vocabulary_id"] = request["vocabulary_ids"][0]
+            try:
+                payload = self._groundworkers_mcp_client.call_tool("concept_ground", arguments)
+                rows = payload.get("results") if isinstance(payload, dict) else None
+                explanation = payload.get("grounding_explanation") if isinstance(payload, dict) else {}
+                if not isinstance(rows, list) or not isinstance(explanation, dict):
+                    raise ValueError("malformed_groundworkers_hierarchy_response")
+                verified_rows: List[tuple[Dict[str, Any], Dict[str, Any]]] = []
+                for row in rows:
+                    if not isinstance(row, dict) or row.get("concept_id") in (None, ""):
+                        raise ValueError("malformed_groundworkers_candidate")
+                    ancestor_payload = self._groundworkers_mcp_client.call_tool("concept_ancestors", {"concept_id": int(row["concept_id"]), "max_depth": 1})
+                    ancestors = ancestor_payload.get("ancestors") if isinstance(ancestor_payload, dict) else None
+                    if not isinstance(ancestors, list):
+                        raise ValueError("malformed_ancestor_verification_response")
+                    if request["domains"] and row.get("domain_id") not in request["domains"]:
+                        raise ValueError("hierarchy_candidate_domain_mismatch")
+                    if row.get("standard_concept") is not True or row.get("is_active") is False:
+                        raise ValueError("hierarchy_candidate_not_active_standard")
+                    matched = next((item for item in ancestors if isinstance(item, dict) and int(item.get("concept_id", -1)) == int(anchor["concept_id"])), None)
+                    if matched is None:
+                        raise ValueError("ancestor_verification_failed")
+                    verified_rows.append((row, matched))
+            except Exception as exc:
+                run.update(status="error", error=str(exc))
+                search_runs.append(run)
+                continue
+            run.update(
+                status="ok",
+                returned_count=len(verified_rows),
+                count=len(verified_rows),
+                ordering="groundworkers_grounding_score_descending",
+                parent_ids=[int(anchor["concept_id"])],
+                grounding_explanation=explanation,
+                anchor_concept={
+                    "concept_id": int(anchor["concept_id"]),
+                    "domain_id": anchor_domain,
+                    "vocabulary_id": anchor_vocabulary,
+                    "standard_concept": anchor_concept.get("standard_concept"),
+                    "classification_concept": anchor_concept.get("classification_concept"),
+                },
+            )
+            search_runs.append(run)
+            for row, matched_ancestor in verified_rows:
+                hierarchy_evidence = {
+                    "evidence_type": "provider_hierarchy_membership",
+                    "anchor": anchor,
+                    "verification": {
+                        "tool": "concept_ancestors",
+                        "max_depth": 1,
+                        "matched_ancestor": matched_ancestor,
+                    },
+                }
+                candidate = {
+                    "conceptId": int(row["concept_id"]),
+                    "conceptName": row.get("concept_name") or "",
+                    "domainId": row.get("domain_id") or "",
+                    "vocabularyId": row.get("vocabulary_id") or "",
+                    "standardConcept": "S" if row.get("standard_concept") is True else "",
+                    "conceptClassId": row.get("concept_class_id") or "",
+                    "conceptSetName": request["name"],
+                    "conceptSetDomain": request["domains"][0] if request["domains"] else "",
+                    "sourceTerm": request["query"],
+                    "sourceStage": "groundworkers_hierarchy_concept_ground",
+                    "groundworkersEvidence": {"match_kind": row.get("match_kind"), "total_score": row.get("total_score"), "grounding_explanation": explanation},
+                    "hierarchyEvidence": hierarchy_evidence,
+                }
+                candidates.setdefault((candidate["conceptId"], candidate["conceptSetName"]), candidate)
+        candidate_list = list(candidates.values())
+        tool_status = "unavailable" if any(run.get("status") != "ok" for run in search_runs) else "ok"
+        return candidate_list, {
+            "tool": "groundworkers.concept_ground",
+            "provider": "groundworkers",
+            "mode": "hierarchy",
+            "query": str(scope_data.get("index_event") or ""),
+            "candidate_limit": candidate_limit,
+            "provider_candidate_limit": provider_limit,
+            "provider_limit_applied": candidate_limit > provider_limit,
+            "search_runs": search_runs,
+            "tool_status": tool_status,
+            "review_guardrail": "Candidates and hierarchy evidence require explicit human concept-set approval; Groundworkers does not emit or approve cohort logic.",
+        }, {int(row["conceptId"]) for row in candidate_list}
     def run_phenotype_make_computable_flow(
         self,
         narrative_statement: str,
@@ -3706,11 +3844,12 @@ class StudyAgent(PhenotypeRecommendationMixin):
         concept_review_mode: str = "required",
         concept_sets: Optional[List[Dict[str, Any]]] = None,
         concept_build_mode: str = "search_only",
+        hierarchy_anchors: Optional[List[Dict[str, Any]]] = None,
         review_delivery: str = "auto",
         candidate_limit: int = 20,
     ) -> Dict[str, Any]:
         try:
-            request = PhenotypeMakeComputableInput(narrative_statement=narrative_statement, confirmed_scope=confirmed_scope, scope=scope or {}, concept_review_mode=concept_review_mode, concept_build_mode=concept_build_mode, review_delivery=review_delivery, candidate_limit=candidate_limit, concept_sets=concept_sets or [])
+            request = PhenotypeMakeComputableInput(narrative_statement=narrative_statement, confirmed_scope=confirmed_scope, scope=scope or {}, concept_review_mode=concept_review_mode, concept_build_mode=concept_build_mode, hierarchy_anchors=hierarchy_anchors or [], review_delivery=review_delivery, candidate_limit=candidate_limit, concept_sets=concept_sets or [])
         except ValidationError as exc:
             errors = exc.errors(include_url=False)
             concept_set_errors = [error for error in errors if error.get("loc", (None,))[0] == "concept_sets"]
@@ -3759,6 +3898,12 @@ class StudyAgent(PhenotypeRecommendationMixin):
             if request.concept_build_mode == "groundworkers":
                 candidate_list, concept_provenance, direct_candidate_ids = self._retrieve_groundworkers_concept_lanes(
                     scope_data, candidate_limit=request.candidate_limit
+                )
+            elif request.concept_build_mode == "groundworkers_hierarchy":
+                candidate_list, concept_provenance, direct_candidate_ids = self._retrieve_groundworkers_hierarchy_concept_lanes(
+                    scope_data,
+                    [anchor.model_dump() for anchor in request.hierarchy_anchors],
+                    candidate_limit=request.candidate_limit,
                 )
             else:
                 candidate_list, concept_provenance, direct_candidate_ids = self._retrieve_phenotype_concept_lanes(

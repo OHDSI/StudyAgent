@@ -1,7 +1,7 @@
-# Proposed Groundworkers hierarchy provider contract v0
+# Groundworkers hierarchy provider contract v0
 
-Status: proposed design; no ACP request mode or runtime behavior is changed by
-this document.
+Status: approved and implemented in the experimental `groundworkers_hierarchy`
+required-review mode. It remains separate from the lexical `groundworkers` mode.
 
 ## Goal
 
@@ -101,9 +101,15 @@ No result permits the system to set `include_descendants`, `include_mapped`, or
 any inclusion/exclusion field. If the user rejects the anchor or candidates,
 the workflow returns to scope/anchor selection rather than widening traversal.
 
+## Implemented decision
+
+This v0 boundary was approved for the experimental pilot: one explicitly
+human-confirmed anchor per scope lane, lexical-only retrieval, depth-one provider
+ancestry evidence, and no claim of a specific OMOP relationship subtype.
+
 ## Evaluation set and success criteria
 
-Before implementation, freeze three held-out cases with reviewer-approved roots:
+For the next evaluation phase, freeze three held-out cases with reviewer-approved roots:
 
 1. ACE-inhibitor class anchored to a specified ATC class;
 2. one Condition parent/child case with an explicit known anchor; and
@@ -128,10 +134,9 @@ result, or any hierarchy evidence becomes policy without explicit approval.
 5. Existing `groundworkers` lexical mode retains `include_embedding: false` and
    sends no `parent_ids`.
 
-## Decision requested before coding
+## Implementation status
 
-Approve or revise this v0 boundary, especially the choice to require a
-user-confirmed single anchor and to report provider ancestry membership without
-claiming a specific relationship subtype. After approval, implementation can
-add the new request field, provider path, regression tests, and a small
-held-out hierarchy comparison.
+The request model, bounded provider path, and regression coverage are in place.
+The next evaluation step is a small held-out hierarchy comparison using the
+three cases above; it remains review-only and requires explicit candidate policy
+approval before any cohort definition can be emitted.

@@ -344,7 +344,7 @@ ConceptReviewMode = Literal["required", "propose", "provided_only"]
 # ``groundworkers`` is an opt-in, separately deployed MCP provider. It only
 # returns review candidates and provenance; it does not bypass the required
 # concept-set approval or deterministic emission stages.
-ConceptBuildMode = Literal["search_only", "grounded", "groundworkers"]
+ConceptBuildMode = Literal["search_only", "grounded", "groundworkers", "groundworkers_hierarchy"]
 ReviewDelivery = Literal["auto", "inline", "session"]
 
 
@@ -495,6 +495,19 @@ class PhenotypeConceptTermProposal(BaseModel):
     terms: List[str] = Field(default_factory=list, max_length=5)
 
 
+
+class PhenotypeHierarchyAnchor(BaseModel):
+    """Human-confirmed hierarchy context for one required-review lane."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    concept_set_name: str = Field(min_length=1)
+    concept_id: int = Field(gt=0)
+    domain: str = Field(min_length=1)
+    vocabulary_id: str = Field(min_length=1)
+    anchor_role: Literal["descendant_constraint"]
+
+
 class PhenotypeMakeComputableInput(BaseModel):
     """Stateless direct-narrative request for a computable cohort definition."""
 
@@ -505,6 +518,8 @@ class PhenotypeMakeComputableInput(BaseModel):
     scope: PhenotypeMakeComputableScope = Field(default_factory=PhenotypeMakeComputableScope)
     concept_review_mode: ConceptReviewMode = "required"
     concept_build_mode: ConceptBuildMode = "search_only"
+    # Retrieval context only. These anchors are never concept-set policy.
+    hierarchy_anchors: List[PhenotypeHierarchyAnchor] = Field(default_factory=list)
     review_delivery: ReviewDelivery = "auto"
     # Required-review sessions are stored server-side and returned compactly, so
     # they can safely carry a larger deterministic vocabulary slice. Proposal
@@ -512,3 +527,24 @@ class PhenotypeMakeComputableInput(BaseModel):
     # LLM (see StudyAgent.run_phenotype_make_computable_flow).
     candidate_limit: int = Field(default=20, ge=1, le=500)
     concept_sets: List[PhenotypeReviewedConceptSet] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_hierarchy_mode(self) -> "PhenotypeMakeComputableInput":
+        if self.concept_build_mode != "groundworkers_hierarchy":
+            if self.hierarchy_anchors:
+                raise ValueError("hierarchy_anchors_require_groundworkers_hierarchy_mode")
+            return self
+        if self.concept_review_mode != "required":
+            raise ValueError("groundworkers_hierarchy_requires_required_review")
+        if not self.hierarchy_anchors:
+            raise ValueError("groundworkers_hierarchy_requires_hierarchy_anchor")
+        names = list(self.scope.criterion_domains)
+        anchor_names = [anchor.concept_set_name for anchor in self.hierarchy_anchors]
+        if len(set(anchor_names)) != len(anchor_names):
+            raise ValueError("groundworkers_hierarchy_duplicate_anchor_lane")
+        if set(anchor_names) != set(names):
+            raise ValueError("groundworkers_hierarchy_requires_one_anchor_per_scope_lane")
+        for anchor in self.hierarchy_anchors:
+            if self.scope.criterion_domains.get(anchor.concept_set_name) != anchor.domain:
+                raise ValueError("groundworkers_hierarchy_anchor_domain_mismatch")
+        return self
