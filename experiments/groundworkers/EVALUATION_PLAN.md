@@ -140,21 +140,17 @@ Embeddings advance beyond evaluation only if they improve a predeclared measure
 on held-out cases without increasing unsafe domain/classification errors or
 weakening the review gate.
 
-## Hierarchy contract probe status
+## Hierarchy evaluation and performance status
 
-Completed 2026-09-11. The pinned service contract and bounded non-PHI response
-are recorded in [hierarchy-contract-probe-v0.1.0.md](probes/hierarchy-contract-probe-v0.1.0.md).
-It confirms `parent_ids` constraints plus deterministic ancestor/descendant
-lookups, and also demonstrates why a hierarchy allowlist is required.
+The hierarchy contract was approved and implemented on 2026-09-11. The pinned
+service probe is recorded in
+[hierarchy-contract-probe-v0.1.0.md](probes/hierarchy-contract-probe-v0.1.0.md).
+The implementation requires an explicit user-confirmed anchor per lane and
+keeps hierarchy evidence review-only.
 
-
-The proposed v0 boundary is in
-[HIERARCHY_PROVIDER_CONTRACT.md](HIERARCHY_PROVIDER_CONTRACT.md). It requires
-an explicit user-confirmed single anchor per lane and keeps hierarchy evidence
-review-only. Approve or revise that contract before implementation.
-## Next executable decision
-
-Design the hierarchy provider contract without changing ACP behavior: choose
-an allowlisted relationship/classification policy, maximum depth, class-seed
-discovery route, structured unavailable behavior, and held-out cases. Approve
-that design before adding a `groundworkers_hierarchy` request mode.
+The initial valid no-match hierarchy request took several minutes. Before
+embedding work or broader hierarchy evaluation, obtain DBA-owned query plans and
+maintenance assessment as described in
+[HIERARCHY_PROVIDER_CONTRACT.md](HIERARCHY_PROVIDER_CONTRACT.md#vocabulary-query-performance-follow-up).
+This is a performance investigation, not authorization to alter the shared
+vocabulary schema from the pilot account.

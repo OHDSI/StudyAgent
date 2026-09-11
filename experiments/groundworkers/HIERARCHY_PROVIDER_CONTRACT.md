@@ -89,6 +89,29 @@ remain visible review context rather than being filtered or reinterpreted.
   verification yields `tool_status: "unavailable"` or `status: "error"`, not a
   successful empty candidate list.
 
+## Vocabulary-query performance follow-up
+
+The valid hierarchy negative control required several minutes before returning a
+bounded empty result. The current path resolves lexical candidates and validates
+parent membership through PostgreSQL-backed OMOP vocabulary queries, including
+batched `concept_ancestor` checks; it is not an in-memory NetworkX traversal.
+
+Before changing the shared vocabulary schema, capture `EXPLAIN (ANALYZE,
+BUFFERS)` for representative positive and negative hierarchy requests and record
+the vocabulary release, database engine/version, configuration, latency, and
+row counts. The vocabulary-schema owner should then assess, under normal DBA
+change control:
+
+- current table/index statistics and whether `VACUUM` / `ANALYZE` is needed;
+- the plans and indexes supporting lexical concept and synonym lookup; and
+- the indexes and selectivity for the `concept_ancestor` ancestor/descendant
+  lookups used by the constrained grounding path.
+
+Do not add speculative indexes or run maintenance from the pilot read-only
+account. Any maintenance or index change must be measured against the frozen
+lexical and hierarchy cases, including positive, no-match, and concurrency
+latency.
+
 ## Human-review boundary
 
 Every candidate remains unreviewed. The response must clearly distinguish:
