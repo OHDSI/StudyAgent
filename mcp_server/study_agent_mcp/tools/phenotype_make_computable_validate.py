@@ -56,6 +56,32 @@ def _r_script_path() -> str:
     return _configured_mcp_r_value("rscript") or "Rscript"
 
 
+def _r_java_home_path() -> str | None:
+    """Resolve an optional JDK home for R packages that use rJava."""
+    configured = os.getenv("JAVA_HOME", "").strip()
+    if configured:
+        return configured
+    return _configured_mcp_r_value("java_home")
+
+
+def _r_subprocess_env(r_library: str) -> dict[str, str]:
+    """Build the R child environment without dropping Windows runtime variables."""
+    env = os.environ.copy()
+    env.update(
+        {
+            "R_PROFILE_USER": os.devnull,
+            "R_ENVIRON_USER": os.devnull,
+            "R_LIBS_USER": r_library,
+        }
+    )
+    java_home = _r_java_home_path()
+    if java_home:
+        env["JAVA_HOME"] = java_home
+        java_bin = Path(java_home) / "bin"
+        if java_bin.is_dir():
+            env["PATH"] = f"{java_bin}{os.pathsep}{env.get('PATH', '')}"
+    return env
+
 def _unsafe_r_constructs(capr_code: str) -> list[str]:
     import re
     normalized = capr_code.lower().replace("`", "")
@@ -113,7 +139,7 @@ def _validate_capr_source_serialized(capr_code: str, timeout_seconds: int, r_lib
             "s<-CirceR::buildCohortQuery(e2,CirceR::createGenerateOptions(generateStats=FALSE)); if(!is.character(s)||!nchar(s)) stop('circe_sql_empty'); "
             "pv<-function(p) if(requireNamespace(p,quietly=TRUE)) as.character(utils::packageVersion(p)) else 'not_installed'; direct<-c('Capr','CirceR','SqlRender'); loaded<-sort(loadedNamespaces()); lines<-c(paste('r_version',R.version.string,sep='\t'),paste('platform',R.version$platform,sep='\t'),vapply(direct,function(p) paste('validation_package',p,pv(p),sep='\t'),''),vapply(loaded,function(p) paste('loaded_namespace',p,pv(p),sep='\t'),'')); writeLines(lines,args[3])"
         )
-        env = {"PATH": os.environ.get("PATH", ""), "R_PROFILE_USER": "/dev/null", "R_ENVIRON_USER": "/dev/null", "R_LIBS_USER": r_library}
+        env = _r_subprocess_env(r_library)
         try:
             result = subprocess.run([_r_script_path(), "--vanilla", "-e", runner, str(script), str(output), str(environment_output)], cwd=root, env=env, text=True, capture_output=True, timeout=max(1, min(timeout_seconds, 120)), check=False)
         except subprocess.TimeoutExpired:

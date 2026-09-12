@@ -16,6 +16,12 @@ acp:
     url: http://127.0.0.1:8790/mcp
     timeout_seconds: 240
 
+# Optional client URL for doit smoke tests and timeout calibration. This is a
+# probe URL, not ACP's bind address: when ACP binds to 0.0.0.0, use a concrete
+# reachable address here (for local smoke tests, normally 127.0.0.1).
+# calibration:
+#   acp_base_url: http://127.0.0.1:8765
+
 mcp:
   transport: http
   bind: {host: 127.0.0.1, port: 8790}
@@ -23,6 +29,9 @@ mcp:
   r:
     rscript: Rscript
     # library: /absolute/path/to/renv/library/<platform>/<R-version>/<architecture>
+    # Optional JDK home used by CirceR/rJava. Pin this on Windows when the
+    # system-default Java is unsuitable (for example: C:/Java/jdk1.8.0_XXX).
+    # java_home: C:/Java/jdk1.8.0_XXX
 
 llm:
   api_url: http://localhost:3000/api/chat/completions

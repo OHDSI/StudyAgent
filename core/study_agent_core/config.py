@@ -134,6 +134,7 @@ class ACPConfig(StrictModel):
 class MCPRConfig(StrictModel):
     rscript: str = "Rscript"
     library: Path | None = None
+    java_home: Path | None = None
 
 
 class MCPConfig(StrictModel):
@@ -324,7 +325,10 @@ def _resolve_paths(config: StudyAgentConfig, source: Path) -> StudyAgentConfig:
         "mcp": config.mcp.model_copy(
             update={
                 "r": config.mcp.r.model_copy(
-                    update={"library": resolve(config.mcp.r.library)}
+                    update={
+                        "library": resolve(config.mcp.r.library),
+                        "java_home": resolve(config.mcp.r.java_home),
+                    }
                 )
             }
         ),
@@ -427,6 +431,7 @@ def project_to_environment(config: StudyAgentConfig) -> dict[str, str]:
         "MCP_PATH": config.mcp.path,
         "R_SCRIPT": config.mcp.r.rscript,
         "R_LIBS_USER": config.mcp.r.library,
+        "JAVA_HOME": config.mcp.r.java_home,
         "LLM_API_URL": config.llm.api_url,
         "LLM_MODEL": config.llm.model,
         "LLM_AUTHENTICATION": config.llm.authentication,

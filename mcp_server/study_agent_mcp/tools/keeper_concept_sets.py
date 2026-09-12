@@ -374,9 +374,11 @@ def _search_standard_via_db(query: str, domains: List[str] | None, concept_class
         params["vocabulary_ids"] = list(vocabulary_ids)
         binds.append(sa.bindparam("vocabulary_ids", expanding=True))
     where_clause = " AND ".join(conditions)
-    sql = sa.text(f"SELECT concept_id, concept_name, vocabulary_id, domain_id, concept_class_id, standard_concept FROM {schema}.{table} WHERE {where_clause} ORDER BY concept_name LIMIT :limit").bindparams(*binds)
-    count_sql = sa.text(f"SELECT COUNT(*) AS matched_count FROM {schema}.{table} WHERE {where_clause}").bindparams(*binds)
     engine = create_engine_with_dependencies(engine_name, future=True)
+    select_prefix = "SELECT TOP (:limit)" if engine.dialect.name == "mssql" else "SELECT"
+    limit_suffix = "" if engine.dialect.name == "mssql" else " LIMIT :limit"
+    sql = sa.text(f"{select_prefix} concept_id, concept_name, vocabulary_id, domain_id, concept_class_id, standard_concept FROM {schema}.{table} WHERE {where_clause} ORDER BY concept_name{limit_suffix}").bindparams(*binds)
+    count_sql = sa.text(f"SELECT COUNT(*) AS matched_count FROM {schema}.{table} WHERE {where_clause}").bindparams(*binds)
     with engine.connect() as connection:
         matched_count = int(connection.execute(count_sql, params).scalar_one())
         rows = connection.execute(sql, params).mappings().all()
@@ -413,9 +415,11 @@ def _search_classification_ancestors_via_db(query: str, domains: List[str] | Non
     params: Dict[str, Any] = {"query": f"%{query.strip()}%", "domains": reviewable_domains, "limit": requested_limit}
     binds = [sa.bindparam("domains", expanding=True)]
     where_clause = " AND ".join(conditions)
-    sql = sa.text(f"SELECT concept_id, concept_name, vocabulary_id, domain_id, concept_class_id, standard_concept FROM {schema}.{table} WHERE {where_clause} ORDER BY concept_name LIMIT :limit").bindparams(*binds)
-    count_sql = sa.text(f"SELECT COUNT(*) AS matched_count FROM {schema}.{table} WHERE {where_clause}").bindparams(*binds)
     engine = create_engine_with_dependencies(engine_name, future=True)
+    select_prefix = "SELECT TOP (:limit)" if engine.dialect.name == "mssql" else "SELECT"
+    limit_suffix = "" if engine.dialect.name == "mssql" else " LIMIT :limit"
+    sql = sa.text(f"{select_prefix} concept_id, concept_name, vocabulary_id, domain_id, concept_class_id, standard_concept FROM {schema}.{table} WHERE {where_clause} ORDER BY concept_name{limit_suffix}").bindparams(*binds)
+    count_sql = sa.text(f"SELECT COUNT(*) AS matched_count FROM {schema}.{table} WHERE {where_clause}").bindparams(*binds)
     with engine.connect() as connection:
         matched_count = int(connection.execute(count_sql, params).scalar_one())
         rows = connection.execute(sql, params).mappings().all()

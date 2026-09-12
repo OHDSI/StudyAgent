@@ -95,7 +95,7 @@ For one reviewed concept set, the deterministic emitter supports record-level en
 
 ## R library selection
 
-Capr/Circe validation uses `R_LIBS_USER` when it is set. Otherwise it discovers the first project library under `renv/library/`. Deployments should set `R_LIBS_USER` explicitly to the validated Capr/Circe library, especially where more than one R version or platform library is available. Each successful validation returns `validation.r_environment` captured by that same R process: R version, platform, direct validation-package versions (`Capr`, `CirceR`, `SqlRender`), and the complete loaded-namespace version map. It intentionally omits machine-specific library paths.
+Capr/Circe validation uses `R_LIBS_USER` when it is set. Otherwise it discovers the first project library under `renv/library/`. Deployments should set `R_LIBS_USER` explicitly to the validated Capr/Circe library, especially where more than one R version or platform library is available. If CirceR/rJava needs a pinned Java runtime, set `mcp.r.java_home` in `config.yaml` to the JDK root; the validator passes it as `JAVA_HOME` and places its `bin` directory first on the child process `PATH`. Each successful validation returns `validation.r_environment` captured by that same R process: R version, platform, direct validation-package versions (`Capr`, `CirceR`, `SqlRender`), and the complete loaded-namespace version map. It intentionally omits machine-specific library paths.
 
 ## Concurrent requests
 
