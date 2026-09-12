@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-import os
 import subprocess
 from threading import Lock
 from typing import Any, Dict
 
 from ._common import with_meta
-from .phenotype_make_computable_validate import _r_library_path, _r_script_path
+from .phenotype_make_computable_validate import (
+    _r_library_path,
+    _r_script_path,
+    _r_subprocess_env,
+)
 
 _R_CLIENT_LOCK = Lock()
 _REQUIRED_PACKAGES = {
@@ -118,12 +121,7 @@ if (inherits(runtime, "error")) {
 }'''
     # `%||%` is local to this self-contained script and avoids loading either package.
     runner = "`%||%` <- function(x, y) if (is.null(x)) y else x\n" + runner
-    env = {
-        "PATH": os.environ.get("PATH", ""),
-        "R_PROFILE_USER": "/dev/null",
-        "R_ENVIRON_USER": "/dev/null",
-        "R_LIBS_USER": r_library,
-    }
+    env = _r_subprocess_env(r_library)
     with _R_CLIENT_LOCK:
         try:
             process = subprocess.run(

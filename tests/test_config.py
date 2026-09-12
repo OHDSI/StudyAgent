@@ -37,7 +37,7 @@ acp:
 mcp:
   bind: {host: 127.0.0.1, port: 8790}
   transport: http
-  r: {rscript: /opt/R/bin/Rscript, library: r-library}
+  r: {rscript: /opt/R/bin/Rscript, library: r-library, java_home: r-java}
 llm: {api_url: http://llm.test/v1/chat, model: test-model}
 """,
     )
@@ -49,9 +49,11 @@ llm: {api_url: http://llm.test/v1/chat, model: test-model}
     assert values["LLM_MODEL"] == "test-model"
     assert values["R_SCRIPT"] == "/opt/R/bin/Rscript"
     assert values["R_LIBS_USER"] == str(tmp_path / "r-library")
+    assert values["JAVA_HOME"] == str(tmp_path / "r-java")
     apply_config(config)
     assert os.environ["LLM_MODEL"] == "test-model"
     os.environ.pop("R_SCRIPT", None)
+    os.environ.pop("JAVA_HOME", None)
     os.environ.pop("R_LIBS_USER", None)
 
 

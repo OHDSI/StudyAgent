@@ -610,3 +610,45 @@ def test_vocab_fetch_concepts_db_enriches_sparse_rows(monkeypatch) -> None:
     assert result["provider"] == "db"
     assert result["concepts"][0]["conceptName"] == "Intracranial hemorrhage"
     assert result["concepts"][0]["score"] == 0.98
+
+@pytest.mark.mcp
+@pytest.mark.parametrize(
+    "search, args",
+    [
+        (keeper_concept_sets._search_standard_via_db, ("warfarin", ["Drug"], None, 20, ["RxNorm"])),
+        (keeper_concept_sets._search_classification_ancestors_via_db, ("warfarin", ["Drug"], 20)),
+    ],
+)
+def test_database_vocabulary_search_uses_top_for_sql_server(monkeypatch, search, args) -> None:
+    statements = []
+
+    class Result:
+        def scalar_one(self):
+            return 0
+        def mappings(self):
+            return self
+        def all(self):
+            return []
+
+    class Connection:
+        def __enter__(self):
+            return self
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+        def execute(self, statement, params):
+            statements.append(statement.text)
+            return Result()
+
+    class Dialect:
+        name = "mssql"
+
+    class Engine:
+        dialect = Dialect()
+        def connect(self):
+            return Connection()
+
+    monkeypatch.setattr(keeper_concept_sets, "create_engine_with_dependencies", lambda *args, **kwargs: Engine())
+    monkeypatch.setenv("OMOP_DB_ENGINE", "mssql+pyodbc://example")
+    search(*args)
+    assert statements[1].startswith("SELECT TOP (:limit)")
+    assert " LIMIT " not in statements[1]
