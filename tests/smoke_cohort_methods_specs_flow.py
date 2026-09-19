@@ -7,12 +7,16 @@ reachable and LLM credentials configured. Invoked by
 from __future__ import annotations
 
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
 
 
-URL = "http://127.0.0.1:8765/flows/cohort_methods_specifications_recommendation"
+URL = os.getenv(
+    "ACP_URL",
+    "http://127.0.0.1:8765/flows/cohort_methods_specifications_recommendation",
+)
 
 DESCRIPTION = (
     "Compare sitagliptin new users vs glipizide new users for acute myocardial "

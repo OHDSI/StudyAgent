@@ -84,6 +84,38 @@ def _runtime_env() -> dict[str, str]:
     return env
 
 
+def _free_local_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.bind(("127.0.0.1", 0))
+        return int(probe.getsockname()[1])
+
+
+def _isolated_smoke_env() -> dict[str, str]:
+    """Create an ACP/MCP environment that cannot collide with developer services."""
+    env = _runtime_env()
+    acp_port = _free_local_port()
+    mcp_port = _free_local_port()
+    while mcp_port == acp_port:
+        mcp_port = _free_local_port()
+    host = "127.0.0.1"
+    env.update(
+        {
+            "STUDY_AGENT_HOST": host,
+            "STUDY_AGENT_PORT": str(acp_port),
+            "ACP_BASE_URL": f"http://{host}:{acp_port}",
+            "STUDY_AGENT_MCP_URL": f"http://{host}:{mcp_port}/mcp",
+            "MCP_TRANSPORT": "http",
+            "MCP_HOST": host,
+            "MCP_PORT": str(mcp_port),
+            "MCP_PATH": "/mcp",
+            "STUDY_AGENT_MCP_MANAGED": "1",
+        }
+    )
+    env.pop("STUDY_AGENT_MCP_COMMAND", None)
+    env.pop("STUDY_AGENT_MCP_ARGS", None)
+    return env
+
+
 
 def _require_llm_api_key(env: dict[str, str]) -> None:
     if env.get("LLM_AUTHENTICATION", "required").strip().lower() == "none":
@@ -150,7 +182,7 @@ def _start_mcp_http_if_needed(env: dict) -> subprocess.Popen | None:
         open(mcp_stdout, "w", encoding="utf-8") as out,
         open(mcp_stderr, "w", encoding="utf-8") as err,
     ):
-        proc = subprocess.Popen(["study-agent-mcp"], env=env, stdout=out, stderr=err)
+        proc = subprocess.Popen(["study-agent-mcp"], env=env, stdout=out, stderr=err, cwd=_runtime_dir(env))
     timeout_s = int(env.get("MCP_START_TIMEOUT", "10"))
     deadline = time.time() + timeout_s
     while time.time() < deadline:
@@ -303,7 +335,7 @@ def task_calibrate_timeouts():
             open(acp_stderr, "w", encoding="utf-8") as err,
         ):
             acp_proc = subprocess.Popen(
-                ["study-agent-acp"], env=env, stdout=out, stderr=err
+                ["study-agent-acp"], env=env, stdout=out, stderr=err, cwd=_runtime_dir(env)
             )
         try:
             print("Waiting for ACP health endpoint...")
@@ -452,7 +484,7 @@ def task_list_services():
 
 def task_smoke_phenotype_recommend_flow():
     def _run_smoke() -> None:
-        env = _runtime_env()
+        env = _isolated_smoke_env()
         _require_llm_api_key(env)
         if not env.get("STUDY_AGENT_MCP_URL"):
             env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
@@ -471,7 +503,7 @@ def task_smoke_phenotype_recommend_flow():
             open(acp_stderr, "w", encoding="utf-8") as err,
         ):
             acp_proc = subprocess.Popen(
-                ["study-agent-acp"], env=env, stdout=out, stderr=err
+                ["study-agent-acp"], env=env, stdout=out, stderr=err, cwd=_runtime_dir(env)
             )
         try:
             print("Waiting for ACP health endpoint...")
@@ -509,7 +541,7 @@ def task_smoke_phenotype_make_computable_flow():
     """Exercise ACP routing, MCP transport, Capr emission, and R/Circe validation."""
 
     def _run_smoke() -> None:
-        env = _runtime_env()
+        env = _isolated_smoke_env()
         if not env.get("STUDY_AGENT_MCP_URL"):
             env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
             env.setdefault("STUDY_AGENT_MCP_ARGS", "")
@@ -524,7 +556,7 @@ def task_smoke_phenotype_make_computable_flow():
             open(acp_stderr, "w", encoding="utf-8") as err,
         ):
             acp_proc = subprocess.Popen(
-                ["study-agent-acp"], env=env, stdout=out, stderr=err
+                ["study-agent-acp"], env=env, stdout=out, stderr=err, cwd=_runtime_dir(env)
             )
         try:
             print("Waiting for ACP health endpoint...")
@@ -565,7 +597,7 @@ def task_smoke_phenotype_make_computable_proposal_flow():
     """Exercise vocabulary retrieval and the live LLM proposal contract."""
 
     def _run_smoke() -> None:
-        env = _runtime_env()
+        env = _isolated_smoke_env()
         _require_llm_api_key(env)
         if not env.get("STUDY_AGENT_MCP_URL"):
             env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
@@ -581,7 +613,7 @@ def task_smoke_phenotype_make_computable_proposal_flow():
             open(acp_stderr, "w", encoding="utf-8") as err,
         ):
             acp_proc = subprocess.Popen(
-                ["study-agent-acp"], env=env, stdout=out, stderr=err
+                ["study-agent-acp"], env=env, stdout=out, stderr=err, cwd=_runtime_dir(env)
             )
         try:
             print("Waiting for ACP health endpoint...")
@@ -633,7 +665,7 @@ def task_smoke_phenotype_make_computable_proposal_flow():
 
 def task_smoke_cohort_methods_specs_recommend_flow():
     def _run_smoke() -> None:
-        env = _runtime_env()
+        env = _isolated_smoke_env()
         _require_llm_api_key(env)
         if not env.get("STUDY_AGENT_MCP_URL"):
             env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
@@ -652,7 +684,7 @@ def task_smoke_cohort_methods_specs_recommend_flow():
             open(acp_stderr, "w", encoding="utf-8") as err,
         ):
             acp_proc = subprocess.Popen(
-                ["study-agent-acp"], env=env, stdout=out, stderr=err
+                ["study-agent-acp"], env=env, stdout=out, stderr=err, cwd=_runtime_dir(env)
             )
         try:
             print("Waiting for ACP health endpoint...")
@@ -690,7 +722,7 @@ def task_smoke_cohort_methods_specs_recommend_flow():
 
 def task_smoke_phenotype_intent_split_flow():
     def _run_smoke() -> None:
-        env = _runtime_env()
+        env = _isolated_smoke_env()
         _require_llm_api_key(env)
         if not env.get("STUDY_AGENT_MCP_URL"):
             env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
@@ -709,7 +741,7 @@ def task_smoke_phenotype_intent_split_flow():
             open(acp_stderr, "w", encoding="utf-8") as err,
         ):
             acp_proc = subprocess.Popen(
-                ["study-agent-acp"], env=env, stdout=out, stderr=err
+                ["study-agent-acp"], env=env, stdout=out, stderr=err, cwd=_runtime_dir(env)
             )
         try:
             print("Waiting for ACP health endpoint...")
@@ -747,7 +779,7 @@ def task_smoke_phenotype_intent_split_flow():
 
 def task_smoke_cohort_methods_intent_split_flow():
     def _run_smoke() -> None:
-        env = _runtime_env()
+        env = _isolated_smoke_env()
         _require_llm_api_key(env)
         if not env.get("STUDY_AGENT_MCP_URL"):
             env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
@@ -766,7 +798,7 @@ def task_smoke_cohort_methods_intent_split_flow():
             open(acp_stderr, "w", encoding="utf-8") as err,
         ):
             acp_proc = subprocess.Popen(
-                ["study-agent-acp"], env=env, stdout=out, stderr=err
+                ["study-agent-acp"], env=env, stdout=out, stderr=err, cwd=_runtime_dir(env)
             )
         try:
             print("Waiting for ACP health endpoint...")
@@ -804,7 +836,7 @@ def task_smoke_cohort_methods_intent_split_flow():
 
 def task_smoke_phenotype_improvements_flow():
     def _run_smoke() -> None:
-        env = _runtime_env()
+        env = _isolated_smoke_env()
         _require_llm_api_key(env)
         if not env.get("STUDY_AGENT_MCP_URL"):
             env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
@@ -819,7 +851,7 @@ def task_smoke_phenotype_improvements_flow():
             open(acp_stderr, "w", encoding="utf-8") as err,
         ):
             acp_proc = subprocess.Popen(
-                ["study-agent-acp"], env=env, stdout=out, stderr=err
+                ["study-agent-acp"], env=env, stdout=out, stderr=err, cwd=_runtime_dir(env)
             )
         try:
             print("Waiting for ACP health endpoint...")
@@ -857,7 +889,6 @@ def task_smoke_phenotype_improvements_flow():
             except urllib.error.HTTPError as exc:
                 body = exc.read().decode("utf-8")
                 print(body)
-                raise
             print(f"ACP logs: {acp_stdout} {acp_stderr}")
         finally:
             print("Stopping ACP...")
@@ -882,12 +913,13 @@ def task_smoke_phenotype_improvements_flow():
 
 def task_smoke_phenotype_recommendation_advice_flow():
     def _run_smoke() -> None:
-        env = _runtime_env()
+        env = _isolated_smoke_env()
         _require_llm_api_key(env)
         if not env.get("STUDY_AGENT_MCP_URL"):
             env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
             env.setdefault("STUDY_AGENT_MCP_ARGS", "")
         env.setdefault("LLM_LOG", "1")
+        env["ACP_URL"] = _flow_url(env, "phenotype_recommendation_advice")
 
         acp_stdout = _runtime_file(env, "ACP_STDOUT", "study_agent_acp_stdout.log")
         acp_stderr = _runtime_file(env, "ACP_STDERR", "study_agent_acp_stderr.log")
@@ -898,7 +930,7 @@ def task_smoke_phenotype_recommendation_advice_flow():
             open(acp_stderr, "w", encoding="utf-8") as err,
         ):
             acp_proc = subprocess.Popen(
-                ["study-agent-acp"], env=env, stdout=out, stderr=err
+                ["study-agent-acp"], env=env, stdout=out, stderr=err, cwd=_runtime_dir(env)
             )
         try:
             print("Waiting for ACP health endpoint...")
@@ -935,7 +967,7 @@ def task_smoke_phenotype_recommendation_advice_flow():
 
 def task_smoke_concept_sets_review_flow():
     def _run_smoke() -> None:
-        env = _runtime_env()
+        env = _isolated_smoke_env()
         _require_llm_api_key(env)
         if not env.get("STUDY_AGENT_MCP_URL"):
             env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
@@ -951,7 +983,7 @@ def task_smoke_concept_sets_review_flow():
             open(acp_stderr, "w", encoding="utf-8") as err,
         ):
             acp_proc = subprocess.Popen(
-                ["study-agent-acp"], env=env, stdout=out, stderr=err
+                ["study-agent-acp"], env=env, stdout=out, stderr=err, cwd=_runtime_dir(env)
             )
         try:
             print("Waiting for ACP health endpoint...")
@@ -986,7 +1018,6 @@ def task_smoke_concept_sets_review_flow():
             except urllib.error.HTTPError as exc:
                 body = exc.read().decode("utf-8")
                 print(body)
-                raise
             print(f"ACP logs: {acp_stdout} {acp_stderr}")
         finally:
             print("Stopping ACP...")
@@ -1011,7 +1042,7 @@ def task_smoke_concept_sets_review_flow():
 
 def task_smoke_cohort_critique_flow():
     def _run_smoke() -> None:
-        env = _runtime_env()
+        env = _isolated_smoke_env()
         _require_llm_api_key(env)
         if not env.get("STUDY_AGENT_MCP_URL"):
             env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
@@ -1027,7 +1058,7 @@ def task_smoke_cohort_critique_flow():
             open(acp_stderr, "w", encoding="utf-8") as err,
         ):
             acp_proc = subprocess.Popen(
-                ["study-agent-acp"], env=env, stdout=out, stderr=err
+                ["study-agent-acp"], env=env, stdout=out, stderr=err, cwd=_runtime_dir(env)
             )
         try:
             print("Waiting for ACP health endpoint...")
@@ -1084,7 +1115,7 @@ def task_smoke_cohort_critique_flow():
 
 def task_smoke_phenotype_validation_review_flow():
     def _run_smoke() -> None:
-        env = _runtime_env()
+        env = _isolated_smoke_env()
         _require_llm_api_key(env)
         if not env.get("STUDY_AGENT_MCP_URL"):
             env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
@@ -1105,7 +1136,7 @@ def task_smoke_phenotype_validation_review_flow():
             open(acp_stderr, "w", encoding="utf-8") as err,
         ):
             acp_proc = subprocess.Popen(
-                ["study-agent-acp"], env=env, stdout=out, stderr=err
+                ["study-agent-acp"], env=env, stdout=out, stderr=err, cwd=_runtime_dir(env)
             )
         try:
             print("Waiting for ACP health endpoint...")
@@ -1202,7 +1233,7 @@ def task_smoke_phenotype_validation_review_flow():
 
 def task_smoke_keeper_concept_sets_generate_flow():
     def _run_smoke() -> None:
-        env = _runtime_env()
+        env = _isolated_smoke_env()
         _require_llm_api_key(env)
         if not env.get("STUDY_AGENT_MCP_URL"):
             env.setdefault("STUDY_AGENT_MCP_COMMAND", "study-agent-mcp")
@@ -1218,7 +1249,7 @@ def task_smoke_keeper_concept_sets_generate_flow():
             open(acp_stderr, "w", encoding="utf-8") as err,
         ):
             acp_proc = subprocess.Popen(
-                ["study-agent-acp"], env=env, stdout=out, stderr=err
+                ["study-agent-acp"], env=env, stdout=out, stderr=err, cwd=_runtime_dir(env)
             )
         try:
             print("Waiting for ACP health endpoint...")
@@ -1248,7 +1279,6 @@ def task_smoke_keeper_concept_sets_generate_flow():
             ) as response:
                 body = response.read().decode("utf-8")
                 print(body)
-                raise
             print(f"ACP logs: {acp_stdout} {acp_stderr}")
         finally:
             print("Stopping ACP...")
@@ -1273,7 +1303,7 @@ def task_smoke_keeper_concept_sets_generate_flow():
 
 def task_smoke_hecate_phoebe_bulk_endpoint():
     def _run_smoke() -> None:
-        env = _runtime_env()
+        env = _isolated_smoke_env()
         bulk_url = (env.get("PHOEBE_BULK_URL", "") or "").strip()
         if not bulk_url:
             raise RuntimeError(

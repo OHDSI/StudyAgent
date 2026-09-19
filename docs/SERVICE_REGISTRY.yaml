@@ -75,6 +75,24 @@ services:
     validation:
       - Capr function invocation and CirceR SQL generation for supported deterministic emitters
       - no server-side persistence of caller artifacts
+
+  workflow_context_dialogue:
+    endpoint: /flows/workflow_context_dialogue
+    mcp_tools:
+      - workflow_context_dialogue
+    input:
+      - user_prompt
+      - study_intent
+      - workflow_type
+      - current_step
+      - current_role
+      - current_context
+    output:
+      - dialogue
+      - diagnostics
+    validation:
+      - structured workflow context is supplied by the client
+      - output is advisory and does not persist caller artifacts
   phenotype_improvements:
     endpoint: /flows/phenotype_improvements
     mcp_tools:

@@ -33,6 +33,16 @@ mcp:
     # system-default Java is unsuitable (for example: C:/Java/jdk1.8.0_XXX).
     # java_home: C:/Java/jdk1.8.0_XXX
 
+keeper:
+  vocabulary:
+    # Set these providers to db when the local OMOP vocabulary is reachable.
+    # Keep the database connection in secrets.env or the service environment.
+    # search_provider: db
+    # metadata_provider: db
+    database_schema: vocabulary
+    concept_table: concept
+  phoebe:
+    # provider: db
 llm:
   api_url: http://localhost:3000/api/chat/completions
   model: agentstudyassistant
