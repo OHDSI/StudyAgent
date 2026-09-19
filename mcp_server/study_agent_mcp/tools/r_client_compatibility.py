@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import subprocess
+import tempfile
+from pathlib import Path
 from threading import Lock
 from typing import Any, Dict
 
@@ -16,7 +18,7 @@ from .phenotype_make_computable_validate import (
 _R_CLIENT_LOCK = Lock()
 _REQUIRED_PACKAGES = {
     "slashOhdsiAcpClient": {
-        "minimum_version": "0.1.0",
+        "minimum_version": "0.0.3",
         "functions": {
             "acp_connect": ("url",),
             "acp_check_health": ("client",),
@@ -90,7 +92,9 @@ def check_r_client_compatibility(timeout_seconds: int = 30) -> Dict[str, Any]:
     )
     runner = r'''args <- commandArgs(TRUE)
 contract <- strsplit(args[[1]], ";", fixed = TRUE)[[1]]
-emit <- function(...) cat(paste(..., sep = "|", collapse = "|"), "\n", sep = "")
+report <- file(args[[2]], open = "wt")
+on.exit(close(report), add = TRUE)
+emit <- function(...) writeLines(paste(..., sep = "|", collapse = "|"), con = report, useBytes = TRUE)
 for (entry in contract) {
   parts <- strsplit(entry, "|", fixed = TRUE)[[1]]
   package <- parts[[1]]; minimum <- parts[[2]]; functions <- strsplit(parts[[3]], "~", fixed = TRUE)[[1]]
@@ -119,28 +123,35 @@ if (inherits(runtime, "error")) {
   emit("strategus", "r_version_matches", tolower(as.character(isTRUE(runtime$r_version_matches))))
   for (dependency in runtime$packages) emit("strategus_dependency", dependency$package, dependency$expected, dependency$installed %||% "", tolower(as.character(isTRUE(dependency$matches))))
 }'''
-    # `%||%` is local to this self-contained script and avoids loading either package.
     runner = "`%||%` <- function(x, y) if (is.null(x)) y else x\n" + runner
     env = _r_subprocess_env(r_library)
-    with _R_CLIENT_LOCK:
-        try:
-            process = subprocess.run(
-                [_r_script_path(), "--vanilla", "-e", runner, package_contract],
-                env=env,
-                text=True,
-                capture_output=True,
-                timeout=max(1, min(timeout_seconds, 120)),
-                check=False,
-            )
-        except subprocess.TimeoutExpired:
-            return {"status": "unavailable", "messages": ["r_client_compatibility_timeout"]}
-    if process.returncode:
-        return {
-            "status": "unavailable",
-            "messages": ["r_client_compatibility_failed"],
-            "stderr": process.stderr[-4000:],
-        }
-    result = _parse_rows(process.stdout)
+    with tempfile.TemporaryDirectory(prefix="study-agent-r-client-") as directory:
+        report_path = Path(directory) / "r_client_compatibility.tsv"
+        with _R_CLIENT_LOCK:
+            try:
+                process = subprocess.run(
+                    [_r_script_path(), "--vanilla", "-e", runner, package_contract, str(report_path)],
+                    env=env,
+                    text=True,
+                    capture_output=True,
+                    timeout=max(1, min(timeout_seconds, 120)),
+                    check=False,
+                )
+            except subprocess.TimeoutExpired:
+                return {"status": "unavailable", "messages": ["r_client_compatibility_timeout"]}
+        if process.returncode:
+            return {
+                "status": "unavailable",
+                "messages": ["r_client_compatibility_failed"],
+                "stderr": process.stderr[-4000:],
+            }
+        if not report_path.is_file():
+            return {
+                "status": "unavailable",
+                "messages": ["r_client_compatibility_report_missing"],
+                "stderr": process.stderr[-4000:],
+            }
+        result = _parse_rows(report_path.read_text(encoding="utf-8"))
     result["r_library"] = r_library
     package_ok = all(item["compatible"] for item in result["packages"].values())
     contract_ok = all(item["compatible"] for item in result["public_contract"].values())
