@@ -29,6 +29,7 @@ SERVICES = [
     {"name": "cohort_methods_intent_split", "endpoint": "/flows/cohort_methods_intent_split"},
     {"name": "cohort_methods_specifications_recommendation", "endpoint": "/flows/cohort_methods_specifications_recommendation"},
     {"name": "workflow_context_dialogue", "endpoint": "/flows/workflow_context_dialogue"},
+    {"name": "concept_set_authoring", "endpoint": "/flows/concept_set_authoring"},
 ]
 SERVICE_REGISTRY_PATH = os.getenv("STUDY_AGENT_SERVICE_REGISTRY", "docs/SERVICE_REGISTRY.yaml")
 logger = logging.getLogger("study_agent.acp")
@@ -479,6 +480,21 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
                 return
             status = 200 if result.get("status") != "error" else 500
             _write_json(self, status, result)
+            return
+
+        if self.path == "/flows/concept_set_authoring":
+            try:
+                body = _read_json(self)
+                result = self.agent.run_concept_set_authoring_flow(
+                    user_prompt=str(body.get("user_prompt") or body.get("prompt") or "").strip(),
+                    current_context=body.get("current_context") if isinstance(body.get("current_context"), dict) else {},
+                )
+            except Exception as exc:
+                if self.debug:
+                    logger.exception("flow_failed name=concept_set_authoring")
+                _write_json(self, 500, {"error": "flow_failed", "detail": str(exc) if self.debug else None})
+                return
+            _write_json(self, 200 if result.get("status") != "error" else 500, result)
             return
 
         if self.path == "/flows/cohort_methods_specifications_recommendation":

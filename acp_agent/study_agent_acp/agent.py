@@ -2431,6 +2431,22 @@ class StudyAgent(PhenotypeRecommendationMixin):
             "diagnostics": self._llm_diagnostics(llm_result),
         }
 
+    def run_concept_set_authoring_flow(
+        self, user_prompt: str, current_context: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """First, dialogue-only stage of review-gated concept-set authoring."""
+        result = self.run_workflow_context_dialogue_flow(
+            user_prompt=user_prompt,
+            study_intent="Create a reviewable Atlas concept set",
+            workflow_type="concept_set_authoring",
+            current_step="strategy",
+            current_role="concept_set_author",
+            current_context=current_context or {},
+        )
+        result["flow"] = "concept_set_authoring"
+        result["persistence_allowed"] = False
+        return result
+
     def run_phenotype_improvements_flow(
         self,
         protocol_text: str,
