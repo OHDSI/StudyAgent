@@ -456,3 +456,40 @@ That separation gives the project three advantages:
 - shells control what context is exposed
 - ACP remains workflow-aware without being shell-specific
 - MCP prompt bundles define the dialogue contract independently of shell code
+
+## Atlas Concept-Set Review Workflow
+
+Atlas uses the same `workflow_context_dialogue` flow for `/ohdsi` concept-set
+assistance, with WebAPI as the browser-facing boundary. ACP and MCP are never
+called directly by the browser.
+
+The supported authoring sequence is review-gated:
+
+1. Start `/ohdsi` with a concept-set goal and resolve any scope questions.
+2. The user may use Atlas search manually or request a bounded local-vocabulary
+   proposal.
+3. A proposal is review material only. It presents the bounded retrieval
+   provenance, candidates, and a provisional policy; it does not alter Selected.
+4. For a new empty draft, the user may explicitly initialize Selected, inspect
+   Included, and save through the normal Atlas workflow.
+5. For an existing saved set, the saved Selected expression is the base. Atlas
+   displays a deterministic change summary and the user explicitly merges the
+   validated result into Selected before reviewing Included and saving.
+
+Technical validation is necessary but not clinical approval. The user remains
+responsible for reviewing terminology, scope, descendants, mappings, and the
+resolved Included extension.
+
+### Provenance and edited expressions
+
+WebAPI stores review revisions and links a normal Atlas save only when the
+persisted Selected policy exactly matches the reviewed expression. If a user
+edits Selected after `/ohdsi` approval—for example, toggles descendants—the
+Atlas save still succeeds, but provenance finalization fails closed. The set is
+not represented as matching the prior `/ohdsi` review.
+
+When reopening a saved set, Atlas requests concise, user-owned `/ohdsi`
+provenance (last goal, applied review revision, and whether it still matches
+Selected) from WebAPI. A mismatch is visibly warned on the provenance card and
+again immediately after a normal save. Prior assistant advice is background for
+a new refinement dialogue; it is not silently resumed as an instruction.
