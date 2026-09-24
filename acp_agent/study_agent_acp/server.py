@@ -14,6 +14,7 @@ from .mcp_client import HttpMCPClient, HttpMCPClientConfig, StdioMCPClient, Stdi
 
 SERVICES = [
     {"name": "phenotype_recommendation", "endpoint": "/flows/phenotype_recommendation"},
+    {"name": "phenotype_catalog_search", "endpoint": "/flows/phenotype_catalog_search"},
     {"name": "phenotype_definition", "endpoint": "/flows/phenotype_definition"},
     {"name": "phenotype_conversion_prepare", "endpoint": "/flows/phenotype_conversion_prepare"},
     {"name": "phenotype_make_computable", "endpoint": "/flows/phenotype_make_computable"},
@@ -405,6 +406,27 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             except Exception as exc:
                 if self.debug:
                     logger.exception("flow_failed name=phenotype_definition")
+                _write_json(self, 500, {"error": "flow_failed", "detail": str(exc) if self.debug else None})
+                return
+            _write_json(self, 200 if result.get("status") != "error" else 500, result)
+            return
+
+        if self.path == "/flows/phenotype_catalog_search":
+            try:
+                body = _read_json(self)
+                query = str(body.get("query") or "").strip()
+                top_k = int(body.get("top_k", 20))
+                offset = int(body.get("offset", 0))
+                if not query:
+                    raise ValueError("query_required")
+            except Exception as exc:
+                _write_json(self, 422, {"error": f"invalid_payload: {exc}"})
+                return
+            try:
+                result = self.agent.run_phenotype_catalog_search_flow(query=query, top_k=top_k, offset=offset)
+            except Exception as exc:
+                if self.debug:
+                    logger.exception("flow_failed name=phenotype_catalog_search")
                 _write_json(self, 500, {"error": "flow_failed", "detail": str(exc) if self.debug else None})
                 return
             _write_json(self, 200 if result.get("status") != "error" else 500, result)

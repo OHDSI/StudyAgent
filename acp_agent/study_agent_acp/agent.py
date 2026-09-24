@@ -1329,6 +1329,32 @@ class StudyAgent(PhenotypeRecommendationMixin):
             )
         return compact_rows
 
+    def _build_client_ranked_candidates(self, candidates: List[Dict[str, Any]], limit: int) -> List[Dict[str, Any]]:
+        """Return a bounded, presentation-safe ranked-candidate slice for review."""
+        ranked: List[Dict[str, Any]] = []
+        for rank, row in enumerate(candidates[: max(0, limit)], start=1):
+            if not isinstance(row, dict) or row.get("phenotype_id") in (None, ""):
+                continue
+            ranked.append(
+                {
+                    "rank": rank,
+                    "phenotype_id": str(row.get("phenotype_id")),
+                    "phenotype_name": row.get("name") or row.get("phenotype_name") or "",
+                    "source_dataset": row.get("source_dataset") or "",
+                    "short_description": row.get("short_description") or "",
+                    "long_description": row.get("long_description") or "",
+                    "methodology_summary": row.get("methodology_summary") or "",
+                    "recommendation_summary": row.get("recommendation_summary") or "",
+                    "computability_status": self._recommendation_computability_status(row),
+                    "executable_definition_status": row.get("executable_definition_status") or "",
+                    "execution_readiness_score": row.get("execution_readiness_score"),
+                    "source_status": self._recommendation_source_status(row),
+                    "signals": row.get("signals") or [],
+                    "adaptation_notes": row.get("adaptation_notes") or "",
+                }
+            )
+        return ranked
+
     def _default_final_recommendation_plan(self, study_intent: str) -> str:
         return "Rank phenotypes matching the study intent."
 
@@ -1348,6 +1374,17 @@ class StudyAgent(PhenotypeRecommendationMixin):
         if status in {"codes_only", "narrative_only", "non_ohdsi_logic_only"}:
             return "conversion_required"
         return "not_computable"
+
+    @staticmethod
+    def _recommendation_source_status(row: Dict[str, Any]) -> str:
+        provenance = row.get("provenance")
+        if isinstance(provenance, dict) and str(provenance.get("status") or "").strip():
+            return str(provenance.get("status")).strip()
+        for signal in row.get("signals") or []:
+            text = str(signal or "").strip()
+            if text.lower().startswith("status:"):
+                return text.split(":", 1)[1].strip()
+        return ""
 
     def _build_deterministic_final_payload(
         self,
@@ -1405,6 +1442,15 @@ class StudyAgent(PhenotypeRecommendationMixin):
                     "justification": justification[:200],
                     "confidence": float(confidence) if isinstance(confidence, (int, float)) else None,
                     "computability_status": self._recommendation_computability_status(row),
+                    "executable_definition_status": row.get("executable_definition_status") or "",
+                    "execution_readiness_score": row.get("execution_readiness_score"),
+                    "source_dataset": row.get("source_dataset") or "",
+                    "source_status": self._recommendation_source_status(row),
+                    "signals": row.get("signals") or [],
+                    "adaptation_notes": row.get("adaptation_notes") or "",
+                    "long_description": row.get("long_description") or "",
+                    "methodology_summary": row.get("methodology_summary") or "",
+                    "recommendation_summary": row.get("recommendation_summary") or "",
                 }
             )
 
@@ -1486,6 +1532,49 @@ class StudyAgent(PhenotypeRecommendationMixin):
                 "tool": name,
                 "warnings": [f"Core tool call failed: {exc}"],
             }
+
+    def run_phenotype_catalog_search_flow(
+        self,
+        query: str,
+        top_k: int = 20,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """Return deterministic phenotype-library search results without LLM ranking.
+
+        This is intentionally distinct from ``phenotype_recommendation``: callers
+        explicitly browse local catalog material and choose a phenotype themselves.
+        """
+        query = str(query or "").strip()
+        if not query:
+            return {"status": "error", "error": "missing_query"}
+        if self._mcp_client is None:
+            return {"status": "error", "error": "MCP client unavailable"}
+        result = self.call_tool(
+            name="phenotype_search",
+            arguments={"query": query, "top_k": max(1, min(int(top_k), 100)), "offset": max(0, int(offset))},
+        )
+        full = result.get("full_result") or {}
+        if result.get("status") != "ok" or full.get("error") or not isinstance(full.get("results"), list):
+            return {"status": "error", "error": "phenotype_catalog_search_failed", "details": result}
+        candidates: List[Dict[str, Any]] = []
+        for row in full.get("results") or []:
+            if not isinstance(row, dict) or row.get("phenotype_id") in (None, ""):
+                continue
+            candidates.append({
+                "phenotype_id": str(row.get("phenotype_id")),
+                "phenotype_name": row.get("phenotype_name") or row.get("name") or "",
+                "source_dataset": row.get("source_dataset") or row.get("source") or "",
+                "short_description": row.get("short_description") or row.get("description") or "",
+                "computability_status": self._recommendation_computability_status(row),
+            })
+        return {
+            "status": "ok",
+            "query": query,
+            "mode": "deterministic_catalog_search",
+            "candidates": candidates,
+            "count": len(candidates),
+            "offset": max(0, int(offset)),
+        }
 
     def run_phenotype_recommendation_flow(
         self,
@@ -1801,6 +1890,15 @@ class StudyAgent(PhenotypeRecommendationMixin):
                     "short_description": row.get("short_description"),
                     "primary_clinical_topic": row.get("primary_clinical_topic"),
                     "phenotype_role": row.get("phenotype_role"),
+                    "source_dataset": row.get("source_dataset"),
+                    "executable_definition_status": row.get("executable_definition_status"),
+                    "execution_readiness_score": row.get("execution_readiness_score"),
+                    "provenance": row.get("provenance"),
+                    "signals": row.get("signals") or [],
+                    "adaptation_notes": row.get("adaptation_notes"),
+                    "long_description": row.get("long_description"),
+                    "methodology_summary": row.get("methodology_summary"),
+                    "recommendation_summary": row.get("recommendation_summary"),
                 }
             )
         llm_payload = llm_result_payload(llm_result)
@@ -1824,6 +1922,30 @@ class StudyAgent(PhenotypeRecommendationMixin):
             max_results=max_results,
             llm_result=effective_final_payload,
         )
+        deterministic_rows = {
+            str(row.get("phenotype_id")): row
+            for row in deterministic_llm_payload.get("phenotype_recommendations") or []
+            if isinstance(row, dict) and row.get("phenotype_id") not in (None, "")
+        }
+        for recommendation in core_result.get("phenotype_recommendations") or []:
+            if not isinstance(recommendation, dict):
+                continue
+            metadata = deterministic_rows.get(str(recommendation.get("phenotype_id") or ""))
+            if not metadata:
+                continue
+            for key in (
+                "computability_status",
+                "executable_definition_status",
+                "execution_readiness_score",
+                "source_dataset",
+                "source_status",
+                "signals",
+                "adaptation_notes",
+                "long_description",
+                "methodology_summary",
+                "recommendation_summary",
+            ):
+                recommendation[key] = metadata.get(key)
         llm_used = bool(final_deterministic.get("used_llm_justification_count"))
         if llm_used:
             fallback_reason = None
@@ -1905,6 +2027,12 @@ class StudyAgent(PhenotypeRecommendationMixin):
             "plan_prompt_length_chars": len(plan_prompt),
             "prompt_length_chars": len(final_prompt),
             "recommendations": core_result,
+            # This is the bounded, agent-planned shortlist for client review—not
+            # the earlier deterministic rerank window.
+            "ranked_candidates": self._build_client_ranked_candidates(hydrated_candidates, candidate_limit),
+            # The broader retrieval-ranked slice remains available as a distinct,
+            # explicitly non-agent-endorsed review surface.
+            "retrieval_ranked_candidates": self._build_client_ranked_candidates(planning_ranked, planning_window),
             "diagnostics": diagnostics,
         }
 

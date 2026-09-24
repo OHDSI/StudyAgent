@@ -1745,3 +1745,38 @@ def test_mcp_preflight_warns_when_database_connection_is_unconfigured(monkeypatc
         and "phenotype_make_computable" in message
         for level, message in messages
     )
+
+
+def test_flow_phenotype_catalog_search_is_deterministic_and_classifies_candidates():
+    class CatalogMcp:
+        def list_tools(self):
+            return []
+
+        def call_tool(self, name, arguments):
+            assert name == "phenotype_search"
+            assert arguments == {"query": "type 2 diabetes", "top_k": 20, "offset": 0}
+            return {
+                "results": [
+                    {
+                        "phenotype_id": "circe-1",
+                        "phenotype_name": "Type 2 diabetes",
+                        "source_dataset": "OHDSI",
+                        "short_description": "Executable definition",
+                        "executable_definition_status": "native_ohdsi",
+                    },
+                    {
+                        "phenotype_id": "narrative-1",
+                        "phenotype_name": "Type 2 diabetes narrative",
+                        "executable_definition_status": "narrative_only",
+                    },
+                ]
+            }
+
+    result = StudyAgent(mcp_client=CatalogMcp()).run_phenotype_catalog_search_flow("type 2 diabetes")
+
+    assert result["status"] == "ok"
+    assert result["mode"] == "deterministic_catalog_search"
+    assert [row["computability_status"] for row in result["candidates"]] == [
+        "circe_available",
+        "conversion_required",
+    ]
