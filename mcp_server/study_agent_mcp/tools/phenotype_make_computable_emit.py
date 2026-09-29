@@ -246,12 +246,20 @@ Capr::cohort(
         limit = str(scope.get("entry_limit") or "All")
         exit_strategy = scope.get("exit_strategy") or {}
         overlap_mode = str(scope.get("visit_overlap_mode") or "")
-        if limit not in {"First", "All"} or not isinstance(exit_strategy, dict) or exit_strategy.get("type") != "fixed" or overlap_mode not in {"entry", "attrition"}:
-            return {"status": "failed", "messages": ["visit_overlap_requires_supported_limit_mode_and_fixed_exit"]}
-        offset = int(exit_strategy.get("offset_days", 0))
-        exit_index = str(exit_strategy.get("index") or "endDate")
-        if exit_index not in {"startDate", "endDate"}:
-            return {"status": "failed", "messages": ["unsupported_fixed_exit_index"]}
+        if limit not in {"First", "All"} or overlap_mode not in {"entry", "attrition"}:
+            return {"status": "failed", "messages": ["visit_overlap_requires_supported_limit_mode"]}
+        if isinstance(exit_strategy, dict) and exit_strategy.get("type") == "fixed":
+            offset = int(exit_strategy.get("offset_days", 0))
+            exit_index = str(exit_strategy.get("index") or "endDate")
+            if exit_index not in {"startDate", "endDate"}:
+                return {"status": "failed", "messages": ["unsupported_fixed_exit_index"]}
+            exit_code = f'Capr::fixedExit(index = "{exit_index}", offsetDays = {offset}L)'
+            exit_comment = f'{exit_index}+{offset}'
+        elif exit_strategy in {"observation", "end_of_observation"}:
+            exit_code = "Capr::observationExit()"
+            exit_comment = "observation"
+        else:
+            return {"status": "failed", "messages": ["unsupported_exit_strategy"]}
         cn, vn = _r_string(condition.get("name") or "Entry"), _r_string(visit_set.get("name") or "Visit")
         prior_days, prior_error = _prior_observation_days(scope)
         if prior_error:
@@ -264,9 +272,9 @@ visitCs <- Capr::cs({visit_expression}, name = "{vn}")
 Capr::cohort(
   entry = Capr::entry({entry_query}, observationWindow = Capr::continuousObservation({prior_days}L, 0L), primaryCriteriaLimit = "{limit}"),
   attrition = {attrition},
-  exit = Capr::exit(endStrategy = Capr::fixedExit(index = "{exit_index}", offsetDays = {offset}L)), era = Capr::era(eraDays = 0L)
+  exit = Capr::exit(endStrategy = {exit_code}), era = Capr::era(eraDays = 0L)
 )'''
-        return {"status": "passed", "capr_code": _function_source(f"index={scope.get('index_event', '')}; condition overlaps visit in {overlap_mode}; limit={limit}; fixed_exit={exit_index}+{offset}", body), "entry_point": ENTRY_POINT, "messages": []}
+        return {"status": "passed", "capr_code": _function_source(f"index={scope.get('index_event', '')}; condition overlaps visit in {overlap_mode}; limit={limit}; exit={exit_comment}", body), "entry_point": ENTRY_POINT, "messages": []}
     if len(concept_sets) != 1:
         return {"status": "failed", "messages": ["v1_emitter_requires_exactly_one_concept_set"]}
     item = concept_sets[0]

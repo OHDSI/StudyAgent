@@ -30,6 +30,8 @@ SERVICES = [
     {"name": "cohort_methods_intent_split", "endpoint": "/flows/cohort_methods_intent_split"},
     {"name": "cohort_methods_specifications_recommendation", "endpoint": "/flows/cohort_methods_specifications_recommendation"},
     {"name": "workflow_context_dialogue", "endpoint": "/flows/workflow_context_dialogue"},
+    {"name": "concept_set_proposal", "endpoint": "/flows/concept_set_proposal"},
+    {"name": "concept_set_policy_review", "endpoint": "/flows/concept_set_policy_review"},
     {"name": "concept_set_authoring", "endpoint": "/flows/concept_set_authoring"},
 ]
 SERVICE_REGISTRY_PATH = os.getenv("STUDY_AGENT_SERVICE_REGISTRY", "docs/SERVICE_REGISTRY.yaml")
@@ -510,6 +512,7 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
                 result = self.agent.run_concept_set_authoring_flow(
                     user_prompt=str(body.get("user_prompt") or body.get("prompt") or "").strip(),
                     current_context=body.get("current_context") if isinstance(body.get("current_context"), dict) else {},
+                    current_step=str(body.get("current_step") or "strategy").strip(),
                 )
             except Exception as exc:
                 if self.debug:
@@ -517,6 +520,40 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
                 _write_json(self, 500, {"error": "flow_failed", "detail": str(exc) if self.debug else None})
                 return
             _write_json(self, 200 if result.get("status") != "error" else 500, result)
+            return
+
+        if self.path == "/flows/concept_set_proposal":
+            try:
+                body = _read_json(self)
+                result = self.agent.run_concept_set_proposal_flow(
+                    narrative_statement=str(body.get("narrative_statement") or "").strip(),
+                    clarification_answers=body.get("clarification_answers") if isinstance(body.get("clarification_answers"), dict) else {},
+                    target_domain=str(body.get("target_domain") or "").strip(),
+                    atlas_constraints=body.get("atlas_constraints") if isinstance(body.get("atlas_constraints"), dict) else {},
+                    candidate_limit=int(body.get("candidate_limit") or 50),
+                )
+            except Exception as exc:
+                _write_json(self, 400, {"error": f"invalid_concept_set_proposal: {exc}"})
+                return
+            _write_json(self, 200, result)
+            return
+
+        if self.path == "/flows/concept_set_policy_review":
+            try:
+                body = _read_json(self)
+                candidate_snapshot = body.get("candidate_snapshot")
+                reviewed_items = body.get("reviewed_items")
+                result = self.agent.run_concept_set_policy_review_flow(
+                    narrative_statement=str(body.get("narrative_statement") or "").strip(),
+                    target_domain=str(body.get("target_domain") or "").strip(),
+                    candidate_snapshot=candidate_snapshot if isinstance(candidate_snapshot, list) else [],
+                    reviewed_items=reviewed_items if isinstance(reviewed_items, list) else [],
+                    atlas_constraints=body.get("atlas_constraints") if isinstance(body.get("atlas_constraints"), dict) else {},
+                )
+            except Exception as exc:
+                _write_json(self, 400, {"error": f"invalid_concept_set_policy_review: {exc}"})
+                return
+            _write_json(self, 200, result)
             return
 
         if self.path == "/flows/cohort_methods_specifications_recommendation":

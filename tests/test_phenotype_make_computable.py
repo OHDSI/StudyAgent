@@ -82,6 +82,18 @@ def test_222_visit_overlap_fixture():
     assert len(circe["InclusionRules"]) == 0
 
 
+def test_visit_overlap_fixture_accepts_observation_exit():
+    emitted = emit_capr(
+        {"index_event": "SJS/TEN", "entry_limit": "All", "prior_observation": 365,
+         "visit_overlap": True, "visit_overlap_mode": "attrition", "exit_strategy": "observation"},
+        _policy_concept_sets("222"),
+    )
+    validated = validate_capr_source(emitted["capr_code"])
+    assert emitted["status"] == "passed"
+    assert validated["status"] == "passed"
+    assert "EndStrategy" not in validated["circe_json"]
+
+
 def test_confirmed_provided_concept_set_returns_validated_artifacts():
     scope = {"index_event": "Cirrhosis", "criterion_domains": {"Cirrhosis": "Condition"}, "entry_limit": "First", "prior_observation": "0", "index_day_boundary": "included", "windows": "none", "exit_strategy": "observation"}
     result = StudyAgent(mcp_client=_Mcp()).run_phenotype_make_computable_flow("earliest cirrhosis", True, scope, "provided_only", _concept_sets("710"))
