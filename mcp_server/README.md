@@ -30,21 +30,12 @@ Current prompt families include:
 - [`prompts/workflow_dialogue/`](./prompts/workflow_dialogue/)
 - [`prompts/case_causal_review/`](./prompts/case_causal_review/)
 - [`prompts/cohort_methods/`](./prompts/cohort_methods/)
+- [`prompts/phenotype_make_computable/`](./prompts/phenotype_make_computable/)
+- [`prompts/concept_set_proposal/`](./prompts/concept_set_proposal/)
 
 ## Where To Look
 
-For service and workflow orientation, start with:
-
-- [`docs/SERVICE_REGISTRY.yaml`](../docs/SERVICE_REGISTRY.yaml)
-- [`docs/WORKFLOW_PHENOTYPE_RECOMMENDATION.md`](../docs/WORKFLOW_PHENOTYPE_RECOMMENDATION.md)
-- [`docs/WORKFLOW_CONTEXT_DIALOGUE_SLASH_OHDSI.md`](../docs/WORKFLOW_CONTEXT_DIALOGUE_SLASH_OHDSI.md)
-- [`docs/WORKFLOW_COHORT_METHODS.md`](../docs/WORKFLOW_COHORT_METHODS.md)
-- [`docs/WORKFLOW_INCIDENCE.md`](../docs/WORKFLOW_INCIDENCE.md)
-- [`docs/SPEC_KEEPER_INTERFACE.md`](../docs/SPEC_KEEPER_INTERFACE.md)
-- [`docs/PHENOTYPE_VALIDATION_REVIEW.md`](../docs/PHENOTYPE_VALIDATION_REVIEW.md)
-- [`docs/MCP_TOOL_AUTHORING.md`](../docs/MCP_TOOL_AUTHORING.md)
-
-Use `SERVICE_REGISTRY.yaml` as an important metadata surface, but not as the only source of truth for current runtime behavior.
+For service, workflow, and tool-authoring orientation, start with the maintained [`docs/`](../docs/) directory. `SERVICE_REGISTRY.yaml` is important metadata, but implementation remains the runtime source of truth.
 
 ## ACP Connection Modes
 
@@ -68,6 +59,8 @@ export MCP_PORT=8790
 export MCP_PATH=/mcp
 study-agent-mcp --config config.yaml --profile native
 ```
+
+The values above are examples, not fixed ports. Set `MCP_HOST`, `MCP_PORT`, and `MCP_PATH` for an environment-only deployment, or set `mcp.bind` and `mcp.path` in `config.yaml`.
 
 ACP connects via:
 

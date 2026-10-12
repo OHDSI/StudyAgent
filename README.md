@@ -9,7 +9,7 @@ The current implementation provides:
 - AI-services for clients such as the R-based interactive shells provided by [SlashOhdsiStrategusAssistant](https://github.com/OHDSI/SlashOhdsiStrategusAssistant) to specify and run real-world evidence generation workflows
 - AI-Support for `/ohdsi` contextualized question answering
 
-This project is in beta testing. The videos below provide an overview of the project and how to install and set up the index needed for `phenotype_recommendation`. For now, links to videos showing use by the SlashOhdsiStrategusAssistant package are shown but these will eventually move to that package. 
+This project is in beta testing. The videos below provide an overview of the project and how to install and set up the index needed for `phenotype_recommendation`. For now, links to videos showing use by the SlashOhdsiStrategusAssistant package are shown but these will eventually move to that package.
 
 
 ## Videos
@@ -59,6 +59,8 @@ The project separates orchestration from deterministic tooling:
 - `core/`: pure validation and business logic shared by ACP and MCP
 - [`slashOhdsiStrategusAssistant`](https://github.com/OHDSI/SlashOhdsiStrategusAssistant): separately maintained R package for Strategus workflow shells.
 - [`slashOhdsiAcpClient`](https://github.com/OHDSI/SlashOhdsiAcpClient): separately maintained R package for connecting R clients to ACP.
+
+Atlas3 and WebAPI can optionally use the ACP/MCP services for review-gated phenotype selection, concept-set authoring, and a bounded cohort-authoring slice. They remain separate applications; see [Atlas3 and WebAPI Integration](docs/ATLAS_WEBAPI_INTEGRATION.md).
 
 ## What problems this project solves
 
@@ -136,6 +138,16 @@ Primary references:
 - [docs/KEEPER_INTERFACE_SPEC.md](docs/KEEPER_INTERFACE_SPEC.md)
 - [docs/PHENOTYPE_VALIDATION_REVIEW.md](docs/PHENOTYPE_VALIDATION_REVIEW.md)
 - [docs/TESTING.md](docs/TESTING.md)
+
+### 3. Atlas3 and WebAPI integration
+
+The demonstrated Atlas integration supports three distinct user paths:
+
+- AI-supported phenotype recommendation and phenotype-library browsing;
+- `/ohdsi`-assisted concept-set review using normal Atlas concept-set controls;
+- review-gated authoring of supported computable cohort-definition patterns.
+
+The interface distinguishes executable candidates from reference evidence, records review/provenance state, and requires explicit concept-policy decisions. It does not make arbitrary narrative-to-Circe translation generally available. See [Atlas3 and WebAPI Integration](docs/ATLAS_WEBAPI_INTEGRATION.md) for architecture, permissions, deployment notes, and the supported boundary.
 
 ## End-To-End workflows implemented in R 
 

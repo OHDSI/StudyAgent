@@ -55,6 +55,8 @@ conda run -n study-agent study-agent-mcp --config .\config.yaml --profile native
 
 The configuration precedence is: explicit CLI options, `config.yaml`, secret environment variables, legacy non-secret environment variables, then built-in defaults. When YAML is loaded, its non-secret values override stale legacy shell settings. Environment-only deployments continue to work during the compatibility period.
 
+`project_to_environment()` in `core/study_agent_core/config.py` is the complete compatibility mapping from validated `config.yaml` settings to runtime environment variables. Check that method when adding or updating entries in the ACP and MCP runtime tables below, so this document does not drift from the implementation.
+
 `config.yaml` and `secrets.env` are ignored by Git. `config.yaml` contains no secrets and must be readable by the container service user; the wizard writes it with ordinary read permissions. `secrets.env` remains private. Use `study-agent-setup --migrate-env .env` to split an existing environment file without displaying its values. Docker Compose mounts `config.yaml` read-only and loads `secrets.env`; its `docker` profile sets container bind addresses and ACP's internal MCP URL. The MCP R runtime is configured through `mcp.r`: `rscript`, the Capr/Circe `library` path, and optional `java_home`. Set `java_home` to a JDK root when CirceR/rJava must use a specific Java installation (commonly required on managed Windows hosts); MCP passes it to the R child process as `JAVA_HOME`. Remote R-client package configuration remains independent.
 
 ### Logging and troubleshooting
