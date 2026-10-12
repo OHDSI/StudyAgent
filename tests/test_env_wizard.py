@@ -67,6 +67,10 @@ def test_collect_configuration_supports_keyless_llm(tmp_path, monkeypatch) -> No
     content = render_config_file(values, run_style)
     assert secrets == {}
     assert "authentication: none" in content
+    assert "# Optional phenotype retrieval." in content
+    assert "# retrieval:" in content
+    assert "# Optional vocabulary and Keeper support." in content
+    assert "# keeper:" in content
 
 
 def test_migrate_env_classifies_known_secret_values_without_echoing(tmp_path) -> None:

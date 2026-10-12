@@ -9,6 +9,7 @@ from study_agent_core.config import (
     ConfigError,
     apply_config,
     load_config,
+    is_secret_name,
     load_secret_environment,
     project_to_environment,
 )
@@ -123,6 +124,22 @@ profiles:
         load_config(tmp_path / "invalid.yaml")
 
 
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("LLM_API_KEY", True),
+        ("WEBAPI_CLIENT_SECRET", True),
+        ("ATLAS_SESSION", True),
+        ("R_COOKIE", True),
+        ("TLS_PRIVATE_KEY", True),
+        ("PUBLIC_URL", False),
+        ("MCP_PORT", False),
+    ],
+)
+def test_secret_name_detection_covers_generic_deployment_credentials(name: str, expected: bool) -> None:
+    assert is_secret_name(name) is expected
+
+
 def test_config_rejects_secrets_and_config_path_discovery(
     tmp_path, monkeypatch
 ) -> None:
@@ -135,6 +152,9 @@ def test_config_rejects_secrets_and_config_path_discovery(
     write_config(tmp_path / "engine.yaml", "version: 1\nOMOP_DB_ENGINE: forbidden\n")
     with pytest.raises(ConfigError, match="Secrets are not allowed"):
         load_config(tmp_path / "engine.yaml")
+    write_config(tmp_path / "private-key.yaml", "version: 1\nprivate_key: forbidden\n")
+    with pytest.raises(ConfigError, match="Secrets are not allowed"):
+        load_config(tmp_path / "private-key.yaml")
     write_config(
         tmp_path / "url.yaml",
         "version: 1\nllm: {api_url: 'https://user:password@example.test/v1'}\n",

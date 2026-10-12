@@ -38,7 +38,7 @@ uv run study-agent-mcp --config .\config.yaml --profile native
 uv run study-agent-acp --config .\config.yaml --profile native
 ```
 
-Native services do not automatically load `secrets.env`. Export required secrets in the service's environment, or supply them through the host's approved secret-management mechanism. Verify which interpreter and package are being used before troubleshooting a managed Windows host:
+Native services do not automatically load `secrets.env`. Export required secrets in the service's environment, or supply them through the host's approved secret-management mechanism. Docker Compose, `doit`, the phenotype-index builder, and selected smoke utilities may deliberately read a secret-only `secrets.env`; this convenience does not change the native-service boundary. Verify which interpreter and package are being used before troubleshooting a managed Windows host:
 
 ```powershell
 Get-Command python -All
