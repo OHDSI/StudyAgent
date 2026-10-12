@@ -37,6 +37,10 @@ Current prompt families include:
 
 For service, workflow, and tool-authoring orientation, start with the maintained [`docs/`](../docs/) directory. `SERVICE_REGISTRY.yaml` is important metadata, but implementation remains the runtime source of truth.
 
+## Phenotype Indexing
+
+The maintained entrypoint for building retrieval assets is `study-agent-build-phenotype-index`; configuration, profiles, and operational guidance are documented in [`docs/PHENOTYPE_INDEXING.md`](../docs/PHENOTYPE_INDEXING.md). The current module location is retained for compatibility and is tracked for a future retrieval-package move.
+
 ## ACP Connection Modes
 
 MCP is the tool-serving side of the system. ACP is the orchestration side, and ACP can attach to MCP in two supported ways:
