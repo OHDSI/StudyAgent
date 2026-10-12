@@ -1,3 +1,9 @@
+*.RData
+*.Rhistory
+*PLAN-OHDSI-SYMPOSIUM-PREP.md
+*phenotype_index_sample_20.zip
+*renv
+*renv.lock
 *strategus-execution-settings.json
 *strategus-db-details.json
 demo-*
