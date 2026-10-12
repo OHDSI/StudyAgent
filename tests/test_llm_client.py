@@ -5,6 +5,12 @@ import pytest
 from study_agent_acp import llm_client
 
 
+@pytest.fixture(autouse=True)
+def _configured_llm_environment(monkeypatch):
+    monkeypatch.setenv("LLM_API_URL", "http://llm.test/chat/completions")
+    monkeypatch.setenv("LLM_MODEL", "test-model")
+
+
 class _FakeResponse:
     def __init__(self, payload, status=200):
         self._payload = payload
@@ -21,6 +27,17 @@ class _FakeResponse:
 
 
 @pytest.mark.acp
+def test_call_llm_missing_endpoint_or_model_fails_without_request(monkeypatch):
+    monkeypatch.delenv("LLM_API_URL", raising=False)
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+
+    result = llm_client.call_llm("prompt")
+
+    assert result.status == "configuration_error"
+    assert result.error == "missing_required_configuration:LLM_API_URL,LLM_MODEL"
+    assert result.parse_stage == "request_skipped"
+
+
 def test_call_llm_keyless_mode_omits_authorization_header(monkeypatch):
     payload = {"choices": [{"message": {"content": "{\"advice\":\"ok\"}"}}]}
     observed = {}
