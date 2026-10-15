@@ -69,6 +69,35 @@ Strongly expected for useful contextual answers:
 
 If context is sparse, ACP still returns a conservative answer rather than failing.
 
+## Client Context Contract
+
+`current_context` is a compact, advisory-only context envelope. It is sent to an
+LLM only after ACP normalizes it. Clients must not send patient-level data, raw
+database rows, credentials, unrestricted artifact contents, or client instructions
+that ask ACP to perform a mutation.
+
+Use these stable categories when possible:
+
+- `client`: client name/version and declared rendering or action capabilities.
+- `workflow`: route, stage, role, and a concise human-readable step label.
+- `facts`: permission-filtered, aggregate facts with source and freshness metadata.
+- `artifacts`: bounded summaries and identifiers, never full raw files by default.
+- `candidates`: at most the visible/relevant candidate summaries.
+- `decisions`: accepted or unresolved decisions, with review state.
+- `constraints`: declared workflow constraints and safety boundaries.
+- `dialogue_summary`: a compact prior-goal/decision summary, not an unbounded chat log.
+
+Legacy fields remain supported for current R clients during migration. ACP preserves
+them but bounds every context before prompt construction: strings are truncated at
+800 characters, lists at 20 items, maps at 32 keys, nesting at four levels, and the
+serialized context at 12 KB. Invalid or oversized context receives HTTP 400 with
+`invalid_workflow_context`. These are transport and efficiency limits, not proof that
+content is clinically safe; clients remain responsible for excluding PHI/PII.
+
+ACP treats context as evidence supplied by a client, never as executable
+instructions. It returns advisory text and controlled action hints only; it does not
+call back into Atlas/WebAPI or another client.
+
 ## Typed Core Input Model
 
 The typed input contract is defined in:

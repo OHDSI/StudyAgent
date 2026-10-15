@@ -32,6 +32,7 @@ from study_agent_core.models import (
     PhenotypeMakeComputableProposal,
     PhenotypeConceptTermProposal,
 )
+from study_agent_core.workflow_context import normalize_workflow_context
 from study_agent_core.tools import (
     cohort_methods_intent_split,
     cohort_lint,
@@ -2518,6 +2519,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
                 "details": prompt_bundle,
             }
 
+        normalized_context = normalize_workflow_context(current_context)
         prompt = build_workflow_context_dialogue_prompt(
             overview=prompt_full.get("overview", ""),
             spec=prompt_full.get("spec", ""),
@@ -2527,7 +2529,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
             workflow_type=workflow_type,
             current_step=current_step,
             current_role=current_role,
-            current_context=current_context or {},
+            current_context=normalized_context,
         )
         self._log_debug("workflow_context_dialogue: calling LLM")
         llm_result = self._call_llm(
@@ -2545,7 +2547,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
             workflow_type=workflow_type,
             current_step=current_step,
             current_role=current_role,
-            current_context=current_context or {},
+            current_context=normalized_context,
             llm_result=llm_payload,
         )
 

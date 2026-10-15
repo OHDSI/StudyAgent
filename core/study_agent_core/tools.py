@@ -1,6 +1,7 @@
 import json
 from typing import Any, Dict, List, Optional, Tuple
 
+from .workflow_context import normalize_workflow_context
 from .models import (
     CohortMethodsIntentSplitInput,
     CohortMethodsIntentSplitOutput,
@@ -616,7 +617,7 @@ def workflow_context_dialogue(
         workflow_type=workflow_type,
         current_step=current_step,
         current_role=current_role,
-        current_context=current_context or {},
+        current_context=normalize_workflow_context(current_context),
         llm_result=llm_result,
     )
 

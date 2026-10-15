@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional
 from study_agent_core.logging_utils import configure_service_logger
 
 from .agent import StudyAgent
+from study_agent_core.workflow_context import WorkflowContextContractError, normalize_workflow_context
 from .mcp_client import HttpMCPClient, HttpMCPClientConfig, StdioMCPClient, StdioMCPClientConfig
 
 SERVICES = [
@@ -488,6 +489,11 @@ class ACPRequestHandler(BaseHTTPRequestHandler):
             current_context = body.get("current_context")
             if not isinstance(current_context, dict):
                 current_context = {}
+            try:
+                current_context = normalize_workflow_context(current_context)
+            except WorkflowContextContractError as exc:
+                _write_json(self, 400, {"error": "invalid_workflow_context", "detail": str(exc)})
+                return
             try:
                 result = self.agent.run_workflow_context_dialogue_flow(
                     user_prompt=user_prompt,
