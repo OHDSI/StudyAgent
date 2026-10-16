@@ -284,7 +284,7 @@ def test_main_dense_only_reuses_existing_catalog(monkeypatch, tmp_path) -> None:
     (out_dir / "catalog.jsonl").write_text(json.dumps(row) + "\n", encoding="utf-8")
     (out_dir / "meta.json").write_text(json.dumps({"catalog_count": 1, "source_counts": {"va_cipher": 1}}), encoding="utf-8")
 
-    def fake_build_dense_index(catalog, output_path, embed_client, cache_path, batch_size=64, require_dense=False):
+    def fake_build_dense_index(catalog, output_path, embed_client, cache_path, batch_size=64, max_embedding_chars=48_000, require_dense=False):
         Path(output_path).write_text("dense-placeholder", encoding="utf-8")
         Path(cache_path).write_bytes(b"cache")
         return {"status": "ok", "dim": 8, "count": len(catalog)}
@@ -309,6 +309,21 @@ def test_main_dense_only_reuses_existing_catalog(monkeypatch, tmp_path) -> None:
     assert (out_dir / "dense.index").exists()
     catalog_text = (out_dir / "catalog.jsonl").read_text(encoding="utf-8")
     assert "text_for_embedding_hash" not in catalog_text or "text_for_embedding" not in catalog_text or isinstance(catalog_text, str)
+
+
+def test_compose_embedding_text_preserves_key_terms_before_clipping_narrative() -> None:
+    row = _sample_row()
+    row["retrieval_concept_labels"] = ["Multiple myeloma", "SNOMED"]
+    row["long_description"] = "long narrative " * 10_000
+    row["retrieval_text"] = builder._compose_retrieval_text(row)
+
+    text, truncated = builder._compose_embedding_text(row, max_chars=400)
+
+    assert len(text) <= 400
+    assert truncated is True
+    assert "Post-traumatic stress disorder" in text
+    assert "Multiple myeloma" in text
+    assert "long narrative" not in text
 
 
 def test_build_cipher_row_conservatively_recovers_read_and_oxmis_from_other_groups() -> None:

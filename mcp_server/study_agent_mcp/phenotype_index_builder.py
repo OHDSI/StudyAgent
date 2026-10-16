@@ -39,6 +39,10 @@ _STOPWORD_RETRIEVAL_TERMS = {
     "with",
 }
 
+# Keep a margin below Amazon Titan Embed Text v2's 50,000-character request
+# limit. The build CLI can lower or raise this for another embedding provider.
+DEFAULT_MAX_EMBEDDING_CHARS = 48_000
+
 
 def _parse_int(value: Any) -> Optional[int]:
     try:
@@ -334,6 +338,66 @@ def _compose_retrieval_text(row: Dict[str, Any]) -> str:
         row.get("recommendation_summary"),
     ]
     return "\n".join(_compact_text_parts(parts))
+
+
+def _compose_embedding_text(row: Dict[str, Any], max_chars: int) -> Tuple[str, bool]:
+    """Create a bounded embedding representation without changing catalog evidence.
+
+    The full ``retrieval_text`` remains available for sparse retrieval and human
+    evidence review. Dense embedding instead prioritizes identifying clinical
+    terms and concise summaries before adding the often much longer narrative.
+    """
+    if max_chars < 1:
+        raise ValueError("max_chars must be positive")
+
+    topic_mentions = row.get("topic_mentions") or {}
+    target_vs_context = row.get("target_vs_context_conditions") or {}
+    prioritized_parts = [
+        (row.get("name"), 1_000),
+        (row.get("short_description"), 6_000),
+        (" ".join(row.get("tags") or []), 2_000),
+        (" ".join(row.get("raw_keywords") or []), 2_000),
+        (" ".join(row.get("retrieval_keywords") or []), 4_000),
+        (" ".join(row.get("retrieval_concept_labels") or []), 8_000),
+        (" ".join(row.get("ontology_keys") or []), 2_000),
+        (" ".join(row.get("signals") or []), 2_000),
+        (row.get("methodology_summary"), 2_000),
+        (row.get("adaptation_notes"), 4_000),
+        (row.get("primary_clinical_topic"), 1_000),
+        (" ".join(row.get("secondary_topics") or []), 2_000),
+        (row.get("phenotype_role"), 500),
+        (row.get("care_setting_scope"), 500),
+        (row.get("population_scope"), 2_000),
+        (" ".join(topic_mentions.get("primary_topics") or []), 2_000),
+        (" ".join(topic_mentions.get("downstream_or_related_topics") or []), 2_000),
+        (" ".join(target_vs_context.get("target_conditions") or []), 2_000),
+        (row.get("recommendation_summary"), 4_000),
+        # Narrative is useful, but should not crowd out names, terminology, and
+        # the structured retrieval signals above.
+        (row.get("long_description"), max_chars),
+    ]
+
+    selected: List[str] = []
+    used = 0
+    truncated = False
+    for value, part_limit in prioritized_parts:
+        text = str(value or "").strip()
+        if not text:
+            continue
+        text = text[:part_limit]
+        separator = 1 if selected else 0
+        remaining = max_chars - used - separator
+        if remaining <= 0:
+            truncated = True
+            break
+        if len(text) > remaining:
+            selected.append(text[:remaining])
+            truncated = True
+            break
+        selected.append(text)
+        used += separator + len(text)
+
+    return "\n".join(selected), truncated
 
 
 def _clean_primary_topic_name(name: str) -> str:
@@ -1318,6 +1382,7 @@ def _build_dense_index(
     embed_client: EmbeddingClient,
     cache_path: str,
     batch_size: int = 64,
+    max_embedding_chars: int = DEFAULT_MAX_EMBEDDING_CHARS,
     require_dense: bool = False,
 ) -> Dict[str, Any]:
     try:
@@ -1330,11 +1395,20 @@ def _build_dense_index(
 
     cache = _load_cache(cache_path)
     texts: List[str] = []
+    truncated_count = 0
     for row in catalog:
-        text = (row.get("retrieval_text") or row.get("name") or f"phenotype {row.get('phenotype_id')}").strip()
+        full_text = (row.get("retrieval_text") or row.get("name") or f"phenotype {row.get('phenotype_id')}").strip()
+        text, truncated = _compose_embedding_text(row, max_embedding_chars)
+        if not text:
+            text = full_text[:max_embedding_chars]
+            truncated = len(full_text) > len(text)
         text_hash = _hash_text(text)
         row["text_for_embedding_hash"] = text_hash
         row["text_for_embedding"] = text
+        row["embedding_text_source_char_count"] = len(full_text)
+        row["embedding_text_char_count"] = len(text)
+        row["embedding_text_truncated"] = truncated
+        truncated_count += int(truncated)
         if cache.get(text_hash) is None:
             texts.append(text)
 
@@ -1364,7 +1438,13 @@ def _build_dense_index(
     index.add(vectors)
     faiss.write_index(index, output_path)
     _save_cache(cache_path, cache)
-    return {"status": "ok", "dim": int(dim), "count": int(vectors.shape[0])}
+    return {
+        "status": "ok",
+        "dim": int(dim),
+        "count": int(vectors.shape[0]),
+        "max_embedding_chars": max_embedding_chars,
+        "truncated_count": truncated_count,
+    }
 
 
 def main() -> int:
@@ -1385,6 +1465,12 @@ def main() -> int:
     parser.add_argument("--dense-only", action="store_true", help="Reuse existing catalog.jsonl in --output-dir and build only dense.index plus embedding cache/meta updates.")
     parser.add_argument("--require-dense", action="store_true", help="Fail if dense index cannot be built.")
     parser.add_argument("--batch-size", type=int, default=64, help="Embedding batch size.")
+    parser.add_argument(
+        "--max-embedding-chars",
+        type=int,
+        default=DEFAULT_MAX_EMBEDDING_CHARS,
+        help=f"Maximum characters sent for one embedding input (default: {DEFAULT_MAX_EMBEDDING_CHARS}).",
+    )
     args = parser.parse_args()
 
     try:
@@ -1402,6 +1488,8 @@ def main() -> int:
         raise SystemExit("--dense-only cannot be combined with --metadata-csv or --cipher-dir")
     if not args.dense_only and not args.metadata_csv and not args.cipher_dir:
         raise SystemExit("At least one input source is required: --metadata-csv or --cipher-dir")
+    if args.max_embedding_chars < 1:
+        raise SystemExit("--max-embedding-chars must be positive")
 
     _ensure_dir(args.output_dir)
     catalog_path = os.path.join(args.output_dir, "catalog.jsonl")
@@ -1423,6 +1511,7 @@ def main() -> int:
             embed_client=client,
             cache_path=os.path.join(args.output_dir, "embedding_cache.pkl"),
             batch_size=args.batch_size,
+            max_embedding_chars=args.max_embedding_chars,
             require_dense=args.require_dense,
         )
         _write_catalog(catalog_path, catalog)
@@ -1524,6 +1613,7 @@ def main() -> int:
             embed_client=client,
             cache_path=os.path.join(args.output_dir, "embedding_cache.pkl"),
             batch_size=args.batch_size,
+            max_embedding_chars=args.max_embedding_chars,
             require_dense=args.require_dense,
         )
         _write_catalog(catalog_path, catalog)
