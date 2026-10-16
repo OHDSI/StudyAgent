@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "phenotype_scope_draft",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["status", "rationale", "warnings"],
+  "properties": {
+    "status": {"enum": ["supported", "needs_clarification", "not_expressible"]},
+    "pattern": {"enum": ["single_direct_entry", "drug_with_supporting_condition", "condition_with_visit_restriction"]},
+    "index_event": {"type": "string", "maxLength": 300},
+    "domain": {"enum": ["Condition", "Drug", "Procedure", "Measurement", "Observation", "Visit", "Device"]},
+    "entry_limit": {"enum": ["First", "All"]},
+    "prior_observation_days": {"type": "integer", "minimum": 0},
+    "vocabulary_restriction": {"type": "string", "maxLength": 100},
+    "supporting_condition_term": {"type": "string", "maxLength": 300},
+    "supporting_condition_domain": {"const": "Condition"},
+    "visit_term": {"type": "string", "maxLength": 300},
+    "visit_domain": {"const": "Visit"},
+    "exit_strategy": {"const": "observation"},
+    "rationale": {"type": "string", "maxLength": 1600},
+    "warnings": {"type": "array", "items": {"type": "string"}, "maxItems": 8}
+  }
+}

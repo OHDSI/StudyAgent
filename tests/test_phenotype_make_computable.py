@@ -5,6 +5,7 @@ from pathlib import Path
 from study_agent_acp.llm_client import LLMCallResult
 from study_agent_acp.agent import StudyAgent
 from study_agent_mcp.tools.phenotype_make_computable_emit import emit_capr
+import study_agent_mcp.tools.phenotype_make_computable_validate as capr_validate
 from study_agent_mcp.tools.phenotype_make_computable_validate import _r_library_path, _r_script_path, validate_capr_source
 from study_agent_mcp.tools.phenotype_make_computable import _load_bundle
 from study_agent_core.models import PhenotypeMakeComputableInput
@@ -55,6 +56,136 @@ def test_unconfirmed_request_needs_clarification():
     result = StudyAgent().run_phenotype_make_computable_flow("earliest cirrhosis")
     assert result["status"] == "needs_clarification"
     assert "index_event" in result["missing_scope_fields"]
+
+
+def test_scope_draft_is_advisory_and_never_retrieves_or_emits():
+    agent = StudyAgent(mcp_client=_Mcp())
+    agent._call_llm = lambda prompt, required_keys: LLMCallResult(
+        status="ok",
+        parsed_content={
+            "status": "supported",
+            "pattern": "single_direct_entry",
+            "index_event": "Cirrhosis",
+            "domain": "Condition",
+            "entry_limit": "First",
+            "prior_observation_days": 365,
+            "exit_strategy": "observation",
+            "rationale": "The statement names one earliest condition event.",
+            "warnings": ["Review every field before confirmation."],
+        },
+    )
+    result = agent.run_phenotype_make_computable_flow(
+        "Earliest cirrhosis with 365 days prior observation.", scope_draft=True
+    )
+    assert result["status"] == "needs_clarification"
+    assert result["scope_draft"]["status"] == "supported"
+    assert result["scope_draft"]["index_event"] == "Cirrhosis"
+    assert "concept_candidates" not in result
+    assert "capr" not in result
+
+
+def test_scope_draft_supports_condition_with_one_visit_without_overlap_mode():
+    agent = StudyAgent(mcp_client=_Mcp())
+    agent._call_llm = lambda prompt, required_keys: LLMCallResult(
+        status="ok",
+        parsed_content={
+            "status": "supported",
+            "pattern": "condition_with_visit_restriction",
+            "index_event": "acute cystitis",
+            "domain": "Condition",
+            "entry_limit": "First",
+            "prior_observation_days": 0,
+            "visit_term": "emergency room or inpatient visit",
+            "visit_domain": "Visit",
+            "exit_strategy": "observation",
+            "rationale": "One condition event with one overlapping care-setting restriction.",
+            "warnings": ["Choose whether Visit overlap qualifies entry or is applied as attrition."],
+        },
+    )
+    result = agent.run_phenotype_make_computable_flow(
+        "Acute cystitis with an emergency room or inpatient visit restriction.", scope_draft=True
+    )
+    assert result["status"] == "needs_clarification"
+    assert result["scope_draft"]["pattern"] == "condition_with_visit_restriction"
+    assert result["scope_draft"]["visit_term"] == "emergency room or inpatient visit"
+    assert "concept_candidates" not in result
+    assert "capr" not in result
+
+
+def test_scope_draft_supports_drug_with_one_condition_without_window():
+    agent = StudyAgent(mcp_client=_Mcp())
+    agent._call_llm = lambda prompt, required_keys: LLMCallResult(
+        status="ok",
+        parsed_content={
+            "status": "supported",
+            "pattern": "drug_with_supporting_condition",
+            "index_event": "esketamine",
+            "domain": "Drug",
+            "entry_limit": "First",
+            "prior_observation_days": 0,
+            "supporting_condition_term": "major depressive disorder",
+            "supporting_condition_domain": "Condition",
+            "exit_strategy": "observation",
+            "rationale": "One treatment exposure with one indication condition.",
+            "warnings": ["Choose the supporting-condition evidence window before confirmation."],
+        },
+    )
+    result = agent.run_phenotype_make_computable_flow(
+        "Patients with major depressive disorder initiating esketamine treatment.", scope_draft=True
+    )
+    assert result["status"] == "needs_clarification"
+    assert result["scope_draft"]["pattern"] == "drug_with_supporting_condition"
+    assert result["scope_draft"]["supporting_condition_term"] == "major depressive disorder"
+    assert "concept_candidates" not in result
+    assert "capr" not in result
+
+
+def test_scope_draft_omits_non_vocabulary_clinical_phrase():
+    agent = StudyAgent(mcp_client=_Mcp())
+    agent._call_llm = lambda prompt, required_keys: LLMCallResult(
+        status="ok",
+        parsed_content={
+            "status": "supported",
+            "pattern": "single_direct_entry",
+            "index_event": "new user of SGLT2 inhibitor drug",
+            "domain": "Drug",
+            "entry_limit": "First",
+            "prior_observation_days": 365,
+            "vocabulary_restriction": "SGLT2 inhibitor",
+            "exit_strategy": "observation",
+            "rationale": "One direct drug entry event.",
+            "warnings": [],
+        },
+    )
+    result = agent.run_phenotype_make_computable_flow("New users of SGLT2 drugs.", scope_draft=True)
+    assert result["scope_draft"].get("vocabulary_restriction") is None
+    assert any("omitted" in warning for warning in result["scope_draft"]["warnings"])
+
+
+def test_scope_draft_accepts_bounded_detailed_clarification():
+    agent = StudyAgent(mcp_client=_Mcp())
+    agent._call_llm = lambda prompt, required_keys: LLMCallResult(
+        status="ok",
+        parsed_content={
+            "status": "needs_clarification",
+            "rationale": "x" * 900,
+            "warnings": ["Choose one OMOP domain before continuing."],
+        },
+    )
+    result = agent.run_phenotype_make_computable_flow("Impulsivity documentation.", scope_draft=True)
+    assert result["status"] == "needs_clarification"
+    assert len(result["scope_draft"]["rationale"]) == 900
+
+
+def test_scope_draft_rejects_incomplete_supported_response():
+    agent = StudyAgent(mcp_client=_Mcp())
+    agent._call_llm = lambda prompt, required_keys: LLMCallResult(
+        status="ok",
+        parsed_content={"status": "supported", "rationale": "Missing values.", "warnings": []},
+    )
+    result = agent.run_phenotype_make_computable_flow("Earliest cirrhosis.", scope_draft=True)
+    assert result["status"] == "unavailable"
+    assert result["error"] == "scope_draft_invalid"
 
 
 def test_710_simple_condition_fixture():
@@ -421,6 +552,25 @@ def test_validator_rejects_indirect_process_execution():
     result = validate_capr_source("base::system('echo unsafe')")
     assert result["status"] == "failed"
     assert "system" in result["messages"][0]
+
+def test_validator_failure_reports_bounded_runtime_diagnostics(monkeypatch):
+    class FailedProcess:
+        returncode = 1
+        stdout = "x" * 3000
+        stderr = "y" * 5000
+
+    monkeypatch.setattr(capr_validate, "_r_script_path", lambda: "/opt/R/bin/Rscript")
+    monkeypatch.setattr(capr_validate.subprocess, "run", lambda *args, **kwargs: FailedProcess())
+    result = capr_validate._validate_capr_source_serialized("x <- 1", 60, "/opt/R/library")
+
+    assert result["messages"] == ["r_validation_failed"]
+    runtime = result["r_runtime"]
+    assert runtime["rscript"] == "/opt/R/bin/Rscript"
+    assert runtime["r_library"] == "/opt/R/library"
+    assert runtime["returncode"] == 1
+    assert len(runtime["stdout"]) == 2000
+    assert len(runtime["stderr"]) == 4000
+
 
 
 def test_concept_set_policy_is_preserved_from_reviewed_items():

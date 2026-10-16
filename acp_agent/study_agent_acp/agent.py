@@ -30,6 +30,7 @@ from study_agent_core.models import (
     WorkflowContextDialogueInput,
     PhenotypeMakeComputableInput,
     PhenotypeMakeComputableProposal,
+    PhenotypeScopeDraft,
     PhenotypeConceptTermProposal,
 )
 from study_agent_core.workflow_context import normalize_workflow_context
@@ -2129,12 +2130,17 @@ class StudyAgent(PhenotypeRecommendationMixin):
             return {"status": "error", "error": "phenotype_summary_fetch_failed", "details": summary_result}
         source_status = self._recommendation_computability_status(summary)
         name = summary.get("name") or summary.get("phenotype_name") or phenotype_id
+        snapshot_result = self.call_tool(name="phenotype_fetch_source_snapshot", arguments={"phenotype_id": phenotype_id})
+        snapshot_full = snapshot_result.get("full_result") or {}
+        source_snapshot = snapshot_full.get("snapshot") if isinstance(snapshot_full.get("snapshot"), dict) else {}
+        review_evidence = self._phenotype_review_evidence(summary, phenotype_id, name, source_status, source_snapshot)
         if source_status != "circe_available":
             return {
                 "status": "unavailable",
                 "phenotype_id": phenotype_id,
                 "phenotype_name": name,
                 "computability_status": source_status,
+                "review_evidence": review_evidence,
                 "error": "conversion_required" if source_status == "conversion_required" else "conversion_not_available",
                 "message": "ACP cannot return a validated executable Circe definition without the review-gated conversion workflow.",
                 "conversion": {"performed": False, "recommendation_context": recommendation_context if isinstance(recommendation_context, dict) else {}},
@@ -2143,16 +2149,90 @@ class StudyAgent(PhenotypeRecommendationMixin):
         definition_full = definition_result.get("full_result") or {}
         circe_json = definition_full.get("definition") if isinstance(definition_full.get("definition"), dict) else definition_full.get("content") if isinstance(definition_full.get("content"), dict) else definition_full
         if definition_result.get("status") != "ok" or not isinstance(circe_json, dict) or definition_full.get("error"):
-            return {"status": "error", "error": "phenotype_definition_fetch_failed", "details": definition_result}
+            return {"status": "unavailable", "phenotype_id": phenotype_id, "phenotype_name": name,
+                    "computability_status": "not_computable", "review_evidence": review_evidence,
+                    "error": "phenotype_definition_fetch_failed", "message": "Source evidence is available, but the indexed executable definition could not be retrieved.",
+                    "conversion": {"performed": False}}
         if not isinstance(circe_json.get("PrimaryCriteria"), dict) or not isinstance(circe_json.get("ConceptSets"), list):
-            return {"status": "unavailable", "phenotype_id": phenotype_id, "phenotype_name": name, "computability_status": "not_computable", "error": "malformed_circe_definition", "message": "Indexed provider data is not a complete Circe definition.", "conversion": {"performed": False}}
+            return {"status": "unavailable", "phenotype_id": phenotype_id, "phenotype_name": name,
+                    "computability_status": "not_computable", "review_evidence": review_evidence,
+                    "error": "malformed_circe_definition", "message": "Indexed provider data is not a complete Circe definition.", "conversion": {"performed": False}}
         canonical = json.dumps(circe_json, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
         return {
             "status": "ok", "phenotype_id": phenotype_id, "phenotype_name": name,
             "computability_status": "circe_available", "definition_source": "phenotype_library",
             "definition_revision": "indexed_artifact", "definition_sha256": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+            "review_evidence": review_evidence,
             "circe_json": circe_json,
             "conversion": {"performed": False, "source_phenotype_id": phenotype_id, "capr_code": None, "validation": {"status": "structural_passed", "messages": []}},
+        }
+
+    @staticmethod
+    def _phenotype_review_evidence(
+        summary: Dict[str, Any], phenotype_id: str, name: str, computability_status: str,
+        source_snapshot: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Return bounded deterministic source evidence for a human review panel."""
+        def clipped(value: Any, limit: int) -> str:
+            value = str(value or "").strip()
+            return value if len(value) <= limit else value[: limit - 1].rstrip() + "…"
+
+        def records(value: Any) -> List[Dict[str, Any]]:
+            return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
+
+        code_systems = []
+        for system in records(summary.get("code_systems"))[:10]:
+            codes = system.get("codes") if isinstance(system.get("codes"), list) else []
+            code_systems.append({
+                "name": clipped(system.get("system_name") or system.get("name") or system.get("system_id"), 160),
+                "code_count": len(codes),
+                "labels": [clipped(label, 80) for label in system.get("labels", [])[:5] if str(label).strip()],
+            })
+        source_snapshot = source_snapshot if isinstance(source_snapshot, dict) else {}
+        source_payload = source_snapshot.get("source_payload") if isinstance(source_snapshot.get("source_payload"), dict) else {}
+        algorithm = source_payload.get("algorithm") if isinstance(source_payload.get("algorithm"), dict) else {}
+        provenance = summary.get("provenance") if isinstance(summary.get("provenance"), dict) else {}
+        publications = []
+        for publication in records(provenance.get("publications"))[:3]:
+            publications.append({
+                "title": clipped(publication.get("title"), 320),
+                "link": clipped(publication.get("link"), 800),
+            })
+        sources = []
+        for source in provenance.get("sources", [])[:5] if isinstance(provenance.get("sources"), list) else []:
+            if isinstance(source, list):
+                sources.extend(clipped(item, 160) for item in source[:5] if str(item).strip())
+            elif str(source).strip():
+                sources.append(clipped(source, 160))
+        source_authors = provenance.get("authors", []) if isinstance(provenance.get("authors"), list) else []
+        if not source_authors and isinstance(algorithm.get("authors"), list):
+            source_authors = [record.get("author", {}).get("name") if isinstance(record.get("author"), dict) else record.get("name") for record in algorithm.get("authors", []) if isinstance(record, dict)]
+        acknowledgement = clipped(algorithm.get("publicationAcknowledgement"), 800)
+        if acknowledgement and not publications:
+            publications.append({"title": acknowledgement, "link": ""})
+        algorithm_narrative = clipped(algorithm.get("algorithmDesc"), 2400)
+        return {
+            "phenotype_id": phenotype_id,
+            "phenotype_name": clipped(name, 320),
+            "source_dataset": clipped(summary.get("source_dataset"), 120),
+            "computability_status": computability_status,
+            "executable_definition_status": clipped(summary.get("executable_definition_status"), 120),
+            "execution_readiness_score": summary.get("execution_readiness_score") if isinstance(summary.get("execution_readiness_score"), (int, float)) else None,
+            "short_description": clipped(summary.get("short_description"), 800),
+            "clinical_description": clipped(summary.get("long_description") or algorithm_narrative or summary.get("methodology_summary") or source_payload.get("description"), 2400),
+            "methodology_summary": clipped(summary.get("methodology_summary") or algorithm_narrative, 1200),
+            "population_description": clipped(algorithm.get("populationDesc"), 1200),
+            "validation_description": clipped(algorithm.get("validationDescription"), 1200),
+            "recommendation_summary": clipped(summary.get("recommendation_summary"), 800),
+            "adaptation_notes": clipped(summary.get("adaptation_notes"), 1200),
+            "code_systems": code_systems,
+            "provenance": {
+                "version": clipped(provenance.get("version") or source_snapshot.get("source_revision"), 120),
+                "modified_at": clipped(provenance.get("modified_at") or source_snapshot.get("source_modified_at"), 120),
+                "authors": [clipped(author, 160) for author in source_authors[:5] if str(author).strip()],
+                "sources": sources[:10],
+                "publications": publications,
+            },
         }
 
     def run_cohort_methods_specs_recommendation_flow(
@@ -4144,6 +4224,51 @@ class StudyAgent(PhenotypeRecommendationMixin):
             }
         return candidate_list, provenance, direct_candidate_ids
 
+    def _run_phenotype_scope_draft(self, narrative: str) -> Dict[str, Any]:
+        """Return an advisory starting point for the explicit R or Atlas scope checklist."""
+        if self._mcp_client is None:
+            return {
+                "status": "needs_clarification",
+                "narrative_statement": narrative,
+                "scope_draft": {
+                    "status": "needs_clarification",
+                    "rationale": "MCP prompt service unavailable.",
+                    "warnings": ["Continue with the explicit scope checklist."],
+                },
+            }
+        bundle = self.call_tool("phenotype_make_computable_prompt_bundle", {})
+        bundle_payload = bundle.get("full_result") or {}
+        if bundle.get("status") != "ok" or bundle_payload.get("error"):
+            return {"status": "unavailable", "error": "scope_draft_prompt_bundle_failed", "details": bundle}
+        prompt = build_lint_prompt(
+            bundle_payload.get("scope_draft_overview", ""),
+            bundle_payload.get("scope_draft_spec", ""),
+            bundle_payload.get("scope_draft_schema", {}),
+            "phenotype_make_computable_scope_draft",
+            {"narrative_statement": narrative},
+            max_kb=8,
+        )
+        with self._phenotype_make_computable_llm_lock:
+            result = self._call_llm(prompt, required_keys=["status", "rationale", "warnings"])
+        if result.status != "ok":
+            return {"status": "unavailable", "error": "scope_draft_unavailable", "diagnostics": self._llm_diagnostics(result)}
+        try:
+            scope_draft = PhenotypeScopeDraft.model_validate(result.parsed_content).model_dump(exclude_none=True)
+        except ValidationError as exc:
+            return {
+                "status": "unavailable",
+                "error": "scope_draft_invalid",
+                "scope_draft_errors": exc.errors(include_url=False),
+                "diagnostics": self._llm_diagnostics(result),
+            }
+        return {
+            "status": "needs_clarification",
+            "narrative_statement": narrative,
+            "scope_draft": scope_draft,
+            "questions": ["Review every scope value. This advisory draft does not confirm scope or select concepts."],
+            "diagnostics": self._llm_diagnostics(result),
+        }
+
     def run_phenotype_make_computable_flow(
         self,
         narrative_statement: str,
@@ -4154,9 +4279,10 @@ class StudyAgent(PhenotypeRecommendationMixin):
         concept_build_mode: str = "search_only",
         review_delivery: str = "auto",
         candidate_limit: int = 20,
+        scope_draft: bool = False,
     ) -> Dict[str, Any]:
         try:
-            request = PhenotypeMakeComputableInput(narrative_statement=narrative_statement, confirmed_scope=confirmed_scope, scope=scope or {}, concept_review_mode=concept_review_mode, concept_build_mode=concept_build_mode, review_delivery=review_delivery, candidate_limit=candidate_limit, concept_sets=concept_sets or [])
+            request = PhenotypeMakeComputableInput(narrative_statement=narrative_statement, confirmed_scope=confirmed_scope, scope=scope or {}, concept_review_mode=concept_review_mode, concept_build_mode=concept_build_mode, review_delivery=review_delivery, candidate_limit=candidate_limit, concept_sets=concept_sets or [], scope_draft=scope_draft)
         except ValidationError as exc:
             errors = exc.errors(include_url=False)
             concept_set_errors = [error for error in errors if error.get("loc", (None,))[0] == "concept_sets"]
@@ -4178,6 +4304,8 @@ class StudyAgent(PhenotypeRecommendationMixin):
         concept_set_data = [concept_set.model_dump(exclude_none=True) for concept_set in request.concept_sets]
         if not narrative:
             return {"status": "error", "error": "missing_narrative_statement"}
+        if not request.confirmed_scope and request.scope_draft:
+            return self._run_phenotype_scope_draft(narrative)
         if request.concept_review_mode == "propose" and request.candidate_limit > 100:
             return {
                 "status": "needs_clarification",

@@ -31,6 +31,30 @@ WebAPI must expose the Study Agent permissions used by the Atlas UI, including s
 
 The WebAPI database migrations that create Study Agent permissions and workflow/provenance state must be applied before testing Atlas controls. The UI should only present capabilities enabled by the deployed WebAPI configuration.
 
+## R-to-Atlas concept-policy handoff
+
+The Strategus R shells can optionally replace CSV review with a normal Atlas concept-set review. This is a client integration, not an ACP dependency:
+
+1. R has already confirmed scope and retrieved a bounded, unapproved candidate slice.
+2. With the user's explicit `ATLAS` confirmation, R uses that user's WebAPI API key to create a normal, empty concept-set asset and register a durable external-review session.
+3. R prints a direct Atlas URL. Atlas opens the standard concept-set editor for that saved asset, where the user uses normal vocabulary search, hierarchy inspection, and selected-policy controls.
+4. The first successful Atlas save finalizes a WebAPI-owned immutable expression snapshot and checksum for the external-review session.
+5. When the R workflow resumes, it reads that accepted snapshot rather than the current mutable Atlas asset, records it in its local approval artifact, and emits only a supported definition.
+
+The link is intentionally user- and concept-set-specific. A WebAPI API key is sent only from the R process to WebAPI in the `X-API-KEY` header; it is never embedded in the Atlas URL, persisted in R workflow artifacts, or sent to ACP/MCP. The user must have the normal concept-set create/write permissions plus `study-agent:concept-set-assist`.
+
+The current minimum handoff retains the R review ID, scope, candidate count, and search-lane summary as provenance. The Atlas asset opens empty: a retrieval slice remains advisory and is never silently converted into selected policy rows. Users can use the established Atlas vocabulary explorer to locate and explicitly curate the policy. A richer, read-only candidate shelf can be added later without changing this snapshot contract.
+
+For an R session, configure all three values before starting the shell:
+
+```sh
+export STUDY_AGENT_WEBAPI_URL='https://example.org/WebAPI'
+export STUDY_AGENT_WEBAPI_API_KEY='user-owned-api-key'
+export STUDY_AGENT_ATLAS_URL='https://example.org/Atlas3'
+```
+
+If any value is absent, the shell retains its existing CSV and JSON review options and does not expose the Atlas handoff action.
+
 ## Deployment notes
 
 - Configure the ACP endpoint in WebAPI using its deployment configuration; do not embed service URLs or credentials in Atlas client code.

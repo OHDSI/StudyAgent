@@ -660,6 +660,9 @@ def test_phenotype_definition_returns_direct_circe_with_canonical_hash(monkeypat
 
     assert result["status"] == "ok"
     assert result["circe_json"] == circe
+    assert result["review_evidence"]["phenotype_name"] == "Example"
+    assert result["review_evidence"]["computability_status"] == "circe_available"
+    assert "source_timing_rule" not in result["review_evidence"]
     assert result["definition_sha256"] == "12546c717038cc6907449066226ed2646533f5b9c1ae63f4ada8cf35c5521c5c"
 
 
@@ -672,6 +675,9 @@ def test_phenotype_definition_fails_closed_for_conversion_and_malformed_payload(
     conversion = StudyAgent(mcp_client=object()).run_phenotype_definition_flow("cipher:1", allow_make_computable=False)
     assert conversion["status"] == "unavailable"
     assert conversion["computability_status"] == "conversion_required"
+    assert conversion["review_evidence"]["phenotype_name"] == "Narrative"
+    assert conversion["review_evidence"]["code_systems"] == []
+    assert "source_timing_rule" not in conversion["review_evidence"]
     assert "circe_json" not in conversion
 
     def malformed_call(self, name, arguments, confirm=False):
@@ -682,6 +688,7 @@ def test_phenotype_definition_fails_closed_for_conversion_and_malformed_payload(
     malformed = StudyAgent(mcp_client=object()).run_phenotype_definition_flow("ohdsi:1")
     assert malformed["status"] == "unavailable"
     assert malformed["error"] == "malformed_circe_definition"
+    assert malformed["review_evidence"]["phenotype_name"] == "Broken"
     assert "circe_json" not in malformed
 
 

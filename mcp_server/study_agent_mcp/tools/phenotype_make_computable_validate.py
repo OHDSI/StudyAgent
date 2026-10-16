@@ -82,6 +82,33 @@ def _r_subprocess_env(r_library: str) -> dict[str, str]:
             env["PATH"] = f"{java_bin}{os.pathsep}{env.get('PATH', '')}"
     return env
 
+
+def _r_validation_diagnostics(
+    r_library: str,
+    env: dict[str, str],
+    result: subprocess.CompletedProcess[str] | None = None,
+) -> Dict[str, Any]:
+    """Return bounded, non-secret diagnostics for an R validation attempt."""
+    path_entries = [entry for entry in env.get("PATH", "").split(os.pathsep) if entry]
+    diagnostics: Dict[str, Any] = {
+        "rscript": _r_script_path(),
+        "r_library": r_library,
+        "java_home": env.get("JAVA_HOME") or None,
+        "path_entry_count": len(path_entries),
+        "java_bin_preferred": bool(
+            env.get("JAVA_HOME")
+            and path_entries
+            and Path(path_entries[0]).resolve() == (Path(env["JAVA_HOME"]) / "bin").resolve()
+        ),
+    }
+    if result is not None:
+        diagnostics.update({
+            "returncode": result.returncode,
+            "stdout": result.stdout[-2000:],
+            "stderr": result.stderr[-4000:],
+        })
+    return diagnostics
+
 def _unsafe_r_constructs(capr_code: str) -> list[str]:
     import re
     normalized = capr_code.lower().replace("`", "")
@@ -141,11 +168,31 @@ def _validate_capr_source_serialized(capr_code: str, timeout_seconds: int, r_lib
         )
         env = _r_subprocess_env(r_library)
         try:
-            result = subprocess.run([_r_script_path(), "--vanilla", "-e", runner, str(script), str(output), str(environment_output)], cwd=root, env=env, text=True, capture_output=True, timeout=max(1, min(timeout_seconds, 120)), check=False)
+            result = subprocess.run(
+                [_r_script_path(), "--vanilla", "-e", runner, str(script), str(output), str(environment_output)],
+                cwd=root, env=env, text=True, capture_output=True,
+                timeout=max(1, min(timeout_seconds, 120)), check=False,
+            )
         except subprocess.TimeoutExpired:
-            return {"status": "failed", "messages": ["r_validation_timeout"]}
+            return {
+                "status": "failed",
+                "messages": ["r_validation_timeout"],
+                "r_runtime": _r_validation_diagnostics(r_library, env),
+            }
+        except OSError as exc:
+            return {
+                "status": "failed",
+                "messages": ["r_validation_launch_failed"],
+                "error": str(exc),
+                "r_runtime": _r_validation_diagnostics(r_library, env),
+            }
         if result.returncode:
-            return {"status": "failed", "messages": ["r_validation_failed"], "stderr": result.stderr[-4000:]}
+            return {
+                "status": "failed",
+                "messages": ["r_validation_failed"],
+                "stderr": result.stderr[-4000:],
+                "r_runtime": _r_validation_diagnostics(r_library, env, result),
+            }
         circe = json.loads(output.read_text(encoding="utf-8"))
         if not isinstance(circe.get("PrimaryCriteria"), dict) or not isinstance(circe.get("ConceptSets"), list):
             return {"status": "failed", "messages": ["circe_required_fields_missing"]}

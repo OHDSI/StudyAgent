@@ -29,12 +29,13 @@ def test_phenotype_make_computable_route_validates_and_dispatches(monkeypatch):
         return {"status": "ok", "capr": {"filename": "phenotype_definition.R"}}
 
     monkeypatch.setattr(StudyAgent, "run_phenotype_make_computable_flow", fake_flow)
-    body = {"narrative_statement": "Earliest cirrhosis.", "confirmed_scope": True, "scope": {"index_event": "Cirrhosis"}, "concept_review_mode": "provided_only", "concept_sets": []}
+    body = {"narrative_statement": "Earliest cirrhosis.", "confirmed_scope": True, "scope": {"index_event": "Cirrhosis"}, "concept_review_mode": "provided_only", "concept_sets": [], "scope_draft": False}
     captured = _post(monkeypatch, body)
     assert captured["status"] == 200
     assert captured["payload"]["status"] == "ok"
     assert received["narrative_statement"] == "Earliest cirrhosis."
     assert received["concept_review_mode"] == "provided_only"
+    assert received["scope_draft"] is False
 
 
 @pytest.mark.acp

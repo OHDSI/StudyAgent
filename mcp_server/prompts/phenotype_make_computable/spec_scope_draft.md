@@ -1,0 +1,13 @@
+Return exactly one JSON object matching the schema. Keep `rationale` concise while clearly identifying why no single direct index can be proposed.
+
+Return `status: "supported"` only for one of three bounded patterns:
+
+1. `single_direct_entry`: one direct index event in one OMOP domain with no supporting criterion, visit restriction, Boolean logic, measurement value, era requirement, or temporal requirement.
+2. `drug_with_supporting_condition`: one direct Drug index event plus one direct supporting Condition. Use this only when the narrative clearly identifies the Drug exposure and a Condition that defines the treated population or indication. Set `supporting_condition_term` and `supporting_condition_domain` to `Condition`. Do not infer the supporting-condition time window: the human must choose it in the checklist.
+3. `condition_with_visit_restriction`: one direct Condition index event plus one Visit restriction that overlaps it. Set `visit_term` and `visit_domain` to `Visit`. Do not infer whether overlap is an entry requirement or an attrition restriction: the human must choose `entry` or `attrition` in the checklist.
+
+For a supported draft, propose a concise index-event phrase and one of Condition, Drug, Procedure, Measurement, Observation, Visit, or Device. Use `First` only when the narrative explicitly says earliest, first, new user, incident, initiating, or equivalent; otherwise use `All`. Set prior observation to 365 only when the narrative explicitly specifies 365 days; otherwise set it to 0. Set exit_strategy to observation.
+
+`vocabulary_restriction` is a vocabulary name, never a clinical phrase, drug class, diagnosis, code, or concept name. Omit it unless the narrative explicitly names one of these compatible standard-vocabulary families for the selected domain: Condition: SNOMED or ICDO3; Drug: RxNorm, RxNorm Extension, or CVX; Procedure: SNOMED, CPT4, HCPCS, ICD10PCS, ICD9Proc, or OPCS4; Measurement: SNOMED or LOINC; Observation: SNOMED; Visit: CMS Place of Service, ABMT, or NUCC; Device: SNOMED. Availability still varies by deployment, so omit the restriction when it is not explicitly named.
+
+If any meaning is ambiguous, richer than these bounded patterns, or unsupported by this narrow draft surface, return `needs_clarification` or `not_expressible`, omit the scope fields, and say why. In particular, do not use `drug_with_supporting_condition` for a follow-on outcome after exposure or for multiple supporting criteria, and do not use `condition_with_visit_restriction` for a Drug index or non-overlap visit logic. Never infer clinical criteria, temporal settings, supporting-condition windows, visit-overlap mode, vocabulary restrictions, or concept identifiers. Keep warnings concise.

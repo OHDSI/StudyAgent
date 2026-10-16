@@ -492,6 +492,78 @@ class PhenotypeConceptTermProposal(BaseModel):
     terms: List[str] = Field(default_factory=list, max_length=5)
 
 
+_SCOPE_DRAFT_STANDARD_VOCABULARIES = {
+    "Condition": {"SNOMED", "ICDO3"},
+    "Drug": {"RxNorm", "RxNorm Extension", "CVX"},
+    "Procedure": {"SNOMED", "CPT4", "HCPCS", "ICD10PCS", "ICD9Proc", "OPCS4"},
+    "Measurement": {"SNOMED", "LOINC"},
+    "Observation": {"SNOMED"},
+    "Visit": {"CMS Place of Service", "ABMT", "NUCC"},
+    "Device": {"SNOMED"},
+}
+
+
+class PhenotypeScopeDraft(BaseModel):
+    """A review-only starting point for a deliberately bounded scope checklist."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["supported", "needs_clarification", "not_expressible"]
+    pattern: Optional[Literal["single_direct_entry", "drug_with_supporting_condition", "condition_with_visit_restriction"]] = None
+    index_event: Optional[str] = Field(default=None, max_length=300)
+    domain: Optional[Literal["Condition", "Drug", "Procedure", "Measurement", "Observation", "Visit", "Device"]] = None
+    entry_limit: Optional[Literal["First", "All"]] = None
+    prior_observation_days: Optional[int] = Field(default=None, ge=0)
+    vocabulary_restriction: Optional[str] = Field(default=None, max_length=100)
+    supporting_condition_term: Optional[str] = Field(default=None, max_length=300)
+    supporting_condition_domain: Optional[Literal["Condition"]] = None
+    visit_term: Optional[str] = Field(default=None, max_length=300)
+    visit_domain: Optional[Literal["Visit"]] = None
+    exit_strategy: Optional[Literal["observation"]] = None
+    # Clarification explanations can need to distinguish several possible OMOP
+    # domains. Keep them bounded but do not reject an otherwise safe response
+    # merely because that explanation is detailed.
+    rationale: str = Field(default="", max_length=1600)
+    warnings: List[str] = Field(default_factory=list, max_length=8)
+
+    @model_validator(mode="after")
+    def validate_supported_draft(self) -> "PhenotypeScopeDraft":
+        if self.vocabulary_restriction:
+            allowed = _SCOPE_DRAFT_STANDARD_VOCABULARIES.get(self.domain or "", set())
+            canonical = {value.lower(): value for value in allowed}
+            normalized = canonical.get(self.vocabulary_restriction.strip().lower())
+            if normalized is None:
+                self.vocabulary_restriction = None
+                self.warnings.append(
+                    "The advisory vocabulary restriction was omitted because it was not a recognized standard vocabulary for the proposed domain."
+                )
+            else:
+                self.vocabulary_restriction = normalized
+        if self.status == "supported":
+            required = {
+                "pattern": self.pattern,
+                "index_event": self.index_event,
+                "domain": self.domain,
+                "entry_limit": self.entry_limit,
+                "prior_observation_days": self.prior_observation_days,
+                "exit_strategy": self.exit_strategy,
+            }
+            missing = [name for name, value in required.items() if value in (None, "")]
+            if missing:
+                raise ValueError(f"supported_scope_draft_missing:{','.join(missing)}")
+            if self.pattern == "drug_with_supporting_condition":
+                if self.domain != "Drug":
+                    raise ValueError("drug_with_supporting_condition_requires_drug_index")
+                if not self.supporting_condition_term or self.supporting_condition_domain != "Condition":
+                    raise ValueError("drug_with_supporting_condition_requires_condition_support")
+            if self.pattern == "condition_with_visit_restriction":
+                if self.domain != "Condition":
+                    raise ValueError("condition_with_visit_restriction_requires_condition_index")
+                if not self.visit_term or self.visit_domain != "Visit":
+                    raise ValueError("condition_with_visit_restriction_requires_visit")
+        return self
+
+
 class PhenotypeMakeComputableInput(BaseModel):
     """Stateless direct-narrative request for a computable cohort definition."""
 
@@ -509,3 +581,5 @@ class PhenotypeMakeComputableInput(BaseModel):
     # LLM (see StudyAgent.run_phenotype_make_computable_flow).
     candidate_limit: int = Field(default=20, ge=1, le=500)
     concept_sets: List[PhenotypeReviewedConceptSet] = Field(default_factory=list)
+    # Advisory only: becomes editable checklist defaults, never a confirmed scope.
+    scope_draft: bool = False

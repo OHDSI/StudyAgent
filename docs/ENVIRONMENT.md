@@ -95,6 +95,18 @@ Compose requires `config.yaml` to exist and mounts it at `/app/config.yaml:ro`. 
 
 Use full filesystem paths where practical, especially for index paths, generated-output roots, and Windows deployments. `paths.runtime` is the configuration-relative directory used by `doit` tasks and timeout calibration for logs and generated recommendations; it defaults to `.study-agent-runtime` instead of a Linux-only `/tmp` location.
 
+## Optional R-to-Atlas review handoff
+
+These optional R-session variables enable the Strategus shells to create a normal user-owned WebAPI concept set, print a direct Atlas review URL, and later resume from WebAPI's immutable accepted snapshot. They are not used by ACP or MCP.
+
+| Variable | Used by | Notes |
+|---|---|---|
+| `STUDY_AGENT_WEBAPI_URL` | Strategus R shells | Base URL of the matching WebAPI deployment, for example `https://example.org/WebAPI`. |
+| `STUDY_AGENT_WEBAPI_API_KEY` | Strategus R shells | User-owned WebAPI API key. Sent only as `X-API-KEY`; keep it in the R session environment, never workflow artifacts. |
+| `STUDY_AGENT_ATLAS_URL` | Strategus R shells | Public Atlas3 base URL, for example `https://example.org/Atlas3`. Used only to build the browser link. |
+
+See [ATLAS_WEBAPI_INTEGRATION.md](ATLAS_WEBAPI_INTEGRATION.md) for the ownership, snapshot, and recovery contract.
+
 ## ACP Runtime
 
 | Variable | Used by | Notes |
