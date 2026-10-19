@@ -1,4 +1,5 @@
 import csv
+import json
 import pytest
 from pathlib import Path
 
@@ -30,6 +31,11 @@ class _Mcp:
             return {"concepts": arguments["concepts"], "count": len(arguments["concepts"]), "removed_concept_ids": []}
         if name == "phenotype_make_computable_prompt_bundle":
             return _load_bundle()
+        if name == "vocab_search_capabilities":
+            return {
+                "provider": "db",
+                "search_term_style": "concise_clinical_term",
+            }
         if name == "phenotype_make_computable_validate":
             return validate_capr_source(**arguments)
         raise AssertionError(name)
@@ -140,6 +146,41 @@ def test_scope_draft_supports_drug_with_one_condition_without_window():
     assert "capr" not in result
 
 
+def test_scope_draft_normalizes_db_drug_timing_prose_and_exposes_capabilities():
+    agent = StudyAgent(mcp_client=_Mcp())
+    prompts = []
+
+    def fake_llm(prompt, required_keys):
+        prompts.append(prompt)
+        return LLMCallResult(
+            status="ok",
+            parsed_content={
+                "status": "supported",
+                "pattern": "single_direct_entry",
+                "index_event": "first dispensing of atomoxetine",
+                "domain": "Drug",
+                "entry_limit": "First",
+                "prior_observation_days": 0,
+                "vocabulary_restriction": "RxNorm",
+                "exit_strategy": "observation",
+                "rationale": "One direct drug entry.",
+                "warnings": [],
+            },
+        )
+
+    agent._call_llm = fake_llm
+    result = agent.run_phenotype_make_computable_flow(
+        "Patients with a new prescription for atomoxetine, with index date at first dispensing",
+        scope_draft=True,
+    )
+    assert result["scope_draft"]["index_event"] == "atomoxetine"
+    assert result["scope_draft"]["entry_limit"] == "First"
+    assert "vocabulary_restriction" not in result["scope_draft"]
+    assert result["vocabulary_search_capabilities"]["provider"] == "db"
+    assert any("shortened" in warning for warning in result["scope_draft"]["warnings"])
+    assert '"search_term_style": "concise_clinical_term"' in prompts[0]
+
+
 def test_scope_draft_omits_non_vocabulary_clinical_phrase():
     agent = StudyAgent(mcp_client=_Mcp())
     agent._call_llm = lambda prompt, required_keys: LLMCallResult(
@@ -186,6 +227,8 @@ def test_scope_draft_rejects_incomplete_supported_response():
     result = agent.run_phenotype_make_computable_flow("Earliest cirrhosis.", scope_draft=True)
     assert result["status"] == "unavailable"
     assert result["error"] == "scope_draft_invalid"
+    assert result["scope_draft_errors"]
+    json.dumps(result)
 
 
 def test_710_simple_condition_fixture():

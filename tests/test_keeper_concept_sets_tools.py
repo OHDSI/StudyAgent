@@ -120,6 +120,21 @@ def test_vocab_search_standard_reports_unconfigured_provider(monkeypatch) -> Non
     assert result["count"] == 0
 
 
+@pytest.mark.mcp
+def test_vocab_search_capabilities_reports_safe_db_contract(monkeypatch) -> None:
+    monkeypatch.setenv("VOCAB_SEARCH_PROVIDER", "db")
+    tools = _registered_tools()
+
+    result = tools["vocab_search_capabilities"]()
+
+    assert result["provider"] == "db"
+    assert result["search_term_style"] == "concise_clinical_term"
+    assert result["supports_domain_filter"] is True
+    assert "first event" in result["guidance"]
+    assert "care-setting restrictions" in result["guidance"]
+    assert "connection" not in result
+
+
 
 
 @pytest.mark.mcp

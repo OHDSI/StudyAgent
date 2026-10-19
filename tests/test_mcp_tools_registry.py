@@ -55,6 +55,7 @@ def test_register_all_tools() -> None:
         "keeper_profile_extract",
         "keeper_profile_to_rows",
         "vocab_search_standard",
+        "vocab_search_capabilities",
         "phoebe_related_concepts",
         "vocab_filter_standard_concepts",
         "vocab_remove_descendants",

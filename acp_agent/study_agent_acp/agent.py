@@ -2833,7 +2833,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
         try:
             parsed = ConceptSetPolicyProposal.model_validate(proposal)
         except ValidationError as exc:
-            return [], exc.errors(include_url=False)
+            return [], exc.errors(include_url=False, include_context=False, include_input=False)
         candidate_by_id = {
             int(row["conceptId"]): row
             for row in candidates
@@ -4224,6 +4224,29 @@ class StudyAgent(PhenotypeRecommendationMixin):
             }
         return candidate_list, provenance, direct_candidate_ids
 
+    @staticmethod
+    def _normalize_db_drug_index_term(value: str) -> str:
+        """Remove cohort-timing prose from a Drug term before advisory scope display.
+
+        The DB vocabulary provider performs lexical concept-name retrieval.  Terms
+        such as ``first dispensing of atomoxetine`` are valid cohort intent but
+        poor lexical terms; entry timing is represented by ``entry_limit``.
+        This is intentionally narrow and only applied to an LLM-proposed Drug
+        index in a DB-backed deployment.
+        """
+        term = str(value or "").strip()
+        if not term:
+            return term
+        patterns = (
+            r"^(?:first|new|initial|earliest)\s+(?:dispensing|prescription|prescribing|drug exposure|exposure|use|treatment|administration)(?:\s+(?:of|for|to|with))?\s+",
+            r"^(?:initiation|initiate|starting|start)\s+(?:of\s+)?",
+        )
+        for pattern in patterns:
+            simplified = re.sub(pattern, "", term, flags=re.IGNORECASE).strip(" -,:;")
+            if simplified and simplified != term:
+                return simplified
+        return term
+
     def _run_phenotype_scope_draft(self, narrative: str) -> Dict[str, Any]:
         """Return an advisory starting point for the explicit R or Atlas scope checklist."""
         if self._mcp_client is None:
@@ -4240,12 +4263,21 @@ class StudyAgent(PhenotypeRecommendationMixin):
         bundle_payload = bundle.get("full_result") or {}
         if bundle.get("status") != "ok" or bundle_payload.get("error"):
             return {"status": "unavailable", "error": "scope_draft_prompt_bundle_failed", "details": bundle}
+        capability_result = self.call_tool("vocab_search_capabilities", {})
+        vocabulary_search_capabilities = (
+            capability_result.get("full_result") or {}
+            if capability_result.get("status") == "ok"
+            else {"provider": "unavailable", "search_term_style": "provider_defined"}
+        )
         prompt = build_lint_prompt(
             bundle_payload.get("scope_draft_overview", ""),
             bundle_payload.get("scope_draft_spec", ""),
             bundle_payload.get("scope_draft_schema", {}),
             "phenotype_make_computable_scope_draft",
-            {"narrative_statement": narrative},
+            {
+                "narrative_statement": narrative,
+                "vocabulary_search_capabilities": vocabulary_search_capabilities,
+            },
             max_kb=8,
         )
         with self._phenotype_make_computable_llm_lock:
@@ -4258,13 +4290,36 @@ class StudyAgent(PhenotypeRecommendationMixin):
             return {
                 "status": "unavailable",
                 "error": "scope_draft_invalid",
-                "scope_draft_errors": exc.errors(include_url=False),
+                "scope_draft_errors": exc.errors(include_url=False, include_context=False, include_input=False),
                 "diagnostics": self._llm_diagnostics(result),
             }
+        if (
+            vocabulary_search_capabilities.get("provider") == "db"
+            and scope_draft.get("domain") == "Drug"
+            and scope_draft.get("index_event")
+        ):
+            original_term = str(scope_draft["index_event"])
+            simplified_term = self._normalize_db_drug_index_term(original_term)
+            if simplified_term != original_term:
+                scope_draft["index_event"] = simplified_term
+                scope_draft.setdefault("warnings", []).append(
+                    "The Drug index term was shortened to a clinical vocabulary-search term; "
+                    "entry timing remains a separate checklist decision."
+                )
+        vocabulary_restriction = str(scope_draft.get("vocabulary_restriction") or "").strip()
+        if vocabulary_restriction and vocabulary_restriction.casefold() not in narrative.casefold():
+            scope_draft.pop("vocabulary_restriction", None)
+            warnings = scope_draft.setdefault("warnings", [])
+            warning = (
+                "The advisory vocabulary restriction was omitted because the narrative did not explicitly name it."
+            )
+            if len(warnings) < 8:
+                warnings.append(warning)
         return {
             "status": "needs_clarification",
             "narrative_statement": narrative,
             "scope_draft": scope_draft,
+            "vocabulary_search_capabilities": vocabulary_search_capabilities,
             "questions": ["Review every scope value. This advisory draft does not confirm scope or select concepts."],
             "diagnostics": self._llm_diagnostics(result),
         }
@@ -4284,7 +4339,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
         try:
             request = PhenotypeMakeComputableInput(narrative_statement=narrative_statement, confirmed_scope=confirmed_scope, scope=scope or {}, concept_review_mode=concept_review_mode, concept_build_mode=concept_build_mode, review_delivery=review_delivery, candidate_limit=candidate_limit, concept_sets=concept_sets or [], scope_draft=scope_draft)
         except ValidationError as exc:
-            errors = exc.errors(include_url=False)
+            errors = exc.errors(include_url=False, include_context=False, include_input=False)
             concept_set_errors = [error for error in errors if error.get("loc", (None,))[0] == "concept_sets"]
             if concept_set_errors:
                 return {
@@ -4371,7 +4426,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
                     return {
                         "status": "unavailable",
                         "error": "concept_term_generation_invalid",
-                        "term_validation_errors": exc.errors(include_url=False),
+                        "term_validation_errors": exc.errors(include_url=False, include_context=False, include_input=False),
                         "diagnostics": self._llm_diagnostics(terms_result),
                     }
                 search_terms: List[str] = []
@@ -4557,7 +4612,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
                 try:
                     proposed_plan = PhenotypeMakeComputableProposal.model_validate(llm_result.parsed_content).model_dump(exclude_none=True)
                 except ValidationError as exc:
-                    proposal_errors = exc.errors(include_url=False)
+                    proposal_errors = exc.errors(include_url=False, include_context=False, include_input=False)
             if proposed_plan is not None:
                 candidate_by_id = {
                     int(candidate["conceptId"]): candidate

@@ -903,6 +903,34 @@ def register(mcp: object) -> None:
             "vocab_search_standard",
         )
 
+    @mcp.tool(name="vocab_search_capabilities")
+    def vocab_search_capabilities_tool() -> Dict[str, Any]:
+        """Describe the configured vocabulary-search surface without querying data.
+
+        This is deliberately small and non-sensitive so ACP clients can adapt
+        advisory wording to the retrieval system they are actually using.  It
+        does not disclose connection details, database contents, or credentials.
+        """
+        selected_provider = _provider_value("", "VOCAB_SEARCH_PROVIDER") or "unconfigured"
+        db_backed = selected_provider == "db"
+        return with_meta(
+            {
+                "provider": selected_provider,
+                "supports_domain_filter": selected_provider not in {"none", "unconfigured"},
+                "supports_vocabulary_filter": selected_provider not in {"none", "unconfigured"},
+                "search_term_style": "concise_clinical_term" if db_backed else "provider_defined",
+                "guidance": (
+                    "Use concise clinical terms for lexical vocabulary retrieval. "
+                    "Keep event-selection and cohort logic—such as earliest or first event, first use or exposure, "
+                    "prescription or dispensing, recurrence, lookback or washout, temporal windows, care-setting restrictions, "
+                    "and cohort exit—in separate cohort scope fields."
+                    if db_backed
+                    else "Search-term behavior depends on the configured provider."
+                ),
+            },
+            "vocab_search_capabilities",
+        )
+
 
     @mcp.tool(name="vocab_search_classification_ancestors")
     def vocab_search_classification_ancestors_tool(
