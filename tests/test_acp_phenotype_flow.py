@@ -21,6 +21,8 @@ class StubMCPClient:
                         "phenotype_id": "ohdsi:1",
                         "name": "Alpha",
                         "short_description": "A",
+                        "source_dataset": "ohdsi_phenotype_library",
+                        "signals": ["source:ohdsi", "execution:native_ohdsi", "status:Pending peer review"],
                         "executable_definition_status": "native_ohdsi",
                         "execution_readiness_score": 1.0,
                     },
@@ -51,6 +53,8 @@ class StubMCPClient:
                         "retrieval_keywords": ["alpha diagnosis"],
                         "retrieval_concept_labels": ["Alpha condition"],
                         "methodology_summary": "Native OHDSI cohort.",
+                        "long_description": "A fuller phenotype description for reviewer context.",
+                        "recommendation_summary": "Identifies patients with Alpha.",
                     }
                 }
             if phenotype_id == "cipher:2":
@@ -115,6 +119,21 @@ def test_acp_flow_candidate_limit(monkeypatch):
     recs = result["recommendations"]["phenotype_recommendations"]
     assert len(recs) == 1
     assert recs[0]["phenotype_id"] == "ohdsi:1"
+    assert recs[0]["computability_status"] == "circe_available"
+    assert recs[0]["executable_definition_status"] == "native_ohdsi"
+    assert recs[0]["execution_readiness_score"] == 1.0
+    assert recs[0]["source_dataset"] == "ohdsi_phenotype_library"
+    assert recs[0]["source_status"] == "Pending peer review"
+    assert recs[0]["long_description"] == "A fuller phenotype description for reviewer context."
+    assert recs[0]["methodology_summary"] == "Native OHDSI cohort."
+    assert recs[0]["recommendation_summary"] == "Identifies patients with Alpha."
+    ranked = result["ranked_candidates"]
+    assert ranked[0]["phenotype_id"] == "ohdsi:1"
+    assert ranked[0]["long_description"] == "A fuller phenotype description for reviewer context."
+    assert ranked[0]["methodology_summary"] == "Native OHDSI cohort."
+    retrieval_ranked = result["retrieval_ranked_candidates"]
+    assert retrieval_ranked[0]["phenotype_id"] == "ohdsi:1"
+    assert retrieval_ranked[0]["long_description"] == "A fuller phenotype description for reviewer context."
     prompt_bundle_tasks = [args["task"] for name, args in client.calls if name == "phenotype_prompt_bundle"]
     assert prompt_bundle_tasks == [
         "phenotype_recommendation_intent_facets",
@@ -641,6 +660,9 @@ def test_phenotype_definition_returns_direct_circe_with_canonical_hash(monkeypat
 
     assert result["status"] == "ok"
     assert result["circe_json"] == circe
+    assert result["review_evidence"]["phenotype_name"] == "Example"
+    assert result["review_evidence"]["computability_status"] == "circe_available"
+    assert "source_timing_rule" not in result["review_evidence"]
     assert result["definition_sha256"] == "12546c717038cc6907449066226ed2646533f5b9c1ae63f4ada8cf35c5521c5c"
 
 
@@ -653,6 +675,9 @@ def test_phenotype_definition_fails_closed_for_conversion_and_malformed_payload(
     conversion = StudyAgent(mcp_client=object()).run_phenotype_definition_flow("cipher:1", allow_make_computable=False)
     assert conversion["status"] == "unavailable"
     assert conversion["computability_status"] == "conversion_required"
+    assert conversion["review_evidence"]["phenotype_name"] == "Narrative"
+    assert conversion["review_evidence"]["code_systems"] == []
+    assert "source_timing_rule" not in conversion["review_evidence"]
     assert "circe_json" not in conversion
 
     def malformed_call(self, name, arguments, confirm=False):
@@ -663,6 +688,7 @@ def test_phenotype_definition_fails_closed_for_conversion_and_malformed_payload(
     malformed = StudyAgent(mcp_client=object()).run_phenotype_definition_flow("ohdsi:1")
     assert malformed["status"] == "unavailable"
     assert malformed["error"] == "malformed_circe_definition"
+    assert malformed["review_evidence"]["phenotype_name"] == "Broken"
     assert "circe_json" not in malformed
 
 

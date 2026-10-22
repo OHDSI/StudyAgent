@@ -19,6 +19,7 @@ def test_example_config_has_docker_profile_and_no_secret_keys() -> None:
     assert "profiles:" in source
     assert "docker:" in source
     assert "host.docker.internal" in source
+    assert "keeper:" in source
     for forbidden in ("api_key", "token", "password", "omop_db_engine"):
         assert forbidden not in source
 

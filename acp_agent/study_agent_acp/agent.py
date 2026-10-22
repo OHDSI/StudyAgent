@@ -30,8 +30,10 @@ from study_agent_core.models import (
     WorkflowContextDialogueInput,
     PhenotypeMakeComputableInput,
     PhenotypeMakeComputableProposal,
+    PhenotypeScopeDraft,
     PhenotypeConceptTermProposal,
 )
+from study_agent_core.workflow_context import normalize_workflow_context
 from study_agent_core.tools import (
     cohort_methods_intent_split,
     cohort_lint,
@@ -1329,6 +1331,32 @@ class StudyAgent(PhenotypeRecommendationMixin):
             )
         return compact_rows
 
+    def _build_client_ranked_candidates(self, candidates: List[Dict[str, Any]], limit: int) -> List[Dict[str, Any]]:
+        """Return a bounded, presentation-safe ranked-candidate slice for review."""
+        ranked: List[Dict[str, Any]] = []
+        for rank, row in enumerate(candidates[: max(0, limit)], start=1):
+            if not isinstance(row, dict) or row.get("phenotype_id") in (None, ""):
+                continue
+            ranked.append(
+                {
+                    "rank": rank,
+                    "phenotype_id": str(row.get("phenotype_id")),
+                    "phenotype_name": row.get("name") or row.get("phenotype_name") or "",
+                    "source_dataset": row.get("source_dataset") or "",
+                    "short_description": row.get("short_description") or "",
+                    "long_description": row.get("long_description") or "",
+                    "methodology_summary": row.get("methodology_summary") or "",
+                    "recommendation_summary": row.get("recommendation_summary") or "",
+                    "computability_status": self._recommendation_computability_status(row),
+                    "executable_definition_status": row.get("executable_definition_status") or "",
+                    "execution_readiness_score": row.get("execution_readiness_score"),
+                    "source_status": self._recommendation_source_status(row),
+                    "signals": row.get("signals") or [],
+                    "adaptation_notes": row.get("adaptation_notes") or "",
+                }
+            )
+        return ranked
+
     def _default_final_recommendation_plan(self, study_intent: str) -> str:
         return "Rank phenotypes matching the study intent."
 
@@ -1348,6 +1376,17 @@ class StudyAgent(PhenotypeRecommendationMixin):
         if status in {"codes_only", "narrative_only", "non_ohdsi_logic_only"}:
             return "conversion_required"
         return "not_computable"
+
+    @staticmethod
+    def _recommendation_source_status(row: Dict[str, Any]) -> str:
+        provenance = row.get("provenance")
+        if isinstance(provenance, dict) and str(provenance.get("status") or "").strip():
+            return str(provenance.get("status")).strip()
+        for signal in row.get("signals") or []:
+            text = str(signal or "").strip()
+            if text.lower().startswith("status:"):
+                return text.split(":", 1)[1].strip()
+        return ""
 
     def _build_deterministic_final_payload(
         self,
@@ -1405,6 +1444,15 @@ class StudyAgent(PhenotypeRecommendationMixin):
                     "justification": justification[:200],
                     "confidence": float(confidence) if isinstance(confidence, (int, float)) else None,
                     "computability_status": self._recommendation_computability_status(row),
+                    "executable_definition_status": row.get("executable_definition_status") or "",
+                    "execution_readiness_score": row.get("execution_readiness_score"),
+                    "source_dataset": row.get("source_dataset") or "",
+                    "source_status": self._recommendation_source_status(row),
+                    "signals": row.get("signals") or [],
+                    "adaptation_notes": row.get("adaptation_notes") or "",
+                    "long_description": row.get("long_description") or "",
+                    "methodology_summary": row.get("methodology_summary") or "",
+                    "recommendation_summary": row.get("recommendation_summary") or "",
                 }
             )
 
@@ -1486,6 +1534,49 @@ class StudyAgent(PhenotypeRecommendationMixin):
                 "tool": name,
                 "warnings": [f"Core tool call failed: {exc}"],
             }
+
+    def run_phenotype_catalog_search_flow(
+        self,
+        query: str,
+        top_k: int = 20,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """Return deterministic phenotype-library search results without LLM ranking.
+
+        This is intentionally distinct from ``phenotype_recommendation``: callers
+        explicitly browse local catalog material and choose a phenotype themselves.
+        """
+        query = str(query or "").strip()
+        if not query:
+            return {"status": "error", "error": "missing_query"}
+        if self._mcp_client is None:
+            return {"status": "error", "error": "MCP client unavailable"}
+        result = self.call_tool(
+            name="phenotype_search",
+            arguments={"query": query, "top_k": max(1, min(int(top_k), 100)), "offset": max(0, int(offset))},
+        )
+        full = result.get("full_result") or {}
+        if result.get("status") != "ok" or full.get("error") or not isinstance(full.get("results"), list):
+            return {"status": "error", "error": "phenotype_catalog_search_failed", "details": result}
+        candidates: List[Dict[str, Any]] = []
+        for row in full.get("results") or []:
+            if not isinstance(row, dict) or row.get("phenotype_id") in (None, ""):
+                continue
+            candidates.append({
+                "phenotype_id": str(row.get("phenotype_id")),
+                "phenotype_name": row.get("phenotype_name") or row.get("name") or "",
+                "source_dataset": row.get("source_dataset") or row.get("source") or "",
+                "short_description": row.get("short_description") or row.get("description") or "",
+                "computability_status": self._recommendation_computability_status(row),
+            })
+        return {
+            "status": "ok",
+            "query": query,
+            "mode": "deterministic_catalog_search",
+            "candidates": candidates,
+            "count": len(candidates),
+            "offset": max(0, int(offset)),
+        }
 
     def run_phenotype_recommendation_flow(
         self,
@@ -1801,6 +1892,15 @@ class StudyAgent(PhenotypeRecommendationMixin):
                     "short_description": row.get("short_description"),
                     "primary_clinical_topic": row.get("primary_clinical_topic"),
                     "phenotype_role": row.get("phenotype_role"),
+                    "source_dataset": row.get("source_dataset"),
+                    "executable_definition_status": row.get("executable_definition_status"),
+                    "execution_readiness_score": row.get("execution_readiness_score"),
+                    "provenance": row.get("provenance"),
+                    "signals": row.get("signals") or [],
+                    "adaptation_notes": row.get("adaptation_notes"),
+                    "long_description": row.get("long_description"),
+                    "methodology_summary": row.get("methodology_summary"),
+                    "recommendation_summary": row.get("recommendation_summary"),
                 }
             )
         llm_payload = llm_result_payload(llm_result)
@@ -1824,6 +1924,30 @@ class StudyAgent(PhenotypeRecommendationMixin):
             max_results=max_results,
             llm_result=effective_final_payload,
         )
+        deterministic_rows = {
+            str(row.get("phenotype_id")): row
+            for row in deterministic_llm_payload.get("phenotype_recommendations") or []
+            if isinstance(row, dict) and row.get("phenotype_id") not in (None, "")
+        }
+        for recommendation in core_result.get("phenotype_recommendations") or []:
+            if not isinstance(recommendation, dict):
+                continue
+            metadata = deterministic_rows.get(str(recommendation.get("phenotype_id") or ""))
+            if not metadata:
+                continue
+            for key in (
+                "computability_status",
+                "executable_definition_status",
+                "execution_readiness_score",
+                "source_dataset",
+                "source_status",
+                "signals",
+                "adaptation_notes",
+                "long_description",
+                "methodology_summary",
+                "recommendation_summary",
+            ):
+                recommendation[key] = metadata.get(key)
         llm_used = bool(final_deterministic.get("used_llm_justification_count"))
         if llm_used:
             fallback_reason = None
@@ -1905,6 +2029,12 @@ class StudyAgent(PhenotypeRecommendationMixin):
             "plan_prompt_length_chars": len(plan_prompt),
             "prompt_length_chars": len(final_prompt),
             "recommendations": core_result,
+            # This is the bounded, agent-planned shortlist for client review—not
+            # the earlier deterministic rerank window.
+            "ranked_candidates": self._build_client_ranked_candidates(hydrated_candidates, candidate_limit),
+            # The broader retrieval-ranked slice remains available as a distinct,
+            # explicitly non-agent-endorsed review surface.
+            "retrieval_ranked_candidates": self._build_client_ranked_candidates(planning_ranked, planning_window),
             "diagnostics": diagnostics,
         }
 
@@ -2000,12 +2130,17 @@ class StudyAgent(PhenotypeRecommendationMixin):
             return {"status": "error", "error": "phenotype_summary_fetch_failed", "details": summary_result}
         source_status = self._recommendation_computability_status(summary)
         name = summary.get("name") or summary.get("phenotype_name") or phenotype_id
+        snapshot_result = self.call_tool(name="phenotype_fetch_source_snapshot", arguments={"phenotype_id": phenotype_id})
+        snapshot_full = snapshot_result.get("full_result") or {}
+        source_snapshot = snapshot_full.get("snapshot") if isinstance(snapshot_full.get("snapshot"), dict) else {}
+        review_evidence = self._phenotype_review_evidence(summary, phenotype_id, name, source_status, source_snapshot)
         if source_status != "circe_available":
             return {
                 "status": "unavailable",
                 "phenotype_id": phenotype_id,
                 "phenotype_name": name,
                 "computability_status": source_status,
+                "review_evidence": review_evidence,
                 "error": "conversion_required" if source_status == "conversion_required" else "conversion_not_available",
                 "message": "ACP cannot return a validated executable Circe definition without the review-gated conversion workflow.",
                 "conversion": {"performed": False, "recommendation_context": recommendation_context if isinstance(recommendation_context, dict) else {}},
@@ -2014,16 +2149,90 @@ class StudyAgent(PhenotypeRecommendationMixin):
         definition_full = definition_result.get("full_result") or {}
         circe_json = definition_full.get("definition") if isinstance(definition_full.get("definition"), dict) else definition_full.get("content") if isinstance(definition_full.get("content"), dict) else definition_full
         if definition_result.get("status") != "ok" or not isinstance(circe_json, dict) or definition_full.get("error"):
-            return {"status": "error", "error": "phenotype_definition_fetch_failed", "details": definition_result}
+            return {"status": "unavailable", "phenotype_id": phenotype_id, "phenotype_name": name,
+                    "computability_status": "not_computable", "review_evidence": review_evidence,
+                    "error": "phenotype_definition_fetch_failed", "message": "Source evidence is available, but the indexed executable definition could not be retrieved.",
+                    "conversion": {"performed": False}}
         if not isinstance(circe_json.get("PrimaryCriteria"), dict) or not isinstance(circe_json.get("ConceptSets"), list):
-            return {"status": "unavailable", "phenotype_id": phenotype_id, "phenotype_name": name, "computability_status": "not_computable", "error": "malformed_circe_definition", "message": "Indexed provider data is not a complete Circe definition.", "conversion": {"performed": False}}
+            return {"status": "unavailable", "phenotype_id": phenotype_id, "phenotype_name": name,
+                    "computability_status": "not_computable", "review_evidence": review_evidence,
+                    "error": "malformed_circe_definition", "message": "Indexed provider data is not a complete Circe definition.", "conversion": {"performed": False}}
         canonical = json.dumps(circe_json, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
         return {
             "status": "ok", "phenotype_id": phenotype_id, "phenotype_name": name,
             "computability_status": "circe_available", "definition_source": "phenotype_library",
             "definition_revision": "indexed_artifact", "definition_sha256": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+            "review_evidence": review_evidence,
             "circe_json": circe_json,
             "conversion": {"performed": False, "source_phenotype_id": phenotype_id, "capr_code": None, "validation": {"status": "structural_passed", "messages": []}},
+        }
+
+    @staticmethod
+    def _phenotype_review_evidence(
+        summary: Dict[str, Any], phenotype_id: str, name: str, computability_status: str,
+        source_snapshot: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Return bounded deterministic source evidence for a human review panel."""
+        def clipped(value: Any, limit: int) -> str:
+            value = str(value or "").strip()
+            return value if len(value) <= limit else value[: limit - 1].rstrip() + "…"
+
+        def records(value: Any) -> List[Dict[str, Any]]:
+            return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
+
+        code_systems = []
+        for system in records(summary.get("code_systems"))[:10]:
+            codes = system.get("codes") if isinstance(system.get("codes"), list) else []
+            code_systems.append({
+                "name": clipped(system.get("system_name") or system.get("name") or system.get("system_id"), 160),
+                "code_count": len(codes),
+                "labels": [clipped(label, 80) for label in system.get("labels", [])[:5] if str(label).strip()],
+            })
+        source_snapshot = source_snapshot if isinstance(source_snapshot, dict) else {}
+        source_payload = source_snapshot.get("source_payload") if isinstance(source_snapshot.get("source_payload"), dict) else {}
+        algorithm = source_payload.get("algorithm") if isinstance(source_payload.get("algorithm"), dict) else {}
+        provenance = summary.get("provenance") if isinstance(summary.get("provenance"), dict) else {}
+        publications = []
+        for publication in records(provenance.get("publications"))[:3]:
+            publications.append({
+                "title": clipped(publication.get("title"), 320),
+                "link": clipped(publication.get("link"), 800),
+            })
+        sources = []
+        for source in provenance.get("sources", [])[:5] if isinstance(provenance.get("sources"), list) else []:
+            if isinstance(source, list):
+                sources.extend(clipped(item, 160) for item in source[:5] if str(item).strip())
+            elif str(source).strip():
+                sources.append(clipped(source, 160))
+        source_authors = provenance.get("authors", []) if isinstance(provenance.get("authors"), list) else []
+        if not source_authors and isinstance(algorithm.get("authors"), list):
+            source_authors = [record.get("author", {}).get("name") if isinstance(record.get("author"), dict) else record.get("name") for record in algorithm.get("authors", []) if isinstance(record, dict)]
+        acknowledgement = clipped(algorithm.get("publicationAcknowledgement"), 800)
+        if acknowledgement and not publications:
+            publications.append({"title": acknowledgement, "link": ""})
+        algorithm_narrative = clipped(algorithm.get("algorithmDesc"), 2400)
+        return {
+            "phenotype_id": phenotype_id,
+            "phenotype_name": clipped(name, 320),
+            "source_dataset": clipped(summary.get("source_dataset"), 120),
+            "computability_status": computability_status,
+            "executable_definition_status": clipped(summary.get("executable_definition_status"), 120),
+            "execution_readiness_score": summary.get("execution_readiness_score") if isinstance(summary.get("execution_readiness_score"), (int, float)) else None,
+            "short_description": clipped(summary.get("short_description"), 800),
+            "clinical_description": clipped(summary.get("long_description") or algorithm_narrative or summary.get("methodology_summary") or source_payload.get("description"), 2400),
+            "methodology_summary": clipped(summary.get("methodology_summary") or algorithm_narrative, 1200),
+            "population_description": clipped(algorithm.get("populationDesc"), 1200),
+            "validation_description": clipped(algorithm.get("validationDescription"), 1200),
+            "recommendation_summary": clipped(summary.get("recommendation_summary"), 800),
+            "adaptation_notes": clipped(summary.get("adaptation_notes"), 1200),
+            "code_systems": code_systems,
+            "provenance": {
+                "version": clipped(provenance.get("version") or source_snapshot.get("source_revision"), 120),
+                "modified_at": clipped(provenance.get("modified_at") or source_snapshot.get("source_modified_at"), 120),
+                "authors": [clipped(author, 160) for author in source_authors[:5] if str(author).strip()],
+                "sources": sources[:10],
+                "publications": publications,
+            },
         }
 
     def run_cohort_methods_specs_recommendation_flow(
@@ -2390,6 +2599,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
                 "details": prompt_bundle,
             }
 
+        normalized_context = normalize_workflow_context(current_context)
         prompt = build_workflow_context_dialogue_prompt(
             overview=prompt_full.get("overview", ""),
             spec=prompt_full.get("spec", ""),
@@ -2399,7 +2609,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
             workflow_type=workflow_type,
             current_step=current_step,
             current_role=current_role,
-            current_context=current_context or {},
+            current_context=normalized_context,
         )
         self._log_debug("workflow_context_dialogue: calling LLM")
         llm_result = self._call_llm(
@@ -2417,7 +2627,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
             workflow_type=workflow_type,
             current_step=current_step,
             current_role=current_role,
-            current_context=current_context or {},
+            current_context=normalized_context,
             llm_result=llm_payload,
         )
 
@@ -2430,6 +2640,372 @@ class StudyAgent(PhenotypeRecommendationMixin):
             "dialogue": core_result,
             "diagnostics": self._llm_diagnostics(llm_result),
         }
+
+    def run_concept_set_authoring_flow(
+        self,
+        user_prompt: str,
+        current_context: Optional[Dict[str, Any]] = None,
+        current_step: str = "strategy",
+    ) -> Dict[str, Any]:
+        """First, dialogue-only stage of review-gated concept-set authoring."""
+        result = self.run_workflow_context_dialogue_flow(
+            user_prompt=user_prompt,
+            study_intent="Create a reviewable Atlas concept set",
+            workflow_type="concept_set_authoring",
+            current_step=current_step,
+            current_role="concept_set_author",
+            current_context=current_context or {},
+        )
+        result["flow"] = "concept_set_authoring"
+        result["persistence_allowed"] = False
+        return result
+
+    def run_concept_set_proposal_flow(
+        self,
+        narrative_statement: str,
+        clarification_answers: Optional[Dict[str, str]] = None,
+        target_domain: str = "",
+        atlas_constraints: Optional[Dict[str, Any]] = None,
+        candidate_limit: int = 50,
+    ) -> Dict[str, Any]:
+        """Retrieve bounded, local-vocabulary review material without mutating a concept set."""
+        request = ConceptSetProposalInput(
+            narrative_statement=narrative_statement,
+            clarification_answers=clarification_answers or {},
+            target_domain=target_domain,
+            atlas_constraints=atlas_constraints or {},
+            candidate_limit=candidate_limit,
+        )
+        if self._mcp_client is None:
+            return ConceptSetProposalOutput(
+                status="unavailable",
+                warnings=["MCP client unavailable; no vocabulary candidates were retrieved."],
+            ).model_dump()
+        retrieval_terms = [request.narrative_statement]
+        bundle = self.call_tool("phenotype_make_computable_prompt_bundle", {})
+        bundle_payload = bundle.get("full_result") or {}
+        if bundle.get("status") == "ok" and not bundle_payload.get("error"):
+            term_prompt = build_lint_prompt(
+                bundle_payload.get("concept_terms_overview", ""),
+                bundle_payload.get("concept_terms_spec", ""),
+                bundle_payload.get("concept_terms_schema", {}),
+                "concept_set_proposal_retrieval_terms",
+                {"narrative_statement": request.narrative_statement, "clarification_answers": request.clarification_answers},
+                max_kb=4,
+            )
+            with self._phenotype_make_computable_llm_lock:
+                terms_result = self._call_llm(term_prompt, required_keys=["terms"])
+            if terms_result.status == "ok":
+                try:
+                    retrieval_terms = PhenotypeConceptTermProposal.model_validate(terms_result.parsed_content).terms
+                except ValidationError:
+                    pass
+        per_term_limit = max(1, request.candidate_limit // max(1, len(retrieval_terms)))
+        candidates: List[Dict[str, Any]] = []
+        seen_ids: set[int] = set()
+        term_provenance: List[Dict[str, Any]] = []
+        for term in retrieval_terms[:5]:
+            result = self.call_tool("vocab_search_standard", {"query": term, "domains": [request.target_domain] if request.target_domain else None, "limit": per_term_limit})
+            payload = result.get("full_result") or {}
+            rows = payload.get("concepts") if isinstance(payload.get("concepts"), list) else []
+            term_provenance.append({"term": term, "tool_status": result.get("status"), "matched_count": payload.get("matched_count"), "matched_count_status": payload.get("matched_count_status", "not_available"), "returned_count": len(rows), "limit": per_term_limit})
+            for row in rows:
+                concept_id = row.get("conceptId") if isinstance(row, dict) else None
+                if concept_id in (None, "") or int(concept_id) in seen_ids:
+                    continue
+                if request.target_domain and str(row.get("domainId") or "") != request.target_domain:
+                    continue
+                seen_ids.add(int(concept_id))
+                candidates.append(row)
+                if len(candidates) >= request.candidate_limit:
+                    break
+            if len(candidates) >= request.candidate_limit:
+                break
+        proposed_items: List[Dict[str, Any]] = []
+        warnings = ["Candidate retrieval is review material only; no inclusion, exclusion, descendant, or mapped policy has been approved."]
+        unresolved_scope = any("uncertain" in str(value).casefold() for value in request.clarification_answers.values())
+        if unresolved_scope:
+            warnings.append("A structured scope answer remains uncertain; candidates are available for review but no provisional item policy was generated.")
+        elif candidates:
+            prompt_path = os.path.join(os.path.dirname(__file__), "..", "..", "mcp_server", "prompts", "concept_set_proposal", "spec_concept_set_policy.md")
+            try:
+                with open(prompt_path, encoding="utf-8") as handle:
+                    policy_spec = handle.read()
+                policy_prompt = build_lint_prompt("", policy_spec, {"type": "object"}, "concept_set_policy_proposal", {"narrative_statement": request.narrative_statement, "clarification_answers": request.clarification_answers, "candidates": candidates}, max_kb=24)
+                with self._phenotype_make_computable_llm_lock:
+                    policy_result = self._call_llm(policy_prompt, required_keys=["proposed_items", "warnings"])
+                if policy_result.status == "ok":
+                    proposed_items, policy_errors = self.validate_concept_set_policy_proposal(
+                        policy_result.parsed_content, candidates, request.target_domain
+                    )
+                    if policy_errors:
+                        warnings.append("The provisional policy was rejected because it did not match the retrieved candidate set.")
+                else:
+                    warnings.append("No provisional policy was generated; review the retrieved candidates manually.")
+            except OSError:
+                warnings.append("Concept-set policy prompt unavailable; review the retrieved candidates manually.")
+        candidate_by_id = {int(row["conceptId"]): row for row in candidates if isinstance(row, dict) and row.get("conceptId") not in (None, "")}
+        proposed_expression_items = []
+        for item in proposed_items:
+            candidate = candidate_by_id[item["concept_id"]]
+            proposed_expression_items.append({"concept": {"CONCEPT_ID": item["concept_id"], "CONCEPT_NAME": candidate.get("conceptName", ""), "CONCEPT_CODE": candidate.get("conceptCode", ""), "DOMAIN_ID": candidate.get("domainId", ""), "VOCABULARY_ID": candidate.get("vocabularyId", ""), "CONCEPT_CLASS_ID": candidate.get("conceptClassId", ""), "STANDARD_CONCEPT": candidate.get("standardConcept")}, "isExcluded": item["is_excluded"], "includeDescendants": item["include_descendants"], "includeMapped": item["include_mapped"]})
+        # Extension requests carry a WebAPI-derived saved base expression. Merge only
+        # validated proposal policies; no implicit removal is permitted in this slice.
+        raw_base = request.atlas_constraints.get("base_expression")
+        base_items = raw_base.get("items", []) if isinstance(raw_base, dict) and isinstance(raw_base.get("items"), list) else []
+        def expression_item_id(entry: Any) -> int | None:
+            if not isinstance(entry, dict): return None
+            value = entry.get("conceptId") or entry.get("concept_id") or entry.get("CONCEPT_ID")
+            concept = entry.get("concept")
+            if value is None and isinstance(concept, dict):
+                value = concept.get("conceptId") or concept.get("concept_id") or concept.get("CONCEPT_ID")
+            try: return int(value) if value is not None else None
+            except (TypeError, ValueError): return None
+        base_by_id = {concept_id: entry for entry in base_items if (concept_id := expression_item_id(entry)) is not None}
+        proposed_by_id = {expression_item_id(entry): entry for entry in proposed_expression_items}
+        expression_items = list(base_by_id.values())
+        for concept_id, entry in proposed_by_id.items():
+            if concept_id in base_by_id:
+                expression_items[expression_items.index(base_by_id[concept_id])] = entry
+            else:
+                expression_items.append(entry)
+        extension_diff: Dict[str, Any] = {}
+        if base_items:
+            def policy(entry: Dict[str, Any]) -> tuple[bool, bool, bool]:
+                return (bool(entry.get("isExcluded", entry.get("is_excluded", False))), bool(entry.get("includeDescendants", entry.get("include_descendants", False))), bool(entry.get("includeMapped", entry.get("include_mapped", False))))
+            additions = [item for item in proposed_items if item["concept_id"] not in base_by_id]
+            changes = [item for item in proposed_items if item["concept_id"] in base_by_id and policy(proposed_by_id[item["concept_id"]]) != policy(base_by_id[item["concept_id"]])]
+            extension_diff = {"base_item_count": len(base_items), "additions": additions, "policy_changes": changes, "removals": [], "note": "This proposal preserves all saved policies unless a validated policy change is shown. Removals require an explicit future review action."}
+        validation: Dict[str, Any] = {
+            "status": "not_requested" if not expression_items else "pending_acp_circer_validation",
+            "expression": {"items": expression_items},
+        }
+        if expression_items:
+            validator_items = [
+                {
+                    "concept_id": item["concept"]["CONCEPT_ID"],
+                    "domain": item["concept"].get("DOMAIN_ID", request.target_domain),
+                    "is_excluded": item["isExcluded"],
+                    "include_descendants": item["includeDescendants"],
+                    "include_mapped": item["includeMapped"],
+                }
+                for item in expression_items
+            ]
+            validation_result = self.call_tool(
+                "concept_set_expression_validate",
+                {"domain": request.target_domain, "items": validator_items},
+            )
+            validation_payload = validation_result.get("full_result") or {}
+            validation = {
+                "status": validation_payload.get("status", "unavailable"),
+                "messages": validation_payload.get("messages", []),
+                "wrapper": validation_payload.get("wrapper"),
+                "r_environment": validation_payload.get("r_environment"),
+                "expression": {"items": expression_items},
+            }
+            if validation_result.get("status") != "ok" or validation_payload.get("status") != "passed":
+                warnings.append(
+                    "The provisional expression did not pass ACP-side Capr/CirceR technical validation; review candidates, but do not approve this policy."
+                )
+        return ConceptSetProposalOutput(
+            status="needs_concept_review",
+            retrieval_terms=retrieval_terms[:5],
+            candidate_provenance={
+                "tool": "vocab_search_standard",
+                "per_term": term_provenance,
+                "returned_count": len(candidates),
+                "limit": request.candidate_limit,
+                "atlas_constraints": request.atlas_constraints,
+                "target_domain": request.target_domain or "unspecified",
+            },
+            candidates=candidates,
+            proposed_items=proposed_items,
+            validation=validation,
+            extension_diff=extension_diff,
+            warnings=warnings,
+        ).model_dump()
+
+    @staticmethod
+    def validate_concept_set_policy_proposal(
+        proposal: Dict[str, Any], candidates: List[Dict[str, Any]], target_domain: str = "",
+    ) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """Fail closed unless every proposed policy refers to one retrieved candidate."""
+        try:
+            parsed = ConceptSetPolicyProposal.model_validate(proposal)
+        except ValidationError as exc:
+            return [], exc.errors(include_url=False, include_context=False, include_input=False)
+        candidate_by_id = {
+            int(row["conceptId"]): row
+            for row in candidates
+            if isinstance(row, dict) and row.get("conceptId") not in (None, "")
+        }
+        errors: List[Dict[str, Any]] = []
+        seen_ids: set[int] = set()
+        approved: List[Dict[str, Any]] = []
+        for index, item in enumerate(parsed.proposed_items):
+            candidate = candidate_by_id.get(item.concept_id)
+            if candidate is None:
+                errors.append({"loc": ("proposed_items", index, "concept_id"), "msg": "proposed_concept_not_in_retrieved_candidates", "concept_id": item.concept_id})
+            elif target_domain and str(candidate.get("domainId") or "") != target_domain:
+                errors.append({"loc": ("proposed_items", index, "concept_id"), "msg": "proposed_concept_domain_does_not_match_declared_domain", "concept_id": item.concept_id})
+            elif str(candidate.get("standardConcept") or "") != "S":
+                errors.append({"loc": ("proposed_items", index, "concept_id"), "msg": "proposed_concept_is_not_standard", "concept_id": item.concept_id})
+            elif item.concept_id in seen_ids:
+                errors.append({"loc": ("proposed_items", index, "concept_id"), "msg": "duplicate_proposed_concept_id", "concept_id": item.concept_id})
+            else:
+                seen_ids.add(item.concept_id)
+                approved.append(item.model_dump())
+        return approved, errors
+
+    def run_concept_set_policy_review_flow(
+        self,
+        narrative_statement: str,
+        target_domain: str,
+        candidate_snapshot: Optional[List[Dict[str, Any]]] = None,
+        reviewed_items: Optional[List[Dict[str, Any]]] = None,
+        atlas_constraints: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Validate user-selected policy rows against a durable proposal candidate slice.
+
+        This is deliberately retrieval-free: a browser may only stage policies for
+        concepts supplied by the persisted proposal manifest.  It never infers a
+        policy or silently expands the candidate universe.
+        """
+        candidates = [dict(row) for row in (candidate_snapshot or []) if isinstance(row, dict)]
+        selected = [dict(row) for row in (reviewed_items or []) if isinstance(row, dict)]
+        constraints = atlas_constraints or {}
+        warnings = [
+            "User-selected policy rows were validated against the retrieved candidate slice; no additional concepts were retrieved."
+        ]
+        if not candidates:
+            return ConceptSetProposalOutput(
+                status="needs_clarification",
+                warnings=["The referenced candidate slice is unavailable. Request a new bounded proposal before staging policies."],
+            ).model_dump()
+        if not selected:
+            return ConceptSetProposalOutput(
+                status="needs_clarification",
+                candidates=candidates,
+                warnings=["Select at least one retrieved candidate and assign an explicit policy before validation."],
+            ).model_dump()
+
+        approved, policy_errors = self.validate_concept_set_policy_proposal(
+            {"proposed_items": selected, "warnings": []}, candidates, target_domain,
+        )
+        if policy_errors:
+            return ConceptSetProposalOutput(
+                status="needs_clarification",
+                candidates=candidates,
+                warnings=["The staged policy contains a concept outside the retrieved candidate slice or does not meet the declared domain/standard-concept requirements."],
+                validation={"status": "failed", "messages": policy_errors},
+            ).model_dump()
+
+        candidate_by_id = {
+            int(row["conceptId"]): row
+            for row in candidates
+            if row.get("conceptId") not in (None, "")
+        }
+        proposed_expression_items = []
+        for item in approved:
+            candidate = candidate_by_id[item["concept_id"]]
+            proposed_expression_items.append({
+                "concept": {
+                    "CONCEPT_ID": item["concept_id"],
+                    "CONCEPT_NAME": candidate.get("conceptName", ""),
+                    "CONCEPT_CODE": candidate.get("conceptCode", ""),
+                    "DOMAIN_ID": candidate.get("domainId", ""),
+                    "VOCABULARY_ID": candidate.get("vocabularyId", ""),
+                    "CONCEPT_CLASS_ID": candidate.get("conceptClassId", ""),
+                    "STANDARD_CONCEPT": candidate.get("standardConcept"),
+                },
+                "isExcluded": item["is_excluded"],
+                "includeDescendants": item["include_descendants"],
+                "includeMapped": item["include_mapped"],
+            })
+
+        raw_base = constraints.get("base_expression")
+        base_items = raw_base.get("items", []) if isinstance(raw_base, dict) and isinstance(raw_base.get("items"), list) else []
+
+        def expression_item_id(entry: Any) -> int | None:
+            if not isinstance(entry, dict):
+                return None
+            value = entry.get("conceptId") or entry.get("concept_id") or entry.get("CONCEPT_ID")
+            concept = entry.get("concept")
+            if value is None and isinstance(concept, dict):
+                value = concept.get("conceptId") or concept.get("concept_id") or concept.get("CONCEPT_ID")
+            try:
+                return int(value) if value is not None else None
+            except (TypeError, ValueError):
+                return None
+
+        base_by_id = {concept_id: entry for entry in base_items if (concept_id := expression_item_id(entry)) is not None}
+        selected_by_id = {expression_item_id(entry): entry for entry in proposed_expression_items}
+        expression_items = list(base_by_id.values())
+        for concept_id, entry in selected_by_id.items():
+            if concept_id in base_by_id:
+                expression_items[expression_items.index(base_by_id[concept_id])] = entry
+            else:
+                expression_items.append(entry)
+
+        extension_diff: Dict[str, Any] = {}
+        if base_items:
+            def policy(entry: Dict[str, Any]) -> tuple[bool, bool, bool]:
+                return (
+                    bool(entry.get("isExcluded", entry.get("is_excluded", False))),
+                    bool(entry.get("includeDescendants", entry.get("include_descendants", False))),
+                    bool(entry.get("includeMapped", entry.get("include_mapped", False))),
+                )
+            additions = [item for item in approved if item["concept_id"] not in base_by_id]
+            changes = [item for item in approved if item["concept_id"] in base_by_id and policy(selected_by_id[item["concept_id"]]) != policy(base_by_id[item["concept_id"]])]
+            extension_diff = {
+                "base_item_count": len(base_items),
+                "additions": additions,
+                "policy_changes": changes,
+                "removals": [],
+                "note": "The staged review preserves saved policies unless an explicit reviewed policy change is shown. Removals are not inferred.",
+            }
+
+        validator_items = [
+            {
+                "concept_id": item["concept"]["CONCEPT_ID"],
+                "domain": item["concept"].get("DOMAIN_ID", target_domain),
+                "is_excluded": item["isExcluded"],
+                "include_descendants": item["includeDescendants"],
+                "include_mapped": item["includeMapped"],
+            }
+            for item in expression_items
+        ]
+        validation_result = self.call_tool(
+            "concept_set_expression_validate",
+            {"domain": target_domain, "items": validator_items},
+        )
+        validation_payload = validation_result.get("full_result") or {}
+        validation = {
+            "status": validation_payload.get("status", "unavailable"),
+            "messages": validation_payload.get("messages", []),
+            "wrapper": validation_payload.get("wrapper"),
+            "r_environment": validation_payload.get("r_environment"),
+            "expression": {"items": expression_items},
+        }
+        if validation_result.get("status") != "ok" or validation_payload.get("status") != "passed":
+            warnings.append("The staged policy did not pass ACP-side technical validation and cannot be applied to Selected.")
+
+        return ConceptSetProposalOutput(
+            status="needs_concept_review",
+            retrieval_terms=[],
+            candidate_provenance={
+                "tool": "user_reviewed_candidate_slice",
+                "candidate_count": len(candidates),
+                "selected_count": len(approved),
+                "target_domain": target_domain or "unspecified",
+                "atlas_constraints": constraints,
+            },
+            candidates=candidates,
+            proposed_items=approved,
+            validation=validation,
+            extension_diff=extension_diff,
+            warnings=warnings,
+        ).model_dump()
 
     def run_phenotype_improvements_flow(
         self,
@@ -3648,6 +4224,106 @@ class StudyAgent(PhenotypeRecommendationMixin):
             }
         return candidate_list, provenance, direct_candidate_ids
 
+    @staticmethod
+    def _normalize_db_drug_index_term(value: str) -> str:
+        """Remove cohort-timing prose from a Drug term before advisory scope display.
+
+        The DB vocabulary provider performs lexical concept-name retrieval.  Terms
+        such as ``first dispensing of atomoxetine`` are valid cohort intent but
+        poor lexical terms; entry timing is represented by ``entry_limit``.
+        This is intentionally narrow and only applied to an LLM-proposed Drug
+        index in a DB-backed deployment.
+        """
+        term = str(value or "").strip()
+        if not term:
+            return term
+        patterns = (
+            r"^(?:first|new|initial|earliest)\s+(?:dispensing|prescription|prescribing|drug exposure|exposure|use|treatment|administration)(?:\s+(?:of|for|to|with))?\s+",
+            r"^(?:initiation|initiate|starting|start)\s+(?:of\s+)?",
+        )
+        for pattern in patterns:
+            simplified = re.sub(pattern, "", term, flags=re.IGNORECASE).strip(" -,:;")
+            if simplified and simplified != term:
+                return simplified
+        return term
+
+    def _run_phenotype_scope_draft(self, narrative: str) -> Dict[str, Any]:
+        """Return an advisory starting point for the explicit R or Atlas scope checklist."""
+        if self._mcp_client is None:
+            return {
+                "status": "needs_clarification",
+                "narrative_statement": narrative,
+                "scope_draft": {
+                    "status": "needs_clarification",
+                    "rationale": "MCP prompt service unavailable.",
+                    "warnings": ["Continue with the explicit scope checklist."],
+                },
+            }
+        bundle = self.call_tool("phenotype_make_computable_prompt_bundle", {})
+        bundle_payload = bundle.get("full_result") or {}
+        if bundle.get("status") != "ok" or bundle_payload.get("error"):
+            return {"status": "unavailable", "error": "scope_draft_prompt_bundle_failed", "details": bundle}
+        capability_result = self.call_tool("vocab_search_capabilities", {})
+        vocabulary_search_capabilities = (
+            capability_result.get("full_result") or {}
+            if capability_result.get("status") == "ok"
+            else {"provider": "unavailable", "search_term_style": "provider_defined"}
+        )
+        prompt = build_lint_prompt(
+            bundle_payload.get("scope_draft_overview", ""),
+            bundle_payload.get("scope_draft_spec", ""),
+            bundle_payload.get("scope_draft_schema", {}),
+            "phenotype_make_computable_scope_draft",
+            {
+                "narrative_statement": narrative,
+                "vocabulary_search_capabilities": vocabulary_search_capabilities,
+            },
+            max_kb=8,
+        )
+        with self._phenotype_make_computable_llm_lock:
+            result = self._call_llm(prompt, required_keys=["status", "rationale", "warnings"])
+        if result.status != "ok":
+            return {"status": "unavailable", "error": "scope_draft_unavailable", "diagnostics": self._llm_diagnostics(result)}
+        try:
+            scope_draft = PhenotypeScopeDraft.model_validate(result.parsed_content).model_dump(exclude_none=True)
+        except ValidationError as exc:
+            return {
+                "status": "unavailable",
+                "error": "scope_draft_invalid",
+                "scope_draft_errors": exc.errors(include_url=False, include_context=False, include_input=False),
+                "diagnostics": self._llm_diagnostics(result),
+            }
+        if (
+            vocabulary_search_capabilities.get("provider") == "db"
+            and scope_draft.get("domain") == "Drug"
+            and scope_draft.get("index_event")
+        ):
+            original_term = str(scope_draft["index_event"])
+            simplified_term = self._normalize_db_drug_index_term(original_term)
+            if simplified_term != original_term:
+                scope_draft["index_event"] = simplified_term
+                scope_draft.setdefault("warnings", []).append(
+                    "The Drug index term was shortened to a clinical vocabulary-search term; "
+                    "entry timing remains a separate checklist decision."
+                )
+        vocabulary_restriction = str(scope_draft.get("vocabulary_restriction") or "").strip()
+        if vocabulary_restriction and vocabulary_restriction.casefold() not in narrative.casefold():
+            scope_draft.pop("vocabulary_restriction", None)
+            warnings = scope_draft.setdefault("warnings", [])
+            warning = (
+                "The advisory vocabulary restriction was omitted because the narrative did not explicitly name it."
+            )
+            if len(warnings) < 8:
+                warnings.append(warning)
+        return {
+            "status": "needs_clarification",
+            "narrative_statement": narrative,
+            "scope_draft": scope_draft,
+            "vocabulary_search_capabilities": vocabulary_search_capabilities,
+            "questions": ["Review every scope value. This advisory draft does not confirm scope or select concepts."],
+            "diagnostics": self._llm_diagnostics(result),
+        }
+
     def run_phenotype_make_computable_flow(
         self,
         narrative_statement: str,
@@ -3658,11 +4334,12 @@ class StudyAgent(PhenotypeRecommendationMixin):
         concept_build_mode: str = "search_only",
         review_delivery: str = "auto",
         candidate_limit: int = 20,
+        scope_draft: bool = False,
     ) -> Dict[str, Any]:
         try:
-            request = PhenotypeMakeComputableInput(narrative_statement=narrative_statement, confirmed_scope=confirmed_scope, scope=scope or {}, concept_review_mode=concept_review_mode, concept_build_mode=concept_build_mode, review_delivery=review_delivery, candidate_limit=candidate_limit, concept_sets=concept_sets or [])
+            request = PhenotypeMakeComputableInput(narrative_statement=narrative_statement, confirmed_scope=confirmed_scope, scope=scope or {}, concept_review_mode=concept_review_mode, concept_build_mode=concept_build_mode, review_delivery=review_delivery, candidate_limit=candidate_limit, concept_sets=concept_sets or [], scope_draft=scope_draft)
         except ValidationError as exc:
-            errors = exc.errors(include_url=False)
+            errors = exc.errors(include_url=False, include_context=False, include_input=False)
             concept_set_errors = [error for error in errors if error.get("loc", (None,))[0] == "concept_sets"]
             if concept_set_errors:
                 return {
@@ -3682,6 +4359,8 @@ class StudyAgent(PhenotypeRecommendationMixin):
         concept_set_data = [concept_set.model_dump(exclude_none=True) for concept_set in request.concept_sets]
         if not narrative:
             return {"status": "error", "error": "missing_narrative_statement"}
+        if not request.confirmed_scope and request.scope_draft:
+            return self._run_phenotype_scope_draft(narrative)
         if request.concept_review_mode == "propose" and request.candidate_limit > 100:
             return {
                 "status": "needs_clarification",
@@ -3747,7 +4426,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
                     return {
                         "status": "unavailable",
                         "error": "concept_term_generation_invalid",
-                        "term_validation_errors": exc.errors(include_url=False),
+                        "term_validation_errors": exc.errors(include_url=False, include_context=False, include_input=False),
                         "diagnostics": self._llm_diagnostics(terms_result),
                     }
                 search_terms: List[str] = []
@@ -3933,7 +4612,7 @@ class StudyAgent(PhenotypeRecommendationMixin):
                 try:
                     proposed_plan = PhenotypeMakeComputableProposal.model_validate(llm_result.parsed_content).model_dump(exclude_none=True)
                 except ValidationError as exc:
-                    proposal_errors = exc.errors(include_url=False)
+                    proposal_errors = exc.errors(include_url=False, include_context=False, include_input=False)
             if proposed_plan is not None:
                 candidate_by_id = {
                     int(candidate["conceptId"]): candidate

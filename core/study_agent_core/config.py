@@ -17,12 +17,12 @@ SECRETS_ENV_VAR = "STUDY_AGENT_SECRETS_FILE"
 DEFAULT_CONFIG_NAME = "config.yaml"
 DEFAULT_SECRETS_NAME = "secrets.env"
 _SECRET_NAME_RE = re.compile(
-    r"(?:api[_-]?key|token|secret|password|passwd|pwd|dsn|connection[_-]?string|database[_-]?url)",
+    r"(?:api[_-]?key|token|secret|password|passwd|pwd|dsn|connection[_-]?string|database[_-]?url|private[_-]?(?:key|certificate)|credential(?:s)?|cookie|session|authorization|bearer)",
     re.I,
 )
 _SECRET_ENV_NAMES = {"ENGINE", "OMOP_DB_ENGINE"}
 _SECRET_VALUE_RE = re.compile(
-    r"(?:[a-z][a-z0-9+.\-]*://[^/\s:@]+:[^@/\s]*@|[?&](?:api[_-]?key|token|secret|password)=[^&\s]+)",
+    r"(?:[a-z][a-z0-9+.\-]*://[^/\s:@]+:[^@/\s]*@|[?&](?:api[_-]?key|token|secret|password|private[_-]?(?:key|certificate)|credential(?:s)?|cookie|session|authorization|bearer)=[^&\s]+)",
     re.I,
 )
 

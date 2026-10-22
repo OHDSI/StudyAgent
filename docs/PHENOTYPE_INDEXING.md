@@ -54,6 +54,13 @@ Use an absolute path for deployed services when practical.
 
 Add `--build-dense` when the embedding service configured through `retrieval.embedding_url` and `retrieval.embedding_model` is available. `EMBED_API_KEY` remains a secret environment variable if the embedding endpoint requires one.
 
+Dense construction sends bounded per-phenotype embedding text while retaining the
+full source evidence in `catalog.jsonl`. The default `--max-embedding-chars`
+value is 48,000, below Amazon Titan Embed Text v2's 50,000-character limit;
+use a lower value when the configured embedding provider has a smaller limit.
+The generated catalog records source length, embedded length, and whether the
+embedding representation was clipped.
+
 ```bash
 uv run study-agent-build-phenotype-index \
   --metadata-csv data/Cohorts.csv \

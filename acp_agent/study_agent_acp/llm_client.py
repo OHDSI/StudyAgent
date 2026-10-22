@@ -17,6 +17,12 @@ _JSON_FENCE_RE = re.compile(r"^\s*```(?:json)?\s*|\s*```\s*$", re.IGNORECASE | r
 _REASONING_PREFIX_RE = re.compile(r"^\s*(?:<[^>]+>\s*)+", re.DOTALL)
 logger = logging.getLogger("study_agent.acp.llm")
 
+_STRICT_JSON_OUTPUT_RULES = (
+    "Return exactly ONE JSON object that matches the output schema.",
+    "Do NOT wrap output in markdown, code fences, or prose.",
+)
+
+
 
 @dataclass
 class LLMCallResult:
@@ -61,8 +67,7 @@ def build_prompt(
         [
             "STRICT OUTPUT RULES:",
             spec,
-            "Return exactly ONE JSON object that matches the output schema.",
-            "Do NOT wrap output in markdown, code fences, or prose.",
+            *_STRICT_JSON_OUTPUT_RULES,
             "If uncertain, return required keys with empty arrays/strings.",
             "Use ONLY phenotype_ids from the allowed list in candidates.",
             "Keep output under 10 KB.",
@@ -96,8 +101,7 @@ def build_improvements_prompt(
         [
             "STRICT OUTPUT RULES:",
             spec,
-            "Return exactly ONE JSON object that matches the output schema.",
-            "Do NOT wrap output in markdown, code fences, or prose.",
+            *_STRICT_JSON_OUTPUT_RULES,
             "If uncertain, return required keys with empty arrays/strings.",
             "Use ONLY cohortIds from the allowed list in cohorts.",
             "Keep output under 12 KB.",
@@ -129,8 +133,7 @@ def build_lint_prompt(
         [
             "STRICT OUTPUT RULES:",
             spec,
-            "Return exactly ONE JSON object that matches the output schema.",
-            "Do NOT wrap output in markdown, code fences, or prose.",
+            *_STRICT_JSON_OUTPUT_RULES,
             "If uncertain, return required keys with empty arrays/strings.",
             f"Keep output under {max_kb} KB.",
         ]
@@ -161,8 +164,7 @@ def build_recommendation_intent_facets_prompt(
         [
             "STRICT OUTPUT RULES:",
             spec,
-            "Return exactly ONE JSON object that matches the output schema.",
-            "Do NOT wrap output in markdown, code fences, or prose.",
+            *_STRICT_JSON_OUTPUT_RULES,
             "If uncertain, return required keys with empty arrays/strings.",
             "Keep output under 8 KB.",
         ]
@@ -203,8 +205,7 @@ def build_workflow_context_dialogue_prompt(
         [
             "STRICT OUTPUT RULES:",
             spec,
-            "Return exactly ONE JSON object that matches the output schema.",
-            "Do NOT wrap output in markdown, code fences, or prose.",
+            *_STRICT_JSON_OUTPUT_RULES,
             "If uncertain, return required keys with empty arrays/strings.",
             "Keep output under 10 KB.",
         ]
@@ -235,8 +236,7 @@ def build_advice_prompt(
         [
             "STRICT OUTPUT RULES:",
             spec,
-            "Return exactly ONE JSON object that matches the output schema.",
-            "Do NOT wrap output in markdown, code fences, or prose.",
+            *_STRICT_JSON_OUTPUT_RULES,
             "If uncertain, return required keys with empty arrays/strings.",
             "Keep output under 8 KB.",
         ]
@@ -271,9 +271,9 @@ def _build_split_prompt(
     rules = [
         "STRICT OUTPUT RULES:",
         spec,
-        "Return exactly ONE JSON object that matches the output schema.",
+        _STRICT_JSON_OUTPUT_RULES[0],
         "Do NOT return the output schema itself or wrap the answer inside a properties object.",
-        "Do NOT wrap output in markdown, code fences, or prose.",
+        _STRICT_JSON_OUTPUT_RULES[1],
         uncertainty_rule,
     ]
     if extra_rules:
@@ -340,8 +340,7 @@ def build_keeper_prompt(
         [
             "STRICT OUTPUT RULES:",
             spec,
-            "Return exactly ONE JSON object that matches the output schema.",
-            "Do NOT wrap output in markdown, code fences, or prose.",
+            *_STRICT_JSON_OUTPUT_RULES,
             "If uncertain, return required keys with label \"unknown\".",
         ]
     )
@@ -370,8 +369,7 @@ def build_keeper_concept_set_prompt(
         [
             "STRICT OUTPUT RULES:",
             spec,
-            "Return exactly ONE JSON object that matches the output schema.",
-            "Do NOT wrap output in markdown, code fences, or prose.",
+            *_STRICT_JSON_OUTPUT_RULES,
             "If uncertain, return required keys with empty arrays.",
             f"Keep output under {max_kb} KB.",
         ]
@@ -592,12 +590,11 @@ def call_llm_for_schema(prompt: str, required_keys: Sequence[str]) -> LLMCallRes
 
 
 def call_llm(prompt: str, required_keys: Optional[Sequence[str]] = None) -> LLMCallResult:
-    api_url = os.getenv("LLM_API_URL", "http://localhost:3000/api/chat/completions")
-    api_url = rewrite_container_host_url(api_url)
+    api_url = os.getenv("LLM_API_URL", "").strip()
+    model = os.getenv("LLM_MODEL", "").strip()
 
     api_key = os.getenv("LLM_API_KEY")
     authentication = os.getenv("LLM_AUTHENTICATION", "required").strip().lower()
-    model = os.getenv("LLM_MODEL", "agentstudyassistant")
     timeout = int(os.getenv("LLM_TIMEOUT", "300"))
     log_enabled = os.getenv("LLM_LOG", "0") == "1"
     log_prompt = os.getenv("LLM_LOG_PROMPT", "0") == "1"
@@ -606,6 +603,21 @@ def call_llm(prompt: str, required_keys: Optional[Sequence[str]] = None) -> LLMC
     dry_run = os.getenv("LLM_DRY_RUN", "0") == "1"
     use_responses = os.getenv("LLM_USE_RESPONSES", "0") == "1"
     request_mode = "responses" if use_responses else "chat_completions"
+
+    missing_configuration = [
+        name
+        for name, value in (("LLM_API_URL", api_url), ("LLM_MODEL", model))
+        if not value
+    ]
+    if missing_configuration:
+        return LLMCallResult(
+            status="configuration_error",
+            error="missing_required_configuration:" + ",".join(missing_configuration),
+            parse_stage="request_skipped",
+            request_mode=request_mode,
+        )
+
+    api_url = rewrite_container_host_url(api_url)
 
     if log_enabled:
         _log_llm(

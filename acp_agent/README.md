@@ -2,7 +2,7 @@
 
 `acp_agent/` contains the ACP-side orchestration layer for user-facing study-agent flows. ACP exposes the runtime HTTP surface, coordinates LLM-backed flow execution, and connects to MCP tools over HTTP or managed stdio.
 
-This README is intentionally thin. The environment surface spans ACP, MCP, retrieval, Keeper tooling, and R workflows, so the maintained documentation under [`docs/`](../docs/) should be treated as the primary reference surface rather than this directory README.
+This README is intentionally thin. ACP is a service layer and has no architectural dependency on Atlas or the companion R packages; those are optional clients of its HTTP surface. The maintained documentation under [`docs/`](../docs/) is the primary reference surface.
 
 ## What ACP Does
 
@@ -10,6 +10,7 @@ ACP is the orchestration and control-plane layer for implemented flows such as:
 
 - phenotype recommendation and related advice / intent-splitting flows
 - workflow context dialogue
+- review-gated phenotype-make-computable and concept-set proposal flows
 - Keeper-backed review and concept-generation flows
 - cohort-method and incidence workflow support surfaces
 
@@ -67,12 +68,4 @@ For a uv-managed native installation, prefix both commands with `uv run`. On man
 
 ## Where To Look
 
-For workflow and service orientation, start with:
-
-- [`docs/ENVIRONMENT.md`](../docs/ENVIRONMENT.md)
-- [`docs/SERVICE_REGISTRY.yaml`](../docs/SERVICE_REGISTRY.yaml)
-- [`docs/WORKFLOW_PHENOTYPE_RECOMMENDATION.md`](../docs/WORKFLOW_PHENOTYPE_RECOMMENDATION.md)
-- [`docs/WORKFLOW_CONTEXT_DIALOGUE_SLASH_OHDSI.md`](../docs/WORKFLOW_CONTEXT_DIALOGUE_SLASH_OHDSI.md)
-- [`docs/WORKFLOW_COHORT_METHODS.md`](../docs/WORKFLOW_COHORT_METHODS.md)
-- [`docs/WORKFLOW_INCIDENCE.md`](../docs/WORKFLOW_INCIDENCE.md)
-- [`docs/PHENOTYPE_VALIDATION_REVIEW.md`](../docs/PHENOTYPE_VALIDATION_REVIEW.md)
+For workflow, deployment, and service orientation, start with the maintained [`docs/`](../docs/) directory.

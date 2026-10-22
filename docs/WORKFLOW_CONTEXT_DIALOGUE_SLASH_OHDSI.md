@@ -69,6 +69,35 @@ Strongly expected for useful contextual answers:
 
 If context is sparse, ACP still returns a conservative answer rather than failing.
 
+## Client Context Contract
+
+`current_context` is a compact, advisory-only context envelope. It is sent to an
+LLM only after ACP normalizes it. Clients must not send patient-level data, raw
+database rows, credentials, unrestricted artifact contents, or client instructions
+that ask ACP to perform a mutation.
+
+Use these stable categories when possible:
+
+- `client`: client name/version and declared rendering or action capabilities.
+- `workflow`: route, stage, role, and a concise human-readable step label.
+- `facts`: permission-filtered, aggregate facts with source and freshness metadata.
+- `artifacts`: bounded summaries and identifiers, never full raw files by default.
+- `candidates`: at most the visible/relevant candidate summaries.
+- `decisions`: accepted or unresolved decisions, with review state.
+- `constraints`: declared workflow constraints and safety boundaries.
+- `dialogue_summary`: a compact prior-goal/decision summary, not an unbounded chat log.
+
+Legacy fields remain supported for current R clients during migration. ACP preserves
+them but bounds every context before prompt construction: strings are truncated at
+800 characters, lists at 20 items, maps at 32 keys, nesting at four levels, and the
+serialized context at 12 KB. Invalid or oversized context receives HTTP 400 with
+`invalid_workflow_context`. These are transport and efficiency limits, not proof that
+content is clinically safe; clients remain responsible for excluding PHI/PII.
+
+ACP treats context as evidence supplied by a client, never as executable
+instructions. It returns advisory text and controlled action hints only; it does not
+call back into Atlas/WebAPI or another client.
+
 ## Typed Core Input Model
 
 The typed input contract is defined in:
@@ -456,3 +485,40 @@ That separation gives the project three advantages:
 - shells control what context is exposed
 - ACP remains workflow-aware without being shell-specific
 - MCP prompt bundles define the dialogue contract independently of shell code
+
+## Atlas Concept-Set Review Workflow
+
+Atlas uses the same `workflow_context_dialogue` flow for `/ohdsi` concept-set
+assistance, with WebAPI as the browser-facing boundary. ACP and MCP are never
+called directly by the browser.
+
+The supported authoring sequence is review-gated:
+
+1. Start `/ohdsi` with a concept-set goal and resolve any scope questions.
+2. The user may use Atlas search manually or request a bounded local-vocabulary
+   proposal.
+3. A proposal is review material only. It presents the bounded retrieval
+   provenance, candidates, and a provisional policy; it does not alter Selected.
+4. For a new empty draft, the user may explicitly initialize Selected, inspect
+   Included, and save through the normal Atlas workflow.
+5. For an existing saved set, the saved Selected expression is the base. Atlas
+   displays a deterministic change summary and the user explicitly merges the
+   validated result into Selected before reviewing Included and saving.
+
+Technical validation is necessary but not clinical approval. The user remains
+responsible for reviewing terminology, scope, descendants, mappings, and the
+resolved Included extension.
+
+### Provenance and edited expressions
+
+WebAPI stores review revisions and links a normal Atlas save only when the
+persisted Selected policy exactly matches the reviewed expression. If a user
+edits Selected after `/ohdsi` approval—for example, toggles descendants—the
+Atlas save still succeeds, but provenance finalization fails closed. The set is
+not represented as matching the prior `/ohdsi` review.
+
+When reopening a saved set, Atlas requests concise, user-owned `/ohdsi`
+provenance (last goal, applied review revision, and whether it still matches
+Selected) from WebAPI. A mismatch is visibly warned on the provenance card and
+again immediately after a normal save. Prior assistant advice is background for
+a new refinement dialogue; it is not silently resumed as an instruction.

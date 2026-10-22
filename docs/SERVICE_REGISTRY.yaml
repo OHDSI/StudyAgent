@@ -93,6 +93,19 @@ services:
     validation:
       - structured workflow context is supplied by the client
       - output is advisory and does not persist caller artifacts
+
+  concept_set_authoring:
+    endpoint: /flows/concept_set_authoring
+    mcp_tools:
+      - workflow_context_dialogue
+    input:
+      - user_prompt
+      - current_context
+    output:
+      - dialogue
+      - persistence_allowed
+    validation:
+      - dialogue only; proposal and persistence are not enabled by this stage
   phenotype_improvements:
     endpoint: /flows/phenotype_improvements
     mcp_tools:

@@ -38,7 +38,7 @@ uv run study-agent-mcp --config .\config.yaml --profile native
 uv run study-agent-acp --config .\config.yaml --profile native
 ```
 
-Native services do not automatically load `secrets.env`. Export required secrets in the service's environment, or supply them through the host's approved secret-management mechanism. Verify which interpreter and package are being used before troubleshooting a managed Windows host:
+Native services do not automatically load `secrets.env`. Export required secrets in the service's environment, or supply them through the host's approved secret-management mechanism. Docker Compose, `doit`, the phenotype-index builder, and selected smoke utilities may deliberately read a secret-only `secrets.env`; this convenience does not change the native-service boundary. Verify which interpreter and package are being used before troubleshooting a managed Windows host:
 
 ```powershell
 Get-Command python -All
@@ -54,6 +54,8 @@ conda run -n study-agent study-agent-mcp --config .\config.yaml --profile native
 ```
 
 The configuration precedence is: explicit CLI options, `config.yaml`, secret environment variables, legacy non-secret environment variables, then built-in defaults. When YAML is loaded, its non-secret values override stale legacy shell settings. Environment-only deployments continue to work during the compatibility period.
+
+`project_to_environment()` in `core/study_agent_core/config.py` is the complete compatibility mapping from validated `config.yaml` settings to runtime environment variables. Check that method when adding or updating entries in the ACP and MCP runtime tables below, so this document does not drift from the implementation.
 
 `config.yaml` and `secrets.env` are ignored by Git. `config.yaml` contains no secrets and must be readable by the container service user; the wizard writes it with ordinary read permissions. `secrets.env` remains private. Use `study-agent-setup --migrate-env .env` to split an existing environment file without displaying its values. Docker Compose mounts `config.yaml` read-only and loads `secrets.env`; its `docker` profile sets container bind addresses and ACP's internal MCP URL. The MCP R runtime is configured through `mcp.r`: `rscript`, the Capr/Circe `library` path, and optional `java_home`. Set `java_home` to a JDK root when CirceR/rJava must use a specific Java installation (commonly required on managed Windows hosts); MCP passes it to the R child process as `JAVA_HOME`. Remote R-client package configuration remains independent.
 
@@ -92,6 +94,18 @@ An SSH local-forward bound only to `127.0.0.1` is not reachable through the Dock
 Compose requires `config.yaml` to exist and mounts it at `/app/config.yaml:ro`. On Linux, it must be readable by the container's `mambauser`; `chmod 644 config.yaml` is a suitable mode for a non-secret configuration file. Keep private values in `secrets.env`, not in `config.yaml`.
 
 Use full filesystem paths where practical, especially for index paths, generated-output roots, and Windows deployments. `paths.runtime` is the configuration-relative directory used by `doit` tasks and timeout calibration for logs and generated recommendations; it defaults to `.study-agent-runtime` instead of a Linux-only `/tmp` location.
+
+## Optional R-to-Atlas review handoff
+
+These optional R-session variables enable the Strategus shells to create a normal user-owned WebAPI concept set, print a direct Atlas review URL, and later resume from WebAPI's immutable accepted snapshot. They are not used by ACP or MCP.
+
+| Variable | Used by | Notes |
+|---|---|---|
+| `STUDY_AGENT_WEBAPI_URL` | Strategus R shells | Base URL of the matching WebAPI deployment, for example `https://example.org/WebAPI`. |
+| `STUDY_AGENT_WEBAPI_API_KEY` | Strategus R shells | User-owned WebAPI API key. Sent only as `X-API-KEY`; keep it in the R session environment, never workflow artifacts. |
+| `STUDY_AGENT_ATLAS_URL` | Strategus R shells | Public Atlas3 base URL, for example `https://example.org/Atlas3`. Used only to build the browser link. |
+
+See [ATLAS_WEBAPI_INTEGRATION.md](ATLAS_WEBAPI_INTEGRATION.md) for the ownership, snapshot, and recovery contract.
 
 ## ACP Runtime
 

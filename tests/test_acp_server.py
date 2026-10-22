@@ -1607,6 +1607,100 @@ def test_flow_workflow_context_dialogue_missing_prompt():
     assert result["error"] == "missing user_prompt"
 
 
+@pytest.mark.acp
+def test_flow_workflow_context_dialogue_retains_landing_context_for_create_path(monkeypatch):
+    """A landing dialogue survives into later Atlas cohort-authoring guidance."""
+    agent = StudyAgent(mcp_client=StubMCPClient())
+
+    def fake_call_llm(prompt, required_keys=None):
+        assert "Create a phenotype for multiple myeloma." in prompt
+        assert '"landing_assistant_context"' in prompt
+        assert "Create a multiple myeloma cohort." in prompt
+        return LLMCallResult(
+            status="ok",
+            parsed_content={
+                "plan": "Continue the multiple myeloma cohort task.",
+                "answer": "Review the proposed Condition scope before requesting candidates.",
+                "current_step_guidance": ["Keep the clinical narrative visible while refining scope."],
+                "cautions": [],
+                "suggested_next_actions": ["Review the proposed primary index."],
+                "follow_up_plan": [],
+                "artifact_requests": [],
+            },
+            content_text="{}",
+            parse_stage="chat_completions_content",
+            schema_valid=True,
+        )
+
+    monkeypatch.setattr(agent, "_call_llm", fake_call_llm)
+    result = agent.run_workflow_context_dialogue_flow(
+        user_prompt="What should I decide before I continue?",
+        study_intent="Create a phenotype for multiple myeloma.",
+        workflow_type="atlas_cohort_definition",
+        current_step="scope_clarification",
+        current_role="cohort_definition_author",
+        current_context={
+            "authoring_context": {
+                "landing_assistant_context": {
+                    "plan": "Create a multiple myeloma cohort.",
+                    "answer": "Choose a starting approach.",
+                },
+            },
+            "authoring_stage_context": {"authoring_stage": "scope_clarification"},
+        },
+    )
+
+    assert result["status"] == "ok"
+    assert result["dialogue"]["plan"] == "Continue the multiple myeloma cohort task."
+
+
+@pytest.mark.acp
+def test_concept_set_authoring_retains_compact_cohort_handoff_context(monkeypatch):
+    agent = StudyAgent(mcp_client=StubMCPClient())
+
+    def fake_call_llm(prompt, required_keys=None):
+        assert "Help me curate the primary index concept set" in prompt
+        assert '"cohort_workflow"' in prompt
+        assert "multiple myeloma phenotype" in prompt
+        assert "primary_index" in prompt
+        return LLMCallResult(
+            status="ok",
+            parsed_content={
+                "plan": "",
+                "answer": "Start by reviewing the multiple myeloma Condition concepts.",
+                "current_step_guidance": ["Search for the primary disease concept first."],
+                "cautions": [],
+                "suggested_next_actions": [],
+                "follow_up_plan": [],
+                "artifact_requests": [],
+            },
+            content_text="{}",
+            parse_stage="chat_completions_content",
+            schema_valid=True,
+        )
+
+    monkeypatch.setattr(agent, "_call_llm", fake_call_llm)
+    result = agent.run_concept_set_authoring_flow(
+        user_prompt="Help me curate the primary index concept set for a multiple myeloma phenotype.",
+        current_context={
+            "cohort_workflow": {
+                "cohort_narrative": "Create a multiple myeloma phenotype.",
+                "current_component": "multiple myeloma",
+                "criterion_role": "primary_index",
+                "domain": "Condition",
+                "clinical_term": "multiple myeloma",
+                "landing_plan": "Create a multiple myeloma cohort.",
+                "advisory_summary": "Clarify boundaries with MGUS before final cohort logic.",
+            },
+            "expression_summary": {"selected_item_count": 0},
+        },
+    )
+
+    assert result["status"] == "ok"
+    assert result["flow"] == "concept_set_authoring"
+    assert result["dialogue"]["answer"] == "Start by reviewing the multiple myeloma Condition concepts."
+
+
 def _run_post(path: str, body: dict):
     handler = acp_server.ACPRequestHandler.__new__(acp_server.ACPRequestHandler)
     handler.path = path
@@ -1745,3 +1839,38 @@ def test_mcp_preflight_warns_when_database_connection_is_unconfigured(monkeypatc
         and "phenotype_make_computable" in message
         for level, message in messages
     )
+
+
+def test_flow_phenotype_catalog_search_is_deterministic_and_classifies_candidates():
+    class CatalogMcp:
+        def list_tools(self):
+            return []
+
+        def call_tool(self, name, arguments):
+            assert name == "phenotype_search"
+            assert arguments == {"query": "type 2 diabetes", "top_k": 20, "offset": 0}
+            return {
+                "results": [
+                    {
+                        "phenotype_id": "circe-1",
+                        "phenotype_name": "Type 2 diabetes",
+                        "source_dataset": "OHDSI",
+                        "short_description": "Executable definition",
+                        "executable_definition_status": "native_ohdsi",
+                    },
+                    {
+                        "phenotype_id": "narrative-1",
+                        "phenotype_name": "Type 2 diabetes narrative",
+                        "executable_definition_status": "narrative_only",
+                    },
+                ]
+            }
+
+    result = StudyAgent(mcp_client=CatalogMcp()).run_phenotype_catalog_search_flow("type 2 diabetes")
+
+    assert result["status"] == "ok"
+    assert result["mode"] == "deterministic_catalog_search"
+    assert [row["computability_status"] for row in result["candidates"]] == [
+        "circe_available",
+        "conversion_required",
+    ]
