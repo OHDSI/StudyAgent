@@ -7,18 +7,29 @@ fresh browser session, rather than administrator-owned pre-existing assets.
 It does not authorize use of production patient data. `/ohdsi` inputs must not
 contain patient-level information.
 
-## 1. Release manifest
+## 1. Symposium 2026 release manifest
 
-Record the deployed Git commit and build artifact digest for every component in
-the deployment record. The current release candidates are:
+This is the final source record for the successful OHDSI 2026 Global Symposium
+demonstration. Record the deployed Git commit and build artifact digest for
+every component in the deployment record. The Study Agent, Strategus-assistant,
+and ACP-client releases use the shared `ohdsi-global-symposium-2026` release
+tag; the code commits exercised in the demonstration are listed here as well.
 
 | Component | Commit to deploy | Required role |
 | --- | --- | --- |
-| Study Agent (ACP and MCP) | `85aa95edee44fa8e61db3e79daf5e311e4c45c50` | ACP flows, MCP tools, prompts, index/vocabulary access |
-| WebAPI3 | `f7c0d5fabad5fd052461362b8ab3c502e3c22929` | authorization, provenance/session persistence, ACP proxy |
-| Atlas3 | `da4cc12e46d7ab7e393f08d657855a65540fbe68` | browser user interface |
-| slashOhdsiAcpClient | `8d02e87cbd78b04e25c11f58588a873beff3838e` | R ACP client; confirm the substantive parent history is included |
-| slashOhdsiStrategusAssistant | `f2cdf6603aeaae5aa5f82cdef3f57d4c96992432` | R incidence/cohort-method shells; confirm the substantive parent history is included |
+| [Study Agent](https://github.com/OHDSI/StudyAgent) (ACP and MCP) | `f777963953132c47b91bf56336328be7265a3da5` | ACP flows, MCP tools, prompts, index/vocabulary access |
+| [WebAPI3](https://github.com/vinci-ohdsi/WebAPI3) | [`f7c0d5fabad5fd052461362b8ab3c502e3c22929`](https://github.com/vinci-ohdsi/WebAPI3/commit/f7c0d5fabad5fd052461362b8ab3c502e3c22929) | authorization, provenance/session persistence, ACP proxy |
+| [Atlas3](https://github.com/vinci-ohdsi/Atlas3) | [`da4cc12e46d7ab7e393f08d657855a65540fbe68`](https://github.com/vinci-ohdsi/Atlas3/commit/da4cc12e46d7ab7e393f08d657855a65540fbe68) | browser user interface |
+| [slashOhdsiAcpClient](https://github.com/OHDSI/SlashOhdsiAcpClient) | `8d02e87cbd78b04e25c11f58588a873beff3838e` | R ACP client; confirm the substantive parent history is included |
+| [slashOhdsiStrategusAssistant](https://github.com/OHDSI/SlashOhdsiStrategusAssistant) | `e8283e687141dc00b94889eeabf97008046b03d4` | R incidence/cohort-method shells; confirm the substantive parent history is included |
+| [StudyAgent-Conference-ChatKit](https://github.com/rkboyce/StudyAgent-Conference-ChatKit) | [`a7b99badd38f45c4ddb5a1c91696559e17a2afc5`](https://github.com/rkboyce/StudyAgent-Conference-ChatKit/commit/a7b99badd38f45c4ddb5a1c91696559e17a2afc5) | interactive conference demonstration client |
+
+The public, coordinated component record is maintained in the
+[AtlasWebAPISandbox Symposium 2026 manifest](https://github.com/vinci-ohdsi/AtlasWebAPISandbox/blob/dad39d7dfa4d4e95db2bd5ef8e445b0ac77ebcb4/demos/study-agent-demo/releases/ohdsi-global-symposium-2026.json).
+It is a source-provenance record, not a production deployment recipe. The
+normal release tag identifies the final documentation commit in each released
+OHDSI repository; use the component commits above to reproduce the code that
+was exercised during the demonstration.
 
 Before deployment, write down the following alongside the table: the image or
 JAR SHA-256 values, the exact R library path and package versions, the phenotype
