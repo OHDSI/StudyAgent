@@ -1,6 +1,6 @@
 # OHDSI Study Agent
 
-Study Agent is an agent harness for common OHDSI study design tasks. The fundamental use case for this project is to enable AI-assisted, but human led, observational study designs leveraging existing deterministic OHDSI tools. Initially, this is with [HADES](https://ohdsi.github.io/Hades/) and [Atlas](https://github.com/OHDSI/Atlas/) but there no restriction on the use of study agent flows in other tooling environments (e.g., DARWIN tools or pharmacovigilance workflows).
+Study Agent is an agent harness for common OHDSI study design tasks. The fundamental use case for this project is to enable AI-assisted, but human led, observational study designs leveraging existing deterministic OHDSI tools. Initially, this is with [HADES](https://ohdsi.github.io/Hades/) and [Atlas](https://github.com/OHDSI/Atlas/) but there no restriction on the use of study agent flows in other tooling environments (e.g., DARWIN tools or pharmacovigilance workflows). A video demonstration of Atlas and R HADES integration of Study Agent services can be seen [here](https://pitt.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=51db2189-6e89-4365-82fe-b4eb002ff51c).
 
 The current implementation provides:
 
