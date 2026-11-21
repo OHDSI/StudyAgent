@@ -16,13 +16,13 @@ Dependency notes:
 
 - `pyproject.toml` is the source of truth for the Python package and the optional `dev` extras.
 - `environment.yml` only bootstraps Python 3.12 and `pip` for Conda or Micromamba. Install Study Agent into that environment with `python -m pip install -e ".[dev]"`; do not add application dependencies to `environment.yml`.
-- `uv.lock` is intentionally not tracked. If you prefer `uv`, generate a local lockfile after cloning with `uv lock`.
+- `uv.lock` is committed as the reviewed Python dependency resolution. Refresh it with `uv lock` whenever `pyproject.toml` dependency constraints change; do not edit it by hand.
 
 For uv, include the optional development tools for test commands and run every project command through uv so a managed system Python cannot be selected from `PATH`:
 
 ```powershell
 uv run --extra dev python -m pytest -q tests/test_config_deployment.py
-uv run --extra dev doit test_all
+uv run --extra dev doit test_python
 uv run --extra dev doit test_r_client_compatibility
 uv run study-agent-mcp --config .\config.yaml --profile native
 uv run study-agent-acp --config .\config.yaml --profile native
@@ -113,9 +113,10 @@ doit test_all
 Task dependencies:
 
 - `test_unit` depends on `test_core`, `test_acp`, and `test_mcp`.
-- `test_all` and `run_all` are the deterministic native Python ACP/MCP test gate; they exclude the opt-in companion R-client compatibility test and do not make live service calls.
+- `test_python` is the deterministic, self-contained Study Agent Python test gate. It excludes the installed companion R-client compatibility test and does not make live service calls.
 - `test_r_client_compatibility` verifies the installed external `slashOhdsiAcpClient` and `slashOhdsiStrategusAssistant` packages, their public contract, and the Strategus runtime report using the same configured R library as ACP validation.
   It is also available from `GET /health?deep=1` as `mcp_r_client`; use that report only for packages installed in the ACP/MCP service R library, not a remote user's R client.
+- `test_all` and `run_all` are the full supported-deployment gate: they include `test_python` coverage and the installed R-client compatibility test. They require the selected R runtime and R library to be available, but do not make live service calls.
 - `run_smoke_suite` runs every configured local ACP/MCP smoke flow, including the cohort-method, phenotype-validation, and Keeper flows. It requires the LLM, embedding, phenotype-index, and any configured Keeper dependencies.
 - `run_external_smoke_suite` runs `run_smoke_suite` plus the real Hecate/PHOEBE endpoint smoke test.
 - `smoke_phenotype_make_computable_flow` is a retained ACP/MCP/R workflow test for all 11 training cohorts: nine supported definitions, corrected cohort 63 (temporal follow-up with 365-day observation), and cohort 858 (intentional mixed-domain clarification). It uses reviewed reference-set policies and does not call the LLM.
@@ -127,6 +128,7 @@ Run the suites explicitly:
 
 ```bash
 uv run --extra dev doit run_all
+uv run --extra dev doit test_python
 uv run --extra dev doit test_r_client_compatibility
 uv run --extra dev doit run_smoke_suite
 uv run --extra dev doit run_external_smoke_suite

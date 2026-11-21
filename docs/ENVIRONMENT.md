@@ -24,7 +24,7 @@ study-agent-acp --config config.yaml --profile native
 
 ### Native installation and Windows PowerShell
 
-`pyproject.toml` is the single source of truth for Study Agent Python dependencies. `environment.yml` only creates a Python 3.12 plus `pip` Conda/Micromamba environment; install the project into it with `python -m pip install -e ".[dev]"`.
+`pyproject.toml` is the single source of truth for Study Agent Python dependency declarations. `uv.lock` is the committed, reviewed uv resolution and must be updated with `uv lock` whenever those declarations change. `environment.yml` only creates a Python 3.12 plus `pip` Conda/Micromamba environment; install the project into it with `python -m pip install -e ".[dev]"`. The air-gapped Windows runtime artifact is built from that environment in CI, so its target hosts need neither uv nor Conda.
 
 For a native PowerShell deployment, prefer uv's project environment and prefix every project command with `uv run`. This prevents a managed system Python or globally installed console script from being selected from `PATH`:
 

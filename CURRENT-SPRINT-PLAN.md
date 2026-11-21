@@ -1,158 +1,77 @@
-# Current Sprint Plan — Symposium Stage 1
+# Current Sprint Plan 
 
-## Objective
+Refactor the test harness for deployment and establish a supported compatibility baseline, not merely make today’s tests cleaner.
 
-Establish a stable, reviewable conference-demo baseline for Study Agent, Atlas3, WebAPI, and the two slashOhdsi R packages. This stage combines release-baseline work with the first integration step so the R-to-Atlas handoff can begin immediately afterward.
+The key idea is to version components independently, but support and release them as tested compatibility profiles. Do not require every repository to share the same version number; require every supported deployment to select one known-good combination.
 
-The outcome is not a production release or a broad feature expansion. It is a reproducible conference-focused branch set with a known-compatible HADES/R runtime, confirmed supported workflow boundary, and a short code-review gate before subsequent implementation.
+A release profile should pin:
 
-## Scope and priorities
 
-The primary symposium journeys are:
+yaml ⧉
 
-1. **Atlas concept-set authoring:** use `/ohdsi` assistance, Atlas vocabulary exploration, and explicit policy review to build or refine a concept set.
-2. **Atlas cohort authoring:** use the supported AI-assisted cohort-definition paths to review a computable phenotype draft and save a cohort definition.
-3. **Atlas phenotype recommendation and selection:** use AI-supported search or direct phenotype-library browsing, inspect computability and provenance information, and either open an executable draft or use a non-computable phenotype as evidence for new authoring.
-4. **R Strategus workflow:** use the `slashOhdsiStrategusAssistant` incidence-rate or cohort-method shell to select, import, or create target/comparator/outcome cohorts.
-5. **R-to-Atlas concept-policy handoff:** start phenotype creation in R, review and revise the concept-set policy in Atlas, then resume the R workflow from the approved immutable policy snapshot.
+profile: study-agent-full-r-4.6.2-2026.11
+study_agent:
+  version: <release tag>
+  commit: <immutable SHA>
+python:
+  lockfile_sha256: <digest>
+r:
+  version: 4.6.2
+  renv_lock_sha256: <digest>
+  platform: linux-ubuntu-noble-x86_64
+  companion_packages:
+    slashOhdsiAcpClient:
+      version: <release version>
+      commit: <immutable SHA>
+    slashOhdsiStrategusAssistant:
+      version: <release version>
+      commit: <immutable SHA>
+system_requirements:
+  - unixodbc-dev
+  - supported JDK version
 
-Stage 1 concentrates on the prerequisites for all five journeys:
 
-- integrate the proven sandbox implementation into conference-focused branches;
-- establish a compatible R/HADES package baseline;
-- make the current `phenotype_make_computable` Capr/Circe validation failure diagnosable and resolve it against that baseline;
-- document exactly which phenotype-emitter patterns are demonstrated;
-- preserve the existing review-gated and snapshot/provenance guardrails.
+The renv.lock pins R packages, but it does not fully pin the R executable, Ubuntu system libraries, or the OS-specific compiled result. The release-profile manifest fills that gap.
 
-Explicitly out of scope: grounded vocabulary retrieval or vocabulary embeddings, arbitrary multi-component Circe cohorts, broad UX redesign, AWS deployment/QR codes/authentication, and treating a retrieval sample as evidence that a concept set is complete.
+This changes the implementation plan as follows:
 
-## Workstream A — Conference branch and integration baseline
+1. Define the first supported baseline before moving tests.
 
-### A1. Inventory all release candidates
+   Treat the current R-4.6.2 rebuilt library, updated odbc, and selected companion-package branches as the candidate first compatibility profile. Save the exact lockfile and package commit IDs now.
 
-Identify the exact current branch, commit, tag, remote, and dirty-worktree state for:
+2. Move R behavior tests into the companion packages.
 
-- this Study Agent repository and `sandbox/StudyAgent`, if distinct;
-- `sandbox/Atlas3`;
-- `sandbox/WebAPI`;
-- `slashOhdsiAcpClient`;
-- `slashOhdsiStrategusAssistant`.
+   Those testthat cases become part of each package’s release criteria. A behavior change cannot quietly reach Study Agent through a changed sandbox checkout; it must arrive through a released, versioned R package.
 
-Record the source and target conference branch before copying or cherry-picking. Preserve unrelated worktree changes; do not reset or clean another worktree to simplify integration.
+3. Replace source-string coupling with versioned runtime compatibility.
 
-### A2. Create or verify conference-focused branches
+   Study Agent’s r_client_compatibility check should verify:
 
-Use dedicated, named symposium release-candidate branches. Prefer coherent commits/cherry-picks over copying uncommitted files. Capture immutable commit IDs in a release inventory.
+   ◦ expected package versions and, where available, immutable source revisions;
+   ◦ required exported functions / public contract;
+   ◦ the required Strategus runtime capability;
+   ◦ the active R version and selected profile identity.
 
-### A3. Integrate proven sandbox capabilities
+   Its deep-health result should state the expected and observed profile—not just “passed” or “failed.”
 
-Bring across the already manually tested Atlas3/WebAPI functionality:
+4. Make deployment profiles explicit.
+   ◦ Python-only profile: no R requirement; supports the implemented Python-side capabilities.
+   ◦ Full Study Agent profile: requires the matching R binary, renv library, system dependencies, and released companion packages.
 
-- `/ohdsi` concept-set assistance and provenance;
-- supported AI-assisted cohort authoring;
-- phenotype recommendation, library browse, and selection UI;
-- Study Agent role/permission handling and database migrations;
-- cohort-plan persistence, linked concept-set review, provenance cards, and plan discard/deletion behavior.
+   The developer symlink to a shared renv/ is fine locally, but a supported deployment should use an explicit, immutable profile location rather than depend on an ambient shared library.
 
-Do not bring over experimental or incomplete code merely because it exists in a sandbox branch. Every integration commit must be traceable and buildable.
+5. Split tests by support level.
+   ◦ Python-only test gate: must work from a clean Study Agent checkout.
+   ◦ R package gates: run in their own repositories using their release-profile R library.
+   ◦ Full deployment gate: install the exact companion releases into the selected profile, then run Study Agent’s runtime compatibility test and full integration suite.
+6. Establish upgrade and support policy.
 
-### A4. Build and smoke-test the integration baseline
+   From the first supported baseline onward:
 
-At minimum:
+   ◦ publish compatibility profiles and retain old ones for a defined support window;
+   ◦ make incompatible protocol or artifact changes a deliberate release event with migration notes;
+   ◦ test upgrades as profile-to-profile transitions, not ad hoc package updates;
+   ◦ never describe latest, a branch name, or an unpinned shared renv library as a reproducible deployment.
 
-- build WebAPI and confirm Flyway migrations against a designated demo database;
-- run Atlas3 production build and preview smoke test;
-- verify Atlas/WebAPI connectivity, enabled Study Agent controls, and normal non-AI Atlas loading;
-- verify ACP/MCP health and the presence of `phenotype_make_computable`, `phenotype_make_computable_emit`, and `phenotype_make_computable_validate`.
+I would add the compatibility manifest and its validation test at the same time as the test-suite refactor. That makes this transition the line between exploratory development and controlled releases, while avoiding a claim of backward compatibility for pre-baseline development snapshots.
 
-## Review gate — User code review
-
-After Workstream A and before substantive new workflow work, the user will perform a brief code review of the conference branches.
-
-Prepare:
-
-- branch names and commit IDs for every component;
-- grouped diff/stat summary;
-- migrations and role/permission changes;
-- build/test commands and results;
-- known limitations and deliberate behavior changes;
-- a concise map of R, ACP/MCP, WebAPI, and Atlas responsibilities.
-
-No new R-to-Atlas handoff behavior begins before this gate is accepted, except small build/test fixes required to make the integrated baseline reviewable.
-
-## Workstream B — HADES/R compatibility baseline
-
-### B1. Select and record the target HADES package set
-
-Choose current intended versions for at least `Strategus`, `CohortGenerator`, `CohortIncidence`, `CohortMethod`, `Capr`, `CirceR`, `SqlRender`, `DatabaseConnector`, and `PhenotypeLibrary` where used. These will all be updated to the latest releases as of 10/12/2026. Retain a file-based record of the update process so the lead developer can replicate it on other machine including the AWS EC2 that will be used for the conference.
-
-Record R version/platform, selected R library, rJava-selected Java runtime, and package versions. The MCP Python-launched R validator and RStudio/Strategus should use the same library where practical.
-
-### B2. Update slashOhdsi packages against that baseline
-
-Update `slashOhdsiAcpClient` and `slashOhdsiStrategusAssistant` only as needed for HADES and ACP compatibility. Preserve the shells as ACP clients; do not duplicate ACP orchestration in R.
-
-For package changes:
-
-- add focused `testthat` coverage;
-- parse edited R files;
-- build tarballs and run `R CMD check --no-manual` with an explicit R library;
-- reinstall from the tarballs and restart R before manual testing.
-
-### B3. Resolve or accurately diagnose phenotype-make-computable validation
-
-Use a simple direct Drug/Condition fixture first. The MCP validator must report actionable, safe diagnostics on failure: Rscript path, R library, selected `JAVA_HOME`/safe PATH summary, process return code, and bounded stdout/stderr.
-
-Confirm that the MCP-launched R process—not merely an interactive R session—can source emitted Capr code, write cohort JSON, parse it through CirceR, and build SQL. If package APIs differ, adjust the emitter only after identifying the specific incompatibility and adding a regression test.
-
-## Workstream C — Supported-demo contract and examples
-
-### C1. Freeze supported phenotype patterns
-
-Document the exact demonstrated patterns:
-
-- one direct index event in a supported OMOP domain;
-- Condition index with supported reviewed Visit overlap/restriction;
-- Drug index with a reviewed supporting Condition;
-- Drug index with a reviewed Visit qualifier.
-
-State what is review-only, executable, or unsupported. Continue to distinguish reusable concept-set assets, criterion bindings, and cohort logic.
-
-### C2. Define repeatable demo narratives
-
-Prepare concise examples and expected outcomes, including:
-
-- acute cystitis with ER/inpatient visit restriction;
-- new esketamine exposure with major depressive disorder supporting evidence;
-- adults with type 2 diabetes for recommendation/library selection;
-- anemia or bronchitis for direct authoring.
-
-These are demonstration material, not clinical gold standards.
-
-### C3. Define user-visible recovery guidance
-
-For no-candidate retrieval, unsupported temporal logic, expired sessions, and validation failure, provide clear next steps: refine terms, move to Atlas vocabulary search, resume later, or use a supported pattern. Preserve review state whenever safe.
-
-## Completion criteria
-
-Stage 1 is complete when:
-
-1. Conference branches and immutable commits are recorded for every component.
-2. The user has reviewed and accepted the integration baseline.
-3. Atlas3/WebAPI build successfully and AI controls appear under expected settings.
-4. ACP/MCP exposes the required phenotype-make-computable flow/emitter/validator paths.
-5. The chosen HADES/R package versions are recorded and shared by R workflows and MCP validation.
-6. Capr/Circe validation passes or fails with specific actionable diagnostics.
-7. Supported patterns, demo narratives, and fallback behavior are documented.
-
-## Handoff to Stage 2
-
-After acceptance, build the minimum viable R-to-Atlas handoff:
-
-1. R creates a durable named review request.
-2. R presents a direct Atlas URL.
-3. Atlas opens the existing concept-set editor in workflow-linked mode.
-4. The user searches, reviews, edits, and saves a policy.
-5. R resumes from the accepted expression snapshot/checksum and emits only a supported definition.
-
-The Tuesday student session is the first usability gate. Before testing, reinstall changed R packages and restart R; restart MCP after MCP/prompt/config changes; and restart ACP after ACP server/contract changes.

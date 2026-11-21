@@ -271,7 +271,8 @@ The project currently uses a simple split:
 
 - `pyproject.toml` defines the Python package, runtime dependencies, console scripts, and optional dev tools.
 - `environment.yml` bootstraps only a Python 3.12 and `pip` Conda or Micromamba environment. It deliberately does not duplicate application dependencies.
-- `uv.lock` is not tracked as a repo source of truth. If you use `uv` locally, generate your own lockfile after cloning.
+- `uv.lock` is committed as the reviewed Python dependency-resolution record for uv-based development and CI. Update it with `uv lock` whenever `pyproject.toml` dependency constraints change; do not edit it by hand.
+- [Compatibility profiles](docs/COMPATIBILITY_PROFILES.md) record the tested Python-only and full-R component baselines. A source baseline is provenance, not a replacement for a published deployment artifact.
 
 Official local workflow:
 
@@ -284,11 +285,10 @@ python -m pip install -e ".[dev]"
 Optional `uv` workflow for users who prefer it:
 
 ```bash
-uv lock
 uv run --extra dev python -m pytest
 ```
 
-The repo does not require `uv`; it is the recommended native deployment path because every command can be explicitly tied to its project environment. `uv.lock` is currently a local artifact, so run `uv lock` after cloning and whenever dependency constraints change. Docker builds the runtime in two layers: `environment.yml` provides the Micromamba/Conda Python base environment, and then `pyproject.toml` is used by `python -m pip install -e .` to install the Python package and console entrypoints inside that environment.
+The repo does not require `uv`. It remains useful for developers and CI because every command can be explicitly tied to its project environment, while `uv.lock` records the reviewed dependency resolution. Air-gapped Windows deployments may instead use the tagged Miniforge runtime artifact built from `environment.yml`; target hosts do not need uv or Conda. Docker builds the runtime in two layers: `environment.yml` provides the Micromamba/Conda Python base environment, and then `pyproject.toml` is used by `python -m pip install -e .` to install the Python package and console entrypoints inside that environment.
 
 ### Docker Compose deployment
 

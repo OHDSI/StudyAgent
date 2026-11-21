@@ -1,0 +1,53 @@
+schema_version: 1
+profiles:
+  study-agent-python-only-2026.11:
+    current: true
+    kind: source_baseline
+    released_on: null
+    supported_until: null
+    deployment_artifact: null
+    study_agent:
+      version: 0.0.3
+      commit: e9e8ef0bd1e91fd6148efcd6c43ad300a113528c
+    python:
+      requires_python: ">=3.12"
+      tested_version: 3.12.3
+      uv_lock_sha256: b57ea3baf87cd3d94d9849f13e3e618983d0e39e785e547e8caf0994efeeabe1
+    r:
+      required: false
+
+  study-agent-full-r-4.6.2-linux-2026.11:
+    current: true
+    kind: source_baseline
+    released_on: null
+    supported_until: null
+    deployment_artifact: null
+    study_agent:
+      version: 0.0.3
+      commit: e9e8ef0bd1e91fd6148efcd6c43ad300a113528c
+    python:
+      requires_python: ">=3.12"
+      tested_version: 3.12.3
+      uv_lock_sha256: b57ea3baf87cd3d94d9849f13e3e618983d0e39e785e547e8caf0994efeeabe1
+    r:
+      required: true
+      version: 4.6.2
+      platform: linux-ubuntu-noble-x86_64
+      renv_lock_sha256: b9aee92a03adc31d77de909253b3db886624aaacf995ba6c9d9896d6b76336bb
+      companion_packages:
+        slashOhdsiAcpClient:
+          version: 0.0.3
+          commit: 6b3c067f1b581be4cc96a77fcbb1fb97a956491b
+        slashOhdsiStrategusAssistant:
+          version: 0.1.0
+          commit: e683358de652ecc61c1766902b1cf21b10009943
+      validation_packages:
+        Capr: 3.0.0
+        CirceR: 1.3.3
+        SqlRender: 1.19.7
+      jdk:
+        vendor: OpenJDK
+        version: 21.0.12.1
+      system_requirements:
+        - unixodbc-dev
+

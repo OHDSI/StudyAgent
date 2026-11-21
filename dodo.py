@@ -256,8 +256,8 @@ def task_test_unit():
     }
 
 
-def task_test_all():
-    """Run the native Python ACP/MCP test gate, excluding R packages."""
+def task_test_python():
+    """Run the self-contained Study Agent Python test gate."""
     return {
         "actions": [_pytest_cmd("not r_client_compatibility")],
         "verbosity": 2,
@@ -268,6 +268,14 @@ def task_test_r_client_compatibility():
     """Check external companion R-client packages in the configured R library."""
     return {
         "actions": [_pytest_cmd("r_client_compatibility")],
+        "verbosity": 2,
+    }
+
+
+def task_test_all():
+    """Run the full supported deployment test gate, including installed R clients."""
+    return {
+        "actions": [_pytest_cmd()],
         "verbosity": 2,
     }
 
