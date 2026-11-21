@@ -272,6 +272,7 @@ The project currently uses a simple split:
 - `pyproject.toml` defines the Python package, runtime dependencies, console scripts, and optional dev tools.
 - `environment.yml` bootstraps only a Python 3.12 and `pip` Conda or Micromamba environment. It deliberately does not duplicate application dependencies.
 - `uv.lock` is committed as the reviewed Python dependency-resolution record for uv-based development and CI. Update it with `uv lock` whenever `pyproject.toml` dependency constraints change; do not edit it by hand.
+- [Compatibility profiles](docs/COMPATIBILITY_PROFILES.md) record the tested Python-only and full-R component baselines. A source baseline is provenance, not a replacement for a published deployment artifact.
 
 Official local workflow:
 
