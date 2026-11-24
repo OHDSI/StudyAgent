@@ -281,6 +281,46 @@ def propose_concept_set_diff(
     return _model_dump(output)
 
 
+def _circe_inverted_windows(group: Any, path: str) -> List[str]:
+    """Return JSON paths of Circe windows whose start offset is after their end offset.
+
+    Both endpoints of a Circe window are offsets from the same index date, so
+    start > end matches no event. Endpoints without Days are unbounded and skipped.
+    """
+    if not isinstance(group, dict):
+        return []
+    inverted: List[str] = []
+    for j, item in enumerate(group.get("CriteriaList") or []):
+        if not isinstance(item, dict):
+            continue
+        item_path = f"{path}/CriteriaList/{j}"
+        for key in ("StartWindow", "EndWindow"):
+            window = item.get(key)
+            if not isinstance(window, dict):
+                continue
+            start = window.get("Start")
+            end = window.get("End")
+            if not isinstance(start, dict) or not isinstance(end, dict):
+                continue
+            values = [start.get("Days"), start.get("Coeff"), end.get("Days"), end.get("Coeff")]
+            if all(isinstance(value, (int, float)) for value in values):
+                if values[0] * values[1] > values[2] * values[3]:
+                    inverted.append(f"{item_path}/{key}")
+        criteria = item.get("Criteria")
+        if isinstance(criteria, dict):
+            for name, criterion in criteria.items():
+                if isinstance(criterion, dict):
+                    inverted.extend(
+                        _circe_inverted_windows(
+                            criterion.get("CorrelatedCriteria"),
+                            f"{item_path}/Criteria/{name}/CorrelatedCriteria",
+                        )
+                    )
+    for j, subgroup in enumerate(group.get("Groups") or []):
+        inverted.extend(_circe_inverted_windows(subgroup, f"{path}/Groups/{j}"))
+    return inverted
+
+
 def cohort_lint(
     cohort: Dict[str, Any],
     llm_result: Optional[Dict[str, Any]] = None,
@@ -332,6 +372,18 @@ def cohort_lint(
                     "severity": "high",
                     "impact": "validity",
                     "message": f"InclusionRule[{i}] has inverted window (start > end).",
+                }
+            )
+            continue
+        inverted = _circe_inverted_windows(rule.get("expression"), f"/InclusionRules/{i}/expression")
+        if inverted:
+            findings.append(
+                {
+                    "id": f"inverted_window_{i}",
+                    "severity": "high",
+                    "impact": "validity",
+                    "message": f"InclusionRule[{i}] has inverted window (start > end).",
+                    "evidence": [{"ref": ref} for ref in inverted],
                 }
             )
 
